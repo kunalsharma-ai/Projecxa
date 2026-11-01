@@ -6,6 +6,7 @@ import { CallbacksModule } from './callbacks/callbacks.service';
 import { ClientsModule } from './clients/clients.controller';
 import { DashboardModule } from './dashboard/dashboard.controller';
 import { PortalModule } from './portal/portal.controller';
+import { ReportsModule } from './reports/reports.controller';
 import { PrismaModule } from './prisma/prisma.service';
 import { ProjectsModule } from './projects/projects.controller';
 import { RedirectsModule } from './redirects/redirects.controller';
@@ -28,6 +29,7 @@ import { VendorsModule } from './vendors/vendors.controller';
     CallbacksModule,
     DashboardModule,
     PortalModule,
+    ReportsModule,
   ],
 })
 export class AppModule {}

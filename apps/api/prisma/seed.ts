@@ -161,10 +161,61 @@ async function main() {
   });
   await prisma.project.update({ where: { id: project.id }, data: { activeRedirectVersionId: v1.id } });
 
+  await seedHistory(project.id, org.id, v1.id);
+
   console.log(`Seeded organization "demo".
   Sign in: admin@projexa.local or pm@projexa.local, password: ${ADMIN_PASSWORD}
   Portals: client@projexa.local (Acme Insights), vendor@projexa.local (Panel Alpha), same password
   Demo project: ${project.projectCode} (US, GB, DE × Panel Alpha, Sample Beta)`);
+}
+
+/**
+ * Three weeks of synthetic fieldwork traffic so reports and dashboards have something to show.
+ * Deterministic (fixed pseudo-random sequence), stays under every quota, and keeps the
+ * country and allocation complete counters in step with the sessions.
+ */
+async function seedHistory(projectId: string, organizationId: string, versionId: string) {
+  let seed = 20261101;
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
+  const countries = await prisma.projectCountry.findMany({ where: { projectId }, include: { allocations: true } });
+  const now = Date.now();
+  const sessions: Prisma.RespondentSessionCreateManyInput[] = [];
+  const events: Prisma.RespondentEventCreateManyInput[] = [];
+  for (const c of countries) {
+    const countryCap = Math.floor(c.targetCompletes * 0.6);
+    let countryCompletes = 0;
+    for (const a of c.allocations) {
+      const cap = Math.floor(a.targetCompletes * 0.6);
+      let completes = 0;
+      for (let i = 1; i <= 60; i++) {
+        const started = new Date(now - Math.floor(rnd() * 21 * 86_400_000) - 3_600_000);
+        const r = rnd();
+        let status: Prisma.RespondentSessionCreateManyInput['status'] =
+          r < 0.32 ? 'COMPLETE' : r < 0.7 ? 'TERMINATE' : r < 0.8 ? 'QUOTA_FULL' : r < 0.86 ? 'QUALITY_FAIL' : r < 0.9 ? 'PARTIAL' : r < 0.93 ? 'SECURITY_REJECT' : 'STARTED';
+        if (status === 'COMPLETE' && (completes >= cap || countryCompletes >= countryCap)) status = 'QUOTA_FULL';
+        if (status === 'STARTED' && now - started.getTime() > 2 * 86_400_000) status = 'PARTIAL';
+        const complete = status === 'COMPLETE';
+        if (complete) { completes++; countryCompletes++; }
+        const loiMs = (complete ? c.loiMinutes * (0.6 + rnd() * 0.9) : 2 + rnd() * 6) * 60_000;
+        const outcomeAt = status === 'STARTED' ? null : new Date(started.getTime() + loiMs);
+        const id = `seed-${c.countryCode}-${a.id.slice(-6)}-${i}`;
+        const approval = !complete ? 'NOT_APPLICABLE' : started.getTime() < now - 10 * 86_400_000 ? (rnd() < 0.9 ? 'APPROVED' : 'REJECTED') : 'PENDING';
+        sessions.push({
+          id, organizationId, projectId, projectCountryId: c.id, vendorAllocationId: a.id, token: token(16),
+          vendorRespondentId: `DEMO-${a.uidParam === 'rid' ? 'B' : 'A'}-${c.countryCode}-${String(i).padStart(3, '0')}`,
+          status, statusDetail: status === 'PARTIAL' ? 'ABANDONED' : null, approval, outcomeVerified: complete && rnd() < 0.5,
+          redirectVersionId: versionId, revenue: complete ? c.cpi : null, payout: complete ? a.cpi : null,
+          startedAt: started, outcomeAt, expiresAt: new Date(started.getTime() + 2 * 86_400_000),
+        });
+        events.push({ sessionId: id, type: 'ENTRY', source: 'ENTRY', idempotencyKey: `entry:${id}`, createdAt: started });
+        if (outcomeAt) events.push({ sessionId: id, type: 'OUTCOME', status, source: 'BROWSER', idempotencyKey: `outcome:${id}`, createdAt: outcomeAt });
+      }
+      await prisma.vendorAllocation.update({ where: { id: a.id }, data: { completes } });
+    }
+    await prisma.projectCountry.update({ where: { id: c.id }, data: { completes: countryCompletes } });
+  }
+  await prisma.respondentSession.createMany({ data: sessions });
+  await prisma.respondentEvent.createMany({ data: events });
 }
 
 main()

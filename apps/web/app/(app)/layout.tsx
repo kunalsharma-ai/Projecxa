@@ -1,6 +1,6 @@
 'use client';
 import clsx from 'clsx';
-import { Building2, FolderKanban, KeyRound, LayoutDashboard, LogOut, Menu, PlusCircle, Settings, Truck, X } from 'lucide-react';
+import { BarChart3, Building2, FolderKanban, KeyRound, LayoutDashboard, LogOut, Menu, PlusCircle, Settings, Truck, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -16,6 +16,7 @@ const NAV = [
   { href: '/projects/new', label: 'Create project', icon: PlusCircle },
   { href: '/clients', label: 'Clients', icon: Building2 },
   { href: '/vendors', label: 'Vendors', icon: Truck },
+  { href: '/reports', label: 'Reports', icon: BarChart3 },
   { href: '/portal-access', label: 'Portal access', icon: KeyRound },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];

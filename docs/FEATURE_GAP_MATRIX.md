@@ -28,7 +28,7 @@ Classification follows the spec: **EXISTING** (done in this repo and tested), **
 | 5.1 | QA studio (all 8 statuses, no billable records), effective routing view | EXISTING | |
 | 5.1 | Vendor callbacks via outbox: retries, backoff with jitter, dead letter, replay, signatures | EXISTING | Worker runs in the API process; Redis/BullMQ later if volume requires |
 | 5.1 | API-resolved dynamic destinations, scheduled activation, version diff view | MISSING | |
-| 5.1 | Redirect health dashboard | PARTIAL | 24h counts on the dashboard; no charts or breakdowns yet |
+| 5.1 | Redirect health dashboard | PARTIAL | 24h counts on the dashboard; outcome mix and event log in Reports |
 | 6 Quotas | Atomic over-quota protection for country and vendor targets | EXISTING | Concurrency handled by conditional SQL updates |
 | 6 | Quota cells, reallocation suggestions | MISSING | |
 | 7 Quality | Duplicate detection (same UID; optional same device) | EXISTING | |
@@ -41,8 +41,9 @@ Classification follows the spec: **EXISTING** (done in this repo and tested), **
 | 10 API hub | Public REST API with OpenAPI docs, API keys, webhooks | MISSING | Internal REST API exists |
 | 11 / 12 AI & voice | Copilot, agents, voice commands | MISSING | Phase 6 |
 | 13 Finance | Revenue/payout per complete, approve/reject completes | PARTIAL | Invoices, FX and reconciliation exports missing |
-| 14 Reporting | Overall / conversion / client / vendor / clicks reports | MISSING | Data is captured; views not built |
+| 14 Reporting | Overall / conversion / client / vendor / clicks reports, filters (date, client, project, vendor, market), CSV | EXISTING | Milestone 3. Money shown per currency; margin only for single-currency rows |
+| 14 | Scheduled/emailed reports, saved views, FX-converted totals, PDF export | MISSING | FX needs a rates source |
 | 15 Dashboard | PM dashboard tiles and live projects | PARTIAL | No charts, date range, or top-5 lists |
 | 19 Compliance | Hashed IPs, tenant isolation, audit trail | PARTIAL | Retention policies and consent per country missing |
 | 20 SaaS | Plans, white labeling | MISSING | Phase 8 |
-| 22 Testing | Unit + e2e tests for redirects, tenancy, roles, quotas, callbacks | EXISTING | 40 tests; no browser e2e or load tests yet |
+| 22 Testing | Unit + e2e tests for redirects, tenancy, roles, quotas, callbacks, portals, reports | EXISTING | 53 tests; no browser e2e or load tests yet |
