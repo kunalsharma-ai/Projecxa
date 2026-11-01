@@ -52,6 +52,9 @@ export interface ProjectDetail {
   gateQuestions: import('@/lib/types').Question[] | null;
   prescreen: import('@/lib/types').Question[] | null;
   activeRedirectVersion: { id: string; version: number; mode: string } | null;
+  fieldStartAt: string | null;
+  fieldEndAt: string | null;
+  autopilot: { pauseOnQuality?: boolean; closeOnTarget?: boolean } | null;
   countries: Country[];
   stats: Stats;
   outcomeEndpoints: { browser: string; s2s: string; statuses: string[] };

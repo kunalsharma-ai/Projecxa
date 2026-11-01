@@ -74,6 +74,14 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - **Projects list**: link status (live links / all links) and CSV export of every matching project.
 - Details: `docs/FINANCE.md`.
 
+## Milestone 9: fieldwork monitor and autopilot
+
+- **Fieldwork monitor** page: every live market with pace (per day against needed per day, ETA, days left), IR and LOI against plan, last-24h entries, and vendor links with quality and drop-out shares. Pause or reactivate a link in place.
+- **Alerts** checked every five minutes or on demand: stalled, behind pace or overdue, low incidence, LOI too short or long, quality spike, drop-out, near target, target reached and failed callbacks. One alert per problem; it clears itself when the problem goes away, or can be acknowledged and resolved.
+- **Autopilot** per project: pause a vendor link on a quality spike, close a link once it hits its target. Every action is audited.
+- **Project Monitor tab** with field start and end dates; **Settings → Fieldwork alerts** for thresholds and a signed webhook (Slack or Teams relay).
+- Details: `docs/FIELDWORK_MONITOR.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).

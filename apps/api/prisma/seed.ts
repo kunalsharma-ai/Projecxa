@@ -127,6 +127,9 @@ async function main() {
         duplicateDetection: true, browserLanguage: false, timezoneTracking: false, torDetection: false, cookieValidation: true,
       },
       captchaStyle: 'logic',
+      fieldStartAt: new Date(Date.now() - 5 * 86_400_000),
+      fieldEndAt: new Date(Date.now() + 4 * 86_400_000),
+      autopilot: { pauseOnQuality: true, closeOnTarget: false },
       pageDesign: {
         template: 'aurora',
         colors: { primary: '#7c3aed', accent: '#ec4899', background: '#f6f0ff', surface: '#ffffff', text: '#1b1029' },

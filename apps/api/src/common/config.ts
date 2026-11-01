@@ -23,6 +23,10 @@ export const config = {
   get callbackWorkerEnabled(): boolean {
     return process.env.CALLBACK_WORKER_ENABLED !== 'false';
   },
+  /** Fieldwork monitor: checks live fieldwork every five minutes. */
+  get monitorEnabled(): boolean {
+    return process.env.MONITOR_ENABLED !== 'false';
+  },
   /** Request header carrying the respondent's country from the CDN/edge, e.g. cf-ipcountry. Unset = geolocation cannot run. */
   get geoCountryHeader(): string | null {
     const h = process.env.GEO_COUNTRY_HEADER?.trim().toLowerCase();

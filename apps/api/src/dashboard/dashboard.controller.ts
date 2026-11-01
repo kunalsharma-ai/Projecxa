@@ -218,15 +218,21 @@ export class DashboardController {
       this.prisma.auditEvent.findMany({ where: { organizationId: org }, orderBy: { createdAt: 'desc' }, take: 8 }),
       this.prisma.wonBid.count({ where: { organizationId: org, status: 'NEW' } }),
     ]);
+    const openAlerts = await this.prisma.alert.findMany({ where: { organizationId: org, state: 'OPEN', severity: { in: ['warn', 'bad'] } }, orderBy: { lastSeenAt: 'desc' }, take: 10 });
     const projects = await this.prisma.project.findMany({ where: { id: { in: pending.map((p) => p.projectId) }, organizationId: org }, select: { id: true, projectCode: true, name: true } });
     const actors = await this.prisma.user.findMany({ where: { id: { in: activity.map((a) => a.actorId).filter((x): x is string => !!x) }, organizationId: org }, select: { id: true, name: true } });
     const traffic = new Set(recentTraffic.map((t) => t.projectCountryId));
 
     type Item = { id: string; severity: 'info' | 'warn' | 'bad'; title: string; detail: string; href: string };
     const items: Item[] = [];
-    if (callbacks) items.push({ id: 'callbacks', severity: 'bad', title: `${callbacks} vendor callback${callbacks === 1 ? '' : 's'} failed`, detail: 'Replay them from the project page once the vendor endpoint is fixed.', href: '/projects' });
+    for (const a of openAlerts) items.push({ id: `alert-${a.id}`, severity: a.severity as 'warn' | 'bad', title: a.title, detail: a.autoAction ? `Autopilot: ${a.autoAction}` : a.detail, href: '/monitor' });
+    const alertRules = new Set(openAlerts.map((a) => a.rule));
+    if (callbacks && !alertRules.has('callbacks_failed')) items.push({ id: 'callbacks', severity: 'bad', title: `${callbacks} vendor callback${callbacks === 1 ? '' : 's'} failed`, detail: 'Replay them from the project page once the vendor endpoint is fixed.', href: '/projects' });
     if (fallbacks) items.push({ id: 'fallbacks', severity: 'warn', title: `${fallbacks} redirect${fallbacks === 1 ? '' : 's'} used a fallback in 24h`, detail: 'A rule was missing or blocked by the security policy.', href: '/projects' });
+    // The monitor's alert already covers a market it has an open alert for.
+    const alerted = new Set(openAlerts.map((a) => a.projectCountryId).filter(Boolean));
     for (const c of liveCountries) {
+      if (alerted.has(c.id)) continue;
       const share = c.targetCompletes ? c.completes / c.targetCompletes : 0;
       if (share >= 0.9) {
         items.push({ id: `quota-${c.id}`, severity: share >= 1 ? 'info' : 'warn', title: `${c.project.projectCode} ${c.countryCode} at ${Math.round(share * 100)}% of target`, detail: share >= 1 ? 'Target reached; new entries are sent to quota full.' : 'Close to target; plan to close or raise the quota.', href: `/projects/${c.project.id}` });
