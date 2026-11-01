@@ -38,7 +38,7 @@ Classification follows the spec: **EXISTING** (done in this repo and tested), **
 | 9 Vendor portal | Own allocations, entry/test links, respondents, payouts by approval state, callback log, CSV | EXISTING | Milestone 2. Never shows client CPI, revenue or other vendors |
 | 9 | Self-registration, compliance documents, feasibility/CPI quotes, invoices, disputes | MISSING | |
 | 8 / 9 | Portal logins created by staff, deactivation takes effect immediately | EXISTING | Password reset by email and SSO missing |
-| 10 API hub | Public REST API with OpenAPI docs, API keys, webhooks | MISSING | Internal REST API exists |
+| 10 API hub | Public REST API with OpenAPI docs, API keys, webhooks | DONE (milestone 12: scoped API keys, /api/v1/public, OpenAPI, signed event webhooks with retries) | Rate limit is per API instance; move to Redis when running several |
 | 11 / 12 AI & voice | Copilot, agents, voice commands | MISSING | Phase 6 |
 | 13 Finance | Revenue/payout per complete, approve/reject completes, reconciliation against the client's ID list, client invoices (draft, sent, paid, void) | PARTIAL | Milestone 11 added vendor bills (draft, approved, paid, void), tax on invoices and bills, manual exchange rates and reporting-currency totals. Accounting-system exports still missing |
 | 14 Reporting | Overall / conversion / client / vendor / clicks reports, filters (date, client, project, vendor, market), CSV | EXISTING | Milestone 3. Money shown per currency; margin only for single-currency rows |

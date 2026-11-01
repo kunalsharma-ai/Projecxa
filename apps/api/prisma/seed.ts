@@ -11,6 +11,8 @@ import { matchCells, Respondent } from '../src/quotas/quota.rules';
 import { PayablesService } from '../src/finance/payables.service';
 import { AuditService } from '../src/audit/audit.service';
 import type { PrismaService } from '../src/prisma/prisma.service';
+import { WebhooksService } from '../src/webhooks/webhooks.service';
+import { newApiKey } from '../src/public-api/api-keys';
 
 const prisma = new PrismaClient();
 const token = (n = 12) => randomBytes(n).toString('base64url');
@@ -188,6 +190,7 @@ async function main() {
   await seedQuotas(project.id);
   await seedPayables(org.id, pm.id);
   await seedWonBids(org.id);
+  await seedIntegrations(org.id, admin.id);
 
   console.log(`Seeded organization "demo".
   Sign in: admin@projexa.local or pm@projexa.local, password: ${ADMIN_PASSWORD}
@@ -239,10 +242,34 @@ function demoAnswers(rnd: () => number, screenedOut: boolean) {
   };
 }
 
+/**
+ * A demo API key and a switched-off webhook endpoint with some synthetic delivery history.
+ * The endpoint is off so the demo never sends traffic to the example URL.
+ */
+async function seedIntegrations(organizationId: string, adminId: string) {
+  const { prefix, keyHash } = newApiKey(); // the key itself is thrown away: create your own in Settings
+  await prisma.apiKey.create({ data: { organizationId, name: 'Data warehouse sync (demo)', prefix, keyHash, scopes: ['projects:read', 'sessions:read', 'finance:read'], createdById: adminId, lastUsedAt: new Date(Date.now() - 2 * 3_600_000) } });
+  const ep = await prisma.webhookEndpoint.create({
+    data: { organizationId, url: 'https://hooks.example.com/projexa', description: 'Ops dashboard (demo, switched off)', secret: `whsec_${randomBytes(24).toString('base64url')}`, events: ['session.completed', 'project.status_changed', 'alert.opened'], active: false },
+  });
+  const rows: Prisma.WebhookDeliveryCreateManyInput[] = [];
+  for (let i = 0; i < 6; i++) {
+    const at = new Date(Date.now() - (i + 1) * 47 * 60_000);
+    const failed = i === 2;
+    rows.push({
+      organizationId, endpointId: ep.id, event: i % 3 === 1 ? 'alert.opened' : 'session.completed', eventId: `evt_demo${i}`,
+      payload: { id: `evt_demo${i}`, event: 'session.completed', createdAt: at.toISOString(), data: { note: 'Synthetic demo event' } },
+      state: failed ? 'DEAD_LETTER' : 'DELIVERED', attempts: failed ? 8 : 1, lastStatusCode: failed ? 503 : 200, lastError: failed ? 'HTTP 503' : null,
+      deliveredAt: failed ? null : at, createdAt: at, nextAttemptAt: at,
+    });
+  }
+  await prisma.webhookDelivery.createMany({ data: rows });
+}
+
 /** Exchange rates and vendor bills: one paid, one approved, the rest left as drafts. */
 async function seedPayables(organizationId: string, actorId: string) {
   const db = prisma as unknown as PrismaService;
-  const payables = new PayablesService(db, new AuditService(db));
+  const payables = new PayablesService(db, new AuditService(db), new WebhooksService(db));
   const u = { id: actorId, organizationId, role: 'PROJECT_MANAGER' as const, email: 'pm@projexa.local', name: 'PM' };
   await payables.saveSettings(u, { baseCurrency: 'USD', rates: [{ currency: 'EUR', rate: 1.08 }, { currency: 'GBP', rate: 1.27 }] });
   const upTo = new Date(Date.now() - 10 * 86_400_000).toISOString().slice(0, 10);

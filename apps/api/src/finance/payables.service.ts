@@ -14,6 +14,7 @@ import { Prisma, VendorBillStatus } from '@prisma/client';
 import { z } from 'zod';
 import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../auth/auth.types';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { money, taxSchema, withTax } from './finance.service';
 
@@ -61,6 +62,7 @@ export class PayablesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly webhooks: WebhooksService,
   ) {}
 
   // ───────────── Finance settings and conversion ─────────────
@@ -295,7 +297,11 @@ export class PayablesService {
         await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: `bill.${body.status.toLowerCase()}`, entityType: 'VendorBill', entityId: id, detail: { number: bill.number, total: Number(bill.total), currency: bill.currency } }, tx);
       }
     });
-    return this.get(u.organizationId, id);
+    const out = await this.get(u.organizationId, id);
+    if (body.status) {
+      await this.webhooks.emit(u.organizationId, 'bill.status_changed', { bill: { id, number: bill.number, currency: out.currency, total: out.total, dueAt: out.dueAt, vendorReference: out.vendorReference, paymentReference: out.paymentReference, vendor: out.vendor }, from: bill.status, to: body.status });
+    }
+    return out;
   }
 }
 

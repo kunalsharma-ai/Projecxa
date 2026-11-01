@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { EventSource, Prisma, RespondentStatus } from '@prisma/client';
 import { config as appConfig } from '../common/config';
 import { hmacSha256, randomToken, safeEqualHex, sha256 } from '../common/crypto';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { computeRedirect, internalEndPage } from '../redirects/redirect-engine';
 import { OutcomeStatus } from '../redirects/redirect.types';
@@ -114,6 +115,7 @@ export class SurveyService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tor: TorService,
+    private readonly webhooks: WebhooksService,
   ) {}
 
   /**
@@ -383,6 +385,14 @@ export class SurveyService {
     if (!changed) {
       const current = await this.prisma.respondentSession.findUniqueOrThrow({ where: { id: session.id }, include: SESSION_INCLUDE });
       return this.recordOutcome(current, requested, source, reason);
+    }
+    if (status === 'COMPLETE' && !session.isTest) {
+      await this.webhooks.emit(session.organizationId, 'session.completed', {
+        session: { id: session.id, status, verified: source === 'S2S', vendorRespondentId: session.vendorRespondentId, deviceType: session.deviceType, quotaCellIds: session.quotaCellIds ?? [], startedAt: session.startedAt, outcomeAt: new Date() },
+        project: { id: session.project.id, projectCode: session.project.projectCode, name: session.project.name },
+        market: { countryCode: session.projectCountry.countryCode, currency: session.projectCountry.currency, targetCompletes: session.projectCountry.targetCompletes },
+        vendor: { code: session.vendorAllocation.vendor.code, name: session.vendorAllocation.vendor.name },
+      });
     }
     return { effectiveStatus: status as OutcomeStatus, conflict: false, changed: true };
   }

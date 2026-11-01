@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../auth/auth.types';
 import { config } from '../common/config';
@@ -31,7 +32,11 @@ export function mergeCountrySettings(defaults: CountrySettings, override: Countr
 
 @Injectable()
 export class ProjectsService {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+    private readonly webhooks: WebhooksService,
+  ) {}
 
   async create(u: AuthUser, input: CreateProjectInput) {
     const client = await this.prisma.client.findFirst({ where: { id: input.clientId, organizationId: u.organizationId } });
@@ -295,6 +300,9 @@ export class ProjectsService {
     if (body.status === 'LIVE') await this.assertLaunchable(p.id);
     await this.prisma.project.update({ where: { id }, data });
     await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'project.update', entityType: 'Project', entityId: id, detail: body });
+    if (body.status && body.status !== p.status) {
+      await this.webhooks.emit(u.organizationId, 'project.status_changed', { project: { id, projectCode: p.projectCode, name: body.name ?? p.name }, from: p.status, to: body.status, changedBy: { name: u.name, email: u.email } });
+    }
     return this.get(u, id);
   }
 

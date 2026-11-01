@@ -14,6 +14,7 @@ import { ApprovalStatus, InvoiceStatus, Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../auth/auth.types';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 export const RECON_MODES = ['final_list', 'approve_listed', 'reject_listed'] as const;
@@ -75,6 +76,7 @@ export class FinanceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly webhooks: WebhooksService,
   ) {}
 
   private async project(u: AuthUser, id: string) {
@@ -367,7 +369,11 @@ export class FinanceService {
     if (body.status) {
       await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: `invoice.${body.status.toLowerCase()}`, entityType: 'Invoice', entityId: id, detail: { number: inv.number, total: Number(inv.total), currency: inv.currency } });
     }
-    return this.getInvoice(u, id);
+    const out = await this.getInvoice(u, id);
+    if (body.status) {
+      await this.webhooks.emit(u.organizationId, 'invoice.status_changed', { invoice: { id, number: inv.number, currency: out.currency, total: out.total, dueAt: out.dueAt, project: out.project, client: out.client }, from: inv.status, to: body.status });
+    }
+    return out;
   }
 
   /** Organisation-wide reconciliation and invoicing totals for the dashboard, in completes and revenue per currency. */

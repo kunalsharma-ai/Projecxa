@@ -11,6 +11,8 @@ import { QuotasModule } from './quotas/quotas.controller';
 import { PortalModule } from './portal/portal.controller';
 import { ReportsModule } from './reports/reports.controller';
 import { WonBidsModule } from './won-bids/won-bids.controller';
+import { PublicApiModule } from './public-api/public-api.controller';
+import { WebhooksModule } from './webhooks/webhooks.service';
 import { PrismaModule } from './prisma/prisma.service';
 import { ProjectsModule } from './projects/projects.controller';
 import { RedirectsModule } from './redirects/redirects.controller';
@@ -38,6 +40,8 @@ import { VendorsModule } from './vendors/vendors.controller';
     PortalModule,
     ReportsModule,
     WonBidsModule,
+    WebhooksModule,
+    PublicApiModule,
   ],
 })
 export class AppModule {}
