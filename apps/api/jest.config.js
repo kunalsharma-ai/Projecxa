@@ -7,4 +7,6 @@ module.exports = {
   setupFiles: ['<rootDir>/test/setup-env.ts'],
   globalSetup: '<rootDir>/test/global-setup.ts',
   testTimeout: 30000,
+  // e2e suites share one test database, so run files one at a time.
+  maxWorkers: 1,
 };

@@ -58,9 +58,11 @@ model User {
   passwordHash   String
   role           Role     @default(PROJECT_MANAGER)
   active         Boolean  @default(true)
-  /// For CLIENT_USER / VENDOR_USER (portals, later milestone)
+  /// Set for CLIENT_USER (client portal) and VENDOR_USER (vendor portal) only.
   clientId       String?
+  client         Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
   vendorId       String?
+  vendor         Vendor? @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -94,6 +96,7 @@ model Client {
 
   contacts ClientContact[]
   projects Project[]
+  users    User[]
 
   @@unique([organizationId, code])
 }
@@ -125,6 +128,7 @@ model Vendor {
   updatedAt      DateTime @updatedAt
 
   allocations VendorAllocation[]
+  users       User[]
 
   @@unique([organizationId, code])
 }

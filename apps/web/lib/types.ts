@@ -29,7 +29,15 @@ export interface RedirectRule { status: OutcomeStatus; type: RuleType; url: stri
 export interface ParamMapping { canonical: string; alias: string; required: boolean; scope?: Scope }
 export interface RedirectConfig { rules: RedirectRule[]; params: ParamMapping[] }
 
-export interface Me { user: { id: string; name: string; email: string; role: string }; organization: { id: string; name: string; slug: string } }
+export interface Me {
+  user: { id: string; name: string; email: string; role: string };
+  organization: { id: string; name: string; slug: string };
+  client?: { id: string; name: string } | null;
+  vendor?: { id: string; name: string } | null;
+}
+
+export const isPortalRole = (role: string) => role === 'CLIENT_USER' || role === 'VENDOR_USER';
+export const portalHome = (role: string) => (role === 'CLIENT_USER' ? '/portal/client' : role === 'VENDOR_USER' ? '/portal/vendor' : '/');
 export interface Option { id: string; name: string; code?: string }
 
 export const SECURITY_LABELS: Record<string, string> = {

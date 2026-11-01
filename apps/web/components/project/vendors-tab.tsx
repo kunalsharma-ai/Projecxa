@@ -7,7 +7,7 @@ import { countryName, flag } from '@/lib/countries';
 import type { Option } from '@/lib/types';
 import type { ProjectDetail } from './types';
 
-function CopyButton({ text, label }: { text: string; label: string }) {
+export function CopyButton({ text, label }: { text: string; label: string }) {
   const [done, setDone] = useState(false);
   return (
     <button
