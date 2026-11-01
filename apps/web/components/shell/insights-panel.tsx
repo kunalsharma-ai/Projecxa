@@ -4,7 +4,7 @@ import { AlertOctagon, AlertTriangle, CheckCircle2, History, Info, Lightbulb, X 
 import Link from 'next/link';
 
 export interface Insight { id: string; severity: 'info' | 'warn' | 'bad'; title: string; detail: string; href: string }
-export interface Insights { items: Insight[]; alerts: number; activity: { id: string; action: string; entityType: string; entityId: string; at: string; actor: string }[] }
+export interface Insights { items: Insight[]; alerts: number; wonBidsNew?: number; activity: { id: string; action: string; entityType: string; entityId: string; at: string; actor: string }[] }
 
 const ICON = { bad: AlertOctagon, warn: AlertTriangle, info: Info } as const;
 const TONE = { bad: 'text-bad', warn: 'text-warn', info: 'text-info' } as const;

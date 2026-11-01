@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { AuditService } from '../audit/audit.service';
@@ -121,6 +121,18 @@ export class ProjectsService {
         },
       });
       await tx.project.update({ where: { id: p.id }, data: { activeRedirectVersionId: v1.id } });
+      if (input.wonBidId) {
+        // A won bid becomes a project once: only a bid still waiting for setup can be claimed.
+        const claimed = await tx.wonBid.updateMany({
+          where: { id: input.wonBidId, organizationId: u.organizationId, status: 'NEW' },
+          data: { status: 'PROJECT_CREATED', projectId: p.id },
+        });
+        if (!claimed.count) throw new ConflictException('This won bid already has a project or was dismissed');
+        await this.audit.record(
+          { organizationId: u.organizationId, actorId: u.id, action: 'won-bid.project-created', entityType: 'WonBid', entityId: input.wonBidId, detail: { projectId: p.id, projectCode } },
+          tx,
+        );
+      }
       await this.audit.record(
         { organizationId: u.organizationId, actorId: u.id, action: 'project.create', entityType: 'Project', entityId: p.id, detail: { projectCode, countries: countries.map((c) => c.countryCode) } },
         tx,

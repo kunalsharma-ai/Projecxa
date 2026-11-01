@@ -54,6 +54,8 @@ export const createProjectSchema = z.object({
   workOrderNo: z.string().max(50).optional(),
   generateWorkOrder: z.boolean().default(false),
   bidReference: z.string().max(100).optional(),
+  /** Set when the project is created from a won bid; links them, at most once. */
+  wonBidId: z.string().min(1).max(64).optional(),
   type: z.enum(['AD_HOC', 'TRACKER', 'LONGITUDINAL', 'QUALITATIVE']).default('AD_HOC'),
   category: z.string().min(1).max(100),
   clientId: z.string().min(1),

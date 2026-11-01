@@ -87,7 +87,7 @@ export class DashboardController {
   async insights(@CurrentUser() u: AuthUser) {
     const org = u.organizationId;
     const day = new Date(Date.now() - 24 * 3600_000);
-    const [pending, liveCountries, recentTraffic, callbacks, fallbacks, activity] = await Promise.all([
+    const [pending, liveCountries, recentTraffic, callbacks, fallbacks, activity, wonBidsNew] = await Promise.all([
       this.prisma.respondentSession.groupBy({
         by: ['projectId'],
         where: { organizationId: org, isTest: false, status: 'COMPLETE', approval: 'PENDING' },
@@ -107,6 +107,7 @@ export class DashboardController {
       this.prisma.callbackDelivery.count({ where: { organizationId: org, state: { in: ['FAILED', 'DEAD_LETTER'] } } }),
       this.prisma.redirectExecution.count({ where: { usedFallback: true, createdAt: { gte: day }, session: { organizationId: org } } }),
       this.prisma.auditEvent.findMany({ where: { organizationId: org }, orderBy: { createdAt: 'desc' }, take: 8 }),
+      this.prisma.wonBid.count({ where: { organizationId: org, status: 'NEW' } }),
     ]);
     const projects = await this.prisma.project.findMany({ where: { id: { in: pending.map((p) => p.projectId) }, organizationId: org }, select: { id: true, projectCode: true, name: true } });
     const actors = await this.prisma.user.findMany({ where: { id: { in: activity.map((a) => a.actorId).filter((x): x is string => !!x) }, organizationId: org }, select: { id: true, name: true } });
@@ -124,6 +125,7 @@ export class DashboardController {
         items.push({ id: `idle-${c.id}`, severity: 'warn', title: `${c.project.projectCode} ${c.countryCode} has had no traffic for 24h`, detail: `${c.completes} of ${c.targetCompletes} completes so far.`, href: `/projects/${c.project.id}` });
       }
     }
+    if (wonBidsNew) items.push({ id: 'won-bids', severity: 'info', title: `${wonBidsNew} won bid${wonBidsNew === 1 ? '' : 's'} waiting for project setup`, detail: 'Won in Bidzo; set up the project from the Won bids list.', href: '/won-bids' });
     for (const p of pending) {
       const proj = projects.find((x) => x.id === p.projectId);
       if (proj) items.push({ id: `approve-${proj.id}`, severity: 'info', title: `${p._count._all} complete${p._count._all === 1 ? '' : 's'} to review on ${proj.projectCode}`, detail: proj.name, href: `/projects/${proj.id}` });
@@ -133,6 +135,7 @@ export class DashboardController {
     return {
       items: items.slice(0, 20),
       alerts: items.filter((i) => i.severity !== 'info').length,
+      wonBidsNew,
       activity: activity.map((a) => ({ id: a.id, action: a.action, entityType: a.entityType, entityId: a.entityId, at: a.createdAt, actor: actors.find((x) => x.id === a.actorId)?.name ?? 'System' })),
     };
   }

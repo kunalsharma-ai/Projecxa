@@ -70,7 +70,7 @@ These contracts need the other repositories' event and API shapes before they ar
 ## Next phases
 
 1. **Phase 3 – Portals and supplier ops**: vendor portal (links, performance, reconciliation), client portal (approvals, live progress), allocation rules.
-2. **Phase 4 – Integrations**: Bidzo `bid.won` intake, public API with OpenAPI and API keys, outbound webhooks.
+2. **Phase 4 – Integrations**: Bidzo `bid.won` intake (done in milestone 5, contract in `docs/BIDZO_INTEGRATION.md`), public API with OpenAPI and API keys, outbound webhooks.
 3. **Phase 5 – Fieldwork intelligence**: quota cells enforced at entry, pacing, alerts, redirect health charts.
 4. **Phase 7 – Reporting and finance**: overall/conversion/client/vendor/clicks reports on one analytics query layer, invoices, FX.
 5. **Phase 6 – AI and voice**: copilot over the same permissioned API, with action previews and approvals.

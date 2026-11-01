@@ -1,12 +1,12 @@
 'use client';
 import clsx from 'clsx';
-import { ClipboardPaste, Copy, Monitor, Smartphone, Tablet, Trash2 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
-import { ErrorBox, Field, PageHeader, Section, Toggle } from '@/components/ui';
+import { ClipboardPaste, Copy, Monitor, Smartphone, Tablet, Trash2, Trophy } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { ErrorBox, Field, Loading, PageHeader, Section, Toggle } from '@/components/ui';
 import { get, post } from '@/lib/api';
 import { COUNTRIES, countryName, flag } from '@/lib/countries';
-import { CATEGORIES, RedirectMode, SECURITY_LABELS } from '@/lib/types';
+import { CATEGORIES, RedirectMode, SECURITY_LABELS, type WonBid } from '@/lib/types';
 
 interface ClientOpt { id: string; name: string; contacts: { id: string; name: string }[] }
 interface UserOpt { id: string; name: string; role: string }
@@ -33,8 +33,36 @@ function blankRow(code: string): CountryRow {
 
 const num = (v: string): Num => (v === '' ? '' : Number(v));
 
-export default function CreateProjectPage() {
+export default function Page() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <CreateProjectPage />
+    </Suspense>
+  );
+}
+
+/** Wizard rows from a won bid's market lines (LOI rounded up, IR rounded to whole percent). */
+function rowsFromBid(b: WonBid): CountryRow[] {
+  return b.countries.map((c) => {
+    const r = blankRow(c.countryCode);
+    return {
+      ...r,
+      language: c.language ?? r.language,
+      currency: b.currency,
+      loiMinutes: Math.max(1, Math.ceil(c.loiMinutes)),
+      irPercent: Math.min(100, Math.max(1, Math.round(c.incidencePct))),
+      cpi: c.cpi ?? '',
+      targetCompletes: c.sampleSize,
+    };
+  });
+}
+
+function CreateProjectPage() {
   const router = useRouter();
+  const params = useSearchParams();
+  const wonBidId = params.get('wonBid');
+  const [wonBid, setWonBid] = useState<(WonBid & { suggestedClient: { id: string; name: string } | null }) | null>(null);
+  const [addingClient, setAddingClient] = useState(false);
   const [clients, setClients] = useState<ClientOpt[]>([]);
   const [users, setUsers] = useState<UserOpt[]>([]);
   const [info, setInfo] = useState({ name: '', workOrderNo: '', generateWorkOrder: true, type: 'AD_HOC', category: '', clientId: '', clientContactId: '', salesPersonId: '', projectManagerId: '', description: '', bidReference: '' });
@@ -52,6 +80,38 @@ export default function CreateProjectPage() {
     get<ClientOpt[]>('/clients').then(setClients).catch(setError);
     get<UserOpt[]>('/users').then(setUsers).catch(setError);
   }, []);
+
+  // Prefill from a won bid (Won bids › Set up project).
+  useEffect(() => {
+    if (!wonBidId) return;
+    get<WonBid & { suggestedClient: { id: string; name: string } | null }>(`/won-bids/${wonBidId}`)
+      .then((b) => {
+        setWonBid(b);
+        if (b.status !== 'NEW') return;
+        const category = CATEGORIES.find((c) => c.toLowerCase() === (b.projectCategory ?? '').toLowerCase()) ?? '';
+        setInfo((i) => ({ ...i, name: b.projectName, description: b.description ?? '', bidReference: b.bidNumber, category, clientId: b.suggestedClient?.id ?? '', clientContactId: '' }));
+        setShared((sh) => ({ ...sh, loiMinutes: '', irPercent: '', targetCompletes: '' }));
+        setRows(rowsFromBid(b));
+      })
+      .catch(setError);
+  }, [wonBidId]);
+
+  async function addBidClient() {
+    if (!wonBid) return;
+    setAddingClient(true);
+    setError(null);
+    try {
+      const base = wonBid.clientName.toUpperCase().replace(/[^A-Z0-9]+/g, '').slice(0, 14) || 'CLIENT';
+      const code = `${base.length < 2 ? `${base}X` : base}${Math.floor(Math.random() * 900 + 100)}`;
+      const c = await post<ClientOpt>('/clients', { name: wonBid.clientName, code });
+      setClients(await get<ClientOpt[]>('/clients'));
+      setInfo((i) => ({ ...i, clientId: c.id, clientContactId: '' }));
+    } catch (e) {
+      setError(e);
+    } finally {
+      setAddingClient(false);
+    }
+  }
   const client = clients.find((c) => c.id === info.clientId);
   const totalCompletes = useMemo(() => rows.reduce((a, r) => a + Number(r.targetCompletes || shared.targetCompletes || 0), 0), [rows, shared]);
 
@@ -93,6 +153,7 @@ export default function CreateProjectPage() {
         redirectMode: mode,
         defaults: clean(shared),
         countries: rows.map((r) => clean(r)),
+        ...(wonBid?.status === 'NEW' ? { wonBidId: wonBid.id } : {}),
       });
       router.push(`/projects/${p.id}`);
     } catch (e) {
@@ -107,6 +168,28 @@ export default function CreateProjectPage() {
     <>
       <PageHeader title="Create project" subtitle="Set shared settings once, then override them per country where markets differ." />
       <div className="mb-4"><ErrorBox error={error} /></div>
+      {wonBid && (
+        <div className={clsx('mb-5 flex flex-wrap items-start gap-3 rounded-lg border p-4 text-sm', wonBid.status === 'NEW' ? 'border-brand/30 bg-brand/5' : 'border-warn/40 bg-warn/10')} role="status">
+          <Trophy className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+          <div className="min-w-0 flex-1">
+            {wonBid.status === 'NEW' ? (
+              <>
+                <div className="font-medium">Prefilled from won bid {wonBid.bidNumber}</div>
+                <div className="text-muted">Name, description, markets, sample sizes, LOI, IR and CPI ({wonBid.currency}) come from Bidzo. Check them, add survey links and save; the bid is then linked to this project.</div>
+                {!wonBid.suggestedClient && !info.clientId && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span>Client “{wonBid.clientName}” is not in PROJEXA yet.</span>
+                    <button type="button" className="btn-ghost px-2.5 py-1 text-xs" onClick={addBidClient} disabled={addingClient}>{addingClient ? 'Adding…' : 'Add it as a client'}</button>
+                    <span className="text-muted">or choose an existing client below.</span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div>Won bid {wonBid.bidNumber} {wonBid.status === 'PROJECT_CREATED' ? 'already has a project' : 'was dismissed'}, so this form is not linked to it.</div>
+            )}
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-6">
           <Section title="Project information">

@@ -7,6 +7,7 @@ import { ClientsModule } from './clients/clients.controller';
 import { DashboardModule } from './dashboard/dashboard.controller';
 import { PortalModule } from './portal/portal.controller';
 import { ReportsModule } from './reports/reports.controller';
+import { WonBidsModule } from './won-bids/won-bids.controller';
 import { PrismaModule } from './prisma/prisma.service';
 import { ProjectsModule } from './projects/projects.controller';
 import { RedirectsModule } from './redirects/redirects.controller';
@@ -30,6 +31,7 @@ import { VendorsModule } from './vendors/vendors.controller';
     DashboardModule,
     PortalModule,
     ReportsModule,
+    WonBidsModule,
   ],
 })
 export class AppModule {}
