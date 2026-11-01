@@ -1,0 +1,17 @@
+{
+  "name": "projexa",
+  "private": true,
+  "version": "0.1.0",
+  "description": "PROJEXA by Sampledge: research project management and fieldwork automation",
+  "packageManager": "pnpm@10.28.0",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "db:migrate": "pnpm --filter @projexa/api prisma:migrate",
+    "db:seed": "pnpm --filter @projexa/api seed"
+  }
+}

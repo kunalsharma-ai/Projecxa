@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: 245 247 251;
+  --panel: 255 255 255;
+  --sunken: 238 241 247;
+  --ink: 17 24 39;
+  --muted: 100 112 132;
+  --line: 223 228 238;
+  --brand: 37 99 235;
+  --brand-ink: 255 255 255;
+  --ok: 22 163 74;
+  --warn: 217 119 6;
+  --bad: 220 38 38;
+  --info: 8 145 178;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: 11 15 25;
+    --panel: 19 25 38;
+    --sunken: 26 33 49;
+    --ink: 229 233 242;
+    --muted: 145 156 178;
+    --line: 41 50 70;
+    --brand: 96 140 250;
+    --brand-ink: 10 14 24;
+    --ok: 74 222 128;
+    --warn: 251 191 36;
+    --bad: 248 113 113;
+    --info: 34 211 238;
+    color-scheme: dark;
+  }
+}
+
+html, body { background: rgb(var(--bg)); color: rgb(var(--ink)); }
+body { font-feature-settings: 'cv11', 'ss01'; -webkit-font-smoothing: antialiased; }
+
+@layer components {
+  .card { @apply rounded-xl border border-line bg-panel shadow-sm; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand; }
+  .btn-primary { @apply btn bg-brand text-brand-ink hover:bg-brand/90; }
+  .btn-ghost { @apply btn border border-line bg-panel text-ink hover:bg-sunken; }
+  .btn-danger { @apply btn border border-bad/40 bg-panel text-bad hover:bg-bad/10; }
+  .input { @apply w-full rounded-lg border border-line bg-panel px-3 py-2 text-sm text-ink placeholder:text-muted/70 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20; }
+  .label { @apply mb-1 block text-xs font-medium text-muted; }
+  .th { @apply whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted; }
+  .td { @apply whitespace-nowrap px-3 py-2.5 text-sm; }
+  .chip { @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium; }
+}

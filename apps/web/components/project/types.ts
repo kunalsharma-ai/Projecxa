@@ -1,0 +1,55 @@
+export type Stats = Record<'STARTED' | 'COMPLETE' | 'TERMINATE' | 'QUOTA_FULL' | 'QUALITY_FAIL' | 'DUPLICATE' | 'SECURITY_REJECT' | 'PARTIAL' | 'TECHNICAL_ERROR', number>;
+
+export interface Allocation {
+  id: string;
+  vendorId: string;
+  vendor: { id: string; name: string; code: string };
+  status: string;
+  cpi: string;
+  targetCompletes: number;
+  completes: number;
+  uidParam: string;
+  entryLink: string;
+  testEntryLink: string;
+  callbackUrlTemplate: string | null;
+  stats: Stats;
+}
+
+export interface Country {
+  id: string;
+  countryCode: string;
+  language: string;
+  targetGroup: string | null;
+  status: string;
+  loiMinutes: number;
+  irPercent: number;
+  cpi: string;
+  currency: string;
+  targetCompletes: number;
+  completes: number;
+  liveSurveyUrl: string | null;
+  testSurveyUrl: string | null;
+  allocations: Allocation[];
+  quotas: { id: string; name: string; target: number; completes: number }[];
+}
+
+export interface ProjectDetail {
+  id: string;
+  projectCode: string;
+  workOrderNo: string | null;
+  bidReference: string | null;
+  name: string;
+  status: string;
+  category: string;
+  description: string | null;
+  redirectMode: 'STATIC' | 'DYNAMIC' | 'HYBRID';
+  client: { id: string; name: string };
+  projectManager: { name: string };
+  salesPerson: { name: string } | null;
+  devices: Record<string, boolean>;
+  security: Record<string, boolean>;
+  activeRedirectVersion: { id: string; version: number; mode: string } | null;
+  countries: Country[];
+  stats: Stats;
+  outcomeEndpoints: { browser: string; s2s: string; statuses: string[] };
+}
