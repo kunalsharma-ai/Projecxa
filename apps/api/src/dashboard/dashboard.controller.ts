@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Module, Patch, Post, Param, BadRequestException } from '@nestjs/common';
+import { Body, Controller, Get, Module, Patch, Post, Param, BadRequestException, Query } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { CurrentUser, EDITORS, Roles } from '../auth/decorators';
@@ -7,6 +7,50 @@ import { ZodPipe } from '../common/zod.pipe';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { redirectConfigSchema } from '../redirects/redirect.types';
+import { FinanceModule } from '../finance/finance.controller';
+import { FinanceService } from '../finance/finance.service';
+import { ReportsModule } from '../reports/reports.controller';
+import { ReportsService, SummaryRow } from '../reports/reports.service';
+
+const dayStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD');
+const periodSchema = z
+  .object({ from: dayStr.optional(), to: dayStr.optional() })
+  .refine((p) => !p.from || !p.to || p.from <= p.to, { message: '`from` must be on or before `to`', path: ['from'] })
+  .refine((p) => !p.from || !p.to || (Date.parse(p.to) - Date.parse(p.from)) / 86_400_000 <= 731, { message: 'Pick at most two years', path: ['to'] });
+const seriesSchema = z.object({ interval: z.enum(['day', 'week', 'month']).default('day') });
+const DAY = 86_400_000;
+const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
+
+/** The requested period (default: the last 30 UTC days) and the period of the same length just before it. */
+function periods(p: z.infer<typeof periodSchema>) {
+  const to = p.to ?? iso(Date.now());
+  const from = p.from ?? iso(Date.parse(to) - 29 * DAY);
+  const days = Math.round((Date.parse(to) - Date.parse(from)) / DAY) + 1;
+  return { from, to, days, prevFrom: iso(Date.parse(from) - days * DAY), prevTo: iso(Date.parse(from) - DAY) };
+}
+
+function kpis(r: SummaryRow | undefined) {
+  return { revenue: r?.revenue ?? 0, cost: r?.payout ?? 0, profit: r?.profit ?? 0, clicks: r?.clicks ?? 0, completes: r?.completes ?? 0, currencies: r?.currencies ?? [] };
+}
+/** Change in percent against the previous period; null when there is nothing to compare with. */
+function trend(cur: number, prev: number) {
+  return prev ? Math.round(((cur - prev) / Math.abs(prev)) * 1000) / 10 : null;
+}
+/** Bucket keys between two days, matching the report's day / week (Monday) / month labels. */
+function buckets(from: string, to: string, interval: 'day' | 'week' | 'month') {
+  const out: string[] = [];
+  const end = Date.parse(to);
+  let t = Date.parse(from);
+  if (interval === 'week') t -= ((new Date(t).getUTCDay() + 6) % 7) * DAY;
+  if (interval === 'month') t = Date.UTC(new Date(t).getUTCFullYear(), new Date(t).getUTCMonth(), 1);
+  while (t <= end && out.length < 800) {
+    out.push(interval === 'month' ? iso(t).slice(0, 7) : iso(t));
+    if (interval === 'day') t += DAY;
+    else if (interval === 'week') t += 7 * DAY;
+    else t = Date.UTC(new Date(t).getUTCFullYear(), new Date(t).getUTCMonth() + 1, 1);
+  }
+  return out;
+}
 
 const domain = z.string().regex(/^(\*\.)?[a-z0-9.-]+\.[a-z]{2,}$|^localhost$/i, 'Use a hostname like example.com or *.example.com');
 const orgSchema = z.object({
@@ -23,12 +67,77 @@ const approvalSchema = z.object({
 
 @Controller()
 export class DashboardController {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+    private readonly reports: ReportsService,
+    private readonly finance: FinanceService,
+  ) {}
 
   /** PM dashboard numbers, computed from live (non-test) data only. */
   @Get('dashboard')
-  async dashboard(@CurrentUser() u: AuthUser) {
+  async dashboard(@CurrentUser() u: AuthUser, @Query(new ZodPipe(periodSchema)) q: z.infer<typeof periodSchema>) {
     const org = u.organizationId;
+    const per = periods(q);
+    const [cur, prev, byVendor, byProject, byClient, finance] = await Promise.all([
+      this.reports.summary(org, { from: per.from, to: per.to }, null),
+      this.reports.summary(org, { from: per.prevFrom, to: per.prevTo }, null),
+      this.reports.summary(org, { from: per.from, to: per.to }, 'vendor'),
+      this.reports.summary(org, { from: per.from, to: per.to }, 'project'),
+      this.reports.summary(org, { from: per.from, to: per.to }, 'client'),
+      this.finance.financeTiles(org),
+    ]);
+    const c = kpis(cur[0]);
+    const p = kpis(prev[0]);
+    const top = (rows: SummaryRow[]) =>
+      rows
+        .filter((r) => r.clicks > 0)
+        .sort((a, b) => b.revenue - a.revenue || b.completes - a.completes)
+        .slice(0, 5)
+        .map((r) => ({ id: r.key, label: r.label, sublabel: r.sublabel, revenue: r.revenue, profit: r.profit, completes: r.completes, clicks: r.clicks, currencies: r.currencies }));
+    const overview = await this.overview(org);
+    return {
+      ...overview,
+      period: {
+        from: per.from,
+        to: per.to,
+        previousFrom: per.prevFrom,
+        previousTo: per.prevTo,
+        current: c,
+        previous: p,
+        trend: {
+          revenue: trend(c.revenue, p.revenue),
+          cost: trend(c.cost, p.cost),
+          profit: trend(c.profit, p.profit),
+          clicks: trend(c.clicks, p.clicks),
+          completes: trend(c.completes, p.completes),
+        },
+      },
+      finance,
+      top: { vendors: top(byVendor), projects: top(byProject), clients: top(byClient) },
+    };
+  }
+
+  /** Revenue, payout and profit per day, week or month for the dashboard chart. Empty buckets are filled with zero. */
+  @Get('dashboard/series')
+  async series(@CurrentUser() u: AuthUser, @Query(new ZodPipe(periodSchema)) q: z.infer<typeof periodSchema>, @Query(new ZodPipe(seriesSchema)) s: z.infer<typeof seriesSchema>) {
+    const per = periods(q);
+    const rows = await this.reports.summary(u.organizationId, { from: per.from, to: per.to }, s.interval);
+    const by = new Map(rows.map((r) => [r.key, r]));
+    return {
+      interval: s.interval,
+      from: per.from,
+      to: per.to,
+      points: buckets(per.from, per.to, s.interval).map((k) => {
+        const r = by.get(k);
+        return { key: k, revenue: r?.revenue ?? 0, payout: r?.payout ?? 0, profit: r?.profit ?? 0, completes: r?.completes ?? 0, clicks: r?.clicks ?? 0 };
+      }),
+      currencies: [...new Set(rows.flatMap((r) => r.currencies))],
+    };
+  }
+
+  /** All-time counts and fieldwork health. */
+  private async overview(org: string) {
     const [clients, vendors, projectsByStatus, money, sessionsByStatus, recentRedirects, callbackStates] = await Promise.all([
       this.prisma.client.groupBy({ by: ['status'], where: { organizationId: org }, _count: { _all: true } }),
       this.prisma.vendor.groupBy({ by: ['status'], where: { organizationId: org }, _count: { _all: true } }),
@@ -172,11 +281,12 @@ export class DashboardController {
     const project = await this.prisma.project.findFirst({ where: { id: projectId, organizationId: u.organizationId } });
     if (!project) throw new BadRequestException('Project not found');
     const r = await this.prisma.respondentSession.updateMany({
-      where: { id: { in: body.sessionIds }, projectId, status: 'COMPLETE', isTest: false },
-      data: { approval: body.approval },
+      // Invoiced completes are locked until their invoice is voided.
+      where: { id: { in: body.sessionIds }, projectId, status: 'COMPLETE', isTest: false, invoiceId: null },
+      data: { approval: body.approval, approvalAt: new Date() },
     });
     await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: `sessions.${body.approval.toLowerCase()}`, entityType: 'Project', entityId: projectId, detail: { count: r.count, reason: body.reason } });
-    return { updated: r.count };
+    return { updated: r.count, skipped: body.sessionIds.length - r.count };
   }
 }
 
@@ -187,5 +297,5 @@ function count(rows: { status: string; _count: { _all: number } }[], s: string) 
   return rows.find((r) => r.status === s)?._count._all ?? 0;
 }
 
-@Module({ controllers: [DashboardController] })
+@Module({ imports: [ReportsModule, FinanceModule], controllers: [DashboardController] })
 export class DashboardModule {}

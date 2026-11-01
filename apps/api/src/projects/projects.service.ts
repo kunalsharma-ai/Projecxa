@@ -169,7 +169,7 @@ export class ProjectsService {
           client: { select: { id: true, name: true } },
           projectManager: { select: { id: true, name: true } },
           salesPerson: { select: { id: true, name: true } },
-          countries: { select: { countryCode: true, targetCompletes: true, completes: true, loiMinutes: true, irPercent: true, status: true } },
+          countries: { select: { countryCode: true, targetCompletes: true, completes: true, loiMinutes: true, irPercent: true, status: true, allocations: { select: { status: true } } } },
         },
       }),
     ]);
@@ -195,6 +195,11 @@ export class ProjectsService {
           salesPerson: r.salesPerson,
           countries: r.countries.map((c) => c.countryCode),
           liveCountries: live,
+          /** Entry links that accept respondents now (active vendor link in a live market) out of all links. */
+          links: {
+            live: r.countries.reduce((a, c) => a + (c.status === 'LIVE' ? c.allocations.filter((x) => x.status === 'ACTIVE').length : 0), 0),
+            total: r.countries.reduce((a, c) => a + c.allocations.length, 0),
+          },
           targetCompletes: target,
           completes: s.COMPLETE,
           terminates: s.TERMINATE,

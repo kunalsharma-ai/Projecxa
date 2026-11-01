@@ -41,8 +41,14 @@
   --dur: 160ms;
   --dur-slow: 260ms;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* money chart: revenue, payout, profit (validated categorical slots, all pairs, light + dark) */
+  --fin-1: #2a78d6;
+  --fin-2: #eb6834;
+  --fin-3: #1baf7a;
   color-scheme: light;
 }
+[data-mode='dark'] { --fin-1: #3987e5; --fin-2: #d95926; --fin-3: #199e70; }
+@media (prefers-color-scheme: dark) { :root:not([data-mode]) { --fin-1: #3987e5; --fin-2: #d95926; --fin-3: #199e70; } }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-mode]) {
@@ -135,3 +141,13 @@ body {
 @keyframes pop { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: none; } }
 @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 [data-motion='essential'] .anim-in, [data-motion='essential'] .anim-pop { animation: none; }
+
+/* Printing an invoice: only the .print-area is printed, on white, whatever the theme or shell. */
+@media print {
+  body:has(.print-area) { background: #fff !important; }
+  body:has(.print-area) * { visibility: hidden; }
+  body:has(.print-area) .print-area, body:has(.print-area) .print-area * { visibility: visible; }
+  body:has(.print-area) .print-area { position: fixed; inset: 0 auto auto 0; width: 100%; margin: 0; border: 0; box-shadow: none; background: #fff; color: #111; }
+  .print-area .no-print { display: none !important; }
+  @page { margin: 16mm; }
+}

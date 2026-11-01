@@ -40,7 +40,7 @@ Classification follows the spec: **EXISTING** (done in this repo and tested), **
 | 8 / 9 | Portal logins created by staff, deactivation takes effect immediately | EXISTING | Password reset by email and SSO missing |
 | 10 API hub | Public REST API with OpenAPI docs, API keys, webhooks | MISSING | Internal REST API exists |
 | 11 / 12 AI & voice | Copilot, agents, voice commands | MISSING | Phase 6 |
-| 13 Finance | Revenue/payout per complete, approve/reject completes | PARTIAL | Invoices, FX and reconciliation exports missing |
+| 13 Finance | Revenue/payout per complete, approve/reject completes, reconciliation against the client's ID list, client invoices (draft, sent, paid, void) | PARTIAL | Vendor payables, tax, FX and accounting exports missing |
 | 14 Reporting | Overall / conversion / client / vendor / clicks reports, filters (date, client, project, vendor, market), CSV | EXISTING | Milestone 3. Money shown per currency; margin only for single-currency rows |
 | 14 | Scheduled/emailed reports, saved views, FX-converted totals, PDF export | MISSING | FX needs a rates source |
 | 15 Dashboard | Command center: KPI tiles, 14-day trend, quota achievement, fieldwork health, alerts | PARTIAL | Drag/resize widgets, map, waterfall, heatmap in design phase 6 |

@@ -1,16 +1,17 @@
 'use client';
-import { ChevronLeft, ChevronRight, Plus, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Plus, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Empty, ErrorBox, Loading, PageHeader, Progress, StatusChip } from '@/components/ui';
 import { get } from '@/lib/api';
 import { flag } from '@/lib/countries';
+import { downloadCsv } from '@/lib/csv';
 import { CATEGORIES } from '@/lib/types';
 
 interface Row {
   id: string; projectCode: string; workOrderNo: string | null; name: string; status: string; category: string;
-  client: { name: string }; projectManager: { name: string };
-  countries: string[]; liveCountries: number; targetCompletes: number; completes: number; terminates: number;
+  client: { name: string }; projectManager: { name: string }; salesPerson: { name: string } | null; type: string;
+  countries: string[]; liveCountries: number; links: { live: number; total: number }; targetCompletes: number; completes: number; terminates: number;
   overquotas: number; dropouts: number; inProgress: number; qualityFails: number; loiMinutes: number | null; irPercent: number | null;
   redirectMode: string; createdAt: string;
 }
@@ -37,13 +38,45 @@ export default function ProjectsPage() {
   }, [status, category, q, page]);
 
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
+  const [exporting, setExporting] = useState(false);
+
+  /** Every project matching the filters (not just this page), 100 per request. */
+  async function exportCsv() {
+    setExporting(true);
+    try {
+      const rows: Row[] = [];
+      for (let p = 1; ; p++) {
+        const params = new URLSearchParams({ page: String(p), pageSize: '100' });
+        if (status) params.set('status', status);
+        if (category) params.set('category', category);
+        if (q) params.set('q', q);
+        const d = await get<{ total: number; items: Row[] }>(`/projects?${params}`);
+        rows.push(...d.items);
+        if (rows.length >= d.total || d.items.length === 0 || p >= 100) break;
+      }
+      downloadCsv(
+        `projexa-projects-${new Date().toISOString().slice(0, 10)}.csv`,
+        ['Project ID', 'Work order', 'Name', 'Status', 'Category', 'Type', 'Client', 'Project manager', 'Sales person', 'Markets', 'Live links', 'Total links', 'Target', 'Completes', 'Terminates', 'Overquotas', 'Dropouts', 'In progress', 'Quality fails', 'LOI (min)', 'IR %', 'Redirect mode', 'Created'],
+        rows.map((r) => [r.projectCode, r.workOrderNo, r.name, r.status, r.category, r.type, r.client.name, r.projectManager?.name, r.salesPerson?.name, r.countries.join(' '), r.links.live, r.links.total, r.targetCompletes, r.completes, r.terminates, r.overquotas, r.dropouts, r.inProgress, r.qualityFails, r.loiMinutes, r.irPercent, r.redirectMode, r.createdAt.slice(0, 10)]),
+      );
+    } catch (e) {
+      setError(e);
+    } finally {
+      setExporting(false);
+    }
+  }
 
   return (
     <>
       <PageHeader
         title="Projects"
         subtitle={data ? `${data.total} projects` : undefined}
-        actions={<Link href="/projects/new" className="btn-primary"><Plus className="h-4 w-4" /> Create project</Link>}
+        actions={
+          <>
+            <button className="btn-ghost" disabled={!data?.total || exporting} onClick={exportCsv}><Download className="h-4 w-4" /> {exporting ? 'Exporting…' : 'CSV'}</button>
+            <Link href="/projects/new" className="btn-primary"><Plus className="h-4 w-4" /> Create project</Link>
+          </>
+        }
       />
       <div className="card mb-4 grid grid-cols-1 gap-3 p-4 sm:grid-cols-[1fr_180px_220px]">
         <label className="relative block">
@@ -69,7 +102,7 @@ export default function ProjectsPage() {
           <table className="w-full">
             <thead className="border-b border-line bg-sunken/60">
               <tr>
-                <th className="th">Status</th><th className="th">Project</th><th className="th">Client</th><th className="th">Markets</th>
+                <th className="th">Status</th><th className="th">Project</th><th className="th">Client</th><th className="th">Markets</th><th className="th" title="Entry links taking respondents now / all links">Links</th>
                 <th className="th">Completes</th><th className="th text-right">Terms</th><th className="th text-right">Overquota</th>
                 <th className="th text-right">Dropouts</th><th className="th text-right">LOI</th><th className="th text-right">IR</th>
                 <th className="th">Manager</th><th className="th">Created</th>
@@ -87,6 +120,9 @@ export default function ProjectsPage() {
                   <td className="td" title={r.countries.join(', ')}>
                     <span className="text-base leading-none">{r.countries.slice(0, 5).map(flag).join(' ')}</span>
                     {r.countries.length > 5 && <span className="ml-1 text-xs text-muted">+{r.countries.length - 5}</span>}
+                  </td>
+                  <td className="td tabular-nums" title={`${r.links.live} of ${r.links.total} vendor links accept respondents now`}>
+                    <span className={r.links.total && r.links.live === r.links.total ? 'text-ok' : r.links.live ? '' : 'text-muted'}>{r.links.live}/{r.links.total}</span>
                   </td>
                   <td className="td"><Progress value={r.completes} max={r.targetCompletes} /></td>
                   <td className="td text-right tabular-nums">{r.terminates}</td>

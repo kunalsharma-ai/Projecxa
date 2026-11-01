@@ -1,4 +1,4 @@
-import { BarChart3, Building2, FolderKanban, KeyRound, LayoutDashboard, Palette, PlusCircle, Settings, Trophy, Truck, type LucideIcon } from 'lucide-react';
+import { BarChart3, Building2, FolderKanban, ReceiptText, KeyRound, LayoutDashboard, Palette, PlusCircle, Settings, Trophy, Truck, type LucideIcon } from 'lucide-react';
 
 export interface NavItem { href: string; label: string; icon: LucideIcon; keywords?: string; editorsOnly?: boolean }
 
@@ -8,6 +8,7 @@ export const NAV: NavItem[] = [
   { href: '/won-bids', label: 'Won bids', icon: Trophy, keywords: 'bidzo awarded setup project' },
   { href: '/projects/new', label: 'Create project', icon: PlusCircle, keywords: 'new project wizard', editorsOnly: true },
   { href: '/reports', label: 'Reports', icon: BarChart3, keywords: 'overall conversion client vendor clicks' },
+  { href: '/invoices', label: 'Invoices', icon: ReceiptText, keywords: 'billing reconciliation payment finance' },
   { href: '/clients', label: 'Clients', icon: Building2 },
   { href: '/vendors', label: 'Vendors', icon: Truck, keywords: 'panels suppliers' },
   { href: '/portal-access', label: 'Portal access', icon: KeyRound, keywords: 'client vendor logins' },

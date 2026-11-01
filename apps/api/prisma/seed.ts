@@ -177,6 +177,7 @@ async function main() {
   await prisma.project.update({ where: { id: project.id }, data: { activeRedirectVersionId: v1.id } });
 
   await seedHistory(project.id, org.id, v1.id);
+  await seedFinance(project.id, org.id, pm.id);
   await seedWonBids(org.id);
 
   console.log(`Seeded organization "demo".
@@ -280,6 +281,61 @@ async function seedHistory(projectId: string, organizationId: string, versionId:
   }
   await prisma.respondentSession.createMany({ data: sessions });
   await prisma.respondentEvent.createMany({ data: events });
+}
+
+/**
+ * Demo reconciliation and invoices: completes approved more than two weeks ago are billed,
+ * one invoice per currency, shown as paid, sent and draft so every finance tile has data.
+ */
+async function seedFinance(projectId: string, organizationId: string, actorId: string) {
+  const day = 86_400_000;
+  const project = await prisma.project.findUniqueOrThrow({ where: { id: projectId }, select: { clientId: true, projectCode: true, name: true } });
+  const approved = await prisma.respondentSession.findMany({
+    where: { projectId, isTest: false, status: 'COMPLETE', approval: { in: ['APPROVED', 'REJECTED'] } },
+    select: { id: true, approval: true, revenue: true, startedAt: true, projectCountry: { select: { countryCode: true, currency: true } } },
+  });
+  await prisma.respondentSession.updateMany({ where: { id: { in: approved.map((a) => a.id) } }, data: { approvalAt: new Date(Date.now() - 9 * day) } });
+  await prisma.reconciliation.create({
+    data: {
+      organizationId, projectId, mode: 'final_list', submitted: approved.filter((a) => a.approval === 'APPROVED').length + 2,
+      matched: approved.filter((a) => a.approval === 'APPROVED').length, approved: approved.filter((a) => a.approval === 'APPROVED').length,
+      rejected: approved.filter((a) => a.approval === 'REJECTED').length, unchanged: 0, unknown: 2, locked: 0,
+      unknownSample: ['RX-99812', 'RX-99815'], note: 'Client reconciliation file (synthetic demo)', actorId, createdAt: new Date(Date.now() - 9 * day),
+    },
+  });
+  const billable = approved.filter((a) => a.approval === 'APPROVED' && a.startedAt.getTime() < Date.now() - 14 * day);
+  const byCur = new Map<string, typeof billable>();
+  for (const b of billable) byCur.set(b.projectCountry.currency, [...(byCur.get(b.projectCountry.currency) ?? []), b]);
+  const states = [
+    { status: 'PAID' as const, issued: 8, paid: 2 },
+    { status: 'SENT' as const, issued: 5 },
+    { status: 'DRAFT' as const },
+  ];
+  let seq = 0;
+  for (const [i, [currency, list]] of [...byCur].sort(([a], [b]) => a.localeCompare(b)).entries()) {
+    const st = states[i % states.length];
+    const lines = new Map<string, { countryCode: string; description: string; quantity: number; unitPrice: number; amount: number }>();
+    for (const s of list) {
+      const price = Number(s.revenue ?? 0);
+      const key = `${s.projectCountry.countryCode}:${price}`;
+      const l = lines.get(key) ?? { countryCode: s.projectCountry.countryCode, description: `${project.projectCode} ${project.name}: completes, ${s.projectCountry.countryCode}`, quantity: 0, unitPrice: price, amount: 0 };
+      l.quantity++;
+      l.amount = Math.round(l.quantity * l.unitPrice * 100) / 100;
+      lines.set(key, l);
+    }
+    const total = [...lines.values()].reduce((a, l) => a + l.amount, 0);
+    const issuedAt = 'issued' in st ? new Date(Date.now() - (st.issued as number) * day) : null;
+    const inv = await prisma.invoice.create({
+      data: {
+        organizationId, projectId, clientId: project.clientId, number: `INV-${new Date().getUTCFullYear()}-${String(++seq).padStart(5, '0')}`,
+        status: st.status, currency, lines: [...lines.values()], completes: list.length, total: new Prisma.Decimal(total.toFixed(2)),
+        notes: 'PO 4471 (synthetic demo)', issuedAt, dueAt: issuedAt ? new Date(issuedAt.getTime() + 30 * day) : null,
+        paidAt: 'paid' in st ? new Date(Date.now() - (st.paid as number) * day) : null, createdById: actorId,
+      },
+    });
+    await prisma.respondentSession.updateMany({ where: { id: { in: list.map((s) => s.id) } }, data: { invoiceId: inv.id } });
+  }
+  await prisma.organization.update({ where: { id: organizationId }, data: { invoiceSeq: seq } });
 }
 
 function pick<T>(rnd: () => number, xs: T[]): T {

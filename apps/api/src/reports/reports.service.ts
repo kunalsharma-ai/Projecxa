@@ -31,7 +31,7 @@ export const filterSchema = z
   .refine((f) => !f.from || !f.to || f.from <= f.to, { message: '`from` must be on or before `to`', path: ['from'] });
 export type ReportFilter = z.infer<typeof filterSchema>;
 
-export const GROUPS = ['client', 'vendor', 'project', 'country', 'day', 'vendor_country'] as const;
+export const GROUPS = ['client', 'vendor', 'project', 'country', 'day', 'week', 'month', 'vendor_country'] as const;
 export type GroupBy = (typeof GROUPS)[number];
 
 const STATUSES = Object.values(RespondentStatus);
@@ -80,6 +80,16 @@ const KEY: Record<GroupBy, { key: Prisma.Sql; label: Prisma.Sql; sublabel: Prism
   day: {
     key: Prisma.sql`to_char(s."startedAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD')`,
     label: Prisma.sql`to_char(s."startedAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD')`,
+    sublabel: Prisma.sql`NULL::text`,
+  },
+  week: {
+    key: Prisma.sql`to_char(date_trunc('week', s."startedAt" AT TIME ZONE 'UTC'), 'YYYY-MM-DD')`,
+    label: Prisma.sql`to_char(date_trunc('week', s."startedAt" AT TIME ZONE 'UTC'), 'YYYY-MM-DD')`,
+    sublabel: Prisma.sql`NULL::text`,
+  },
+  month: {
+    key: Prisma.sql`to_char(s."startedAt" AT TIME ZONE 'UTC', 'YYYY-MM')`,
+    label: Prisma.sql`to_char(s."startedAt" AT TIME ZONE 'UTC', 'YYYY-MM')`,
     sublabel: Prisma.sql`NULL::text`,
   },
   vendor_country: { key: Prisma.sql`v.id || ':' || pc."countryCode"`, label: Prisma.sql`v.name`, sublabel: Prisma.sql`pc."countryCode"` },
@@ -140,7 +150,7 @@ export class ReportsService {
       JOIN "Vendor" v ON v.id = va."vendorId"
       WHERE ${this.where(org, f)}
       GROUP BY 1, 2, 3
-      ORDER BY ${groupBy === 'day' ? Prisma.sql`1 ASC` : Prisma.sql`clicks DESC, 2 ASC`}`;
+      ORDER BY ${groupBy === 'day' || groupBy === 'week' || groupBy === 'month' ? Prisma.sql`1 ASC` : Prisma.sql`clicks DESC, 2 ASC`}`;
     const moneyRows = await this.prisma.$queryRaw<{ key: string; currency: string; revenue: number; payout: number }[]>`
       SELECT ${g.key} AS key, pc.currency AS currency,
         COALESCE(SUM(s.revenue), 0)::float8 AS revenue, COALESCE(SUM(s.payout), 0)::float8 AS payout
