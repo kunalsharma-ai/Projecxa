@@ -32,5 +32,10 @@ export const config = {
     const h = process.env.GEO_COUNTRY_HEADER?.trim().toLowerCase();
     return h ? h : null;
   },
+  /** Key that encrypts two-step sign-in secrets. Falls back to JWT_SECRET; set it separately so rotating JWT_SECRET does not break authenticator apps. */
+  get mfaEncryptionKey(): string {
+    const k = process.env.MFA_ENCRYPTION_KEY;
+    return k && k.length >= 16 ? k : this.jwtSecret;
+  },
   cookieName: 'projexa_token',
 };

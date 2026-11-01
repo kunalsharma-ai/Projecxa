@@ -1,5 +1,5 @@
 import { Body, Controller, Get, HttpCode, Patch, Post, Res, UnauthorizedException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Organization, Prisma, User } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { Response } from 'express';
@@ -7,7 +7,8 @@ import { z } from 'zod';
 import { config } from '../common/config';
 import { ZodPipe } from '../common/zod.pipe';
 import { PrismaService } from '../prisma/prisma.service';
-import { CurrentUser, Public, Roles } from './decorators';
+import { AllowWithoutMfa, CurrentUser, Public, Roles } from './decorators';
+import { MfaService, secondFactorSchema } from './mfa.service';
 import { AuthUser } from './auth.types';
 import { Preferences, preferencesSchema, readPreferences } from './preferences';
 
@@ -17,9 +18,18 @@ const loginSchema = z.object({
   organization: z.string().optional(),
 });
 
+const mfaLoginSchema = z.object({ mfaToken: z.string().min(10).max(2000) }).and(secondFactorSchema);
+/** The short-lived token between the password and the code uses its own key, so it can never pass as a session. */
+const mfaTokenSecret = () => `${config.jwtSecret}:mfa-step`;
+
 @Controller('auth')
+@AllowWithoutMfa()
 export class AuthController {
-  constructor(private readonly prisma: PrismaService, private readonly jwt: JwtService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly jwt: JwtService,
+    private readonly mfa: MfaService,
+  ) {}
 
   @Public()
   @Post('login')
@@ -35,6 +45,35 @@ export class AuthController {
     const ok = user ? await bcrypt.compare(body.password, user.passwordHash) : await bcrypt.compare(body.password, DUMMY_HASH);
     if (!user || !ok) throw new UnauthorizedException('Wrong email or password');
 
+    // Two-step sign-in: no session yet, only a 5-minute token to send with the code.
+    if (user.mfaEnabledAt) {
+      const mfaToken = await this.jwt.signAsync({ sub: user.id, purpose: 'mfa' }, { secret: mfaTokenSecret(), expiresIn: '5m' });
+      return { mfaRequired: true, mfaToken };
+    }
+    return this.startSession(user, res);
+  }
+
+  /** Second step of sign-in: the code from the authenticator app, or a recovery code. */
+  @Public()
+  @Post('login/mfa')
+  @HttpCode(200)
+  async loginMfa(@Body(new ZodPipe(mfaLoginSchema)) body: z.infer<typeof mfaLoginSchema>, @Res({ passthrough: true }) res: Response) {
+    let sub: string;
+    try {
+      const p = await this.jwt.verifyAsync<{ sub: string; purpose?: string }>(body.mfaToken, { secret: mfaTokenSecret() });
+      if (p.purpose !== 'mfa') throw new Error('wrong token');
+      sub = p.sub;
+    } catch {
+      throw new UnauthorizedException('This sign-in took too long. Enter your email and password again.');
+    }
+    const user = await this.prisma.user.findUnique({ where: { id: sub }, include: { organization: true } });
+    if (!user || !user.active) throw new UnauthorizedException('Account is not active');
+    const used = await this.mfa.verify(user, body);
+    const out = await this.startSession(user, res);
+    return used === 'recovery' ? { ...out, recoveryCodesLeft: (await this.mfa.status(user.id)).recoveryCodesLeft } : out;
+  }
+
+  private async startSession(user: User & { organization: Organization }, res: Response) {
     const token = await this.jwt.signAsync({ sub: user.id, org: user.organizationId }, { secret: config.jwtSecret, expiresIn: '12h' });
     res.cookie(config.cookieName, token, {
       httpOnly: true,
@@ -73,6 +112,7 @@ export class AuthController {
       client: links.client,
       vendor: links.vendor,
       preferences: readPreferences(links.preferences),
+      mfa: await this.mfa.status(user.id),
     };
   }
 

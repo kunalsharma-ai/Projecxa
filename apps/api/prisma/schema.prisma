@@ -36,6 +36,8 @@ model Organization {
   invoiceTaxPercent Decimal @default(0) @db.Decimal(5, 2)
   billTaxName      String?
   billTaxPercent   Decimal @default(0) @db.Decimal(5, 2)
+  /// Staff must turn on two-step sign-in before using the app (portal users may opt in).
+  mfaRequired      Boolean @default(false)
   /// Fieldwork alert thresholds (src/monitor/monitor.rules.ts); null = defaults.
   alertSettings      Json?
   /// Optional HTTPS endpoint that receives new alerts, signed with alertWebhookSecret (HMAC-SHA256).
@@ -94,6 +96,18 @@ model User {
   vendor         Vendor? @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   /// Personal interface preferences (theme, density, motion, sidebar, favorites). Validated by the API.
   preferences    Json?
+  /// Two-step sign-in (docs/MFA.md). TOTP secrets are encrypted at rest (AES-256-GCM).
+  mfaSecret        String?
+  /// Secret waiting for its first code during setup.
+  mfaPendingSecret String?
+  mfaEnabledAt     DateTime?
+  /// SHA-256 hashes of unused one-time recovery codes.
+  mfaRecoveryCodes String[] @default([])
+  /// Last accepted 30-second step, so a code cannot be used twice.
+  mfaLastStep      Int?
+  /// Wrong codes in a row; 10 locks the second step for 15 minutes.
+  mfaFailures      Int @default(0)
+  mfaLockedUntil   DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

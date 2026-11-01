@@ -7,7 +7,7 @@ Classification follows the spec: **EXISTING** (done in this repo and tested), **
 |---|---|---|---|
 | Foundation | Multi-tenant organizations, every query scoped by tenant | EXISTING | e2e test proves cross-tenant 404s |
 | Foundation | Login, roles (admin, PM, sales, viewer), audit log | EXISTING | Client/vendor portal roles exist in the schema but have no screens |
-| Foundation | SSO (SAML/OIDC), MFA | MISSING | Phase 8 |
+| Foundation | SSO (SAML/OIDC), MFA | PARTIAL (milestone 13: MFA with authenticator apps, recovery codes, org-wide requirement for staff, admin reset). SSO missing | SSO needs an identity provider choice |
 | 1 Project factory | Master project with many countries, shared settings plus overrides | EXISTING | |
 | 1 | Country clone (with vendors and quotas), Excel/CSV paste | EXISTING | |
 | 1 | Project templates, version history of project settings, draft saving | PARTIAL | Projects start as Draft; settings changes are in the audit log, no template library yet |

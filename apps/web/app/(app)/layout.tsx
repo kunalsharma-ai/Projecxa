@@ -1,6 +1,6 @@
 'use client';
 import clsx from 'clsx';
-import { Bell, LogOut, Menu, Palette, PanelRight, Plus, Search, Settings, UserRound } from 'lucide-react';
+import { Bell, LogOut, Menu, Palette, PanelRight, Plus, Search, Settings, ShieldCheck, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -34,6 +34,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       })
       .catch(() => router.replace('/login'));
   }, [router, hydrate]);
+  // Organization requires two-step sign-in: nothing else works until it is set up.
+  useEffect(() => {
+    if (me?.mfa?.setupRequired && pathname !== '/account/security') router.replace('/account/security');
+  }, [me, pathname, router]);
   useEffect(() => setMobileNav(false), [pathname]);
 
   // Insights feed the bell count, so they load once and refresh every two minutes.
@@ -147,6 +151,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                       <div className="mt-1 text-xs text-muted">{me.organization.name} · {me.user.role.replace('_', ' ').toLowerCase()}</div>
                     </div>
                     <div className="my-1 border-t border-line" />
+                    <Link href="/account/security" onClick={close} className="flex items-center gap-2 rounded-md px-3 py-2 hover:bg-sunken"><ShieldCheck className="h-4 w-4 text-muted" /> Account security</Link>
                     <Link href="/settings/appearance" onClick={close} className="flex items-center gap-2 rounded-md px-3 py-2 hover:bg-sunken"><Palette className="h-4 w-4 text-muted" /> Theme Studio</Link>
                     <Link href="/settings" onClick={close} className="flex items-center gap-2 rounded-md px-3 py-2 hover:bg-sunken"><Settings className="h-4 w-4 text-muted" /> Organization settings</Link>
                     <button onClick={async () => { await post('/auth/logout'); router.replace('/login'); }} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-sunken"><LogOut className="h-4 w-4 text-muted" /> Sign out</button>
