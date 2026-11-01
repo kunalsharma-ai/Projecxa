@@ -32,6 +32,7 @@ model Organization {
   bidzoWebhookSecret  String?
   /// Free third-party captcha keys set by an admin: { turnstile?: { siteKey, secret }, hcaptcha?: { siteKey, secret } }.
   captchaProviders    Json?
+  pageAssets          PageAsset[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -197,6 +198,8 @@ model Project {
   prescreen      Json?
   /// Human check style on the gate page: math | logic | text_image | invisible | turnstile | hcaptcha.
   captchaStyle   String @default("math")
+  /// Look of the respondent-facing pages (gate and end pages); see src/survey/page-design.ts.
+  pageDesign     Json?
   redirectMode   RedirectMode @default(HYBRID)
   activeRedirectVersionId String? @unique
   activeRedirectVersion   RedirectPolicyVersion? @relation("ActiveRedirectVersion", fields: [activeRedirectVersionId], references: [id])
@@ -553,4 +556,18 @@ model WonBid {
 model TorExitNode {
   ip        String   @id
   updatedAt DateTime @updatedAt
+}
+
+/// Images uploaded for respondent pages (logo, hero, background). Served publicly at /pa/:id.
+model PageAsset {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectId      String?
+  contentType    String
+  size           Int
+  data           Bytes
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, projectId])
 }

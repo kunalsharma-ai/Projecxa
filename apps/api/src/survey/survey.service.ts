@@ -19,6 +19,7 @@ import {
   REASON_LABELS,
 } from './respondent-checks';
 import { captchaSvg, CaptchaStyle, CAPTCHA_STYLES, HUMAN_MAX_ATTEMPTS, humanChallenge, normaliseAnswer, ProviderStyle, providerKeysOf, verifyProvider } from './captcha';
+import { DEFAULT_DESIGN, designOf, END_STATUSES, EndStatus, PageDesign } from './page-design';
 import { evaluate, Question, questionsOf } from './questions';
 import { TorService } from './tor.service';
 
@@ -49,6 +50,11 @@ export interface GateView {
   collect: { languages: boolean; timezone: boolean; fingerprint: boolean };
   gateQuestions: Question[];
   prescreen: Question[];
+  design: PageDesign;
+  /** Public base URL, for image links. */
+  base: string;
+  /** Builder preview: renders the page but never submits. */
+  preview?: boolean;
 }
 
 /** External status slugs accepted on /r/:status, mapped to canonical statuses. */
@@ -382,6 +388,8 @@ export class SurveyService {
         collect: { languages: !!security.browserLanguage, timezone: !!security.timezoneTracking, fingerprint: !!security.browserFingerprinting },
         gateQuestions: security.gateSurvey ? questionsOf(session.project.gateQuestions) : [],
         prescreen: security.prescreening ? questionsOf(session.project.prescreen) : [],
+        design: designOf(session.project.pageDesign),
+        base: appConfig.publicBaseUrl,
       },
     };
   }
@@ -565,7 +573,36 @@ export class SurveyService {
       },
     });
     if (result.callbackRequired && !session.isTest) await this.enqueueVendorCallback(session, status);
-    return result.destination;
+    return this.respondentFacing(session, status, result.destination);
+  }
+
+  /**
+   * Where the browser actually goes. Our own end page gets the token so it can show the
+   * project's design; with the interstitial on, external destinations go through the
+   * designed end page first, which counts down and then continues to the recorded destination.
+   */
+  private respondentFacing(session: SessionWithContext, status: OutcomeStatus, destination: string): string {
+    const endBase = `${appConfig.publicBaseUrl}/end/`;
+    const t = encodeURIComponent(session.token);
+    if (destination.startsWith(endBase) && !destination.includes('?')) return `${destination}?t=${t}`;
+    const design = designOf(session.project.pageDesign);
+    if (design.interstitial.enabled && !destination.startsWith(endBase)) return `${endBase}${status.toLowerCase()}?t=${t}`;
+    return destination;
+  }
+
+  /** Data for a designed end page. Status comes from the recorded redirect, not the URL, when a token is known. */
+  async endView(slug: string, token: string | undefined): Promise<{ design: PageDesign; status: EndStatus; continueUrl?: string; seconds?: number }> {
+    const fallback = (END_STATUSES as readonly string[]).includes(slug) ? (slug as EndStatus) : 'technical_error';
+    if (!token || token.length > 200) return { design: DEFAULT_DESIGN, status: fallback };
+    const session = await this.prisma.respondentSession.findUnique({ where: { token }, select: { id: true, project: { select: { pageDesign: true } } } });
+    if (!session) return { design: DEFAULT_DESIGN, status: fallback };
+    const design = designOf(session.project.pageDesign);
+    const last = await this.prisma.redirectExecution.findFirst({ where: { sessionId: session.id }, orderBy: { createdAt: 'desc' }, select: { status: true, destination: true } });
+    if (!last) return { design, status: fallback };
+    const status = (END_STATUSES as readonly string[]).includes(last.status.toLowerCase()) ? (last.status.toLowerCase() as EndStatus) : fallback;
+    const external = !last.destination.startsWith(`${appConfig.publicBaseUrl}/end/`);
+    if (design.interstitial.enabled && external) return { design, status, continueUrl: last.destination, seconds: design.interstitial.seconds };
+    return { design, status };
   }
 
   private async enqueueVendorCallback(session: SessionWithContext, status: OutcomeStatus) {
