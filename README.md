@@ -89,6 +89,14 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - Cells show completes, respondents still in the survey, and can be closed or reopened in one click. The fieldwork monitor shows them per market and raises an alert when one fills.
 - Details: `docs/QUOTAS.md`.
 
+## Milestone 11: vendor payables, tax and reporting currency
+
+- **Vendor payables** page: what each vendor is owed per currency (waiting for client approval, approved but not billed, on draft bills, due, paid), with totals in your reporting currency. Create bills for one vendor or all, optionally only for completes up to a date.
+- **Vendor bills**: one per vendor and currency across projects, a line per project, market and price. Draft → approved (vendor's invoice number, payment terms) → paid (payment reference), or void, which releases the completes. Printable, and shown to the vendor in the portal's new Statements tab once approved.
+- **Tax** on client invoices and vendor bills: a default from Settings (for example GST 18% or VAT 20%), changeable on each draft; documents show subtotal, tax and total.
+- **Reporting currency and exchange rates** (Settings → Finance, entered by hand; no paid FX feed). The command center's finance and payables tiles add a total in the reporting currency and say which currencies have no rate.
+- Details: `docs/PAYABLES.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).

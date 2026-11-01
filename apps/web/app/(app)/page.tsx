@@ -1,6 +1,6 @@
 'use client';
 import clsx from 'clsx';
-import { Activity, ArrowDownRight, ArrowUpRight, BadgeCheck, Building2, CircleDollarSign, Clock3, FileText, FolderKanban, Hourglass, Minus, Truck } from 'lucide-react';
+import { Activity, ArrowDownRight, Banknote, HandCoins, Receipt, ArrowUpRight, BadgeCheck, Building2, CircleDollarSign, Clock3, FileText, FolderKanban, Hourglass, Minus, Truck } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Empty, ErrorBox, Loading, OutcomeChip, PageHeader, Progress, Section } from '@/components/ui';
@@ -9,7 +9,9 @@ import { get } from '@/lib/api';
 import { MoneyChart, type MoneyPoint } from '@/components/reports/money-chart';
 
 interface Kpis { revenue: number; cost: number; profit: number; clicks: number; completes: number; currencies: string[] }
-interface Tile { count: number; byCurrency: { currency: string; amount: number }[] }
+interface Base { currency: string; amount: number; missing: string[] }
+interface Tile { count: number; byCurrency: { currency: string; amount: number }[]; base?: Base }
+interface PayTile { completes: number; byCurrency: { currency: string; amount: number }[]; base: Base }
 interface TopRow { id: string; label: string; sublabel: string | null; revenue: number; profit: number; completes: number; clicks: number; currencies: string[] }
 interface Dashboard {
   clients: { total: number; active: number; inactive: number };
@@ -22,6 +24,7 @@ interface Dashboard {
   liveProjects: { id: string; projectCode: string; workOrderNo: string | null; name: string; target: number; completes: number }[];
   period: { from: string; to: string; previousFrom: string; previousTo: string; current: Kpis; previous: Kpis; trend: Record<'revenue' | 'cost' | 'profit' | 'clicks' | 'completes', number | null> };
   finance: Record<'reconciled' | 'pendingReconciliation' | 'invoicePending' | 'invoiced' | 'paymentReceived', Tile>;
+  payables?: Record<'unbilled' | 'due' | 'paid', PayTile>;
   top: { vendors: TopRow[]; projects: TopRow[]; clients: TopRow[] };
 }
 interface Series { interval: 'day' | 'week' | 'month'; points: MoneyPoint[]; currencies: string[] }
@@ -57,6 +60,16 @@ function Money({ list, empty = '0' }: { list: { currency: string; amount: number
       {list.slice(0, 3).map((m) => <span key={m.currency} className="whitespace-nowrap">{m.currency} {amt.format(m.amount)}</span>)}
       {list.length > 3 && <span className="text-muted" title={list.slice(3).map((m) => `${m.currency} ${amt.format(m.amount)}`).join(', ')}>+{list.length - 3} more</span>}
     </span>
+  );
+}
+
+/** "≈ USD 12,345.00 total" when amounts are in more than one currency (or not the reporting one). */
+function BaseLine({ base, list }: { base?: Base; list: { currency: string; amount: number }[] }) {
+  if (!base || !list.length || (list.length === 1 && list[0].currency === base.currency)) return null;
+  return (
+    <div className="mt-1 text-xs tabular-nums text-muted">
+      ≈ {base.currency} {amt.format(base.amount)} total{base.missing.length > 0 && <span className="text-warn"> (no rate for {base.missing.join(', ')})</span>}
+    </div>
   );
 }
 
@@ -192,9 +205,30 @@ export default function DashboardPage() {
             <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted"><Icon className="h-4 w-4 text-brand" aria-hidden />{label}</div>
             <div className="mt-1.5 text-base font-semibold tabular-nums"><Money list={d.finance[key].byCurrency} /></div>
             <div className="mt-0.5 text-xs text-muted">{num.format(d.finance[key].count)} {sub}</div>
+            <BaseLine base={d.finance[key].base} list={d.finance[key].byCurrency} />
           </Link>
         ))}
       </div>
+
+      {d.payables && (
+        <>
+          <h2 className="mb-3 mt-8 text-sm font-semibold">Vendor payables <span className="font-normal text-muted">· all time</span></h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {([
+              ['unbilled', 'Approved, not billed', HandCoins, 'completes to bill', '/payables'],
+              ['due', 'Bills due', Receipt, 'completes on approved bills', '/payables?status=APPROVED'],
+              ['paid', 'Paid to vendors', Banknote, 'completes paid', '/payables?status=PAID'],
+            ] as const).map(([key, label, Icon, sub, href]) => (
+              <Link key={key} href={href} className="card group p-4 hover:border-brand/40">
+                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted"><Icon className="h-4 w-4 text-brand" aria-hidden />{label}</div>
+                <div className="mt-1.5 text-base font-semibold tabular-nums"><Money list={d.payables![key].byCurrency} /></div>
+                <div className="mt-0.5 text-xs text-muted">{num.format(d.payables![key].completes)} {sub}</div>
+                <BaseLine base={d.payables![key].base} list={d.payables![key].byCurrency} />
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <TopList title="Top 5 vendors" rows={d.top.vendors} href={(r) => `/reports?vendorId=${r.id}`} />

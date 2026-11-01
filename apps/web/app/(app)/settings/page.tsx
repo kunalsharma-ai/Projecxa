@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useMe } from '@/components/me';
 import { AlertSettings } from '@/components/settings/alert-settings';
+import { FinanceSettings } from '@/components/settings/finance-settings';
 import { ErrorBox, Field, Loading, PageHeader, Section } from '@/components/ui';
 import { api, get, patch, post } from '@/lib/api';
 
@@ -47,6 +48,7 @@ export default function SettingsPage() {
       <BidzoConnection isAdmin={isAdmin} />
       <CaptchaKeys isAdmin={isAdmin} />
       {isAdmin && <AlertSettings />}
+      <FinanceSettings isAdmin={isAdmin} />
       <Section title="Redirect security policy">
         <p className="mb-4 text-sm text-muted">Respondents can only be redirected to these domains (plus each vendor&apos;s own domains for that vendor). Overrides cannot bypass this list.</p>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

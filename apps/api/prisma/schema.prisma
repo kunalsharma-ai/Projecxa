@@ -28,6 +28,14 @@ model Organization {
   workOrderSeq Int @default(9000)
   /// Invoice numbers: INV-<year>-<seq>, sequence per tenant.
   invoiceSeq   Int @default(0)
+  /// Vendor bill numbers: BILL-<year>-<seq>.
+  billSeq      Int @default(0)
+  /// Finance settings (docs/PAYABLES.md): reporting currency and default taxes.
+  baseCurrency     String  @default("USD")
+  invoiceTaxName   String?
+  invoiceTaxPercent Decimal @default(0) @db.Decimal(5, 2)
+  billTaxName      String?
+  billTaxPercent   Decimal @default(0) @db.Decimal(5, 2)
   /// Fieldwork alert thresholds (src/monitor/monitor.rules.ts); null = defaults.
   alertSettings      Json?
   /// Optional HTTPS endpoint that receives new alerts, signed with alertWebhookSecret (HMAC-SHA256).
@@ -54,6 +62,8 @@ model Organization {
   invoices    Invoice[]
   reconciliations Reconciliation[]
   alerts      Alert[]
+  vendorBills VendorBill[]
+  exchangeRates ExchangeRate[]
 }
 
 enum Role {
@@ -148,6 +158,7 @@ model Vendor {
 
   allocations VendorAllocation[]
   users       User[]
+  bills       VendorBill[]
 
   @@unique([organizationId, code])
 }
@@ -408,6 +419,9 @@ model RespondentSession {
   /// Set once this approved complete is billed; locked against further approval changes until the invoice is voided.
   invoiceId        String?
   invoice          Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  /// Set once this approved complete is on a vendor bill; voiding the bill releases it.
+  vendorBillId     String?
+  vendorBill       VendorBill? @relation(fields: [vendorBillId], references: [id], onDelete: SetNull)
   isTest           Boolean @default(false)
   /// Redirect configuration version used to process this session (historical traceability).
   redirectVersionId String?
@@ -447,6 +461,7 @@ model RespondentSession {
   @@index([projectId, ipHash])
   @@index([organizationId, startedAt])
   @@index([invoiceId])
+  @@index([vendorBillId])
 }
 
 enum EventSource {
@@ -632,6 +647,12 @@ model Invoice {
   /// [{ countryCode, description, quantity, unitPrice, amount }]
   lines          Json
   completes      Int
+  /// Sum of the lines, before tax.
+  subtotal       Decimal @default(0) @db.Decimal(14, 2)
+  taxName        String?
+  taxPercent     Decimal @default(0) @db.Decimal(5, 2)
+  taxAmount      Decimal @default(0) @db.Decimal(14, 2)
+  /// subtotal + taxAmount.
   total          Decimal @db.Decimal(14, 2)
   notes          String?
   issuedAt       DateTime?
@@ -712,4 +733,63 @@ model Alert {
   @@index([organizationId, state])
   @@index([organizationId, dedupeKey])
   @@index([projectId, state])
+}
+
+enum VendorBillStatus {
+  DRAFT
+  APPROVED
+  PAID
+  VOID
+}
+
+/// What we owe a vendor for its approved completes, in one currency, across projects.
+model VendorBill {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  vendorId       String
+  vendor         Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  number         String
+  status         VendorBillStatus @default(DRAFT)
+  currency       String
+  /// Completes with an outcome up to this time were included (null = everything approved).
+  periodTo       DateTime?
+  /// [{ projectId, projectCode, countryCode, description, quantity, unitPrice, amount }]
+  lines          Json
+  completes      Int
+  subtotal       Decimal @db.Decimal(14, 2)
+  taxName        String?
+  taxPercent     Decimal @default(0) @db.Decimal(5, 2)
+  taxAmount      Decimal @default(0) @db.Decimal(14, 2)
+  total          Decimal @db.Decimal(14, 2)
+  /// The vendor's own invoice number, recorded on approval.
+  vendorReference  String?
+  /// Bank or payment reference, recorded when paid.
+  paymentReference String?
+  notes          String?
+  approvedAt     DateTime?
+  dueAt          DateTime?
+  paidAt         DateTime?
+  voidedAt       DateTime?
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  sessions RespondentSession[]
+
+  @@unique([organizationId, number])
+  @@index([organizationId, status])
+  @@index([vendorId])
+}
+
+/// Manual exchange rate: 1 unit of `currency` = `rate` units of the organisation's base currency.
+model ExchangeRate {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  currency       String
+  rate           Decimal @db.Decimal(18, 8)
+  updatedAt      DateTime @updatedAt
+
+  @@unique([organizationId, currency])
 }

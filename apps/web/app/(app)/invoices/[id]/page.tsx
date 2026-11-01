@@ -4,13 +4,14 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { canEdit, useMe } from '@/components/me';
+import { TaxEditor, TotalsFoot } from '@/components/finance/totals';
 import { InvoiceStatus } from '@/components/project/finance-tab';
 import { ErrorBox, Loading } from '@/components/ui';
 import { api, get } from '@/lib/api';
 import { flag } from '@/lib/countries';
 
 interface Invoice {
-  id: string; number: string; status: 'DRAFT' | 'SENT' | 'PAID' | 'VOID'; currency: string; total: number; completes: number; notes: string | null;
+  id: string; number: string; status: 'DRAFT' | 'SENT' | 'PAID' | 'VOID'; currency: string; subtotal: number; taxName: string | null; taxPercent: number; taxAmount: number; total: number; completes: number; notes: string | null;
   createdAt: string; issuedAt: string | null; dueAt: string | null; paidAt: string | null; voidedAt: string | null; overdue: boolean; issuer: string;
   lines: { countryCode: string; description: string; quantity: number; unitPrice: number; amount: number }[];
   project: { id: string; projectCode: string; name: string; workOrderNo: string | null }; client: { id: string; name: string; code: string };
@@ -118,15 +119,11 @@ export default function InvoicePage() {
                 </tr>
               ))}
             </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan={3} className="pt-4 text-right font-medium">Total ({inv.currency})</td>
-                <td className="whitespace-nowrap pt-4 pl-3 text-right text-lg font-semibold tabular-nums">{inv.currency} {amt.format(inv.total)}</td>
-              </tr>
-            </tfoot>
+            <TotalsFoot doc={inv} />
           </table>
         </div>
-        <p className="mt-2 text-xs text-muted">{inv.completes} approved completes. Amounts exclude tax.</p>
+        <p className="mt-2 text-xs text-muted">{inv.completes} approved completes.{inv.taxAmount > 0 ? '' : ' No tax applied.'}</p>
+        {editable && inv.status === 'DRAFT' && <TaxEditor doc={inv} busy={busy} onSave={(b) => change(b)} />}
 
         {editable && inv.status === 'DRAFT' ? (
           <div className="no-print mt-8">

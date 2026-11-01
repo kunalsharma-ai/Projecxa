@@ -368,7 +368,7 @@ export class ReportsService {
   }
 }
 
-export const CURRENCY_NOTE = 'Money is summed in each market’s own currency; FX conversion comes in a later milestone.';
+export const CURRENCY_NOTE = 'Money is summed in each market’s own currency. Finance totals in your reporting currency use the exchange rates in Settings.';
 
 function emptyRow(): SummaryRow {
   return {

@@ -25,6 +25,8 @@ export const reconcileSchema = z.object({
 export type ReconcileInput = z.infer<typeof reconcileSchema>;
 
 export const createInvoiceSchema = z.object({ notes: z.string().max(1000).optional() });
+/** Tax on a draft: a name such as "GST" or "VAT" and a percentage. 0 removes it. */
+export const taxSchema = z.object({ taxName: z.string().trim().max(40).nullable().optional(), taxPercent: z.number().min(0).max(100).optional() });
 export const updateInvoiceSchema = z
   .object({
     status: z.enum(['SENT', 'PAID', 'VOID']).optional(),
@@ -32,7 +34,8 @@ export const updateInvoiceSchema = z
     dueDays: z.number().int().min(0).max(180).optional(),
     notes: z.string().max(1000).nullable().optional(),
   })
-  .refine((b) => b.status || b.notes !== undefined, { message: 'Nothing to change' });
+  .merge(taxSchema)
+  .refine((b) => b.status || b.notes !== undefined || b.taxName !== undefined || b.taxPercent !== undefined, { message: 'Nothing to change' });
 export const invoiceListSchema = z.object({
   status: z.nativeEnum(InvoiceStatus).optional(),
   projectId: z.string().max(64).optional(),
@@ -41,7 +44,12 @@ export const invoiceListSchema = z.object({
 
 const NEXT: Record<InvoiceStatus, InvoiceStatus[]> = { DRAFT: ['SENT', 'VOID'], SENT: ['PAID', 'VOID'], PAID: [], VOID: [] };
 const SAMPLE = 50;
-const money = (n: Prisma.Decimal | number | null | undefined) => Math.round(Number(n ?? 0) * 100) / 100;
+export const money = (n: Prisma.Decimal | number | null | undefined) => Math.round(Number(n ?? 0) * 100) / 100;
+/** Tax and total from a subtotal; rounded to cents the way the document shows them. */
+export const withTax = (subtotal: number, percent: number) => {
+  const taxAmount = money((subtotal * percent) / 100);
+  return { subtotal: money(subtotal), taxPercent: percent, taxAmount, total: money(subtotal + taxAmount) };
+};
 
 export interface ReconcileResult {
   mode: (typeof RECON_MODES)[number];
@@ -263,8 +271,8 @@ export class FinanceService {
           lines.set(key, l);
         }
         const sorted = [...lines.values()].sort((a, b) => a.countryCode.localeCompare(b.countryCode) || b.unitPrice - a.unitPrice);
-        const total = money(sorted.reduce((a, l) => a + l.amount, 0));
-        const org = await tx.organization.update({ where: { id: u.organizationId }, data: { invoiceSeq: { increment: 1 } }, select: { invoiceSeq: true } });
+        const org = await tx.organization.update({ where: { id: u.organizationId }, data: { invoiceSeq: { increment: 1 } }, select: { invoiceSeq: true, invoiceTaxName: true, invoiceTaxPercent: true } });
+        const tax = withTax(sorted.reduce((a, l) => a + l.amount, 0), Number(org.invoiceTaxPercent));
         const number = `INV-${new Date().getUTCFullYear()}-${String(org.invoiceSeq).padStart(5, '0')}`;
         const inv = await tx.invoice.create({
           data: {
@@ -275,7 +283,8 @@ export class FinanceService {
             currency,
             lines: sorted,
             completes: list.length,
-            total,
+            ...tax,
+            taxName: tax.taxPercent > 0 ? org.invoiceTaxName || 'Tax' : null,
             notes,
             createdById: u.id,
           },
@@ -329,6 +338,11 @@ export class FinanceService {
     const inv = await this.prisma.invoice.findFirst({ where: { id, organizationId: u.organizationId } });
     if (!inv) throw new NotFoundException('Invoice not found');
     if (body.notes !== undefined && inv.status !== 'DRAFT') throw new BadRequestException('Notes can only be changed on a draft');
+    const taxChange = body.taxName !== undefined || body.taxPercent !== undefined;
+    if (taxChange && inv.status !== 'DRAFT') throw new BadRequestException('Tax can only be changed on a draft');
+    const tax = taxChange
+      ? { ...withTax(Number(inv.subtotal), body.taxPercent ?? Number(inv.taxPercent)), taxName: body.taxName !== undefined ? body.taxName || null : inv.taxName }
+      : null;
     if (body.status && !NEXT[inv.status].includes(body.status)) {
       throw new BadRequestException(`A ${inv.status.toLowerCase()} invoice cannot be marked ${body.status.toLowerCase()}`);
     }
@@ -339,6 +353,7 @@ export class FinanceService {
         where: { id, status: inv.status },
         data: {
           ...(body.notes !== undefined ? { notes: body.notes } : {}),
+          ...(tax ?? {}),
           ...(body.status ? { status: body.status } : {}),
           ...(body.status === 'SENT' ? { issuedAt: now, dueAt: new Date(now.getTime() + (body.dueDays ?? 30) * 86_400_000) } : {}),
           ...(body.status === 'PAID' ? { paidAt: now } : {}),
@@ -388,7 +403,7 @@ export class FinanceService {
   }
 }
 
-function shape(r: { id: string; number: string; status: InvoiceStatus; currency: string; lines: Prisma.JsonValue; completes: number; total: Prisma.Decimal; notes: string | null; issuedAt: Date | null; dueAt: Date | null; paidAt: Date | null; voidedAt: Date | null; createdAt: Date; projectId: string; clientId: string }) {
+function shape(r: { id: string; number: string; status: InvoiceStatus; currency: string; lines: Prisma.JsonValue; completes: number; subtotal: Prisma.Decimal; taxName: string | null; taxPercent: Prisma.Decimal; taxAmount: Prisma.Decimal; total: Prisma.Decimal; notes: string | null; issuedAt: Date | null; dueAt: Date | null; paidAt: Date | null; voidedAt: Date | null; createdAt: Date; projectId: string; clientId: string }) {
   return {
     id: r.id,
     number: r.number,
@@ -396,6 +411,10 @@ function shape(r: { id: string; number: string; status: InvoiceStatus; currency:
     currency: r.currency,
     lines: r.lines as { countryCode: string; description: string; quantity: number; unitPrice: number; amount: number }[],
     completes: r.completes,
+    subtotal: Number(r.subtotal),
+    taxName: r.taxName,
+    taxPercent: Number(r.taxPercent),
+    taxAmount: Number(r.taxAmount),
     total: Number(r.total),
     notes: r.notes,
     issuedAt: r.issuedAt,

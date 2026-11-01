@@ -18,7 +18,7 @@ export async function resetDb(prisma: PrismaClient) {
   await prisma.$executeRawUnsafe('TRUNCATE "Organization" CASCADE');
 }
 
-const PASSWORD = 'correct-horse-battery';
+export const PASSWORD = 'correct-horse-battery';
 
 export async function makeOrg(prisma: PrismaClient, slug: string, domains = ['client.example.com', 'vendor.example.com']) {
   const org = await prisma.organization.create({ data: { name: slug, slug, redirectAllowedDomains: domains } });
