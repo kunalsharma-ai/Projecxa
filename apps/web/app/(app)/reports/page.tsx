@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { defaultFilters, FilterBar } from '@/components/reports/filter-bar';
+import { AnswersView } from '@/components/project/answers-view';
 import { CsvButton, SummaryTable, summaryCsv } from '@/components/reports/summary-table';
 import { TrendChart } from '@/components/reports/trend-chart';
 import { filterQuery, moneyLines, type Filters, type Options, type SummaryRow } from '@/components/reports/types';
@@ -13,7 +14,7 @@ import { flag } from '@/lib/countries';
 import { downloadCsv } from '@/lib/csv';
 import { STATUS_LABEL } from '@/lib/types';
 
-const TABS = ['Overall', 'Conversion', 'Clients', 'Vendors', 'Clicks'] as const;
+const TABS = ['Overall', 'Conversion', 'Clients', 'Vendors', 'Clicks', 'Answers'] as const;
 type Tab = (typeof TABS)[number];
 
 interface Overall {
@@ -79,6 +80,7 @@ function ReportsPage() {
           {tab === 'Clients' && <GroupedTab filters={filters} kind="client" />}
           {tab === 'Vendors' && <GroupedTab filters={filters} kind="vendor" />}
           {tab === 'Clicks' && <ClicksTab filters={filters} />}
+          {tab === 'Answers' && <AnswersTab projectId={filters.projectId} options={options} onPick={(projectId) => setFilters({ ...filters, projectId })} />}
         </>
       )}
     </>
@@ -363,5 +365,29 @@ function ClicksTab({ filters }: { filters: Filters }) {
         </>
       )}
     </Section>
+  );
+}
+
+/** Gate survey and prescreener answers are per project (each project has its own questions). */
+function AnswersTab({ projectId, options, onPick }: { projectId: string; options: Options | null; onPick: (id: string) => void }) {
+  const project = options?.projects.find((p) => p.id === projectId);
+  if (!project) {
+    return (
+      <Section title="Gate survey and prescreener answers">
+        <p className="mb-3 text-sm text-muted">Answers are reported per project, because each project asks its own questions. Pick a project:</p>
+        <select className="input max-w-md" value="" onChange={(e) => onPick(e.target.value)} aria-label="Project">
+          <option value="">Choose a project…</option>
+          {options?.projects.map((p) => <option key={p.id} value={p.id}>{p.projectCode} · {p.name}</option>)}
+        </select>
+      </Section>
+    );
+  }
+  return (
+    <>
+      <p className="mb-4 text-sm text-muted">
+        <Link href={`/projects/${project.id}`} className="font-medium text-brand hover:underline">{project.projectCode} · {project.name}</Link>. The date range does not apply here; use the status and market filters below.
+      </p>
+      <AnswersView projectId={project.id} projectCode={project.projectCode} />
+    </>
   );
 }

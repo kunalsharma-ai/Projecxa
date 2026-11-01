@@ -65,3 +65,62 @@ export interface WonBid {
   countries: BidLine[]; wonAt: string; status: 'NEW' | 'PROJECT_CREATED' | 'DISMISSED'; dismissReason: string | null; deliveries: number; receivedAt: string;
   project: { id: string; projectCode: string; status: string } | null;
 }
+
+/** Gate survey and prescreener question (mirrors apps/api/src/survey/questions.ts). */
+export type QuestionType = 'single' | 'multi' | 'dropdown' | 'number' | 'text' | 'grid';
+export type OptionAction = 'accept' | 'qualify' | 'terminate';
+export type TextFormat = 'any' | 'letters' | 'digits' | 'alphanumeric' | 'email' | 'postal' | 'phone';
+export interface QuestionOption { id: string; label: string; action: OptionAction; exclusive?: boolean }
+export interface Question {
+  id: string;
+  type: QuestionType;
+  text: string;
+  help?: string;
+  required: boolean;
+  options?: QuestionOption[];
+  rows?: { id: string; label: string }[];
+  validation: { min?: number; max?: number; integer?: boolean; minSelect?: number; maxSelect?: number; minLength?: number; maxLength?: number; format?: TextFormat };
+  qualify?: { min?: number; max?: number };
+}
+
+export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
+  single: 'Single choice',
+  multi: 'Multiple choice',
+  dropdown: 'Dropdown',
+  number: 'Number',
+  text: 'Text',
+  grid: 'Grid',
+};
+
+export const TEXT_FORMAT_LABELS: Record<TextFormat, string> = {
+  any: 'Any text',
+  letters: 'Letters and spaces',
+  digits: 'Digits only',
+  alphanumeric: 'Letters and digits',
+  email: 'Email address',
+  postal: 'Postal / ZIP code',
+  phone: 'Phone number',
+};
+
+export type CaptchaStyle = 'math' | 'logic' | 'text_image' | 'invisible' | 'turnstile' | 'hcaptcha';
+
+/** Why a respondent was stopped (mirrors REASON_LABELS in the API). */
+export const REASON_LABELS: Record<string, string> = {
+  BAD_SIGNATURE: 'Entry link signature missing or wrong',
+  DEVICE_NOT_ALLOWED: 'Device type not allowed',
+  TOR_EXIT: 'Connected through TOR',
+  GEO_MISMATCH: 'Located outside the survey country',
+  CAPTCHA_FAILED: 'Failed the background bot check',
+  HUMAN_CHECK_FAILED: 'Failed the human check',
+  LANGUAGE_MISMATCH: 'Browser language does not match',
+  TIMEZONE_MISMATCH: 'Time zone outside the survey country',
+  COOKIES_BLOCKED: 'Cookies blocked',
+  SAME_BROWSER: 'Same browser entered before',
+  SAME_FINGERPRINT: 'Same device fingerprint entered before',
+  SAME_DEVICE: 'Same IP and browser entered before',
+  GATE_SCREENOUT: 'Did not qualify on the gate survey',
+  GATE_INCOMPLETE: 'Gave missing or invalid gate answers',
+  PRESCREEN: 'Did not qualify on the prescreener',
+  GATE_SKIPPED: 'Skipped the entry checks',
+  EXPIRED: 'Session expired',
+};

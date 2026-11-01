@@ -34,7 +34,7 @@ PROJEXA milestone 1 is a fresh codebase. Each item below says how milestone 1 tr
 | Project type (Ad-hoc), category, client, client contact, sales person, project manager | Yes. Types: ad-hoc, tracker, longitudinal, qualitative. |
 | Rich-text description | Plain text for now |
 | Devices: desktop, mobile, tablet | Yes (stored per project; enforcement at entry is not yet built) |
-| Security: gate survey, prescreening, URL protection, geolocation, browser fingerprinting, captcha, duplicate detection, browser language, timezone tracking, TOR detection, cookie validation | All 11 toggles stored as one security policy per project. **Only duplicate detection is enforced in milestone 1** (same IP + user agent within a project). The others are stored for the Respondent Quality Engine (Module 7). |
+| Security: gate survey, prescreening, URL protection, geolocation, browser fingerprinting, captcha, duplicate detection, browser language, timezone tracking, TOR detection, cookie validation | All 11 toggles are **enforced since milestone 6**, together with the allowed device types. Gate survey and prescreener questions are built per project by executives, captcha style is chosen per project (free options only), and every answer is in the project Answers tab and the Answers report. See `docs/RESPONDENT_SECURITY.md`. |
 | Countries toggle and country picker | Replaced by the multi-country editor |
 | Per-country table: country, language, target group, LOI, IR, CPI, completes | Yes, with shared defaults and per-country overrides, Excel paste and currency per country |
 

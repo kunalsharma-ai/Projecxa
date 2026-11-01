@@ -32,7 +32,7 @@ Classification follows the spec: **EXISTING** (done in this repo and tested), **
 | 6 Quotas | Atomic over-quota protection for country and vendor targets | EXISTING | Concurrency handled by conditional SQL updates |
 | 6 | Quota cells, reallocation suggestions | MISSING | |
 | 7 Quality | Duplicate detection (same UID; optional same device) | EXISTING | |
-| 7 | Gate survey, captcha, geolocation, fingerprinting, TOR, cookies, language, timezone | PARTIAL | Stored per project, not enforced yet |
+| 7 | Gate survey, captcha, geolocation, fingerprinting, TOR, cookies, language, timezone | EXISTING | All enforced since milestone 6, plus gate survey and prescreener question builder and per-project captcha style (see `docs/RESPONDENT_SECURITY.md`). Geolocation needs a CDN country header |
 | 8 Client portal | Own projects (non-draft), progress by market, spend, approve/reject completes, CSV | EXISTING | Milestone 2. Never shows vendors, vendor UIDs or payouts |
 | 8 | RFQ submission, questionnaire upload, deliverables, tickets, invoices | MISSING | RFQs belong to Bidzo |
 | 9 Vendor portal | Own allocations, entry/test links, respondents, payouts by approval state, callback log, CSV | EXISTING | Milestone 2. Never shows client CPI, revenue or other vendors |

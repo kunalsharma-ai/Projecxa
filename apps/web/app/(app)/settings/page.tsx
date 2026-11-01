@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useMe } from '@/components/me';
 import { ErrorBox, Field, Loading, PageHeader, Section } from '@/components/ui';
-import { get, patch, post } from '@/lib/api';
+import { api, get, patch, post } from '@/lib/api';
 
 interface Bidzo { enabled: boolean; tenant: string; endpoint: string; lastReceivedAt: string | null; secret?: string }
 interface Org { id: string; name: string; slug: string; redirectAllowedDomains: string[]; fallbackRedirectUrl: string | null }
@@ -44,6 +44,7 @@ export default function SettingsPage() {
       <PageHeader title="Settings" subtitle={`${org.name} · ${org.slug}`} actions={<Link href="/settings/appearance" className="btn-ghost"><Palette className="h-4 w-4" /> Theme Studio</Link>} />
       <div className="mb-4"><ErrorBox error={error} /></div>
       <BidzoConnection isAdmin={isAdmin} />
+      <CaptchaKeys isAdmin={isAdmin} />
       <Section title="Redirect security policy">
         <p className="mb-4 text-sm text-muted">Respondents can only be redirected to these domains (plus each vendor&apos;s own domains for that vendor). Overrides cannot bypass this list.</p>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -112,6 +113,69 @@ function BidzoConnection({ isAdmin }: { isAdmin: boolean }) {
       ) : (
         <p className="mt-4 text-xs text-muted">Only admins can change the connection.</p>
       )}
+    </Section>
+  );
+}
+
+interface CaptchaInfo { providers: Record<'turnstile' | 'hcaptcha', { configured: boolean; siteKey: string | null }> }
+const PROVIDERS = [
+  { id: 'turnstile', name: 'Cloudflare Turnstile', note: 'Free: unlimited checks, up to 20 widgets per Cloudflare account.', href: 'https://dash.cloudflare.com/?to=/:account/turnstile' },
+  { id: 'hcaptcha', name: 'hCaptcha', note: 'Free Basic plan.', href: 'https://dashboard.hcaptcha.com/sites' },
+] as const;
+
+/** Keys for the free third-party captcha styles executives can pick per project. */
+function CaptchaKeys({ isAdmin }: { isAdmin: boolean }) {
+  const [info, setInfo] = useState<CaptchaInfo | null>(null);
+  const [draft, setDraft] = useState<Record<string, { siteKey: string; secret: string }>>({});
+  const [error, setError] = useState<unknown>(null);
+  const [saved, setSaved] = useState<string | null>(null);
+  useEffect(() => { get<CaptchaInfo>('/security/captcha').then(setInfo).catch(setError); }, []);
+
+  async function save(id: 'turnstile' | 'hcaptcha', remove = false) {
+    setError(null);
+    setSaved(null);
+    const d = draft[id] ?? { siteKey: info?.providers[id].siteKey ?? '', secret: '' };
+    try {
+      const r = await api<CaptchaInfo>('/security/captcha', { method: 'PUT', json: { [id]: remove ? null : { siteKey: d.siteKey.trim(), ...(d.secret.trim() ? { secret: d.secret.trim() } : {}) } } });
+      setInfo(r);
+      setDraft({ ...draft, [id]: { siteKey: r.providers[id].siteKey ?? '', secret: '' } });
+      setSaved(id);
+    } catch (e) {
+      setError(e);
+    }
+  }
+
+  return (
+    <Section title="Captcha providers" className="mb-6">
+      <p className="mb-4 text-sm text-muted">The built-in human checks (math, logic, picture text, invisible) need nothing. To let executives pick Cloudflare Turnstile or hCaptcha, add the free keys here. Google reCAPTCHA is not offered: its free tier stops at 10,000 checks a month.</p>
+      <ErrorBox error={error} />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {PROVIDERS.map((p) => {
+          const cur = info?.providers[p.id];
+          const d = draft[p.id] ?? { siteKey: cur?.siteKey ?? '', secret: '' };
+          return (
+            <div key={p.id} className="rounded-lg border border-line p-4">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="font-medium">{p.name}</span>
+                {cur?.configured ? <span className="chip bg-ok/15 text-ok">Ready</span> : <span className="chip bg-sunken text-muted">Not set up</span>}
+              </div>
+              <p className="mb-3 text-xs text-muted">{p.note} <a href={p.href} target="_blank" rel="noreferrer" className="text-brand hover:underline">Get keys</a></p>
+              <fieldset disabled={!isAdmin} className="space-y-3">
+                <Field label="Site key"><input className="input font-mono text-xs" value={d.siteKey} onChange={(e) => setDraft({ ...draft, [p.id]: { ...d, siteKey: e.target.value } })} /></Field>
+                <Field label="Secret key" hint={cur?.configured ? 'Saved. Leave empty to keep it.' : undefined}><input className="input font-mono text-xs" type="password" autoComplete="off" value={d.secret} onChange={(e) => setDraft({ ...draft, [p.id]: { ...d, secret: e.target.value } })} /></Field>
+              </fieldset>
+              {isAdmin && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <button className="btn-primary" disabled={!d.siteKey.trim() || (!cur?.configured && !d.secret.trim())} onClick={() => save(p.id)}>Save</button>
+                  {cur?.configured && <button className="btn-ghost" onClick={() => save(p.id, true)}>Remove</button>}
+                  {saved === p.id && <span className="text-sm text-ok">Saved</span>}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {!isAdmin && <p className="mt-4 text-xs text-muted">Only admins can change captcha keys.</p>}
     </Section>
   );
 }

@@ -6,6 +6,7 @@ import 'dotenv/config';
 import { Prisma, PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
+import { questionTemplates } from '../src/survey/questions';
 
 const prisma = new PrismaClient();
 const token = (n = 12) => randomBytes(n).toString('base64url');
@@ -122,9 +123,12 @@ async function main() {
       salesPersonId: admin.id,
       devices: { desktop: true, mobile: true, tablet: false },
       security: {
-        gateSurvey: true, prescreening: false, urlProtection: true, geolocation: false, browserFingerprinting: false, captcha: true,
-        duplicateDetection: false, browserLanguage: false, timezoneTracking: false, torDetection: false, cookieValidation: false,
+        gateSurvey: true, prescreening: true, urlProtection: false, geolocation: false, browserFingerprinting: true, captcha: false,
+        duplicateDetection: true, browserLanguage: false, timezoneTracking: false, torDetection: false, cookieValidation: true,
       },
+      captchaStyle: 'logic',
+      gateQuestions: GATE_QUESTIONS as unknown as Prisma.InputJsonValue,
+      prescreen: PRESCREEN as unknown as Prisma.InputJsonValue,
       redirectMode: 'HYBRID',
       countries: {
         create: [
@@ -176,6 +180,44 @@ async function main() {
  * Deterministic (fixed pseudo-random sequence), stays under every quota, and keeps the
  * country and allocation complete counters in step with the sessions.
  */
+/** Demo gate survey: the standard profile questions from the library. */
+const GATE_QUESTIONS = questionTemplates('USD').map((t) => t.question).filter((q) => q.id !== 'postal');
+const PRESCREEN = [
+  {
+    id: 'it_role', type: 'single', text: 'Are you involved in buying IT products or services for your organisation?', required: true, validation: {},
+    options: [{ id: 'decide', label: 'Yes, I make the final decision', action: 'qualify' }, { id: 'influence', label: 'Yes, I influence the decision', action: 'qualify' }, { id: 'no', label: 'No', action: 'accept' }],
+  },
+  {
+    id: 'company_size', type: 'dropdown', text: 'How many people work at your organisation?', required: true, validation: {},
+    options: [{ id: 's1', label: '1 to 9', action: 'terminate' }, { id: 's2', label: '10 to 249', action: 'accept' }, { id: 's3', label: '250 to 999', action: 'accept' }, { id: 's4', label: '1,000 or more', action: 'accept' }],
+  },
+];
+
+/** Synthetic gate answers; screened-out respondents get a non-qualifying prescreen answer. */
+function demoAnswers(rnd: () => number, screenedOut: boolean) {
+  const pick = <T,>(xs: T[]) => xs[Math.floor(rnd() * xs.length)];
+  const label = (qid: string, id: string) => {
+    const q = [...GATE_QUESTIONS, ...PRESCREEN].find((x) => x.id === qid)!;
+    return q.options!.find((o) => o.id === id)!.label;
+  };
+  const choice = (qid: string, ids: string[]) => {
+    const id = pick(ids);
+    return { value: id, label: label(qid, id) };
+  };
+  const age = 23 + Math.floor(rnd() * 40);
+  const role = screenedOut ? 'no' : pick(['decide', 'influence', 'influence']);
+  return {
+    gate: {
+      age: { value: age, label: String(age) },
+      gender: choice('gender', ['male', 'male', 'female', 'female', 'nonbinary', 'na']),
+      income: choice('income', ['b2', 'b3', 'b3', 'b4', 'b5', 'b5', 'b6', 'na']),
+      employment: choice('employment', ['full_time', 'full_time', 'full_time', 'self_employed', 'part_time']),
+      education: choice('education', ['secondary', 'some_college', 'bachelor', 'bachelor', 'master', 'master', 'doctorate']),
+    },
+    prescreen: { it_role: { value: role, label: label('it_role', role) }, company_size: choice('company_size', ['s2', 's3', 's4', 's4']) },
+  };
+}
+
 async function seedHistory(projectId: string, organizationId: string, versionId: string) {
   let seed = 20261101;
   const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
@@ -202,10 +244,19 @@ async function seedHistory(projectId: string, organizationId: string, versionId:
         const outcomeAt = status === 'STARTED' ? null : new Date(started.getTime() + loiMs);
         const id = `seed-${c.countryCode}-${a.id.slice(-6)}-${i}`;
         const approval = !complete ? 'NOT_APPLICABLE' : started.getTime() < now - 10 * 86_400_000 ? (rnd() < 0.9 ? 'APPROVED' : 'REJECTED') : 'PENDING';
+        // Some terminates happened on the prescreener, some security rejects at the gate.
+        const prescreenOut = status === 'TERMINATE' && rnd() < 0.45;
+        const gateReason = status === 'SECURITY_REJECT' ? pick(rnd, ['HUMAN_CHECK_FAILED', 'SAME_FINGERPRINT', 'COOKIES_BLOCKED']) : null;
         sessions.push({
           id, organizationId, projectId, projectCountryId: c.id, vendorAllocationId: a.id, token: token(16),
           vendorRespondentId: `DEMO-${a.uidParam === 'rid' ? 'B' : 'A'}-${c.countryCode}-${String(i).padStart(3, '0')}`,
-          status, statusDetail: status === 'PARTIAL' ? 'ABANDONED' : null, approval, outcomeVerified: complete && rnd() < 0.5,
+          gateRequired: true,
+          gatePassedAt: gateReason || prescreenOut ? null : new Date(started.getTime() + 45_000),
+          humanAttempts: 1,
+          humanPassedAt: gateReason === 'HUMAN_CHECK_FAILED' ? null : new Date(started.getTime() + 15_000),
+          answers: gateReason ? undefined : (demoAnswers(rnd, prescreenOut) as unknown as Prisma.InputJsonValue),
+          deviceType: pick(rnd, ['desktop', 'desktop', 'desktop', 'mobile']),
+          status, statusDetail: status === 'PARTIAL' ? 'ABANDONED' : prescreenOut ? 'PRESCREEN' : gateReason, approval, outcomeVerified: complete && rnd() < 0.5,
           redirectVersionId: versionId, revenue: complete ? c.cpi : null, payout: complete ? a.cpi : null,
           startedAt: started, outcomeAt, expiresAt: new Date(started.getTime() + 2 * 86_400_000),
         });
@@ -218,6 +269,10 @@ async function seedHistory(projectId: string, organizationId: string, versionId:
   }
   await prisma.respondentSession.createMany({ data: sessions });
   await prisma.respondentEvent.createMany({ data: events });
+}
+
+function pick<T>(rnd: () => number, xs: T[]): T {
+  return xs[Math.floor(rnd() * xs.length)];
 }
 
 main()

@@ -48,6 +48,15 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - Admins connect Bidzo under **Settings → Bidzo connection** (endpoint, tenant and a signing secret shown once). The webhook contract for the Bidzo side is in `docs/BIDZO_INTEGRATION.md`.
 - The demo seed adds three synthetic won bids.
 
+## Milestone 6: gate survey, question builder and respondent security
+
+- **Gate & security tab** on each project: every security setting now blocks for real (entry link signing, device types, TOR, geolocation, duplicates by IP, fingerprint and cookie, browser language, time zone), with a note when something needs server setup.
+- **Respondent gate page** before the client survey: human check → gate survey → prescreener → browser checks → client survey. Phone-first, no branding, test links run every check but never block.
+- **Question builder** for gate survey and prescreener questions: single choice, multiple choice, dropdown, number, text and grid, with validations (required, ranges, whole numbers, number of choices, length, format) and rules (screen out, must pick one of, qualifying number range). Standard demographics, financial and education questions come from a library.
+- **Captcha style per project**, free options only: math, logic, picture text, invisible, Cloudflare Turnstile and hCaptcha (admins add those keys in Settings). Google reCAPTCHA is left out because its free tier stops at 10,000 checks a month.
+- **Answers** tab on each project and an **Answers** report: per-question counts, filter by any answer, status and market, and CSV export.
+- Details: `docs/RESPONDENT_SECURITY.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).

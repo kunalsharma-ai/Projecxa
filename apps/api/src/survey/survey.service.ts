@@ -6,6 +6,50 @@ import { PrismaService } from '../prisma/prisma.service';
 import { computeRedirect, internalEndPage } from '../redirects/redirect-engine';
 import { OutcomeStatus } from '../redirects/redirect.types';
 import { fillCallbackTemplate, parseConfig } from '../redirects/redirects.service';
+import {
+  CheckResult,
+  checkDevice,
+  checkEntrySignature,
+  checkGeo,
+  checkLanguage,
+  checkPow,
+  checkTimezone,
+  POW_BITS,
+  powChallenge,
+  REASON_LABELS,
+} from './respondent-checks';
+import { captchaSvg, CaptchaStyle, CAPTCHA_STYLES, HUMAN_MAX_ATTEMPTS, humanChallenge, normaliseAnswer, ProviderStyle, providerKeysOf, verifyProvider } from './captcha';
+import { evaluate, Question, questionsOf } from './questions';
+import { TorService } from './tor.service';
+
+/** Toggles that need the respondent's browser, so they run on the gate page before the survey. */
+const GATE_KEYS = ['gateSurvey', 'captcha', 'browserFingerprinting', 'browserLanguage', 'timezoneTracking', 'cookieValidation'] as const;
+
+export interface GateSubmission {
+  nonce?: unknown;
+  languages?: unknown;
+  timezone?: unknown;
+  fingerprint?: unknown;
+  answers?: unknown;
+}
+
+export interface GateView {
+  token: string;
+  /** Visible human check still to answer (null when off, invisible, or already passed). */
+  human: {
+    style: CaptchaStyle;
+    kind: 'input' | 'choice' | 'image' | 'widget';
+    question: string;
+    options?: string[];
+    /** widget styles */
+    siteKey?: string;
+    attemptsLeft: number;
+  } | null;
+  captcha: { challenge: string; bits: number } | null;
+  collect: { languages: boolean; timezone: boolean; fingerprint: boolean };
+  gateQuestions: Question[];
+  prescreen: Question[];
+}
 
 /** External status slugs accepted on /r/:status, mapped to canonical statuses. */
 const STATUS_ALIASES: Record<string, OutcomeStatus> = {
@@ -53,12 +97,17 @@ export interface EntryRequest {
   query: Record<string, string | undefined>;
   ip?: string;
   userAgent?: string;
+  /** Value of the configured geolocation header, if any. */
+  geoCountry?: string;
 }
 
 @Injectable()
 export class SurveyService {
   private readonly log = new Logger(SurveyService.name);
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tor: TorService,
+  ) {}
 
   /**
    * Vendor entry link: /s/{entryCode}?uid=...
@@ -86,6 +135,21 @@ export class SurveyService {
 
     const ipHash = req.ip ? sha256(`${project.organizationId}:${req.ip}`) : null;
     const security = (project.security ?? {}) as Record<string, boolean>;
+    const checks: CheckResult[] = [];
+
+    // URL protection runs before anything is stored: an unsigned link must not be able to claim
+    // (and so block) a real respondent's ID.
+    if (security.urlProtection) {
+      const r = checkEntrySignature(allocation.vendor.callbackSecret, uid, req.query.sig);
+      checks.push(r);
+      if (!r.ok && !isTest) {
+        // Tenant-scoped record (no session exists); counted in the project's security summary.
+        await this.prisma.auditEvent.create({
+          data: { organizationId: project.organizationId, action: 'respondent.bad-signature', entityType: 'Project', entityId: project.id, detail: { vendor: allocation.vendor.code, country: country.countryCode } },
+        });
+        return { location: internalEndPage(appConfig.publicBaseUrl, 'SECURITY_REJECT') };
+      }
+    }
 
     // Same vendor respondent ID entering again → DUPLICATE, existing session untouched.
     const existing = await this.prisma.respondentSession.findUnique({
@@ -103,16 +167,30 @@ export class SurveyService {
     if (isTest ? !testable : !live) initial = { status: 'QUOTA_FULL', detail: 'NOT_LIVE' };
     else if (!isTest && (country.completes >= country.targetCompletes || allocation.completes >= allocation.targetCompletes)) {
       initial = { status: 'QUOTA_FULL', detail: 'QUOTA_CLOSED' };
-    } else if (!isTest && security.duplicateDetection && ipHash) {
+    }
+    // Server-side checks. Test links run them too, but only log the result.
+    const device = checkDevice(project.devices as Record<string, boolean>, req.userAgent);
+    checks.push(device);
+    if (security.torDetection) {
+      const exit = await this.tor.isExitNode(req.ip);
+      checks.push(exit === null ? { check: 'tor', ok: true, note: 'exit list not loaded' } : exit ? { check: 'tor', ok: false, reason: 'TOR_EXIT', status: 'SECURITY_REJECT' } : { check: 'tor', ok: true });
+    }
+    if (security.geolocation) {
+      checks.push(appConfig.geoCountryHeader ? checkGeo(req.geoCountry, country.countryCode) : { check: 'geolocation', ok: true, note: 'not configured' });
+    }
+    if (security.duplicateDetection && ipHash) {
       const sameDevice = await this.prisma.respondentSession.findFirst({
         where: { projectId: project.id, isTest: false, ipHash, userAgent: req.userAgent ?? null },
         select: { id: true },
       });
-      if (sameDevice) initial = { status: 'DUPLICATE', detail: 'SAME_DEVICE' };
+      checks.push(sameDevice ? { check: 'duplicate', ok: false, reason: 'SAME_DEVICE', status: 'DUPLICATE' } : { check: 'duplicate', ok: true });
     }
+    const failed = checks.find((c) => !c.ok);
+    if (!initial && !isTest && failed) initial = { status: failed.status!, detail: failed.reason };
     const surveyUrl = isTest ? country.testSurveyUrl ?? country.liveSurveyUrl : country.liveSurveyUrl;
     if (!initial && !surveyUrl) initial = { status: 'TECHNICAL_ERROR', detail: 'NO_SURVEY_LINK' };
 
+    const gateRequired = !initial && gateNeeded(security);
     const ttl = country.sessionTtlMinutes ?? Math.max(60, country.loiMinutes * 4);
     const token = randomToken();
     let session: SessionWithContext;
@@ -132,15 +210,23 @@ export class SurveyService {
           redirectVersionId: project.activeRedirectVersionId,
           ipHash,
           userAgent: req.userAgent?.slice(0, 500),
+          deviceType: device.note,
+          geoCountry: appConfig.geoCountryHeader && /^[A-Z]{2}$/i.test(req.geoCountry ?? '') ? req.geoCountry!.toUpperCase() : null,
+          gateRequired,
           expiresAt: new Date(Date.now() + ttl * 60_000),
           events: {
-            create: {
-              type: 'ENTRY',
-              status: initial?.status ?? null,
-              source: 'ENTRY',
-              idempotencyKey: `entry:${token}`,
-              detail: initial ? { reason: initial.detail } : undefined,
-            },
+            create: [
+              {
+                type: 'ENTRY',
+                status: initial?.status ?? null,
+                source: 'ENTRY',
+                idempotencyKey: `entry:${token}`,
+                detail: initial ? { reason: initial.detail } : undefined,
+              },
+              ...(checks.length
+                ? [{ type: 'SECURITY_CHECK', status: null, source: 'ENTRY' as const, idempotencyKey: `checks:entry:${token}`, detail: { stage: 'entry', enforced: !isTest, checks } as unknown as Prisma.InputJsonValue }]
+                : []),
+            ],
           },
         },
         include: SESSION_INCLUDE,
@@ -158,6 +244,7 @@ export class SurveyService {
     }
 
     if (initial) return { location: await this.redirectFor(session, initial.status as OutcomeStatus) };
+    if (gateRequired) return { location: `${appConfig.publicBaseUrl}/g/${encodeURIComponent(token)}` };
     return { location: buildSurveyLink(surveyUrl!, { token, countryCode: country.countryCode, projectCode: project.projectCode }) };
   }
 
@@ -175,7 +262,9 @@ export class SurveyService {
     if (!status) {
       return { location: await this.redirectFor(session, 'TECHNICAL_ERROR', `Unknown status "${statusSlug.slice(0, 40)}"`) };
     }
-    const outcome = await this.recordOutcome(session, status, 'BROWSER');
+    // The survey link is only released after the gate; an outcome before that means the gate was bypassed.
+    const skipped = session.gateRequired && !session.gatePassedAt && session.status === 'STARTED';
+    const outcome = skipped ? await this.recordOutcome(session, 'SECURITY_REJECT', 'BROWSER', 'GATE_SKIPPED') : await this.recordOutcome(session, status, 'BROWSER');
     const fresh = await this.prisma.respondentSession.findUniqueOrThrow({ where: { id: session.id }, include: SESSION_INCLUDE });
     return { location: await this.redirectFor(fresh, outcome.effectiveStatus) };
   }
@@ -205,9 +294,10 @@ export class SurveyService {
     session: SessionWithContext,
     requested: OutcomeStatus,
     source: EventSource,
+    reason?: string,
   ): Promise<{ effectiveStatus: OutcomeStatus; conflict: boolean; changed: boolean }> {
     let status: RespondentStatus = requested;
-    let detail: string | undefined;
+    let detail: string | undefined = reason;
 
     if (session.status !== 'STARTED') {
       const same = session.status === requested || (session.statusDetail === 'OVERQUOTA' && requested === 'COMPLETE');
@@ -270,9 +360,176 @@ export class SurveyService {
 
     if (!changed) {
       const current = await this.prisma.respondentSession.findUniqueOrThrow({ where: { id: session.id }, include: SESSION_INCLUDE });
-      return this.recordOutcome(current, requested, source);
+      return this.recordOutcome(current, requested, source, reason);
     }
     return { effectiveStatus: status as OutcomeStatus, conflict: false, changed: true };
+  }
+
+  // ───────────── Respondent gate (browser checks before the survey) ─────────────
+
+  /** What the gate page needs, or where to send the respondent instead. */
+  async gateView(token: string): Promise<{ view: GateView } | { location: string }> {
+    const session = await this.prisma.respondentSession.findUnique({ where: { token }, include: SESSION_INCLUDE });
+    if (!session) return { location: internalEndPage(appConfig.publicBaseUrl, 'SECURITY_REJECT') };
+    if (session.status !== 'STARTED') return { location: await this.redirectFor(session, session.status as OutcomeStatus) };
+    if (!session.gateRequired || session.gatePassedAt) return { location: this.surveyLink(session) };
+    const security = (session.project.security ?? {}) as Record<string, boolean>;
+    return {
+      view: {
+        token,
+        human: this.humanView(session),
+        captcha: powRequired(security, captchaStyleOf(session)) ? { challenge: powChallenge(appConfig.jwtSecret, token), bits: powBits(session.isTest) } : null,
+        collect: { languages: !!security.browserLanguage, timezone: !!security.timezoneTracking, fingerprint: !!security.browserFingerprinting },
+        gateQuestions: security.gateSurvey ? questionsOf(session.project.gateQuestions) : [],
+        prescreen: security.prescreening ? questionsOf(session.project.prescreen) : [],
+      },
+    };
+  }
+
+  private humanView(session: SessionWithContext): GateView['human'] {
+    const security = (session.project.security ?? {}) as Record<string, boolean>;
+    const style = captchaStyleOf(session);
+    if (!humanRequired(security, style) || session.humanPassedAt) return null;
+    const c = humanChallenge(style, appConfig.jwtSecret, session.token, session.humanAttempts);
+    if (c.kind === 'none') return null;
+    const keys = providerKeysOf(session.project.organization.captchaProviders);
+    return {
+      style,
+      kind: c.kind,
+      question: c.text,
+      options: c.options,
+      siteKey: style === 'turnstile' || style === 'hcaptcha' ? keys[style]?.siteKey : undefined,
+      attemptsLeft: HUMAN_MAX_ATTEMPTS - session.humanAttempts,
+    };
+  }
+
+  /** The text_image picture for the respondent's current attempt. */
+  async captchaImage(token: string): Promise<string | null> {
+    const session = await this.prisma.respondentSession.findUnique({ where: { token }, include: SESSION_INCLUDE });
+    if (!session || session.status !== 'STARTED' || captchaStyleOf(session) !== 'text_image') return null;
+    const c = humanChallenge('text_image', appConfig.jwtSecret, token, session.humanAttempts);
+    return captchaSvg(c.answer!, hmacSha256(appConfig.jwtSecret, `img:${token}:${session.humanAttempts}`));
+  }
+
+  /**
+   * Visible human check, answered before the questions. Up to three tries, each with a new
+   * challenge; the third wrong answer ends the session (live links) as HUMAN_CHECK_FAILED.
+   */
+  async humanCheck(token: string, answer: unknown, ip?: string): Promise<{ ok: true } | { ok: false; human: GateView['human'] } | { location: string }> {
+    const session = await this.prisma.respondentSession.findUnique({ where: { token }, include: SESSION_INCLUDE });
+    if (!session) return { location: internalEndPage(appConfig.publicBaseUrl, 'SECURITY_REJECT') };
+    if (session.status !== 'STARTED') return { location: await this.redirectFor(session, session.status as OutcomeStatus) };
+    const style = captchaStyleOf(session);
+    if (session.humanPassedAt || !humanRequired((session.project.security ?? {}) as Record<string, boolean>, style)) return { ok: true };
+    const attempt = session.humanAttempts;
+    if (attempt >= HUMAN_MAX_ATTEMPTS) return this.fail(session, 'SECURITY_REJECT', 'HUMAN_CHECK_FAILED');
+
+    let correct: boolean;
+    let detail: Record<string, unknown> = {};
+    if (style === 'turnstile' || style === 'hcaptcha') {
+      const v = await verifyProvider(style, providerKeysOf(session.project.organization.captchaProviders)[style]!.secret, typeof answer === 'string' ? answer : '', ip);
+      correct = v.ok;
+      detail = { provider: style, unverified: v.unverified ?? false, codes: v.codes };
+    } else {
+      correct = normaliseAnswer(answer) === humanChallenge(style, appConfig.jwtSecret, token, attempt).answer;
+    }
+    // Guarded on the attempt number so parallel guesses cannot reuse one challenge.
+    const claimed = await this.prisma.respondentSession.updateMany({
+      where: { id: session.id, humanAttempts: attempt, humanPassedAt: null },
+      data: correct ? { humanAttempts: { increment: 1 }, humanPassedAt: new Date() } : { humanAttempts: { increment: 1 } },
+    });
+    if (!claimed.count) return this.humanCheck(token, answer, ip);
+    await this.event(session.id, 'HUMAN_CHECK', null, 'ENTRY', `human:${session.id}:${attempt}`, { style, ok: correct, attempt: attempt + 1, ...detail });
+    if (correct) return { ok: true };
+    if (attempt + 1 >= HUMAN_MAX_ATTEMPTS) {
+      if (session.isTest) {
+        await this.prisma.respondentSession.update({ where: { id: session.id }, data: { humanPassedAt: new Date() } });
+        return { ok: true };
+      }
+      return this.fail(session, 'SECURITY_REJECT', 'HUMAN_CHECK_FAILED');
+    }
+    const fresh = await this.prisma.respondentSession.findUniqueOrThrow({ where: { id: session.id }, include: SESSION_INCLUDE });
+    return { ok: false, human: this.humanView(fresh) };
+  }
+
+  /** Expected value of the per-session gate cookie (proves the browser keeps cookies). */
+  gateCookieValue(token: string) {
+    return hmacSha256(appConfig.jwtSecret, `gate:${token}`).slice(0, 32);
+  }
+
+  async gateSubmit(token: string, body: GateSubmission, cookies: { gate?: string; browserId?: string }): Promise<{ location: string }> {
+    const session = await this.prisma.respondentSession.findUnique({ where: { token }, include: SESSION_INCLUDE });
+    if (!session) return { location: internalEndPage(appConfig.publicBaseUrl, 'SECURITY_REJECT') };
+    if (session.status !== 'STARTED') return { location: await this.redirectFor(session, session.status as OutcomeStatus) };
+    if (!session.gateRequired || session.gatePassedAt) return { location: this.surveyLink(session) };
+    if (session.expiresAt < new Date()) return this.fail(session, 'SECURITY_REJECT', 'EXPIRED');
+
+    const security = (session.project.security ?? {}) as Record<string, boolean>;
+    const orgId = session.organizationId;
+    const fingerprint = typeof body.fingerprint === 'string' && /^[0-9a-f]{64}$/i.test(body.fingerprint) ? sha256(`${orgId}:${body.fingerprint.toLowerCase()}`) : null;
+    const browserId = cookies.browserId && cookies.browserId.length <= 100 ? sha256(`${orgId}:${cookies.browserId}`) : null;
+    const checks: CheckResult[] = [];
+
+    // Order of precedence when several things fail: bot checks, then fraud/duplicate checks,
+    // then the answers (a duplicate that would also screen out is reported as a duplicate).
+    const style = captchaStyleOf(session);
+    if (humanRequired(security, style)) {
+      checks.push(session.humanPassedAt ? { check: 'human', ok: true } : { check: 'human', ok: false, reason: 'HUMAN_CHECK_FAILED', status: 'SECURITY_REJECT' });
+    }
+    if (powRequired(security, style)) checks.push(checkPow(powChallenge(appConfig.jwtSecret, token), body.nonce, powBits(session.isTest)));
+    if (security.cookieValidation) {
+      checks.push(cookies.gate === this.gateCookieValue(token) ? { check: 'cookies', ok: true } : { check: 'cookies', ok: false, reason: 'COOKIES_BLOCKED', status: 'SECURITY_REJECT' });
+    }
+    if (security.browserLanguage) {
+      const langs = Array.isArray(body.languages) ? body.languages.filter((l): l is string => typeof l === 'string').slice(0, 20) : undefined;
+      checks.push(checkLanguage(langs, session.projectCountry.language));
+    }
+    if (security.timezoneTracking) checks.push(checkTimezone(typeof body.timezone === 'string' ? body.timezone.slice(0, 64) : undefined, session.projectCountry.countryCode));
+    if (security.browserFingerprinting) {
+      if (!fingerprint) checks.push({ check: 'fingerprint', ok: true, note: 'not reported' });
+      else {
+        const same = await this.prisma.respondentSession.findFirst({ where: { projectId: session.projectId, isTest: false, fingerprintHash: fingerprint, id: { not: session.id } }, select: { id: true } });
+        checks.push(same ? { check: 'fingerprint', ok: false, reason: 'SAME_FINGERPRINT', status: 'DUPLICATE' } : { check: 'fingerprint', ok: true });
+      }
+    }
+    if (security.cookieValidation && browserId) {
+      const same = await this.prisma.respondentSession.findFirst({ where: { projectId: session.projectId, isTest: false, browserIdHash: browserId, id: { not: session.id } }, select: { id: true } });
+      checks.push(same ? { check: 'browser', ok: false, reason: 'SAME_BROWSER', status: 'DUPLICATE' } : { check: 'browser', ok: true });
+    }
+    const raw = (body.answers && typeof body.answers === 'object' ? body.answers : {}) as { gate?: unknown; prescreen?: unknown };
+    const gate = security.gateSurvey ? evaluate(questionsOf(session.project.gateQuestions), raw.gate) : null;
+    const pre = security.prescreening ? evaluate(questionsOf(session.project.prescreen), raw.prescreen) : null;
+    if (gate || pre) {
+      const invalid = gate?.invalid ?? pre?.invalid;
+      checks.push(invalid ? { check: 'answers', ok: false, reason: 'GATE_INCOMPLETE', status: 'SECURITY_REJECT', note: invalid } : { check: 'answers', ok: true });
+    }
+    if (gate) checks.push(gate.screenedOut ? { check: 'gateSurvey', ok: false, reason: 'GATE_SCREENOUT', status: 'TERMINATE', note: gate.screenedOut } : { check: 'gateSurvey', ok: true });
+    if (pre) checks.push(pre.screenedOut ? { check: 'prescreening', ok: false, reason: 'PRESCREEN', status: 'TERMINATE', note: pre.screenedOut } : { check: 'prescreening', ok: true });
+
+    const enforced = !session.isTest;
+    const answers = gate || pre ? ({ ...(gate ? { gate: gate.answers } : {}), ...(pre ? { prescreen: pre.answers } : {}) } as Prisma.InputJsonValue) : undefined;
+    await this.prisma.respondentSession.update({ where: { id: session.id }, data: { fingerprintHash: fingerprint, browserIdHash: browserId, answers } });
+    await this.event(session.id, 'SECURITY_CHECK', null, 'ENTRY', `checks:gate:${session.id}:${randomToken(4)}`, { stage: 'gate', enforced, checks });
+
+    const failed = checks.find((c) => !c.ok);
+    if (failed && enforced) return this.fail(session, failed.status!, failed.reason!);
+
+    // Guarded so two submits cannot both release the link with different results.
+    await this.prisma.respondentSession.updateMany({ where: { id: session.id, gatePassedAt: null }, data: { gatePassedAt: new Date() } });
+    return { location: this.surveyLink(session) };
+  }
+
+  private async fail(session: SessionWithContext, status: OutcomeStatus, reason: string) {
+    const r = await this.recordOutcome(session, status, 'ENTRY', reason);
+    const fresh = await this.prisma.respondentSession.findUniqueOrThrow({ where: { id: session.id }, include: SESSION_INCLUDE });
+    return { location: await this.redirectFor(fresh, r.effectiveStatus) };
+  }
+
+  private surveyLink(session: SessionWithContext) {
+    const c = session.projectCountry;
+    const url = session.isTest ? c.testSurveyUrl ?? c.liveSurveyUrl : c.liveSurveyUrl;
+    if (!url) return internalEndPage(appConfig.publicBaseUrl, 'TECHNICAL_ERROR');
+    return buildSurveyLink(url, { token: session.token, countryCode: c.countryCode, projectCode: session.project.projectCode });
   }
 
   /** Resolve, record and return the redirect for a session, using the config version the session started with. */
@@ -346,6 +603,32 @@ export class SurveyService {
 }
 
 class OutcomeRace extends Error {}
+
+/** Test links use an easier challenge so QA runs stay quick; live links use the full one. */
+function powBits(isTest: boolean) {
+  return isTest ? 12 : POW_BITS;
+}
+
+/** Captcha style for a session; a third-party style without keys falls back to the built-in math check. */
+function captchaStyleOf(session: { project: { captchaStyle: string; organization: { captchaProviders: Prisma.JsonValue } } }): CaptchaStyle {
+  const style = (CAPTCHA_STYLES as readonly string[]).includes(session.project.captchaStyle) ? (session.project.captchaStyle as CaptchaStyle) : 'math';
+  if ((style === 'turnstile' || style === 'hcaptcha') && !providerKeysOf(session.project.organization.captchaProviders)[style as ProviderStyle]) return 'math';
+  return style;
+}
+
+/** The gate survey always starts with a human check; the captcha toggle adds one too. "invisible" has no visible step. */
+function humanRequired(security: Record<string, boolean>, style: CaptchaStyle) {
+  return !!(security.gateSurvey || security.captcha) && style !== 'invisible';
+}
+
+/** The background proof-of-work runs with the captcha toggle, and replaces the visible step for "invisible". */
+function powRequired(security: Record<string, boolean>, style: CaptchaStyle) {
+  return !!security.captcha || (!!security.gateSurvey && style === 'invisible');
+}
+
+export function gateNeeded(security: Record<string, boolean>): boolean {
+  return GATE_KEYS.some((k) => security[k]) || !!security.prescreening;
+}
 
 /** Client survey link: substitute macros, and append the session token if the link has no {session_token} macro. */
 export function buildSurveyLink(template: string, v: { token: string; countryCode: string; projectCode: string }) {
