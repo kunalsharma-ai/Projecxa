@@ -30,7 +30,7 @@ export interface Country {
   liveSurveyUrl: string | null;
   testSurveyUrl: string | null;
   allocations: Allocation[];
-  quotas: { id: string; name: string; target: number; completes: number }[];
+  quotas: { id: string; group: string; name: string; target: number; completes: number; isOpen: boolean }[];
 }
 
 export interface ProjectDetail {

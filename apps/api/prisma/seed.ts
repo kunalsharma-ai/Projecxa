@@ -7,6 +7,7 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { questionTemplates } from '../src/survey/questions';
+import { matchCells, Respondent } from '../src/quotas/quota.rules';
 
 const prisma = new PrismaClient();
 const token = (n = 12) => randomBytes(n).toString('base64url');
@@ -181,6 +182,7 @@ async function main() {
 
   await seedHistory(project.id, org.id, v1.id);
   await seedFinance(project.id, org.id, pm.id);
+  await seedQuotas(project.id);
   await seedWonBids(org.id);
 
   console.log(`Seeded organization "demo".
@@ -231,6 +233,30 @@ function demoAnswers(rnd: () => number, screenedOut: boolean) {
     },
     prescreen: { it_role: { value: role, label: label('it_role', role) }, company_size: choice('company_size', ['s2', 's3', 's4', 's4']) },
   };
+}
+
+/** Company-size and age quota cells for the US market, counted from the synthetic history. */
+async function seedQuotas(projectId: string) {
+  const us = await prisma.projectCountry.findFirstOrThrow({ where: { projectId, countryCode: 'US' } });
+  const size = (id: string, name: string, target: number, sortOrder: number) => ({ projectCountryId: us.id, group: 'Company size', name, target, sortOrder, conditions: [{ source: 'prescreen', questionId: 'company_size', values: [id] }] });
+  await prisma.quotaCell.createMany({
+    data: [
+      size('s2', '10 to 249', 15, 0),
+      size('s3', '250 to 999', 15, 1),
+      size('s4', '1,000 or more', 20, 2),
+      { projectCountryId: us.id, group: 'Age', name: 'Under 35', target: 15, sortOrder: 3, conditions: [{ source: 'gate', questionId: 'age', max: 34 }] },
+      { projectCountryId: us.id, group: 'Age', name: '35 and over', target: 35, sortOrder: 4, conditions: [{ source: 'gate', questionId: 'age', min: 35 }] },
+    ],
+  });
+  const cells = await prisma.quotaCell.findMany({ where: { projectCountryId: us.id } });
+  const sessions = await prisma.respondentSession.findMany({ where: { projectCountryId: us.id, isTest: false, status: { in: ['STARTED', 'COMPLETE'] } } });
+  const counts = new Map<string, number>();
+  for (const s of sessions) {
+    const { matched } = matchCells(cells, { device: s.deviceType, answers: s.answers as Respondent['answers'] });
+    await prisma.respondentSession.update({ where: { id: s.id }, data: { quotaCellIds: matched.map((c) => c.id) } });
+    if (s.status === 'COMPLETE') for (const c of matched) counts.set(c.id, (counts.get(c.id) ?? 0) + 1);
+  }
+  for (const c of cells) await prisma.quotaCell.update({ where: { id: c.id }, data: { completes: counts.get(c.id) ?? 0 } });
 }
 
 async function seedHistory(projectId: string, organizationId: string, versionId: string) {

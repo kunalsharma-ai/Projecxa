@@ -22,6 +22,7 @@ import { captchaSvg, CaptchaStyle, CAPTCHA_STYLES, HUMAN_MAX_ATTEMPTS, humanChal
 import { DEFAULT_DESIGN, designOf, END_STATUSES, EndStatus, PageDesign } from './page-design';
 import { evaluate, Question, questionsOf } from './questions';
 import { TorService } from './tor.service';
+import { matchCells, Respondent } from '../quotas/quota.rules';
 
 /** Toggles that need the respondent's browser, so they run on the gate page before the survey. */
 const GATE_KEYS = ['gateSurvey', 'captcha', 'browserFingerprinting', 'browserLanguage', 'timezoneTracking', 'cookieValidation'] as const;
@@ -125,7 +126,7 @@ export class SurveyService {
       where: { OR: [{ entryCode: req.code }, { testEntryCode: req.code }] },
       include: {
         vendor: true,
-        projectCountry: { include: { project: { include: { organization: true, client: true } } } },
+        projectCountry: { include: { project: { include: { organization: true, client: true } }, quotas: true } },
       },
     });
     if (!allocation) return { location: internalEndPage(appConfig.publicBaseUrl, 'SECURITY_REJECT') };
@@ -193,6 +194,9 @@ export class SurveyService {
     }
     const failed = checks.find((c) => !c.ok);
     if (!initial && !isTest && failed) initial = { status: failed.status!, detail: failed.reason };
+    // Quota cells known at entry (device). Answer-based cells are judged after the gate page.
+    const cells = matchCells(country.quotas, { device: device.note ?? null, answers: null });
+    if (!initial && !isTest && cells.full) initial = { status: 'QUOTA_FULL', detail: 'CELL_FULL' };
     const surveyUrl = isTest ? country.testSurveyUrl ?? country.liveSurveyUrl : country.liveSurveyUrl;
     if (!initial && !surveyUrl) initial = { status: 'TECHNICAL_ERROR', detail: 'NO_SURVEY_LINK' };
 
@@ -219,6 +223,7 @@ export class SurveyService {
           deviceType: device.note,
           geoCountry: appConfig.geoCountryHeader && /^[A-Z]{2}$/i.test(req.geoCountry ?? '') ? req.geoCountry!.toUpperCase() : null,
           gateRequired,
+          quotaCellIds: cells.matched.map((c) => c.id),
           expiresAt: new Date(Date.now() + ttl * 60_000),
           events: {
             create: [
@@ -325,12 +330,23 @@ export class SurveyService {
       let revenue: Prisma.Decimal | null = null;
       let payout: Prisma.Decimal | null = null;
       if (status === 'COMPLETE' && !session.isTest) {
-        // Atomic quota control: only count the complete if the country and vendor targets still have room.
-        const c = await tx.$executeRaw`UPDATE "ProjectCountry" SET completes = completes + 1 WHERE id = ${session.projectCountryId} AND completes < "targetCompletes"`;
+        // Atomic quota control: only count the complete if every quota cell the respondent qualified
+        // for, the country and the vendor target still have room. Anything taken is given back otherwise.
+        const ids = session.quotaCellIds ?? [];
+        const cellIds = ids.length ? (await tx.quotaCell.findMany({ where: { id: { in: ids }, projectCountryId: session.projectCountryId }, select: { id: true } })).map((x) => x.id) : [];
+        const taken: string[] = [];
+        for (const id of cellIds) {
+          const ok = await tx.$executeRaw`UPDATE "QuotaCell" SET completes = completes + 1 WHERE id = ${id} AND "isOpen" AND completes < target`;
+          if (!ok) break;
+          taken.push(id);
+        }
+        const cellsOk = taken.length === cellIds.length;
+        const c = cellsOk ? await tx.$executeRaw`UPDATE "ProjectCountry" SET completes = completes + 1 WHERE id = ${session.projectCountryId} AND completes < "targetCompletes"` : 0;
         const a = c
           ? await tx.$executeRaw`UPDATE "VendorAllocation" SET completes = completes + 1 WHERE id = ${session.vendorAllocationId} AND completes < "targetCompletes"`
           : 0;
         if (c && !a) await tx.$executeRaw`UPDATE "ProjectCountry" SET completes = completes - 1 WHERE id = ${session.projectCountryId}`;
+        if (!a) for (const id of taken) await tx.$executeRaw`UPDATE "QuotaCell" SET completes = completes - 1 WHERE id = ${id}`;
         if (!c || !a) {
           status = 'QUOTA_FULL';
           detail = 'OVERQUOTA';
@@ -514,9 +530,17 @@ export class SurveyService {
     if (gate) checks.push(gate.screenedOut ? { check: 'gateSurvey', ok: false, reason: 'GATE_SCREENOUT', status: 'TERMINATE', note: gate.screenedOut } : { check: 'gateSurvey', ok: true });
     if (pre) checks.push(pre.screenedOut ? { check: 'prescreening', ok: false, reason: 'PRESCREEN', status: 'TERMINATE', note: pre.screenedOut } : { check: 'prescreening', ok: true });
 
+    // Quota cells, now that the answers are known. Checked last: a screen-out stays a terminate.
+    const cellAnswers = { ...(gate ? { gate: gate.answers } : {}), ...(pre ? { prescreen: pre.answers } : {}) } as Respondent['answers'];
+    const quotaCells = await this.prisma.quotaCell.findMany({ where: { projectCountryId: session.projectCountryId } });
+    const cells = matchCells(quotaCells, { device: session.deviceType, answers: cellAnswers });
+    if (quotaCells.length) {
+      checks.push(cells.full ? { check: 'quota', ok: false, reason: 'CELL_FULL', status: 'QUOTA_FULL', note: cells.full.name } : { check: 'quota', ok: true, note: cells.matched.map((c) => c.name).join(', ') || 'no cell' });
+    }
+
     const enforced = !session.isTest;
     const answers = gate || pre ? ({ ...(gate ? { gate: gate.answers } : {}), ...(pre ? { prescreen: pre.answers } : {}) } as Prisma.InputJsonValue) : undefined;
-    await this.prisma.respondentSession.update({ where: { id: session.id }, data: { fingerprintHash: fingerprint, browserIdHash: browserId, answers } });
+    await this.prisma.respondentSession.update({ where: { id: session.id }, data: { fingerprintHash: fingerprint, browserIdHash: browserId, answers, quotaCellIds: cells.matched.map((c) => c.id) } });
     await this.event(session.id, 'SECURITY_CHECK', null, 'ENTRY', `checks:gate:${session.id}:${randomToken(4)}`, { stage: 'gate', enforced, checks });
 
     const failed = checks.find((c) => !c.ok);

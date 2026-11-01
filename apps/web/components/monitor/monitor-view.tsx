@@ -17,6 +17,7 @@ export interface MarketView {
   pace: Pace;
   ir: number | null;
   allocations: { id: string; vendor: { id: string; name: string; code: string }; status: string; metrics: Metrics; pace: Pace; qualityShare24h: number | null; dropShare24h: number | null }[];
+  cells?: { id: string; group: string; name: string; target: number; completes: number; isOpen: boolean }[];
 }
 export interface AlertRow {
   id: string; rule: string; severity: 'info' | 'warn' | 'bad'; title: string; detail: string; state: 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED';
@@ -201,6 +202,22 @@ export function MarketsTable({ markets, editable, onChange, showProject = true, 
                               ))}
                             </tbody>
                           </table>
+                        )}
+                        {!!m.cells?.length && (
+                          <div className="mt-3">
+                            <div className="mb-1.5 text-xs font-medium text-muted">Quota cells</div>
+                            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                              {m.cells.map((q) => (
+                                <div key={q.id} className="rounded-md border border-line bg-panel px-3 py-2">
+                                  <div className="mb-1 flex items-center justify-between gap-2 text-xs">
+                                    <span className="truncate">{q.group ? <span className="text-muted">{q.group}: </span> : null}{q.name}</span>
+                                    {!q.isOpen ? <span className="chip bg-sunken text-muted">Closed</span> : q.completes >= q.target ? <span className="chip bg-warn/15 text-warn">Full</span> : null}
+                                  </div>
+                                  <Progress value={q.completes} max={q.target} />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         )}
                       </td>
                     </tr>

@@ -18,6 +18,8 @@ export interface MarketView {
   pace: Pace;
   ir: number | null;
   allocations: { id: string; vendor: { id: string; name: string; code: string }; status: AllocationStatus; metrics: Metrics; pace: Pace; qualityShare24h: number | null; dropShare24h: number | null }[];
+  /** Quota cells of the market (docs/QUOTAS.md). */
+  cells: { id: string; group: string; name: string; target: number; completes: number; isOpen: boolean }[];
 }
 
 const SEVERITY_RANK: Record<string, number> = { bad: 0, warn: 1, info: 2 };
@@ -83,6 +85,7 @@ export class MonitorService {
       include: {
         project: { select: { id: true, projectCode: true, name: true, status: true, fieldStartAt: true, fieldEndAt: true } },
         allocations: { include: { vendor: { select: { id: true, name: true, code: true } } }, orderBy: { createdAt: 'asc' } },
+        quotas: { select: { id: true, group: true, name: true, target: true, completes: true, isOpen: true }, orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] },
       },
       orderBy: [{ project: { projectCode: 'asc' } }, { countryCode: 'asc' }],
     });
@@ -101,6 +104,7 @@ export class MonitorService {
           const am = { ...(byAlloc.get(a.id) ?? empty(0)), target: a.targetCompletes };
           return { id: a.id, vendor: a.vendor, status: a.status, metrics: strip(am), pace: pace(am, c.project.fieldEndAt, now, s.stalledHours), qualityShare24h: share(am.quality24h, am.entries24h), dropShare24h: share(am.dropped24h, am.entries24h) };
         }),
+        cells: c.quotas,
       };
     });
   }
@@ -125,6 +129,12 @@ export class MonitorService {
       // Pausing every vendor link does not hide a market that is stalled or behind.
       const live = mk.country.status === 'LIVE';
       for (const c of marketRules(`m:${mk.country.id}`, label, mk.metrics, mk.pace, mk.country, s, live, now)) found.push({ ...c, projectId: mk.project.id, projectCountryId: mk.country.id });
+      for (const q of mk.cells) {
+        if (q.isOpen && q.completes >= q.target) {
+          const name = q.group ? `${q.group}: ${q.name}` : q.name;
+          found.push({ dedupeKey: `q:${q.id}:cell_full`, rule: 'cell_full', severity: 'info', title: `${label} quota cell ${name} is full`, detail: `${q.completes} of ${q.target} completes. Matching respondents now go to quota full; raise the target to keep them.`, projectId: mk.project.id, projectCountryId: mk.country.id });
+        }
+      }
       const ap = autopilots.get(mk.project.id)!;
       for (const a of mk.allocations) {
         const alabel = `${label} · ${a.vendor.name}`;

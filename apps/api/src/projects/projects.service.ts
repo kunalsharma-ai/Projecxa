@@ -14,7 +14,6 @@ import {
   countryInputSchema,
   CreateProjectInput,
   listQuerySchema,
-  quotaSchema,
   SECURITY_KEYS,
   updateAllocationSchema,
   updateCountrySchema,
@@ -353,7 +352,7 @@ export class ProjectsService {
         targetCompletes: src.targetCompletes,
         // Survey links are market-specific; they are not copied.
         sessionTtlMinutes: src.sessionTtlMinutes,
-        quotas: { create: src.quotas.map((q) => ({ name: q.name, target: q.target, criteria: q.criteria ?? undefined })) },
+        quotas: { create: src.quotas.map((q) => ({ group: q.group, name: q.name, target: q.target, isOpen: q.isOpen, sortOrder: q.sortOrder, conditions: q.conditions ?? [], criteria: q.criteria ?? undefined })) },
         allocations: body.includeVendors
           ? {
               create: src.allocations.map((a) => ({
@@ -417,18 +416,6 @@ export class ProjectsService {
     });
     await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'allocation.update', entityType: 'VendorAllocation', entityId: allocationId, detail: body });
     return a;
-  }
-
-  async addQuota(u: AuthUser, projectId: string, countryId: string, body: z.infer<typeof quotaSchema>) {
-    const c = await this.mustOwnCountry(u, projectId, countryId);
-    const existing = await this.prisma.quotaCell.aggregate({ where: { projectCountryId: countryId }, _sum: { target: true } });
-    if ((existing._sum.target ?? 0) + body.target > c.targetCompletes * 10) {
-      // Interlocking cells can legitimately overlap, so this is a sanity bound, not a strict sum check.
-      throw new BadRequestException('Quota targets look far larger than the country target');
-    }
-    return this.prisma.quotaCell.create({
-      data: { projectCountryId: countryId, name: body.name, target: body.target, criteria: body.criteria as Prisma.InputJsonValue | undefined },
-    });
   }
 
   async sessions(u: AuthUser, projectId: string, opts: { includeTest: boolean; take: number }) {

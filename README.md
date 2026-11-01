@@ -82,6 +82,13 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - **Project Monitor tab** with field start and end dates; **Settings → Fieldwork alerts** for thresholds and a signed webhook (Slack or Teams relay).
 - Details: `docs/FIELDWORK_MONITOR.md`.
 
+## Milestone 10: quota cells
+
+- **Quotas tab** on each project: split a market's target into cells by device or by answers to the gate survey and prescreener (choices or number ranges such as age 18–34). Conditions combine, so cells can interlock (women aged 18–34). Quick add creates one cell per answer with an even split of the target.
+- **Enforced** at entry (device cells), after the gate page (answer cells) and again at the complete, atomically with the market and vendor targets: a respondent whose cell is full or closed goes to quota full, and a complete that would overfill a cell is recorded as overquota.
+- Cells show completes, respondents still in the survey, and can be closed or reopened in one click. The fieldwork monitor shows them per market and raises an alert when one fills.
+- Details: `docs/QUOTAS.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).
