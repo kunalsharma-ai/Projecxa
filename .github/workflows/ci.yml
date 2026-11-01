@@ -31,4 +31,5 @@ jobs:
       - run: pnpm --filter @projexa/api typecheck
       - run: pnpm --filter @projexa/api test
       - run: pnpm --filter @projexa/web typecheck
+      - run: pnpm --filter @projexa/web test
       - run: pnpm --filter @projexa/web build

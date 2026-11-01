@@ -32,7 +32,7 @@ export function TrendChart({ days }: { days: SummaryRow[] }) {
                 aria-label={`${fmt(d.key)}: ${d.completes} completes, ${d.clicks} clicks`}
               >
                 <span
-                  className={`block w-full rounded-t-[4px] ${hover === i ? 'bg-brand' : 'bg-brand/75'}`}
+                  className={`block w-full rounded-t-[4px] transition-[height,background-color] duration-[var(--dur-slow)] ease-[var(--ease)] ${hover === i ? 'bg-chart-1' : 'bg-chart-1/75'}`}
                   style={{ height: d.completes ? Math.max(2, (d.completes / max) * H) : 0 }}
                 />
               </button>

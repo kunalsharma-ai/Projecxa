@@ -4,7 +4,7 @@ const v = (name: string) => `rgb(var(--${name}) / <alpha-value>)`;
 
 export default {
   content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}', './lib/**/*.{ts,tsx}'],
-  darkMode: 'media',
+  darkMode: ['selector', '[data-mode="dark"]'],
   theme: {
     extend: {
       colors: {
@@ -20,6 +20,15 @@ export default {
         warn: v('warn'),
         bad: v('bad'),
         info: v('info'),
+        accent2: v('accent2'),
+        sidebar: v('sidebar'),
+        'sidebar-ink': v('sidebar-ink'),
+        'sidebar-muted': v('sidebar-muted'),
+        'sidebar-active': v('sidebar-active'),
+        'chart-1': v('chart-1'),
+        'chart-2': v('chart-2'),
+        'chart-3': v('chart-3'),
+        'chart-4': v('chart-4'),
       },
       fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
     },

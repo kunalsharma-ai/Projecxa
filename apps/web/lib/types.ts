@@ -34,6 +34,7 @@ export interface Me {
   organization: { id: string; name: string; slug: string };
   client?: { id: string; name: string } | null;
   vendor?: { id: string; name: string } | null;
+  preferences?: Partial<import('./theme').Preferences>;
 }
 
 export const isPortalRole = (role: string) => role === 'CLIENT_USER' || role === 'VENDOR_USER';

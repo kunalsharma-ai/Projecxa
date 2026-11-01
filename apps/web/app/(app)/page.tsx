@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react';
 import { Empty, ErrorBox, Loading, OutcomeChip, PageHeader, Progress, Section, money } from '@/components/ui';
 import { useMe } from '@/components/me';
 import { get } from '@/lib/api';
+import { TrendChart } from '@/components/reports/trend-chart';
+import type { SummaryRow } from '@/components/reports/types';
 
 interface Dashboard {
   clients: { total: number; active: number; inactive: number };
@@ -23,8 +25,14 @@ export default function DashboardPage() {
   const me = useMe();
   const [d, setD] = useState<Dashboard | null>(null);
   const [error, setError] = useState<unknown>(null);
+  const [trend, setTrend] = useState<SummaryRow[] | null>(null);
   useEffect(() => {
     get<Dashboard>('/dashboard').then(setD).catch(setError);
+    const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
+    const now = Date.now();
+    get<{ byDay: SummaryRow[] }>(`/reports/overall?from=${iso(now - 13 * 86_400_000)}&to=${iso(now)}`)
+      .then((r) => setTrend(r.byDay))
+      .catch(() => setTrend([]));
   }, []);
   if (error) return <ErrorBox error={error} />;
   if (!d) return <Loading />;
@@ -41,11 +49,15 @@ export default function DashboardPage() {
 
   return (
     <>
-      <PageHeader title={`Welcome, ${me?.user.name ?? ''}`} subtitle="Live numbers from your projects. Test traffic is excluded." />
+      <PageHeader
+        title="Command center"
+        subtitle={`Welcome back, ${me?.user.name.split(' ')[0] ?? ''}. Live numbers from your projects; test traffic is excluded.`}
+        actions={<Link href="/reports" className="btn-ghost">Open reports</Link>}
+      />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {tiles.map(({ label, value, sub, icon: Icon }) => (
-          <div key={label} className="card flex items-start gap-4 p-5">
-            <div className="rounded-lg bg-brand/10 p-2.5 text-brand">
+          <div key={label} className="card accent-edge anim-in flex items-start gap-4 p-5">
+            <div className="rounded-lg bg-gradient-to-br from-brand/15 to-accent2/15 p-2.5 text-brand">
               <Icon className="h-5 w-5" />
             </div>
             <div className="min-w-0">
@@ -58,8 +70,12 @@ export default function DashboardPage() {
       </div>
       <p className="mt-2 text-xs text-muted">{d.financials.currencyNote}</p>
 
+      <Section title="Completes, last 14 days (UTC)" className="mt-6" actions={<Link href="/reports" className="text-xs text-brand hover:underline">Details</Link>}>
+        {trend ? <TrendChart days={trend} /> : <div className="skeleton h-40" />}
+      </Section>
+
       <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <Section title="Live projects">
+        <Section title="Live projects · quota achievement">
           {d.liveProjects.length === 0 ? (
             <Empty>No live projects yet.</Empty>
           ) : (

@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { canEdit, useMe } from '@/components/me';
+import { useTheme } from '@/components/theme';
 import { CountriesTab } from '@/components/project/countries-tab';
 import { QaStudio } from '@/components/project/qa-studio';
 import { RedirectsTab } from '@/components/project/redirects-tab';
@@ -36,6 +37,17 @@ export default function ProjectPage() {
   useEffect(() => {
     reload();
   }, [reload]);
+
+  // Remember this project in the sidebar's "Recent projects" (most recent first, at most 8).
+  const { prefs, update } = useTheme();
+  const recentKey = p ? `${p.id}|${p.projectCode}|${p.name}` : '';
+  useEffect(() => {
+    if (!p) return;
+    const rest = prefs.recentProjects.filter((r) => r.id !== p.id);
+    if (prefs.recentProjects[0]?.id === p.id && prefs.recentProjects[0]?.name === p.name) return;
+    update({ recentProjects: [{ id: p.id, code: p.projectCode, name: p.name.slice(0, 200) }, ...rest].slice(0, 8) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recentKey]);
 
   async function setStatus(status: string) {
     setError(null);

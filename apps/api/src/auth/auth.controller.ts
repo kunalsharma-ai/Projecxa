@@ -1,4 +1,5 @@
-import { Body, Controller, Get, HttpCode, Post, Res, UnauthorizedException } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Patch, Post, Res, UnauthorizedException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { Response } from 'express';
@@ -8,6 +9,7 @@ import { ZodPipe } from '../common/zod.pipe';
 import { PrismaService } from '../prisma/prisma.service';
 import { CurrentUser, Public, Roles } from './decorators';
 import { AuthUser } from './auth.types';
+import { Preferences, preferencesSchema, readPreferences } from './preferences';
 
 const loginSchema = z.object({
   email: z.string().email().transform((s) => s.toLowerCase()),
@@ -63,9 +65,34 @@ export class AuthController {
     const org = await this.prisma.organization.findUniqueOrThrow({ where: { id: user.organizationId } });
     const links = await this.prisma.user.findUniqueOrThrow({
       where: { id: user.id },
-      select: { client: { select: { id: true, name: true } }, vendor: { select: { id: true, name: true } } },
+      select: { preferences: true, client: { select: { id: true, name: true } }, vendor: { select: { id: true, name: true } } },
     });
-    return { user, organization: { id: org.id, name: org.name, slug: org.slug }, client: links.client, vendor: links.vendor };
+    return {
+      user,
+      organization: { id: org.id, name: org.name, slug: org.slug },
+      client: links.client,
+      vendor: links.vendor,
+      preferences: readPreferences(links.preferences),
+    };
+  }
+
+  /** Merge a partial update into the caller's own interface preferences. */
+  @Patch('me/preferences')
+  @Roles('ADMIN', 'PROJECT_MANAGER', 'SALES', 'VIEWER', 'CLIENT_USER', 'VENDOR_USER')
+  async updatePreferences(@CurrentUser() user: AuthUser, @Body(new ZodPipe(preferencesSchema)) body: Preferences) {
+    const current = await this.prisma.user.findUniqueOrThrow({ where: { id: user.id }, select: { preferences: true } });
+    const next = { ...readPreferences(current.preferences), ...body };
+    await this.prisma.user.update({ where: { id: user.id }, data: { preferences: next as Prisma.InputJsonValue } });
+    return next;
+  }
+
+  /** Back to the defaults. */
+  @Post('me/preferences/reset')
+  @HttpCode(200)
+  @Roles('ADMIN', 'PROJECT_MANAGER', 'SALES', 'VIEWER', 'CLIENT_USER', 'VENDOR_USER')
+  async resetPreferences(@CurrentUser() user: AuthUser) {
+    await this.prisma.user.update({ where: { id: user.id }, data: { preferences: Prisma.DbNull } });
+    return {};
   }
 }
 

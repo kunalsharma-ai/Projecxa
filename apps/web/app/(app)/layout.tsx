@@ -1,92 +1,176 @@
 'use client';
 import clsx from 'clsx';
-import { BarChart3, Building2, FolderKanban, KeyRound, LayoutDashboard, LogOut, Menu, PlusCircle, Settings, Truck, X } from 'lucide-react';
+import { Bell, LogOut, Menu, Palette, PanelRight, Plus, Search, Settings, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { MeContext } from '@/components/me';
+import { useCallback, useEffect, useState } from 'react';
+import { canEdit, MeContext } from '@/components/me';
+import { CommandPalette } from '@/components/shell/command-palette';
+import { InsightsPanel, type Insights } from '@/components/shell/insights-panel';
+import { BIDZO_URL } from '@/components/shell/nav';
+import { Popover } from '@/components/shell/popover';
+import { Sidebar } from '@/components/shell/sidebar';
+import { ThemeMenu } from '@/components/shell/theme-menu';
+import { useTheme } from '@/components/theme';
 import { Loading } from '@/components/ui';
 import { get, post } from '@/lib/api';
 import { isPortalRole, portalHome, type Me } from '@/lib/types';
 
-
-const NAV = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/projects', label: 'Manage projects', icon: FolderKanban },
-  { href: '/projects/new', label: 'Create project', icon: PlusCircle },
-  { href: '/clients', label: 'Clients', icon: Building2 },
-  { href: '/vendors', label: 'Vendors', icon: Truck },
-  { href: '/reports', label: 'Reports', icon: BarChart3 },
-  { href: '/portal-access', label: 'Portal access', icon: KeyRound },
-  { href: '/settings', label: 'Settings', icon: Settings },
-];
-
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
-  const [open, setOpen] = useState(false);
+  const [mobileNav, setMobileNav] = useState(false);
+  const [palette, setPalette] = useState(false);
+  const [insights, setInsights] = useState<Insights | null>(null);
+  const { prefs, update, hydrate } = useTheme();
   const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
     get<Me>('/auth/me')
-      .then((m) => (isPortalRole(m.user.role) ? router.replace(portalHome(m.user.role)) : setMe(m)))
+      .then((m) => {
+        if (isPortalRole(m.user.role)) return router.replace(portalHome(m.user.role));
+        hydrate(m.preferences);
+        setMe(m);
+      })
       .catch(() => router.replace('/login'));
-  }, [router]);
-  useEffect(() => setOpen(false), [pathname]);
+  }, [router, hydrate]);
+  useEffect(() => setMobileNav(false), [pathname]);
+
+  // Insights feed the bell count, so they load once and refresh every two minutes.
+  const loadInsights = useCallback(() => get<Insights>('/insights').then(setInsights).catch(() => undefined), []);
+  useEffect(() => {
+    if (!me) return;
+    loadInsights();
+    const t = setInterval(loadInsights, 120_000);
+    return () => clearInterval(t);
+  }, [me, loadInsights]);
+
+  const toggleInsights = useCallback(() => update({ insightsOpen: !prefs.insightsOpen }), [update, prefs.insightsOpen]);
+
+  // Keyboard: Ctrl/Cmd+K search, [ sidebar, ] insights (not while typing).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPalette((p) => !p);
+        return;
+      }
+      const t = e.target as HTMLElement;
+      if (e.metaKey || e.ctrlKey || e.altKey || t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName)) return;
+      if (e.key === '[') update({ sidebarCollapsed: !prefs.sidebarCollapsed });
+      if (e.key === ']') toggleInsights();
+      if (e.key === '/') {
+        e.preventDefault();
+        setPalette(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [update, prefs.sidebarCollapsed, toggleInsights]);
 
   if (!me) return <Loading label="Checking your session" />;
 
-  const active = (href: string) => (href === '/' ? pathname === '/' : pathname === href || (href !== '/projects' && pathname.startsWith(href)) || (href === '/projects' && pathname.startsWith('/projects/') && !pathname.startsWith('/projects/new')));
-
   return (
     <MeContext.Provider value={me}>
-      <div className="min-h-screen lg:grid lg:grid-cols-[240px_1fr]">
-        <aside className={clsx('fixed inset-y-0 left-0 z-40 w-60 border-r border-line bg-panel transition-transform lg:static lg:translate-x-0', open ? 'translate-x-0' : '-translate-x-full')}>
-          <div className="flex h-14 items-center justify-between border-b border-line px-5">
-            <Link href="/" className="font-semibold tracking-tight">
-              PROJEXA <span className="ml-1 text-xs font-normal text-muted">by Sampledge</span>
-            </Link>
-            <button className="lg:hidden" onClick={() => setOpen(false)} aria-label="Close menu">
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-          <nav className="space-y-0.5 p-3">
-            {NAV.map(({ href, label, icon: Icon }) => (
-              <Link
-                key={href}
-                href={href}
-                className={clsx('flex items-center gap-3 rounded-lg px-3 py-2 text-sm', active(href) ? 'bg-brand/10 font-medium text-brand' : 'text-muted hover:bg-sunken hover:text-ink')}
-              >
-                <Icon className="h-4 w-4" /> {label}
-              </Link>
-            ))}
-          </nav>
-        </aside>
-        {open && <div className="fixed inset-0 z-30 bg-black/30 lg:hidden" onClick={() => setOpen(false)} />}
-        <div className="min-w-0">
-          <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-3 border-b border-line bg-panel/80 px-4 backdrop-blur sm:px-6">
-            <button className="lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu">
+      <a href="#main" className="sr-only z-50 rounded bg-panel px-3 py-2 focus:not-sr-only focus:fixed focus:left-3 focus:top-3">Skip to content</a>
+      <div className="flex min-h-screen">
+        <Sidebar mobileOpen={mobileNav} onClose={() => setMobileNav(false)} />
+        {mobileNav && <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setMobileNav(false)} aria-hidden />}
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="glass sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-line px-3 sm:px-5">
+            <button className="grid h-9 w-9 place-items-center rounded-lg text-muted hover:bg-sunken lg:hidden" onClick={() => setMobileNav(true)} aria-label="Open menu">
               <Menu className="h-5 w-5" />
             </button>
-            <div className="truncate text-sm text-muted">{me.organization.name}</div>
-            <div className="flex items-center gap-3 text-sm">
-              <span className="hidden sm:inline">
-                {me.user.name} <span className="text-muted">· {me.user.role.replace('_', ' ').toLowerCase()}</span>
-              </span>
-              <button
-                className="btn-ghost px-2.5 py-1.5"
-                onClick={async () => {
-                  await post('/auth/logout');
-                  router.replace('/login');
-                }}
-              >
-                <LogOut className="h-4 w-4" /> <span className="hidden sm:inline">Sign out</span>
+            <button
+              onClick={() => setPalette(true)}
+              className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-line bg-panel/70 px-3 text-sm text-muted transition-colors duration-[var(--dur)] hover:border-brand/40 sm:max-w-md"
+              aria-label="Search and commands"
+            >
+              <Search className="h-4 w-4 shrink-0" />
+              <span className="truncate">Search projects, clients, vendors…</span>
+              <kbd className="ml-auto hidden shrink-0 rounded border border-line px-1.5 text-[10px] sm:block">Ctrl K</kbd>
+            </button>
+            <div className="ml-auto flex items-center gap-1">
+              {canEdit(me) && (
+                <Popover label="Quick create" trigger={<Plus className="h-[18px] w-[18px]" />} width="w-60">
+                  {(close) => (
+                    <div className="p-1.5 text-sm">
+                      <Link href="/projects/new" onClick={close} className="block rounded-md px-3 py-2 hover:bg-sunken">
+                        <div className="font-medium">New project</div>
+                        <div className="text-xs text-muted">Multi-country project wizard</div>
+                      </Link>
+                      {BIDZO_URL ? (
+                        <a href={`${BIDZO_URL.replace(/\/$/, '')}/bids/new`} target="_blank" rel="noopener noreferrer" onClick={close} className="block rounded-md px-3 py-2 hover:bg-sunken">
+                          <div className="font-medium">New bid</div>
+                          <div className="text-xs text-muted">Opens Bidzo, where bids live</div>
+                        </a>
+                      ) : (
+                        <div className="rounded-md px-3 py-2 text-muted">
+                          <div className="font-medium">New bid</div>
+                          <div className="text-xs">Bids are created in Bidzo. Set NEXT_PUBLIC_BIDZO_URL to link it here.</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </Popover>
+              )}
+              <Popover label="Notifications" trigger={<Bell className="h-[18px] w-[18px]" />} badge={insights?.alerts} width="w-80">
+                {(close) => (
+                  <div className="p-2">
+                    <div className="px-2 pb-2 pt-1 text-xs font-semibold text-muted">Alerts</div>
+                    {!insights || insights.items.filter((i) => i.severity !== 'info').length === 0 ? (
+                      <p className="px-2 pb-2 text-sm text-muted">No alerts.</p>
+                    ) : (
+                      insights.items.filter((i) => i.severity !== 'info').slice(0, 6).map((i) => (
+                        <Link key={i.id} href={i.href} onClick={close} className="block rounded-md px-2 py-2 text-sm hover:bg-sunken">
+                          <div className={clsx('font-medium', i.severity === 'bad' ? 'text-bad' : 'text-ink')}>{i.title}</div>
+                          <div className="truncate text-xs text-muted">{i.detail}</div>
+                        </Link>
+                      ))
+                    )}
+                    <button onClick={() => { close(); if (!prefs.insightsOpen) toggleInsights(); }} className="btn-ghost mt-1 w-full py-1.5 text-xs">Open insights panel</button>
+                  </div>
+                )}
+              </Popover>
+              <ThemeMenu />
+              <button onClick={toggleInsights} aria-pressed={prefs.insightsOpen} aria-label={prefs.insightsOpen ? 'Hide insights panel' : 'Show insights panel'} title="Insights ( ] )"
+                className={clsx('hidden h-9 w-9 place-items-center rounded-lg transition-colors duration-[var(--dur)] hover:bg-sunken sm:grid', prefs.insightsOpen ? 'bg-brand/10 text-brand' : 'text-muted hover:text-ink')}>
+                <PanelRight className="h-[18px] w-[18px]" />
               </button>
+              <Popover label="Account" trigger={<UserRound className="h-[18px] w-[18px]" />} width="w-64">
+                {(close) => (
+                  <div className="p-1.5 text-sm">
+                    <div className="px-3 py-2">
+                      <div className="truncate font-medium">{me.user.name}</div>
+                      <div className="truncate text-xs text-muted">{me.user.email}</div>
+                      <div className="mt-1 text-xs text-muted">{me.organization.name} · {me.user.role.replace('_', ' ').toLowerCase()}</div>
+                    </div>
+                    <div className="my-1 border-t border-line" />
+                    <Link href="/settings/appearance" onClick={close} className="flex items-center gap-2 rounded-md px-3 py-2 hover:bg-sunken"><Palette className="h-4 w-4 text-muted" /> Theme Studio</Link>
+                    <Link href="/settings" onClick={close} className="flex items-center gap-2 rounded-md px-3 py-2 hover:bg-sunken"><Settings className="h-4 w-4 text-muted" /> Organization settings</Link>
+                    <button onClick={async () => { await post('/auth/logout'); router.replace('/login'); }} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-sunken"><LogOut className="h-4 w-4 text-muted" /> Sign out</button>
+                  </div>
+                )}
+              </Popover>
             </div>
           </header>
-          <main className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6">{children}</main>
+
+          <div className="flex min-h-0 flex-1">
+            <main id="main" key={pathname} className="anim-in mx-auto w-full min-w-0 max-w-[1440px] px-4 py-6 sm:px-6">{children}</main>
+            {prefs.insightsOpen && (
+              <>
+                {/* Pushes content on very wide screens, overlays it otherwise, so it never squeezes tables. */}
+                <div className="fixed inset-0 z-30 bg-black/30 2xl:hidden" onClick={toggleInsights} aria-hidden />
+                <div className="anim-in fixed inset-y-0 right-0 z-40 w-[340px] max-w-[90vw] 2xl:sticky 2xl:top-14 2xl:z-10 2xl:h-[calc(100vh-3.5rem)]">
+                  <InsightsPanel data={insights} onClose={toggleInsights} />
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
+      <CommandPalette open={palette} onClose={() => setPalette(false)} onToggleInsights={toggleInsights} />
     </MeContext.Provider>
   );
 }
