@@ -28,8 +28,12 @@ export default function ProjectsPage() {
     if (status) params.set('status', status);
     if (category) params.set('category', category);
     if (q) params.set('q', q);
-    const t = setTimeout(() => get<typeof data>(`/projects?${params}`).then(setData).catch(setError), q ? 250 : 0);
-    return () => clearTimeout(t);
+    let current = true; // ignore responses for filters the user has already changed
+    const t = setTimeout(() => get<typeof data>(`/projects?${params}`).then((d) => current && setData(d)).catch(setError), q ? 250 : 0);
+    return () => {
+      current = false;
+      clearTimeout(t);
+    };
   }, [status, category, q, page]);
 
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
