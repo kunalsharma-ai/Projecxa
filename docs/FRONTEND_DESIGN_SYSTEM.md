@@ -137,7 +137,7 @@ Numbers stay exact: charts show the same values as the reports API.
 
 ## 8. Bid Creation Studio
 
-Bids and RFQs belong to **Bidzo**, and the prompt says not to duplicate modules. So PROJEXA links to Bidzo from Quick Create, and a Bid Studio in this repo is held until Kunal decides.
+**Decided (Kunal, 2026-11-01): bids stay in Bidzo.** PROJEXA links to Bidzo from Quick Create and the command palette (`NEXT_PUBLIC_BIDZO_URL`). PROJEXA does not get its own bid model. If the Bid Studio below is built, it is built in Bidzo using this design system.
 
 The design is ready either way:
 
@@ -258,7 +258,7 @@ apps/web
 | 5 | Smart Form system, data grid, country selection studio, redirect diagram and version diff |
 | 6 | Dashboard widgets (drag, resize, save), map, waterfall, heatmap; Motion for React where needed |
 | 7 | AI copilot and voice, once a provider and policies are agreed |
-| — | Bid Studio, depending on Kunal's decision (Bidzo or PROJEXA) |
+| — | Bid Studio: in Bidzo, using this design system (decided 2026-11-01) |
 
 ## 19. QA and usability testing
 
@@ -275,4 +275,4 @@ apps/web
 **Usability testing:**
 
 - Time common tasks with 3–5 project managers on the new shell: find a project, switch to a client's report, review completes. Compare against the old shell.
-- Repeat for the bid target (under three minutes for a repeat bid) once the Bid Studio location is decided.
+- Test the bid target (under three minutes for a repeat bid) in Bidzo once the Bid Studio is built there.
