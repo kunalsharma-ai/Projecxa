@@ -1,5 +1,5 @@
 'use client';
-import { ArrowLeft, Printer } from 'lucide-react';
+import { ArrowLeft, FileDown, Printer } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -9,6 +9,7 @@ import { InvoiceStatus } from '@/components/project/finance-tab';
 import { ErrorBox, Loading } from '@/components/ui';
 import { api, get } from '@/lib/api';
 import { flag } from '@/lib/countries';
+import { downloadFile } from '@/lib/download';
 
 interface Invoice {
   id: string; number: string; status: 'DRAFT' | 'SENT' | 'PAID' | 'VOID'; currency: string; subtotal: number; taxName: string | null; taxPercent: number; taxAmount: number; total: number; completes: number; notes: string | null;
@@ -67,7 +68,8 @@ export default function InvoicePage() {
             </>
           )}
           {editable && (inv.status === 'DRAFT' || inv.status === 'SENT') && <button className="btn-danger" disabled={busy} onClick={() => change({ status: 'VOID' }, `Void ${inv.number}? Its ${inv.completes} completes go back to “ready to invoice”.`)}>Void</button>}
-          <button className="btn-ghost" onClick={() => window.print()}><Printer className="h-4 w-4" />Print or save PDF</button>
+          <button className="btn-primary" disabled={busy} onClick={() => downloadFile(`/invoices/${inv.id}/pdf`, `${inv.number}.pdf`).catch(setError)}><FileDown className="h-4 w-4" />Download PDF</button>
+          <button className="btn-ghost" onClick={() => window.print()}><Printer className="h-4 w-4" />Print</button>
         </div>
       </div>
       <ErrorBox error={error} />

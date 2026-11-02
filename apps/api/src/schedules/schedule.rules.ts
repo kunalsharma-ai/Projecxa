@@ -3,11 +3,21 @@
  * Times are the schedule's local time in an IANA timezone (default Asia/Kolkata).
  */
 import { z } from 'zod';
+import type { GroupBy } from '../reports/reports.service';
 
 export const REPORTS = { overall: 'Overall summary', client: 'By client', vendor: 'By vendor', project: 'By project', country: 'By country', day: 'By day' } as const;
 export const PERIODS = { yesterday: 'Yesterday', last_7_days: 'Last 7 days', last_30_days: 'Last 30 days', month_to_date: 'This month so far', last_month: 'Last month' } as const;
 export const FREQUENCIES = ['daily', 'weekly', 'monthly'] as const;
 export type ReportKind = keyof typeof REPORTS;
+/** How each report kind is grouped, and what its rows are called. */
+export const REPORT_GROUP: Record<ReportKind, { groupBy: GroupBy; rowLabel: string }> = {
+  overall: { groupBy: 'project', rowLabel: 'Project' },
+  client: { groupBy: 'client', rowLabel: 'Client' },
+  vendor: { groupBy: 'vendor_country', rowLabel: 'Vendor' },
+  project: { groupBy: 'project', rowLabel: 'Project' },
+  country: { groupBy: 'country', rowLabel: 'Country' },
+  day: { groupBy: 'day', rowLabel: 'Day' },
+};
 export type Period = keyof typeof PERIODS;
 export type Frequency = (typeof FREQUENCIES)[number];
 
@@ -34,6 +44,7 @@ export const scheduleSchema = z
     timezone: z.string().max(64).refine(isTimezone, 'Unknown timezone').default('Asia/Kolkata'),
     recipients: z.array(z.string().trim().toLowerCase().email('Not a valid email address')).min(1, 'Add at least one recipient').max(20, 'Up to 20 recipients'),
     skipEmpty: z.boolean().default(false),
+    attachPdf: z.boolean().default(false),
     active: z.boolean().default(true),
   })
   .refine((s) => s.frequency !== 'weekly' || s.dayOfWeek != null, { message: 'Pick a day of the week', path: ['dayOfWeek'] })

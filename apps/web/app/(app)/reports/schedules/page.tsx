@@ -12,7 +12,7 @@ interface Run { id?: string; status: string; error: string | null; createdAt: st
 interface Schedule {
   id: string; name: string; report: string; period: string; filters: { clientId?: string; vendorId?: string; projectId?: string };
   frequency: 'daily' | 'weekly' | 'monthly'; dayOfWeek: number | null; dayOfMonth: number | null; hour: number; timezone: string;
-  recipients: string[]; skipEmpty: boolean; active: boolean; nextRunAt: string | null; schedule: string; lastRun: Run | null;
+  recipients: string[]; skipEmpty: boolean; attachPdf: boolean; active: boolean; nextRunAt: string | null; schedule: string; lastRun: Run | null;
 }
 interface List { schedules: Schedule[]; mail: { configured: boolean; host: string | null; from: string | null }; reports: { id: string; label: string }[]; periods: { id: string; label: string }[] }
 type Draft = Omit<Schedule, 'id' | 'nextRunAt' | 'schedule' | 'lastRun' | 'recipients'> & { recipients: string };
@@ -23,7 +23,7 @@ const RUN: Record<string, string> = { SENT: 'bg-ok/15 text-ok', FAILED: 'bg-bad/
 const when = (d: string, timeZone?: string) => new Date(d).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone });
 const blank = (): Draft => ({
   name: '', report: 'overall', period: 'last_7_days', filters: {}, frequency: 'weekly', dayOfWeek: 1, dayOfMonth: 1, hour: 9,
-  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata', recipients: '', skipEmpty: false, active: true,
+  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata', recipients: '', skipEmpty: false, attachPdf: false, active: true,
 });
 
 export default function SchedulesPage() {
@@ -211,6 +211,7 @@ function Editor({ list, options, value: d, onChange, onSave, onCancel, busy, isN
       </div>
       <label className="mt-5 block"><span className="label">Send to</span><textarea className="input min-h-16" placeholder="ops@yourcompany.com, client@example.com" value={d.recipients} onChange={(e) => set({ recipients: e.target.value })} /><span className="mt-1 block text-xs text-muted">Up to 20 addresses, separated by commas or new lines. Anyone listed gets the figures, including revenue, so check before adding clients or vendors.</span></label>
       <label className="mt-4 flex items-center gap-2 text-sm"><input type="checkbox" checked={d.skipEmpty} onChange={(e) => set({ skipEmpty: e.target.checked })} />Do not send when there was no traffic in the period</label>
+      <label className="mt-2 flex items-center gap-2 text-sm"><input type="checkbox" checked={!!d.attachPdf} onChange={(e) => set({ attachPdf: e.target.checked })} />Attach a PDF of the report as well as the CSV</label>
       <div className="mt-5 flex gap-2">
         <button className="btn-primary" disabled={busy || !d.name.trim() || !d.recipients.trim()} onClick={onSave}>{isNew ? 'Create schedule' : 'Save changes'}</button>
         <button className="btn-ghost" onClick={onCancel}>Cancel</button>

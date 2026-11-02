@@ -7,7 +7,7 @@ export interface Mail {
   subject: string;
   html: string;
   text: string;
-  attachments?: { filename: string; content: string; contentType: string }[];
+  attachments?: { filename: string; content: string | Buffer; contentType: string }[];
 }
 export type MailTransport = (from: string, mail: Mail) => Promise<{ messageId?: string }>;
 

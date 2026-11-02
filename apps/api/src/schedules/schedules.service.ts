@@ -11,18 +11,12 @@ import { MailNotConfigured, MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReportsModule } from '../reports/reports.controller';
 import { GroupBy, ReportsService } from '../reports/reports.service';
+import { renderReportPdf } from '../pdf/report-pdf';
 import { renderEmail, toCsv } from './report-email';
-import { describe, nextRunAt, Period, PERIODS, periodRange, ReportKind, REPORTS, scheduleSchema, ScheduleInput } from './schedule.rules';
+import { describe, nextRunAt, Period, PERIODS, periodRange, REPORT_GROUP, ReportKind, REPORTS, scheduleSchema, ScheduleInput } from './schedule.rules';
 
 const MAX_SCHEDULES = 50;
-const GROUP: Record<ReportKind, { groupBy: GroupBy; rowLabel: string }> = {
-  overall: { groupBy: 'project', rowLabel: 'Project' },
-  client: { groupBy: 'client', rowLabel: 'Client' },
-  vendor: { groupBy: 'vendor_country', rowLabel: 'Vendor' },
-  project: { groupBy: 'project', rowLabel: 'Project' },
-  country: { groupBy: 'country', rowLabel: 'Country' },
-  day: { groupBy: 'day', rowLabel: 'Day' },
-};
+const GROUP = REPORT_GROUP;
 type Filters = { clientId?: string; vendorId?: string; projectId?: string };
 
 @Injectable()
@@ -76,7 +70,11 @@ export class SchedulesService {
       const built = await this.build(s, from, to);
       rows = built.rows;
       if (s.skipEmpty && built.clicks === 0) status = 'SKIPPED';
-      else await this.mail.send({ to: s.recipients, subject: built.subject, html: built.html, text: built.text, attachments: [{ filename: built.filename, content: built.csv, contentType: 'text/csv' }] });
+      else {
+        const attachments: { filename: string; content: string | Buffer; contentType: string }[] = [{ filename: built.filename, content: built.csv, contentType: 'text/csv' }];
+        if (s.attachPdf) attachments.push({ filename: built.filename.replace(/\.csv$/, '.pdf'), content: await built.pdf(), contentType: 'application/pdf' });
+        await this.mail.send({ to: s.recipients, subject: built.subject, html: built.html, text: built.text, attachments });
+      }
     } catch (e) {
       status = 'FAILED';
       error = e instanceof MailNotConfigured ? e.message : `Could not send: ${(e as Error).message}`.slice(0, 500);
@@ -100,16 +98,13 @@ export class SchedulesService {
       appUrl: config.webOrigins[0] ?? '', schedule: describe(s),
     });
     const slug = s.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'report';
-    return { ...email, csv: toCsv(ordered), filename: `${slug}-${from}${from === to ? '' : `-to-${to}`}.csv`, rows: ordered.length, clicks: totals[0]?.clicks ?? 0 };
+    const pdf = () =>
+      renderReportPdf({ org: org.name, title: s.name, reportLabel: REPORTS[kind], from, to, filters: labels, totals: totals[0] ?? null, rows: ordered, rowLabel: GROUP[kind].rowLabel, generated: new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC' });
+    return { ...email, pdf, csv: toCsv(ordered), filename: `${slug}-${from}${from === to ? '' : `-to-${to}`}.csv`, rows: ordered.length, clicks: totals[0]?.clicks ?? 0 };
   }
 
-  private async filterLabels(org: string, f: Filters) {
-    const [c, v, p] = await Promise.all([
-      f.clientId ? this.prisma.client.findFirst({ where: { id: f.clientId, organizationId: org }, select: { name: true } }) : null,
-      f.vendorId ? this.prisma.vendor.findFirst({ where: { id: f.vendorId, organizationId: org }, select: { name: true } }) : null,
-      f.projectId ? this.prisma.project.findFirst({ where: { id: f.projectId, organizationId: org }, select: { projectCode: true } }) : null,
-    ]);
-    return [c && `Client ${c.name}`, v && `Vendor ${v.name}`, p && `Project ${p.projectCode}`].filter(Boolean) as string[];
+  private filterLabels(org: string, f: Filters) {
+    return this.reports.labels(org, f);
   }
 
   /** Filters must point at this organization's own records. */
@@ -127,7 +122,7 @@ export class SchedulesService {
 
 const view = (s: ReportSchedule & { runs?: { status: string; error: string | null; createdAt: Date; from: string; to: string }[] }) => ({
   id: s.id, name: s.name, report: s.report, period: s.period, filters: s.filters, frequency: s.frequency, dayOfWeek: s.dayOfWeek, dayOfMonth: s.dayOfMonth,
-  hour: s.hour, timezone: s.timezone, recipients: s.recipients, skipEmpty: s.skipEmpty, active: s.active, nextRunAt: s.active ? s.nextRunAt : null,
+  hour: s.hour, timezone: s.timezone, recipients: s.recipients, skipEmpty: s.skipEmpty, attachPdf: s.attachPdf, active: s.active, nextRunAt: s.active ? s.nextRunAt : null,
   lastRunAt: s.lastRunAt, schedule: describe(s), lastRun: s.runs?.[0] ?? null,
 });
 const patchSchema = z.object({ active: z.boolean() }).strict();
@@ -239,7 +234,7 @@ export class SchedulesController {
     return {
       name: b.name, report: b.report, period: b.period, filters: b.filters as Prisma.InputJsonValue, frequency: b.frequency,
       dayOfWeek: b.frequency === 'weekly' ? b.dayOfWeek! : null, dayOfMonth: b.frequency === 'monthly' ? b.dayOfMonth! : null,
-      hour: b.hour, timezone: b.timezone, recipients: [...new Set(b.recipients)], skipEmpty: b.skipEmpty, active: b.active,
+      hour: b.hour, timezone: b.timezone, recipients: [...new Set(b.recipients)], skipEmpty: b.skipEmpty, attachPdf: b.attachPdf, active: b.active,
     };
   }
 

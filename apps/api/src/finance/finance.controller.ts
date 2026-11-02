@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Module, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Get, Module, Param, Patch, Post, Put, Query, Res } from '@nestjs/common';
+import { Response } from 'express';
 import { z } from 'zod';
 import { CurrentUser, EDITORS, Roles } from '../auth/decorators';
 import { AuthUser } from '../auth/auth.types';
 import { ZodPipe } from '../common/zod.pipe';
-import { createInvoiceSchema, FinanceService, invoiceListSchema, reconcileSchema, updateInvoiceSchema } from './finance.service';
+import { createInvoiceSchema, FinanceService, invoiceListSchema, invoiceProfileSchema, reconcileSchema, updateInvoiceSchema } from './finance.service';
 import { billListSchema, createBillsSchema, financeSettingsSchema, PayablesService, updateBillSchema } from './payables.service';
 
 @Controller()
@@ -37,6 +38,24 @@ export class FinanceController {
   @Get('invoices')
   list(@CurrentUser() u: AuthUser, @Query(new ZodPipe(invoiceListSchema)) q: z.infer<typeof invoiceListSchema>) {
     return this.finance.listInvoices(u, q);
+  }
+
+  @Get('invoices/:id/pdf')
+  async pdf(@CurrentUser() u: AuthUser, @Param('id') id: string, @Res() res: Response) {
+    const { buf, fileName } = await this.finance.invoicePdf(u, id);
+    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${fileName.replace(/[^\w.-]/g, '_')}"`, 'Cache-Control': 'no-store' });
+    res.send(buf);
+  }
+
+  @Get('organization/invoice-profile')
+  profile(@CurrentUser() u: AuthUser) {
+    return this.finance.invoiceProfile(u.organizationId);
+  }
+
+  @Put('organization/invoice-profile')
+  @Roles('ADMIN')
+  saveProfile(@CurrentUser() u: AuthUser, @Body(new ZodPipe(invoiceProfileSchema)) body: z.infer<typeof invoiceProfileSchema>) {
+    return this.finance.saveInvoiceProfile(u, body);
   }
 
   @Get('invoices/:id')

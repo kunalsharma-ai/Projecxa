@@ -6,6 +6,7 @@ import { useMe } from '@/components/me';
 import { AiCopilotSettings } from '@/components/settings/ai-settings';
 import { AlertSettings } from '@/components/settings/alert-settings';
 import { FinanceSettings } from '@/components/settings/finance-settings';
+import { InvoiceProfileSettings } from '@/components/settings/invoice-profile';
 import { SignInSecurity } from '@/components/settings/sign-in-security';
 import { SingleSignOn } from '@/components/settings/single-sign-on';
 import { ErrorBox, Field, Loading, PageHeader, Section } from '@/components/ui';
@@ -55,6 +56,7 @@ export default function SettingsPage() {
       <CaptchaKeys isAdmin={isAdmin} />
       {isAdmin && <AlertSettings />}
       <FinanceSettings isAdmin={isAdmin} />
+      <InvoiceProfileSettings isAdmin={isAdmin} />
       <Section title="Redirect security policy">
         <p className="mb-4 text-sm text-muted">Respondents can only be redirected to these domains (plus each vendor&apos;s own domains for that vendor). Overrides cannot bypass this list.</p>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

@@ -8,6 +8,7 @@ import { defaultFilters, FilterBar } from '@/components/reports/filter-bar';
 import { AnswersView } from '@/components/project/answers-view';
 import { CsvButton, SummaryTable, summaryCsv } from '@/components/reports/summary-table';
 import { TrendChart } from '@/components/reports/trend-chart';
+import { ViewsBar, viewFilters, type SavedView } from '@/components/reports/views-bar';
 import { filterQuery, moneyLines, type Filters, type Options, type SummaryRow } from '@/components/reports/types';
 import { Empty, ErrorBox, Loading, OutcomeChip, PageHeader, Section } from '@/components/ui';
 import { get } from '@/lib/api';
@@ -51,6 +52,14 @@ function ReportsPage() {
   const [preset, setPreset] = useState('30');
   const [options, setOptions] = useState<Options | null>(null);
   const [error, setError] = useState<unknown>(null);
+  const [view, setView] = useState<string | null>(null);
+  const apply = (v: SavedView | null) => {
+    setView(v?.id ?? null);
+    if (!v) return;
+    setTab(v.tab as Tab);
+    setPreset(v.period);
+    setFilters(viewFilters(v));
+  };
 
   useEffect(() => {
     get<Options>('/reports/options').then(setOptions).catch(setError);
@@ -66,7 +75,8 @@ function ReportsPage() {
   return (
     <>
       <PageHeader title="Reports" subtitle="Fieldwork performance across clients, vendors and markets. Test traffic is never counted." actions={<Link href="/reports/schedules" className="btn-ghost"><CalendarClock className="h-4 w-4" /> Scheduled reports</Link>} />
-      <FilterBar value={filters} onChange={setFilters} options={options} preset={preset} onPreset={setPreset} />
+      <ViewsBar tab={tab} filters={filters} preset={preset} current={view} onApply={apply} />
+      <FilterBar value={filters} onChange={(f) => { setFilters(f); setView(null); }} options={options} preset={preset} onPreset={(p) => { setPreset(p); setView(null); }} />
       <div className="mb-5 flex gap-1 overflow-x-auto border-b border-line" role="tablist">
         {TABS.map((t) => (
           <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={clsx('-mb-px shrink-0 border-b-2 px-4 py-2.5 text-sm', tab === t ? 'border-brand font-medium text-brand' : 'border-transparent text-muted hover:text-ink')}>
