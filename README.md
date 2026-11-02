@@ -229,6 +229,13 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - Redirects tab: a diagram of the respondent journey for any market and vendor, from entry link through checks and survey to each outcome's destination and the rule behind it.
 - Details: `docs/DATA_GRID_AND_REDIRECT_DIAGRAM.md`.
 
+## Milestone 31: privacy (retention, consent, erasure)
+
+- Settings → Privacy: anonymise finished respondent sessions and delete the event log after a set number of days (runs daily, or Run now). Status, money and counts stay, so reports and invoices do not change.
+- Consent notices per market (or one for every market): respondents read and agree on the entry page before the survey; declining ends the session as a partial. The version each respondent agreed to is kept.
+- Access and erasure requests: find a respondent by the panel's ID and erase their personal data.
+- Details: `docs/PRIVACY.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).

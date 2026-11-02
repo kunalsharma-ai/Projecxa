@@ -8,3 +8,4 @@ process.env.JWT_SECRET = 'test-secret-test-secret-test-secret';
 process.env.REPORT_SCHEDULER_ENABLED = 'false';
 process.env.REDIRECT_SCHEDULER_ENABLED = 'false';
 process.env.ZOHO_BOOKS_SCHEDULER_ENABLED = 'false';
+process.env.PRIVACY_SCHEDULER_ENABLED = 'false';

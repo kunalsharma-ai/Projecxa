@@ -94,6 +94,7 @@ export class PageDesignController {
               collect: { languages: false, timezone: false, fingerprint: false },
               gateQuestions: [],
               prescreen: [],
+              consent: null,
               design: body.design,
               base: config.publicBaseUrl,
               preview: true,

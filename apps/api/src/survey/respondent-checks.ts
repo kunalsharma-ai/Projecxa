@@ -14,7 +14,7 @@ export interface CheckResult {
   /** Reason code when the check fails, or a short note (e.g. "not configured") when it could not run. */
   reason?: string;
   /** Status the session gets when this failure is enforced. */
-  status?: 'SECURITY_REJECT' | 'DUPLICATE' | 'TERMINATE' | 'QUOTA_FULL';
+  status?: 'SECURITY_REJECT' | 'DUPLICATE' | 'TERMINATE' | 'QUOTA_FULL' | 'PARTIAL';
   note?: string;
 }
 
@@ -33,6 +33,7 @@ export const REASON_LABELS: Record<string, string> = {
   PRESCREEN: 'Did not qualify on the prescreener',
   GATE_SCREENOUT: 'Did not qualify on the gate survey',
   GATE_INCOMPLETE: 'Gave missing or invalid gate answers',
+  CONSENT_DECLINED: 'Did not agree to the consent notice',
   HUMAN_CHECK_FAILED: 'Failed the human check',
   GATE_SKIPPED: 'Skipped the entry checks',
   EXPIRED: 'Session expired',

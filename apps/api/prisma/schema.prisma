@@ -102,6 +102,10 @@ model Organization {
   quoteRequests      QuoteRequest[]
   /// Public vendor sign-up link token; null when sign-up is off.
   vendorSignupToken  String?             @unique
+  /// Retention settings (docs/PRIVACY.md): { respondentDays, eventDays }; null = keep everything.
+  retention          Json?
+  retentionRunAt     DateTime?
+  consentPolicies    ConsentPolicy[]
 }
 
 enum Role {
@@ -537,6 +541,11 @@ model RespondentSession {
   startedAt          DateTime               @default(now())
   outcomeAt          DateTime?
   expiresAt          DateTime
+  /// Consent the respondent gave on the gate page (when a consent notice applies to the market).
+  consentAt          DateTime?
+  consentVersion     Int?
+  /// Personal data removed (retention or an erasure request); counts, outcome and money are kept.
+  anonymizedAt       DateTime?
 
   events     RespondentEvent[]
   executions RedirectExecution[]
@@ -1588,4 +1597,23 @@ model QuoteRequest {
   @@unique([projectCountryId, vendorId])
   @@index([organizationId, status])
   @@index([vendorId, status])
+}
+
+/// Consent notice respondents must accept before the survey, per market ("*" = every other market).
+model ConsentPolicy {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  countryCode    String
+  enabled        Boolean      @default(true)
+  title          String
+  body           String
+  privacyUrl     String?
+  /// Goes up whenever the wording or link changes; sessions record the version they accepted.
+  version        Int          @default(1)
+  updatedById    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, countryCode])
 }

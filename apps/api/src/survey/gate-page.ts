@@ -73,12 +73,24 @@ function renderHuman(h: NonNullable<GateView['human']>, imageUrl: string): strin
 
 /**
  * Respondent gate page. Neutral (no PROJEXA or client branding), phone-first, needs JavaScript.
- * Steps, in order: human check → gate survey → prescreener. Signals the project turned on
+ * Steps, in order: consent notice → human check → gate survey → prescreener. Signals the project turned on
  * (language, time zone, fingerprint) and the background captcha are collected meanwhile.
  * Everything is posted to /g/:token, which runs every check and returns where to go next.
  */
 export function renderGatePage(view: GateView, nonce: string): string {
-  const steps: { id: string; title: string; intro: string; html: string }[] = [];
+  const steps: { id: string; title: string; intro: string; html: string; extra?: string }[] = [];
+  if (view.consent) {
+    const c = view.consent;
+    const paras = esc(c.body).split(/\n{2,}/).map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+    const link = c.privacyUrl?.startsWith('https://') ? `<p><a href="${esc(c.privacyUrl)}" target="_blank" rel="noopener noreferrer">Read the full privacy notice</a></p>` : '';
+    steps.push({
+      id: 'consent',
+      title: esc(c.title),
+      intro: 'Please read this before you start.',
+      html: `<div class="notice">${paras}${link}</div><fieldset class="q" id="cbox"><label class="opt"><input type="checkbox" id="cagree"><span>I have read this and I agree</span></label><p class="qerr" id="cerr" hidden></p></fieldset>`,
+      extra: `<button type="button" class="ghost" id="cdecline">I do not agree</button>`,
+    });
+  }
   if (view.human) {
     steps.push({
       id: 'human',
@@ -95,7 +107,7 @@ export function renderGatePage(view: GateView, nonce: string): string {
   const stepHtml = steps
     .map(
       (s, i) => `<section class="step" data-step="${s.id}"${i ? ' hidden' : ''}>${total > 1 ? `<p class="prog">Step ${i + 1} of ${total}</p>` : ''}<h1>${s.title}</h1><p class="intro">${s.intro}</p>${s.html}
-<button type="button" class="next">${i === total - 1 ? 'Start survey' : 'Continue'}</button></section>`,
+<button type="button" class="next">${i === total - 1 ? 'Start survey' : 'Continue'}</button>${s.extra ?? ''}</section>`,
     )
     .join('');
 
@@ -120,6 +132,8 @@ button{width:100%;border:0;border-radius:var(--ctl);padding:12px 16px;font:inher
 button:disabled{opacity:.6;cursor:progress}.spin{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--brand);border-radius:50%;animation:s 1s linear infinite;margin:8px auto 16px}
 @keyframes s{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){.spin{animation:none}}
 .cimg{display:block;width:100%;max-width:330px;height:auto;border:1px solid var(--line);border-radius:10px;margin-bottom:10px;background:#f8fafc}
+.notice{max-height:45vh;overflow:auto;border:1px solid var(--line);border-radius:min(var(--ctl),12px);padding:4px 14px;margin:0 0 16px;font-size:.925rem}.notice a{color:var(--brand)}
+button.ghost{margin-top:8px;background:transparent;color:var(--muted);border:1px solid var(--line)}
 .qerr,.err{color:var(--bad);font-size:.875rem;margin:6px 0 0}.q.bad legend{color:var(--bad)}[hidden]{display:none!important}
 </style></head><body><div class="shell">${brandHtml(view.design, view.base)}<main>
 <noscript><h1>Please turn on JavaScript</h1><p class="intro">This survey needs JavaScript to start.</p></noscript>
@@ -166,7 +180,7 @@ function readQ(fs){var type=fs.dataset.type,req=fs.dataset.required==='1',name=f
  if(!msg&&empty&&req)msg='Please answer this question.';
  var e=fs.querySelector('.qerr');e.textContent=msg;e.hidden=!msg;fs.classList.toggle('bad',!!msg);
  return {ok:!msg,empty:empty,value:v}}
-var answers={gate:{},prescreen:{}};
+var answers={gate:{},prescreen:{}},consent;
 function collect(stepId){var ok=true,firstBad=null;Array.prototype.forEach.call(f.querySelectorAll('.step[data-step="'+stepId+'"] fieldset[data-qid]'),function(fs){var r=readQ(fs);if(!r.ok){ok=false;firstBad=firstBad||fs}else if(!r.empty)answers[fs.dataset.section][fs.dataset.qid]=r.value});if(firstBad)firstBad.scrollIntoView({block:'center'});return ok}
 var idx=0,busy=false,widgetToken='';
 window.pxCaptcha=function(t){widgetToken=t;var he=document.getElementById('herr');if(he)he.hidden=true};window.pxCaptchaExpired=function(){widgetToken=''};
@@ -182,13 +196,15 @@ async function next(){if(busy)return;err.hidden=true;var id=cfg.steps[idx];
     else{document.getElementById('ha').value=''}
     he.textContent=(k==='widget'?'The check did not pass. Please try again':'That is not right. Try this one')+' ('+h.attemptsLeft+' '+(h.attemptsLeft===1?'try':'tries')+' left).';he.hidden=false;return}}
   catch(e){busy=false;return fail()}}
+ else if(id==='consent'){var ce=document.getElementById('cerr');if(!document.getElementById('cagree').checked){ce.textContent='Please tick the box to agree, or choose “I do not agree”.';ce.hidden=false;return}ce.hidden=true;consent=true}
  else if(!collect(id))return;
  idx++;if(idx<cfg.steps.length)return show(cfg.steps[idx]);
  submit()}
 async function submit(){busy=true;show('wait');
- try{var body=await work;body.answers=answers;var j=await post('',body);if(!j.location)throw new Error('no location');location.replace(j.location)}
+ try{var body=await work;body.answers=answers;if(consent!==undefined)body.consent=consent;var j=await post('',body);if(!j.location)throw new Error('no location');location.replace(j.location)}
  catch(e){busy=false;idx=Math.max(0,cfg.steps.length-1);if(cfg.steps.length)show(cfg.steps[idx]);fail();if(!cfg.steps.length){var b=document.createElement('button');b.type='button';b.textContent='Try again';b.onclick=function(){b.remove();submit()};f.appendChild(b)}}}
 Array.prototype.forEach.call(f.querySelectorAll('.next'),function(b){b.addEventListener('click',next)});
+var dec=document.getElementById('cdecline');if(dec)dec.addEventListener('click',function(){if(busy)return;consent=false;submit()});
 f.addEventListener('submit',function(e){e.preventDefault();next()});
 if(!cfg.steps.length)submit();else show(cfg.steps[0]);
 })();

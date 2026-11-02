@@ -47,6 +47,6 @@ Classification follows the spec: **EXISTING** (done in this repo and tested), **
 | 16 UI/UX | Design tokens, 8 themes with light/dark, per-user Theme Studio, motion levels, collapsible shell, command palette, insights panel | EXISTING | Milestone 4; see FRONTEND_DESIGN_SYSTEM.md |
 | 16 | Smart form system, advanced data grid, country map, redirect diagram | MOSTLY DONE | Country map (M29); data grid on Projects and redirect diagram (M30). A smart form system (schema-driven forms) is still missing; forms use shared fields with autosaved drafts |
 | 11 / 12 | Tasks (create, assign, priority, due date, reminder, one dependency) | DONE | Milestone 20 added a minimal tasks module (`/tasks`) used by the copilot; no subtasks, comments or recurring tasks |
-| 19 Compliance | Hashed IPs, tenant isolation, audit trail | PARTIAL | Retention policies and consent per country missing |
+| 19 Compliance | Hashed IPs, tenant isolation, audit trail | DONE | Milestone 31 added data retention (anonymise finished respondent sessions and delete the event log after N days, daily), consent notices per market shown on the entry page with versioned agreement, and access/erasure requests by panel respondent ID |
 | 20 SaaS | Plans, white labeling | MISSING | Phase 8 |
 | 22 Testing | Unit + e2e tests for redirects, tenancy, roles, quotas, callbacks, portals, reports, preferences, insights; theme contrast check | EXISTING | 57 API tests; no browser e2e or load tests yet |
