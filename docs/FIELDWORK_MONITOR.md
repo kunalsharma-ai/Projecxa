@@ -56,6 +56,30 @@ Off by default, per project (`autopilot` on `PATCH /projects/:id`):
 
 Every action is written to the audit log (`autopilot.pause_link`, `autopilot.close_link`, no actor) and shown on the alert. Autopilot never reactivates a link; a person does that from the monitor.
 
+## Reallocation suggestions
+
+The monitor page and the project's Monitor tab show **Reallocation suggestions**: for each live market, which vendor links will not deliver their remaining completes and which links have room to take them. Nothing changes until an editor applies them.
+
+Completes are freed from:
+
+| Reason | What is freed |
+|---|---|
+| Paused or closed link | Everything it still has to deliver |
+| Quality problems | Everything left, when `qualityPct` of its last-24h entries were rejected (at least 10 entries) |
+| Stalled | Everything left, when it had no entries for `stalledHours` |
+| Behind pace | What it will not reach by the field end date at its current pace (per day × days left) |
+| Not given to any vendor | The part of the market target that no link's target covers |
+
+A link that has not had a single entry yet is left alone (it may not have launched).
+
+Completes go to live links without quality problems that have room: with a field end date, what they can deliver by then beyond their own remaining target; without one, about three days of their current pace. The cleanest quality comes first, then the fastest, then the lowest CPI. The table shows the CPI change per complete for each move.
+
+What no link can take is shown as **still at risk**: add another vendor, raise CPI, or move the field end date.
+
+**Apply** (admins and project managers) changes the vendor targets in one go. Each move can be unticked or reduced first. A target never goes below the completes a link already has, completes only go to active links, and if targets changed in the meantime nothing is applied and the screen asks to refresh. The change is audit-logged as `allocation.reallocate`. Vendors see their new target in the vendor portal.
+
+API: `GET /monitor/reallocation?projectId=` (staff) and `POST /projects/:id/countries/:countryId/reallocate` `{ moves: [{ from: allocationId | null, to: allocationId, completes }] }` (admin, project manager).
+
 ## Alert webhook
 
 Set an HTTPS URL in Settings. The signing secret is shown once when the webhook is first saved or the secret is rotated.

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { canEdit, useMe } from '@/components/me';
 import { AlertsList, MarketsTable, type AlertRow, type MonitorData } from '@/components/monitor/monitor-view';
+import { Reallocation } from '@/components/monitor/reallocation';
 import { ErrorBox, Loading, PageHeader, Section } from '@/components/ui';
 import { get, post } from '@/lib/api';
 
@@ -106,6 +107,8 @@ export default function MonitorPage() {
           >
             {view === 'ACTIVE' ? <AlertsList alerts={data.alerts} editable={editable} onChange={reload} /> : !resolved ? <Loading /> : <AlertsList alerts={resolved} editable={editable} onChange={reload} />}
           </Section>
+
+          <Reallocation editable={editable} onApplied={load} />
 
           <Section title="Live markets" actions={<span className="text-xs text-muted">Updated {new Date(data.generatedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>}>
             <MarketsTable markets={data.markets} editable={editable} onChange={reload} settings={data.settings} />

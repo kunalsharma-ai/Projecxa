@@ -18,7 +18,7 @@ export interface MarketView {
   metrics: Metrics;
   pace: Pace;
   ir: number | null;
-  allocations: { id: string; vendor: { id: string; name: string; code: string }; status: AllocationStatus; metrics: Metrics; pace: Pace; qualityShare24h: number | null; dropShare24h: number | null }[];
+  allocations: { id: string; vendor: { id: string; name: string; code: string }; status: AllocationStatus; cpi: number; metrics: Metrics; pace: Pace; qualityShare24h: number | null; dropShare24h: number | null }[];
   /** Quota cells of the market (docs/QUOTAS.md). */
   cells: { id: string; group: string; name: string; target: number; completes: number; isOpen: boolean }[];
 }
@@ -104,7 +104,7 @@ export class MonitorService {
         ir: share(m.completes, m.completes + m.terminates),
         allocations: c.allocations.map((a) => {
           const am = { ...(byAlloc.get(a.id) ?? empty(0)), target: a.targetCompletes };
-          return { id: a.id, vendor: a.vendor, status: a.status, metrics: strip(am), pace: pace(am, c.project.fieldEndAt, now, s.stalledHours), qualityShare24h: share(am.quality24h, am.entries24h), dropShare24h: share(am.dropped24h, am.entries24h) };
+          return { id: a.id, vendor: a.vendor, status: a.status, cpi: Number(a.cpi), metrics: strip(am), pace: pace(am, c.project.fieldEndAt, now, s.stalledHours), qualityShare24h: share(am.quality24h, am.entries24h), dropShare24h: share(am.dropped24h, am.entries24h) };
         }),
         cells: c.quotas,
       };
