@@ -3,6 +3,7 @@ import { Copy, Palette, Webhook } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useMe } from '@/components/me';
+import { AiCopilotSettings } from '@/components/settings/ai-settings';
 import { AlertSettings } from '@/components/settings/alert-settings';
 import { FinanceSettings } from '@/components/settings/finance-settings';
 import { SignInSecurity } from '@/components/settings/sign-in-security';
@@ -49,6 +50,7 @@ export default function SettingsPage() {
       <div className="mb-4"><ErrorBox error={error} /></div>
       {isAdmin && <SignInSecurity />}
       {isAdmin && <SingleSignOn />}
+      {isAdmin && <AiCopilotSettings />}
       <BidzoConnection isAdmin={isAdmin} />
       <CaptchaKeys isAdmin={isAdmin} />
       {isAdmin && <AlertSettings />}

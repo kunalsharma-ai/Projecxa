@@ -1,9 +1,10 @@
 'use client';
 import clsx from 'clsx';
-import { Bell, LogOut, Menu, Palette, PanelRight, Plus, Search, Settings, ShieldCheck, UserRound } from 'lucide-react';
+import { Bell, LogOut, Maximize2, Menu, Palette, PanelRight, Plus, Search, Settings, ShieldCheck, Sparkles, UserRound, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { CopilotChat } from '@/components/copilot/chat';
 import { canEdit, MeContext } from '@/components/me';
 import { CommandPalette } from '@/components/shell/command-palette';
 import { InsightsPanel, type Insights } from '@/components/shell/insights-panel';
@@ -21,6 +22,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [mobileNav, setMobileNav] = useState(false);
   const [palette, setPalette] = useState(false);
   const [insights, setInsights] = useState<Insights | null>(null);
+  const [copilot, setCopilot] = useState(false);
+  const [copilotConv, setCopilotConv] = useState<string | null>(null);
   const { prefs, update, hydrate } = useTheme();
   const pathname = usePathname();
   const router = useRouter();
@@ -96,6 +99,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <kbd className="ml-auto hidden shrink-0 rounded border border-line px-1.5 text-[10px] sm:block">Ctrl K</kbd>
             </button>
             <div className="ml-auto flex items-center gap-1">
+              {pathname !== '/copilot' && (
+                <button onClick={() => setCopilot(!copilot)} aria-pressed={copilot} aria-label="AI copilot" title="AI copilot"
+                  className={clsx('grid h-9 w-9 place-items-center rounded-lg transition-colors duration-[var(--dur)] hover:bg-sunken', copilot ? 'bg-brand/10 text-brand' : 'text-muted hover:text-ink')}>
+                  <Sparkles className="h-[18px] w-[18px]" />
+                </button>
+              )}
               {canEdit(me) && (
                 <Popover label="Quick create" trigger={<Plus className="h-[18px] w-[18px]" />} width="w-60">
                   {(close) => (
@@ -163,6 +172,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           <div className="flex min-h-0 flex-1">
             <main id="main" key={pathname} className="anim-in mx-auto w-full min-w-0 max-w-[1440px] px-4 py-6 sm:px-6">{children}</main>
+            {copilot && pathname !== '/copilot' && (
+              <aside className="fixed bottom-0 right-0 top-14 z-30 flex w-full flex-col border-l border-line bg-panel shadow-2xl sm:w-[440px]" aria-label="AI copilot">
+                <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-2.5">
+                  <span className="flex items-center gap-2 text-sm font-semibold"><Sparkles className="h-4 w-4 text-brand" />AI copilot</span>
+                  <div className="flex gap-1">
+                    {copilotConv && <button className="btn-ghost h-8 px-2 text-xs" onClick={() => setCopilotConv(null)}><Plus className="h-3.5 w-3.5" />New</button>}
+                    <Link href={copilotConv ? `/copilot?c=${copilotConv}` : '/copilot'} className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-sunken hover:text-ink" aria-label="Open full screen" onClick={() => setCopilot(false)}><Maximize2 className="h-4 w-4" /></Link>
+                    <button className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-sunken hover:text-ink" aria-label="Close copilot" onClick={() => setCopilot(false)}><X className="h-4 w-4" /></button>
+                  </div>
+                </div>
+                <div className="min-h-0 flex-1"><CopilotChat compact conversationId={copilotConv} onConversation={(c) => setCopilotConv(c)} /></div>
+              </aside>
+            )}
             {prefs.insightsOpen && (
               <>
                 {/* Pushes content on very wide screens, overlays it otherwise, so it never squeezes tables. */}
