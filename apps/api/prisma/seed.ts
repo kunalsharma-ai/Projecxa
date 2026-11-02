@@ -13,6 +13,7 @@ import { AuditService } from '../src/audit/audit.service';
 import type { PrismaService } from '../src/prisma/prisma.service';
 import { WebhooksService } from '../src/webhooks/webhooks.service';
 import { newApiKey } from '../src/public-api/api-keys';
+import { nextRunAt } from '../src/schedules/schedule.rules';
 
 const prisma = new PrismaClient();
 const token = (n = 12) => randomBytes(n).toString('base64url');
@@ -191,6 +192,7 @@ async function main() {
   await seedPayables(org.id, pm.id);
   await seedWonBids(org.id);
   await seedIntegrations(org.id, admin.id);
+  await seedSchedules(org.id, pm.id);
 
   console.log(`Seeded organization "demo".
   Sign in: admin@projexa.local or pm@projexa.local, password: ${ADMIN_PASSWORD}
@@ -240,6 +242,24 @@ function demoAnswers(rnd: () => number, screenedOut: boolean) {
     },
     prescreen: { it_role: { value: role, label: label('it_role', role) }, company_size: choice('company_size', ['s2', 's3', 's4', 's4']) },
   };
+}
+
+/** Two scheduled report emails with a little synthetic send history (example.com addresses only). */
+async function seedSchedules(organizationId: string, createdById: string) {
+  const inputs = [
+    { name: 'Weekly vendor performance', report: 'vendor', period: 'last_7_days', frequency: 'weekly', dayOfWeek: 1, dayOfMonth: null, hour: 9, recipients: ['ops@example.com', 'vendor-desk@example.com'], skipEmpty: false },
+    { name: 'Daily fieldwork summary', report: 'overall', period: 'yesterday', frequency: 'daily', dayOfWeek: null, dayOfMonth: null, hour: 8, recipients: ['pm-team@example.com'], skipEmpty: true },
+  ];
+  for (const [i, x] of inputs.entries()) {
+    const s = await prisma.reportSchedule.create({ data: { ...x, organizationId, createdById, timezone: 'Asia/Kolkata', nextRunAt: nextRunAt({ ...x, timezone: 'Asia/Kolkata' }, new Date()), lastRunAt: new Date(Date.now() - (i + 1) * 86_400_000) } });
+    const day = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+    await prisma.reportRun.createMany({
+      data: [
+        { scheduleId: s.id, status: 'SENT', trigger: 'scheduled', from: day(i ? 2 : 8), to: day(2), rows: i ? 3 : 4, recipients: x.recipients, createdAt: new Date(Date.now() - (i + 1) * 86_400_000) },
+        ...(i ? [{ scheduleId: s.id, status: 'SKIPPED', trigger: 'scheduled', from: day(3), to: day(3), rows: 0, recipients: x.recipients, createdAt: new Date(Date.now() - 2 * 86_400_000) }] : []),
+      ],
+    });
+  }
 }
 
 /**

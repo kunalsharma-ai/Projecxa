@@ -69,6 +69,7 @@ model Organization {
   apiKeys     ApiKey[]
   webhookEndpoints WebhookEndpoint[]
   webhookDeliveries WebhookDelivery[]
+  reportSchedules ReportSchedule[]
 }
 
 enum Role {
@@ -872,4 +873,58 @@ model WebhookDelivery {
 
   @@index([state, nextAttemptAt])
   @@index([endpointId, createdAt])
+}
+
+/// A report emailed on a schedule (docs/SCHEDULED_REPORTS.md).
+model ReportSchedule {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  /// overall | client | vendor | project | country | day
+  report         String
+  /// yesterday | last_7_days | last_30_days | month_to_date | last_month
+  period         String
+  /// Optional filters: { clientId?, vendorId?, projectId? }
+  filters        Json     @default("{}")
+  /// daily | weekly | monthly
+  frequency      String
+  /// 0 = Sunday … 6 = Saturday (weekly)
+  dayOfWeek      Int?
+  /// 1–28 (monthly)
+  dayOfMonth     Int?
+  /// Local hour 0–23 in `timezone`
+  hour           Int
+  timezone       String   @default("Asia/Kolkata")
+  recipients     String[]
+  /// Do not send when the period had no traffic.
+  skipEmpty      Boolean  @default(false)
+  active         Boolean  @default(true)
+  nextRunAt      DateTime
+  lastRunAt      DateTime?
+  createdById    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  runs           ReportRun[]
+
+  @@index([active, nextRunAt])
+  @@index([organizationId])
+}
+
+model ReportRun {
+  id          String   @id @default(cuid())
+  scheduleId  String
+  schedule    ReportSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  /// SENT | FAILED | SKIPPED
+  status      String
+  /// scheduled | manual
+  trigger     String
+  from        String
+  to          String
+  rows        Int      @default(0)
+  recipients  String[]
+  error       String?
+  createdAt   DateTime @default(now())
+
+  @@index([scheduleId, createdAt])
 }

@@ -82,7 +82,8 @@ describe('Fieldwork monitor and autopilot (e2e)', () => {
   it('validates field dates and autopilot settings on the project', async () => {
     await pm.patch(`/projects/${projectId}`, { fieldStartAt: '2026-11-10', fieldEndAt: '2026-11-01' }).expect(400);
     await pm.patch(`/projects/${projectId}`, { autopilot: { pauseOnQuality: true, nuke: true } }).expect(400);
-    const end = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10);
+    // Field end tomorrow (23:59 UTC): one to two days left whatever the time of day, so the pace check is stable.
+    const end = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
     const r = (await pm.patch(`/projects/${projectId}`, { fieldStartAt: '2026-10-01', fieldEndAt: end, autopilot: { pauseOnQuality: true, closeOnTarget: true } }).expect(200)).body;
     expect(r.fieldEndAt).toBe(`${end}T23:59:59.999Z`);
     expect(r.autopilot).toEqual({ pauseOnQuality: true, closeOnTarget: true });

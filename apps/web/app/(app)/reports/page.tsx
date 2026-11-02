@@ -1,5 +1,6 @@
 'use client';
 import clsx from 'clsx';
+import { CalendarClock } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
@@ -64,7 +65,7 @@ function ReportsPage() {
 
   return (
     <>
-      <PageHeader title="Reports" subtitle="Fieldwork performance across clients, vendors and markets. Test traffic is never counted." />
+      <PageHeader title="Reports" subtitle="Fieldwork performance across clients, vendors and markets. Test traffic is never counted." actions={<Link href="/reports/schedules" className="btn-ghost"><CalendarClock className="h-4 w-4" /> Scheduled reports</Link>} />
       <FilterBar value={filters} onChange={setFilters} options={options} preset={preset} onPreset={setPreset} />
       <div className="mb-5 flex gap-1 overflow-x-auto border-b border-line" role="tablist">
         {TABS.map((t) => (
