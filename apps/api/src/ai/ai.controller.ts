@@ -1,3 +1,4 @@
+import { VendorsModule } from '../vendors/vendors.controller';
 import { Body, Controller, Delete, Get, HttpCode, Module, Param, Post, Put, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
@@ -101,5 +102,5 @@ export class AiController {
   }
 }
 
-@Module({ imports: [ProjectsModule, MonitorModule, ReportsModule, FinanceModule, TasksModule], controllers: [AiController], providers: [AiService], exports: [AiService] })
+@Module({ imports: [ProjectsModule, MonitorModule, ReportsModule, FinanceModule, TasksModule, VendorsModule], controllers: [AiController], providers: [AiService], exports: [AiService] })
 export class AiModule {}

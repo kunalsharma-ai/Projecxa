@@ -1,5 +1,6 @@
 'use client';
-import { Check, Copy, Pause, Play, Plus } from 'lucide-react';
+import { Check, Copy, Pause, Play, Plus, Sparkles } from 'lucide-react';
+import { VendorSuggestions } from './vendor-suggestions';
 import { useEffect, useState } from 'react';
 import { Empty, ErrorBox, Field, Progress, Section, StatusChip, money } from '@/components/ui';
 import { get, patch, post } from '@/lib/api';
@@ -26,6 +27,7 @@ export function CopyButton({ text, label }: { text: string; label: string }) {
 export function VendorsTab({ project, editable, reload }: { project: ProjectDetail; editable: boolean; reload: () => void }) {
   const [vendors, setVendors] = useState<Option[]>([]);
   const [adding, setAdding] = useState<string | null>(null);
+  const [suggesting, setSuggesting] = useState<string | null>(null);
   const [form, setForm] = useState({ vendorId: '', cpi: '', targetCompletes: '', uidParam: 'uid', applyToAll: false });
   const [error, setError] = useState<unknown>(null);
 
@@ -72,8 +74,14 @@ export function VendorsTab({ project, editable, reload }: { project: ProjectDeta
         <Section
           key={c.id}
           title={<span>{flag(c.countryCode)} {countryName(c.countryCode)} <span className="font-normal text-muted">· {c.completes}/{c.targetCompletes} completes · client CPI {money(c.cpi, c.currency)}</span></span>}
-          actions={editable && adding !== c.id && <button className="btn-ghost px-2.5 py-1.5 text-xs" onClick={() => setAdding(c.id)}><Plus className="h-3.5 w-3.5" /> Add vendor</button>}
+          actions={
+            <div className="flex gap-1.5">
+              {suggesting !== c.id && <button className="btn-ghost px-2.5 py-1.5 text-xs" onClick={() => setSuggesting(c.id)}><Sparkles className="h-3.5 w-3.5" /> Suggest vendors</button>}
+              {editable && adding !== c.id && <button className="btn-ghost px-2.5 py-1.5 text-xs" onClick={() => setAdding(c.id)}><Plus className="h-3.5 w-3.5" /> Add vendor</button>}
+            </div>
+          }
         >
+          {suggesting === c.id && <VendorSuggestions projectId={project.id} countryId={c.id} editable={editable} onAdded={reload} onClose={() => setSuggesting(null)} />}
           {adding === c.id && (
             <div className="mb-5 grid grid-cols-1 gap-3 rounded-lg bg-sunken/60 p-4 sm:grid-cols-5">
               <Field label="Vendor">

@@ -15,7 +15,7 @@ Classification follows the spec: **EXISTING** (done in this repo and tested), **
 | 1 | AI-assisted and API-driven project creation | PARTIAL | The AI copilot creates projects after confirmation (milestone 20); creating from a brief or document in one step is not built |
 | 2 RFQ & feasibility | RFQ extraction, feasibility | PARTIAL / EXTERNAL_DEPENDENCY | RFQs and feasibility stay in Bidzo. PROJEXA consumes the signed `bid.won` event into Won bids and prefills the project (milestone 5); Bidzo still has to send it |
 | 3 Vendors | Vendor records, per-country allocation with CPI and target, pause/resume | EXISTING | |
-| 3 | Vendor scoring, capacity, AI matching | MISSING | Needs delivery history first |
+| 3 | Vendor scoring, capacity, AI matching | DONE (milestone 24) | Scores from delivery history, capacity per market against what live projects owe, ranked suggestions per market with reasons, copilot tool. Matching is rule based and explained, not a trained model |
 | 4 Fieldwork autopilot | Monitoring, pacing, alerts | DONE (milestone 9: monitor, alerts, autopilot, webhook) | Phase 5 |
 | 5 Survey links | Vendor entry links (live and test), opaque session tokens, client survey link macros | EXISTING | |
 | 5 | Canonical respondent event log, idempotent outcomes, out-of-order and duplicate handling | EXISTING | First terminal status wins; later conflicting statuses are logged |

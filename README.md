@@ -183,6 +183,13 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - **History** tab on every project: each settings change is a version showing who changed what, before and after. **Restore** an earlier version in one click; the restore is a new version and status stays as it is.
 - Details: `docs/PROJECT_TEMPLATES.md`.
 
+## Milestone 24: vendor scoring, capacity and suggestions
+
+- **Vendor scores**: every vendor gets a 0–100 score and grade from its traffic: quality rejects, client rejections at reconciliation, delivery against target, incidence against the expected IR, and drop-outs. The Vendors page shows the grade; each vendor has a scorecard with the reasons, a per-market table and recent links.
+- **Capacity**: set the completes a vendor can deliver per market a day and a month; see what it already owes on live projects and the room left.
+- **Suggested vendors** on each project market: ranked by score, history and capacity in that market and margin on the client CPI, with every reason shown and a CPI and target to start from. Add in one click. The AI copilot can also compare vendors.
+- Details: `docs/VENDOR_SCORING.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).

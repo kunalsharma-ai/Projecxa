@@ -217,6 +217,7 @@ model Vendor {
   allocations VendorAllocation[]
   users       User[]
   bills       VendorBill[]
+  capacity    VendorCapacity[]
 
   @@unique([organizationId, code])
 }
@@ -1351,4 +1352,19 @@ model ProjectSettingsVersion {
   createdAt DateTime @default(now())
 
   @@unique([projectId, version])
+}
+
+/// What a vendor says it can deliver in one market. Rows also mark the markets it covers.
+model VendorCapacity {
+  id                String   @id @default(cuid())
+  vendorId          String
+  vendor            Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  /// ISO 3166-1 alpha-2
+  countryCode       String
+  completesPerDay   Int?
+  completesPerMonth Int?
+  note              String?
+  updatedAt         DateTime @updatedAt
+
+  @@unique([vendorId, countryCode])
 }
