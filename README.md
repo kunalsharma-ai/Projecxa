@@ -144,6 +144,12 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - **Change password** on Account security for staff and portal users. Changing or resetting a password signs out every other session.
 - Details: `docs/TEAM_AND_PASSWORDS.md`.
 
+## Milestone 19: payment exports and Zoho Books sync
+
+- **Payment exports** (`/accounting`): payments received and payments made for **Zoho Books**, **Tally Prime** (Receipt and Payment vouchers) and the general journal, filtered by payment date and exported once. The payment reference can now be recorded when an invoice is marked paid, as it already could for bills.
+- **Zoho Books sync**: send sent and paid invoices, approved and paid vendor bills, their payments and voids straight into Zoho Books with **Sync now** or every hour. Contacts are found or created per currency, documents keep their numbers and are looked up first so nothing is created twice, and each run lists its problems per document.
+- The Zoho self-client credentials live in the server environment only and are bound to one PROJEXA organisation. Setup: `docs/ZOHO_BOOKS.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).

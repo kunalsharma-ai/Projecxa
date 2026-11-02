@@ -34,9 +34,12 @@ export const updateInvoiceSchema = z
     /** Payment terms in days, used when the invoice is sent. */
     dueDays: z.number().int().min(0).max(180).optional(),
     notes: z.string().max(1000).nullable().optional(),
+    /** Bank or payment reference, recorded when the invoice is marked paid. */
+    paymentReference: z.string().trim().max(120).nullable().optional(),
   })
   .merge(taxSchema)
-  .refine((b) => b.status || b.notes !== undefined || b.taxName !== undefined || b.taxPercent !== undefined, { message: 'Nothing to change' });
+  .refine((b) => b.status || b.notes !== undefined || b.taxName !== undefined || b.taxPercent !== undefined, { message: 'Nothing to change' })
+  .refine((b) => b.paymentReference === undefined || b.status === 'PAID', { message: 'A payment reference is recorded when the invoice is marked paid', path: ['paymentReference'] });
 export const invoiceListSchema = z.object({
   status: z.nativeEnum(InvoiceStatus).optional(),
   projectId: z.string().max(64).optional(),
@@ -358,7 +361,7 @@ export class FinanceService {
           ...(tax ?? {}),
           ...(body.status ? { status: body.status } : {}),
           ...(body.status === 'SENT' ? { issuedAt: now, dueAt: new Date(now.getTime() + (body.dueDays ?? 30) * 86_400_000) } : {}),
-          ...(body.status === 'PAID' ? { paidAt: now } : {}),
+          ...(body.status === 'PAID' ? { paidAt: now, paymentReference: body.paymentReference || null } : {}),
           ...(body.status === 'VOID' ? { voidedAt: now } : {}),
         },
       });
@@ -409,7 +412,7 @@ export class FinanceService {
   }
 }
 
-function shape(r: { id: string; number: string; status: InvoiceStatus; currency: string; lines: Prisma.JsonValue; completes: number; subtotal: Prisma.Decimal; taxName: string | null; taxPercent: Prisma.Decimal; taxAmount: Prisma.Decimal; total: Prisma.Decimal; notes: string | null; issuedAt: Date | null; dueAt: Date | null; paidAt: Date | null; voidedAt: Date | null; createdAt: Date; projectId: string; clientId: string }) {
+function shape(r: { id: string; number: string; status: InvoiceStatus; currency: string; lines: Prisma.JsonValue; completes: number; subtotal: Prisma.Decimal; taxName: string | null; taxPercent: Prisma.Decimal; taxAmount: Prisma.Decimal; total: Prisma.Decimal; notes: string | null; issuedAt: Date | null; dueAt: Date | null; paidAt: Date | null; paymentReference?: string | null; voidedAt: Date | null; createdAt: Date; projectId: string; clientId: string }) {
   return {
     id: r.id,
     number: r.number,
@@ -426,6 +429,7 @@ function shape(r: { id: string; number: string; status: InvoiceStatus; currency:
     issuedAt: r.issuedAt,
     dueAt: r.dueAt,
     paidAt: r.paidAt,
+    paymentReference: r.paymentReference ?? null,
     voidedAt: r.voidedAt,
     createdAt: r.createdAt,
     projectId: r.projectId,

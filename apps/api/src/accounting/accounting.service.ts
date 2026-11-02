@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, HttpCode, Injectable, Module, NotFoundException, Param, Post, Put, Res } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, Injectable, NotFoundException, Param, Post, Put, Res } from '@nestjs/common';
 import { InvoiceStatus, Prisma, VendorBillStatus } from '@prisma/client';
 import { Response } from 'express';
 import { z } from 'zod';
@@ -6,28 +6,31 @@ import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../auth/auth.types';
 import { CurrentUser, EDITORS, Roles } from '../auth/decorators';
 import { ZodPipe } from '../common/zod.pipe';
-import { FinanceModule } from '../finance/finance.controller';
 import { money } from '../finance/finance.service';
 import { PayablesService } from '../finance/payables.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { zonedTime } from '../schedules/schedule.rules';
-import { accountingConfigSchema, build, configOf, Doc, DocLine, Format, FORMAT_INFO, FORMATS, Kind, MissingRates } from './formats';
+import { accountingConfigSchema, build, configOf, Doc, DocLine, Format, FORMAT_INFO, FORMATS, Kind, MissingRates, PAYMENT_KINDS } from './formats';
 
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a date like 2026-10-31');
 export const exportSchema = z
   .object({
     format: z.enum(FORMATS),
-    kind: z.enum(['invoices', 'bills', 'both']),
+    kind: z.enum(['invoices', 'bills', 'both', 'payments_received', 'payments_made']),
     from: day.nullable().optional(),
     to: day.nullable().optional(),
     invoiceStatuses: z.array(z.enum(['SENT', 'PAID'])).min(1).default(['SENT', 'PAID']),
     billStatuses: z.array(z.enum(['APPROVED', 'PAID'])).min(1).default(['APPROVED', 'PAID']),
-    /** Leave out documents that went into an earlier export. */
+    /** Leave out documents (or, for payments, payments) that went into an earlier export. */
     onlyNew: z.boolean().default(true),
     currency: z.string().regex(/^[A-Z]{3}$/).nullable().optional(),
   })
   .strict()
-  .refine((f) => FORMAT_INFO[f.format].kinds.includes(f.kind), { message: 'This format exports invoices and bills as separate files. Pick one.', path: ['kind'] })
+  .superRefine((f, ctx) => {
+    if (FORMAT_INFO[f.format].kinds.includes(f.kind)) return;
+    const message = PAYMENT_KINDS.includes(f.kind) ? `${FORMAT_INFO[f.format].label} payments are not supported here. Use Zoho Books, Tally or the general journal.` : 'This format exports invoices and bills as separate files. Pick one.';
+    ctx.addIssue({ code: 'custom', message, path: ['kind'] });
+  })
   .refine((f) => !f.from || !f.to || f.from <= f.to, { message: 'The start date is after the end date', path: ['to'] });
 export type ExportFilters = z.infer<typeof exportSchema>;
 
@@ -52,9 +55,13 @@ export class AccountingService {
     return body;
   }
 
-  /** Invoices and bills matching the filters, oldest first, in one shape. */
+  /**
+   * Invoices and bills matching the filters, oldest first, in one shape. For a payments export these are
+   * the paid documents, filtered by payment date and by whether the payment was exported before.
+   */
   async documents(org: string, f: ExportFilters, tz: string) {
-    const range = (field: 'issuedAt' | 'approvedAt'): object => {
+    const payments = PAYMENT_KINDS.includes(f.kind);
+    const range = (field: 'issuedAt' | 'approvedAt' | 'paidAt'): object => {
       const parse = (s: string) => s.split('-').map(Number) as [number, number, number];
       const gte = f.from ? zonedTime(...parse(f.from), 0, tz) : undefined;
       const lt = f.to ? new Date(zonedTime(...parse(f.to), 0, tz).getTime() + 86_400_000) : undefined;
@@ -62,26 +69,37 @@ export class AccountingService {
       const span = { ...(gte ? { gte } : {}), ...(lt ? { lt } : {}) };
       return { OR: [{ [field]: span }, { [field]: null, createdAt: span }] };
     };
-    const common = { organizationId: org, ...(f.onlyNew ? { exportedAt: null } : {}), ...(f.currency ? { currency: f.currency } : {}) };
+    const common = {
+      organizationId: org,
+      ...(f.onlyNew ? (payments ? { paymentExportedAt: null } : { exportedAt: null }) : {}),
+      ...(f.currency ? { currency: f.currency } : {}),
+    };
+    const wantInvoices = payments ? f.kind === 'payments_received' : f.kind !== 'bills';
+    const wantBills = payments ? f.kind === 'payments_made' : f.kind !== 'invoices';
+    const invWhere = payments ? { status: 'PAID' as InvoiceStatus, ...range('paidAt') } : { status: { in: f.invoiceStatuses as InvoiceStatus[] }, ...range('issuedAt') };
+    const billWhere = payments ? { status: 'PAID' as VendorBillStatus, ...range('paidAt') } : { status: { in: f.billStatuses as VendorBillStatus[] }, ...range('approvedAt') };
     const [invoices, bills] = await Promise.all([
-      f.kind === 'bills' ? [] : this.prisma.invoice.findMany({ where: { ...common, status: { in: f.invoiceStatuses as InvoiceStatus[] }, ...range('issuedAt') }, include: { client: { select: { name: true, code: true } }, project: { select: { projectCode: true } } }, take: MAX_DOCS + 1 }),
-      f.kind === 'invoices' ? [] : this.prisma.vendorBill.findMany({ where: { ...common, status: { in: f.billStatuses as VendorBillStatus[] }, ...range('approvedAt') }, include: { vendor: { select: { name: true, code: true } } }, take: MAX_DOCS + 1 }),
+      wantInvoices ? this.prisma.invoice.findMany({ where: { ...common, ...invWhere }, include: { client: { select: { name: true, code: true } }, project: { select: { projectCode: true } } }, take: MAX_DOCS + 1 }) : [],
+      wantBills ? this.prisma.vendorBill.findMany({ where: { ...common, ...billWhere }, include: { vendor: { select: { name: true, code: true } } }, take: MAX_DOCS + 1 }) : [],
     ]);
     if (invoices.length + bills.length > MAX_DOCS) throw new BadRequestException(`More than ${MAX_DOCS} documents. Pick a shorter date range.`);
     const lines = (v: Prisma.JsonValue): DocLine[] => (v as unknown as DocLine[]).map((l) => ({ description: l.description, quantity: Number(l.quantity), unitPrice: Number(l.unitPrice), amount: Number(l.amount) }));
     const docs: (Doc & { id: string; exportedAt: Date | null })[] = [
       ...invoices.map((i) => ({
-        id: i.id, type: 'invoice' as const, number: i.number, date: i.issuedAt ?? i.createdAt, dueAt: i.dueAt, status: i.status, exportedAt: i.exportedAt,
+        id: i.id, type: 'invoice' as const, number: i.number, date: i.issuedAt ?? i.createdAt, dueAt: i.dueAt, status: i.status, exportedAt: payments ? i.paymentExportedAt : i.exportedAt,
+        paidAt: i.paidAt, paymentReference: i.paymentReference,
         party: i.client, currency: i.currency, lines: lines(i.lines), subtotal: money(i.subtotal), taxName: i.taxName, taxPercent: Number(i.taxPercent), taxAmount: money(i.taxAmount), total: money(i.total),
         reference: i.project.projectCode, notes: i.notes,
       })),
       ...bills.map((b) => ({
-        id: b.id, type: 'bill' as const, number: b.number, date: b.approvedAt ?? b.createdAt, dueAt: b.dueAt, status: b.status, exportedAt: b.exportedAt,
+        id: b.id, type: 'bill' as const, number: b.number, date: b.approvedAt ?? b.createdAt, dueAt: b.dueAt, status: b.status, exportedAt: payments ? b.paymentExportedAt : b.exportedAt,
+        paidAt: b.paidAt, paymentReference: b.paymentReference,
         party: b.vendor, currency: b.currency, lines: lines(b.lines), subtotal: money(b.subtotal), taxName: b.taxName, taxPercent: Number(b.taxPercent), taxAmount: money(b.taxAmount), total: money(b.total),
         reference: b.vendorReference, notes: b.notes,
       })),
     ];
-    return docs.sort((a, b) => a.date.getTime() - b.date.getTime() || a.number.localeCompare(b.number));
+    const when = (d: (typeof docs)[number]) => (payments ? d.paidAt ?? d.date : d.date).getTime();
+    return docs.sort((a, b) => when(a) - when(b) || a.number.localeCompare(b.number));
   }
 
   private async context(org: string) {
@@ -108,7 +126,7 @@ export class AccountingService {
       totals.set(k, t);
     }
     const warnings: string[] = [];
-    if (f.format === 'tally') {
+    if (f.format === 'tally' && docs.length) {
       const missing = [...new Set(docs.map((d) => d.currency).filter((c) => ctx.rate(c) == null))];
       if (missing.length) warnings.push(new MissingRates(missing).message);
     }
@@ -119,7 +137,7 @@ export class AccountingService {
       totals: [...totals.values()],
       warnings,
       fileName: this.fileName(f, FORMAT_INFO[f.format].ext),
-      documents: docs.slice(0, 200).map((d) => ({ id: d.id, type: d.type, number: d.number, date: d.date, party: d.party.name, currency: d.currency, total: d.total, status: d.status, exportedAt: d.exportedAt })),
+      documents: docs.slice(0, 200).map((d) => ({ id: d.id, type: d.type, number: d.number, date: PAYMENT_KINDS.includes(f.kind) ? d.paidAt ?? d.date : d.date, party: d.party.name, currency: d.currency, total: d.total, status: d.status, exportedAt: d.exportedAt, paymentReference: d.paymentReference ?? null })),
     };
   }
 
@@ -137,16 +155,13 @@ export class AccountingService {
     const inv = docs.filter((d) => d.type === 'invoice').map((d) => d.id);
     const bills = docs.filter((d) => d.type === 'bill').map((d) => d.id);
     const now = new Date();
+    const field = PAYMENT_KINDS.includes(f.kind) ? 'paymentExportedAt' : 'exportedAt';
     const exp = await this.prisma.$transaction(async (tx) => {
       // Two people exporting "only new" at once: the second one must not get the same documents.
-      if (f.onlyNew) {
-        const a = inv.length ? await tx.invoice.updateMany({ where: { id: { in: inv }, exportedAt: null }, data: { exportedAt: now } }) : { count: 0 };
-        const b = bills.length ? await tx.vendorBill.updateMany({ where: { id: { in: bills }, exportedAt: null }, data: { exportedAt: now } }) : { count: 0 };
-        if (a.count !== inv.length || b.count !== bills.length) throw new BadRequestException('Someone else just exported some of these. Check the preview again.');
-      } else {
-        if (inv.length) await tx.invoice.updateMany({ where: { id: { in: inv } }, data: { exportedAt: now } });
-        if (bills.length) await tx.vendorBill.updateMany({ where: { id: { in: bills } }, data: { exportedAt: now } });
-      }
+      const guard = f.onlyNew ? { [field]: null } : {};
+      const a = inv.length ? await tx.invoice.updateMany({ where: { id: { in: inv }, ...guard }, data: { [field]: now } }) : { count: 0 };
+      const b = bills.length ? await tx.vendorBill.updateMany({ where: { id: { in: bills }, ...guard }, data: { [field]: now } }) : { count: 0 };
+      if (f.onlyNew && (a.count !== inv.length || b.count !== bills.length)) throw new BadRequestException('Someone else just exported some of these. Check the preview again.');
       const row = await tx.accountingExport.create({
         data: {
           organizationId: u.organizationId, format: f.format, kind: f.kind, filters: f as Prisma.InputJsonValue,
@@ -227,6 +242,3 @@ export class AccountingController {
     res.send(e.contentType.startsWith('text/csv') ? `﻿${e.content}` : e.content);
   }
 }
-
-@Module({ imports: [FinanceModule], controllers: [AccountingController], providers: [AccountingService] })
-export class AccountingModule {}

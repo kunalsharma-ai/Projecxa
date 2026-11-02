@@ -5,10 +5,10 @@ import { ErrorBox, Loading, Section, Toggle } from '@/components/ui';
 import { api, get } from '@/lib/api';
 
 interface Config {
-  partyName: 'name' | 'code'; itemName: string; incomeAccount: string; expenseAccount: string; receivableAccount: string; payableAccount: string; salesTaxAccount: string; purchaseTaxAccount: string;
+  partyName: 'name' | 'code'; itemName: string; incomeAccount: string; expenseAccount: string; receivableAccount: string; payableAccount: string; salesTaxAccount: string; purchaseTaxAccount: string; bankAccount: string; paymentMode: string;
   dateFormat: 'yyyy-mm-dd' | 'dd/mm/yyyy' | 'mm/dd/yyyy'; timezone: string;
   xero: { incomeCode: string; expenseCode: string; salesTaxType: string; purchaseTaxType: string; noTaxType: string };
-  tally: { company: string; salesVoucherType: string; purchaseVoucherType: string; includeLedgers: boolean; debtorsGroup: string; creditorsGroup: string };
+  tally: { company: string; salesVoucherType: string; purchaseVoucherType: string; receiptVoucherType: string; paymentVoucherType: string; includeLedgers: boolean; debtorsGroup: string; creditorsGroup: string };
 }
 
 const MAIN: [keyof Config, string, string?][] = [
@@ -18,6 +18,8 @@ const MAIN: [keyof Config, string, string?][] = [
   ['purchaseTaxAccount', 'Tax on purchases account'],
   ['receivableAccount', 'Receivables account', 'Journal export only'],
   ['payableAccount', 'Payables account', 'Journal export only'],
+  ['bankAccount', 'Bank account (payments)', 'Where payments are received and paid from'],
+  ['paymentMode', 'Payment mode', 'Zoho Books payments, e.g. Bank Transfer'],
   ['itemName', 'Item name', 'Item or service in Zoho Books and QuickBooks'],
 ];
 
@@ -85,8 +87,8 @@ export function AccountingSettings({ onClose }: { onClose: () => void }) {
         </div>
         <div>
           <h3 className="mb-2 text-sm font-semibold">Tally Prime</h3>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            {([['company', 'Company name', 'Blank = the open company'], ['salesVoucherType', 'Sales voucher type'], ['purchaseVoucherType', 'Purchase voucher type'], ['debtorsGroup', 'Group for clients'], ['creditorsGroup', 'Group for vendors']] as [Exclude<keyof Config['tally'], 'includeLedgers'>, string, string?][]).map(([k, label, hint]) => (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {([['company', 'Company name', 'Blank = the open company'], ['salesVoucherType', 'Sales voucher type'], ['purchaseVoucherType', 'Purchase voucher type'], ['receiptVoucherType', 'Receipt voucher type'], ['paymentVoucherType', 'Payment voucher type'], ['debtorsGroup', 'Group for clients'], ['creditorsGroup', 'Group for vendors']] as [Exclude<keyof Config['tally'], 'includeLedgers'>, string, string?][]).map(([k, label, hint]) => (
               <label key={k} className="block"><span className="label">{label}</span>{input(c.tally[k], (v) => set({ tally: { ...c.tally, [k]: v } }), hint)}</label>
             ))}
           </div>

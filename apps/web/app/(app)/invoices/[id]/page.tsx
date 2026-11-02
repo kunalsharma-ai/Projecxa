@@ -12,7 +12,7 @@ import { flag } from '@/lib/countries';
 
 interface Invoice {
   id: string; number: string; status: 'DRAFT' | 'SENT' | 'PAID' | 'VOID'; currency: string; subtotal: number; taxName: string | null; taxPercent: number; taxAmount: number; total: number; completes: number; notes: string | null;
-  createdAt: string; issuedAt: string | null; dueAt: string | null; paidAt: string | null; voidedAt: string | null; overdue: boolean; issuer: string;
+  createdAt: string; issuedAt: string | null; dueAt: string | null; paidAt: string | null; paymentReference: string | null; voidedAt: string | null; overdue: boolean; issuer: string;
   lines: { countryCode: string; description: string; quantity: number; unitPrice: number; amount: number }[];
   project: { id: string; projectCode: string; name: string; workOrderNo: string | null }; client: { id: string; name: string; code: string };
 }
@@ -28,6 +28,7 @@ export default function InvoicePage() {
   const [dueDays, setDueDays] = useState(30);
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
+  const [payRef, setPayRef] = useState('');
 
   const load = useCallback(() => get<Invoice>(`/invoices/${id}`).then((x) => { setInv(x); setNotes(x.notes ?? ''); }).catch(setError), [id]);
   useEffect(() => { load(); }, [load]);
@@ -59,7 +60,12 @@ export default function InvoicePage() {
               <button className="btn-primary" disabled={busy || notesDirty} title={notesDirty ? 'Save the notes first' : undefined} onClick={() => change({ status: 'SENT', dueDays }, `Mark ${inv.number} as sent to ${inv.client.name}? Its lines can no longer change.`)}>Mark as sent</button>
             </>
           )}
-          {editable && inv.status === 'SENT' && <button className="btn-primary" disabled={busy} onClick={() => change({ status: 'PAID' }, `Record payment of ${inv.currency} ${amt.format(inv.total)} for ${inv.number}?`)}>Mark as paid</button>}
+          {editable && inv.status === 'SENT' && (
+            <>
+              <input className="input w-44 py-1.5" aria-label="Payment reference" placeholder="Payment reference" maxLength={120} value={payRef} onChange={(e) => setPayRef(e.target.value)} />
+              <button className="btn-primary" disabled={busy} onClick={() => change({ status: 'PAID', ...(payRef.trim() ? { paymentReference: payRef.trim() } : {}) }, `Record payment of ${inv.currency} ${amt.format(inv.total)} for ${inv.number}?`)}>Mark as paid</button>
+            </>
+          )}
           {editable && (inv.status === 'DRAFT' || inv.status === 'SENT') && <button className="btn-danger" disabled={busy} onClick={() => change({ status: 'VOID' }, `Void ${inv.number}? Its ${inv.completes} completes go back to “ready to invoice”.`)}>Void</button>}
           <button className="btn-ghost" onClick={() => window.print()}><Printer className="h-4 w-4" />Print or save PDF</button>
         </div>
@@ -95,6 +101,7 @@ export default function InvoicePage() {
             <div className="flex justify-between gap-3"><dt className="text-muted">Issued</dt><dd>{inv.issuedAt ? date(inv.issuedAt) : 'Not sent yet'}</dd></div>
             <div className="flex justify-between gap-3"><dt className="text-muted">Due</dt><dd className={inv.overdue ? 'font-medium text-bad' : ''}>{date(inv.dueAt)}</dd></div>
             {inv.paidAt && <div className="flex justify-between gap-3"><dt className="text-muted">Paid</dt><dd>{date(inv.paidAt)}</dd></div>}
+            {inv.paymentReference && <div className="flex justify-between gap-3"><dt className="text-muted">Payment ref.</dt><dd className="font-mono text-xs">{inv.paymentReference}</dd></div>}
             {inv.voidedAt && <div className="flex justify-between gap-3"><dt className="text-muted">Voided</dt><dd>{date(inv.voidedAt)}</dd></div>}
           </dl>
         </section>
