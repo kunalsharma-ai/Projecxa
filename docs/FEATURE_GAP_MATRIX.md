@@ -12,7 +12,7 @@ Classification follows the spec: **EXISTING** (done in this repo and tested), **
 | 1 | Country clone (with vendors and quotas), Excel/CSV paste | EXISTING | |
 | 1 | Project templates, version history of project settings, draft saving | PARTIAL | Projects start as Draft; settings changes are in the audit log, no template library yet |
 | 1 | Quota cells, nested/interlocking quotas | EXISTING | Milestone 10: cells on device and gate/prescreen answers, combined conditions, enforced at entry, after the gate page and at complete (docs/QUOTAS.md) |
-| 1 | AI-assisted and API-driven project creation | MISSING | Phase 2/6 |
+| 1 | AI-assisted and API-driven project creation | PARTIAL | The AI copilot creates projects after confirmation (milestone 20); creating from a brief or document in one step is not built |
 | 2 RFQ & feasibility | RFQ extraction, feasibility | PARTIAL / EXTERNAL_DEPENDENCY | RFQs and feasibility stay in Bidzo. PROJEXA consumes the signed `bid.won` event into Won bids and prefills the project (milestone 5); Bidzo still has to send it |
 | 3 Vendors | Vendor records, per-country allocation with CPI and target, pause/resume | EXISTING | |
 | 3 | Vendor scoring, capacity, AI matching | MISSING | Needs delivery history first |
