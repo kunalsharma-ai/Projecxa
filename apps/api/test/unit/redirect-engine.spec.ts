@@ -1,4 +1,5 @@
-import { computeRedirect, EngineInput } from '../../src/redirects/redirect-engine';
+import { diffConfigs } from '../../src/redirects/redirect-diff';
+import { computeRedirect, EngineInput, finishApiRedirect } from '../../src/redirects/redirect-engine';
 import { checkDestination, hostAllowed, resolveRule, validateConfig } from '../../src/redirects/redirect-resolver';
 import { OUTCOME_STATUSES, OutcomeStatus, RedirectConfig, RedirectRule } from '../../src/redirects/redirect.types';
 
@@ -12,7 +13,7 @@ const params: RedirectConfig['params'] = [
   { canonical: 'country_code', alias: 'country', required: true },
 ];
 
-function rule(status: OutcomeStatus, type: 'STATIC' | 'DYNAMIC', url: string, extra: Partial<RedirectRule> = {}): RedirectRule {
+function rule(status: OutcomeStatus, type: 'STATIC' | 'DYNAMIC' | 'API', url: string, extra: Partial<RedirectRule> = {}): RedirectRule {
   return { status, type, url, enabled: true, callbackRequired: false, ...extra };
 }
 
@@ -215,5 +216,46 @@ describe('validateConfig', () => {
       opts,
     );
     expect(issues).toEqual([]);
+  });
+});
+
+describe('API destinations', () => {
+  const api = (extra: Partial<RedirectRule> = {}) => rule('COMPLETE', 'API', 'https://router.client.example.com/route', { fallbackUrl: 'https://client.example.com/fb?u={respondent_uid}', ...extra });
+
+  it('prepares the request and a checked fallback, then takes an allowed answer', () => {
+    const r = computeRedirect(input({ config: { rules: [api({ timeoutMs: 900 })], params } }));
+    expect(r.api).toMatchObject({ endpoint: 'https://router.client.example.com/route', timeoutMs: 900, payload: { status: 'COMPLETE', respondent_uid: 'R 1&x', vendor_id: 'VA', country_code: 'US', project_code: 'PRX1' } });
+    expect(r.destination).toBe('https://client.example.com/fb?u=R+1%26x&uid=R+1%26x&vid=VA&country=US');
+    const ok = finishApiRedirect(r, { url: 'https://va.example.com/thanks', ms: 12 }, { publicBaseUrl: BASE, allowHttp: false });
+    expect(ok).toMatchObject({ destination: 'https://va.example.com/thanks', apiFallback: false });
+  });
+
+  it('keeps the fallback when the answer fails or is not allowed', () => {
+    const r = computeRedirect(input({ config: { rules: [api()], params } }));
+    const none = finishApiRedirect(r, { error: 'no answer within 1500 ms', ms: 1500 }, { publicBaseUrl: BASE, allowHttp: false });
+    expect(none).toMatchObject({ destination: r.destination, apiFallback: true, blockedReason: 'API destination: no answer within 1500 ms' });
+    for (const url of ['https://evil.example.org/', 'javascript:alert(1)', 'http://client.example.com/x', `${BASE}/s/abc`]) {
+      expect(finishApiRedirect(r, { url, ms: 3 }, { publicBaseUrl: BASE, allowHttp: false }).apiFallback).toBe(true);
+    }
+  });
+
+  it('validation rejects API rules outside hybrid mode or without a fallback', () => {
+    const opts = { allowedDomainsFor: () => ['client.example.com', '*.client.example.com'] };
+    expect(validateConfig({ rules: [api()], params }, 'HYBRID', opts).filter((i) => i.level === 'error')).toEqual([]);
+    expect(validateConfig({ rules: [api()], params }, 'DYNAMIC', opts).some((i) => i.level === 'error')).toBe(true);
+    expect(validateConfig({ rules: [api({ fallbackUrl: undefined })], params }, 'HYBRID', opts).some((i) => /fallback/i.test(i.message))).toBe(true);
+  });
+});
+
+describe('version diff', () => {
+  it('reports added, removed and changed rules and a mode change', () => {
+    const a = { mode: 'HYBRID' as const, config: { rules: [rule('COMPLETE', 'STATIC', 'https://a/'), rule('TERMINATE', 'STATIC', 'https://t/')], params } };
+    const b = { mode: 'STATIC' as const, config: { rules: [rule('COMPLETE', 'STATIC', 'https://b/'), rule('QUOTA_FULL', 'STATIC', 'https://q/', { scope: { countryCode: 'DE' } })], params: params.slice(1) } };
+    const d = diffConfigs(a, b);
+    expect(d.mode).toEqual({ before: 'HYBRID', after: 'STATIC' });
+    expect(d.rules.map((c) => `${c.kind}:${c.status}`).sort()).toEqual(['added:QUOTA_FULL', 'changed:COMPLETE', 'removed:TERMINATE']);
+    expect(d.rules.find((c) => c.kind === 'changed')!.fields).toEqual([{ field: 'url', before: 'https://a/', after: 'https://b/' }]);
+    expect(d.params).toHaveLength(1);
+    expect(diffConfigs(a, a)).toMatchObject({ mode: null, rules: [], params: [], unchangedRules: 2 });
   });
 });

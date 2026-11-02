@@ -6,4 +6,5 @@ process.env.CALLBACK_WORKER_ENABLED = 'false';
 process.env.PUBLIC_BASE_URL = 'http://api.projexa.test';
 process.env.JWT_SECRET = 'test-secret-test-secret-test-secret';
 process.env.REPORT_SCHEDULER_ENABLED = 'false';
+process.env.REDIRECT_SCHEDULER_ENABLED = 'false';
 process.env.ZOHO_BOOKS_SCHEDULER_ENABLED = 'false';

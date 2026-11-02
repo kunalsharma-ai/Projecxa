@@ -190,6 +190,13 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - **Suggested vendors** on each project market: ranked by score, history and capacity in that market and margin on the client CPI, with every reason shown and a CPI and target to start from. Add in one click. The AI copilot can also compare vendors.
 - Details: `docs/VENDOR_SCORING.md`.
 
+## Milestone 25: dynamic redirect destinations
+
+- **API destinations**: in hybrid mode a status can be type API. PROJEXA asks the client's or vendor's endpoint where to send each respondent (a signed POST with status, UID, vendor, country and project), and sends them to the URL it answers. The endpoint and the answer must be on the allowed domains; a slow, broken or disallowed answer sends the respondent to the rule's fallback URL instead, and it is counted in the bell. QA studio asks the endpoint marked as a test.
+- **Scheduled activation**: approve a draft to go live at a set time (for example the start of a new wave). It is checked again when the time comes; if it no longer passes, it stays a draft and the bell says why.
+- **Compare versions**: see what changed between any two versions, rule by rule.
+- Details: `docs/REDIRECT_DESTINATIONS.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).

@@ -255,6 +255,23 @@ export function validateConfig(
     const key = `${r.status}|${r.scope?.vendorId ?? ''}|${r.scope?.countryCode ?? ''}`;
     seen.set(key, (seen.get(key) ?? 0) + 1);
     const type = effectiveRuleType(mode, r);
+    const allowedDomains = opts.allowedDomainsFor(r.scope?.vendorId);
+    if (r.type === 'API') {
+      if (mode !== 'HYBRID') issues.push({ level: 'error', status: r.status, scope: r.scope, message: 'API destinations need hybrid mode' });
+      if (/[{}]/.test(r.url)) issues.push({ level: 'error', status: r.status, scope: r.scope, message: 'The API endpoint cannot contain {macros}; respondent details are sent in the request body' });
+      else {
+        const ep = checkDestination(r.url, { allowedDomains, allowHttp: opts.allowHttp, selfHost: opts.selfHost });
+        if (!ep.ok) issues.push({ level: 'error', status: r.status, scope: r.scope, message: `API endpoint: ${ep.reason}` });
+      }
+      if (!r.fallbackUrl?.trim()) issues.push({ level: 'error', status: r.status, scope: r.scope, message: 'API destinations need a fallback URL for when the endpoint fails' });
+      else {
+        for (const m of macrosIn(r.fallbackUrl)) if (!isKnownMacro(m)) issues.push({ level: 'error', status: r.status, scope: r.scope, message: `Unknown macro {${m}} in fallback URL` });
+        const fb = checkDestination(r.fallbackUrl.replace(MACRO_RE, 'x'), { allowedDomains, allowHttp: opts.allowHttp, selfHost: opts.selfHost });
+        if (!fb.ok) issues.push({ level: 'error', status: r.status, scope: r.scope, message: `Fallback URL: ${fb.reason}` });
+      }
+      continue;
+    }
+    if (r.fallbackUrl || r.timeoutMs) issues.push({ level: 'warning', status: r.status, scope: r.scope, message: 'Fallback URL and timeout only apply to API destinations' });
     if (mode !== 'HYBRID' && r.type !== mode) {
       issues.push({ level: 'error', status: r.status, scope: r.scope, message: `${mode} mode only allows ${mode} rules` });
     }
@@ -268,7 +285,7 @@ export function validateConfig(
     // Validate the URL shape with macros replaced by sample values.
     const sample = r.url.replace(MACRO_RE, 'x');
     const check = checkDestination(sample, {
-      allowedDomains: opts.allowedDomainsFor(r.scope?.vendorId),
+      allowedDomains,
       allowHttp: opts.allowHttp,
       selfHost: opts.selfHost,
     });

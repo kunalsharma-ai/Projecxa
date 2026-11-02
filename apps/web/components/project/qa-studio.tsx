@@ -12,6 +12,7 @@ interface SimResult {
   input: { status: OutcomeStatus; uid: string; version: string; mode: string };
   result: { destination: string; usedFallback: boolean; ruleSource?: string; ruleType?: string; callbackRequired: boolean; params: Record<string, string>; blockedReason?: string; steps: { step: string; ok: boolean; detail: string }[] };
   callbackPreview: { url: string } | null;
+  api?: { endpoint: string; ms: number; answered: string | null; error: string | null } | null;
   billable: boolean;
   durationMs: number;
 }
@@ -96,6 +97,11 @@ export function QaStudio({ project }: { project: ProjectDetail }) {
                   <li key={i} className={s.ok ? 'text-muted' : 'text-warn'}>{s.ok ? '✓' : '✗'} <b>{s.step}</b>: {s.detail}</li>
                 ))}
               </ol>
+              {r.api && (
+                <p className={`mt-2 break-all text-xs ${r.api.error ? 'text-warn' : 'text-muted'}`}>
+                  Asked <code>{r.api.endpoint}</code> ({r.api.ms} ms, marked as a test): {r.api.error ? `${r.api.error}, so the fallback URL was used` : <>answered <code>{r.api.answered}</code></>}
+                </p>
+              )}
               {r.callbackPreview && <p className="mt-2 break-all text-xs text-muted">Callback that would be sent: <code>{r.callbackPreview.url}</code></p>}
               {r.result.callbackRequired && !r.callbackPreview && <p className="mt-2 text-xs text-warn">Callback required, but this vendor has no callback URL.</p>}
             </div>

@@ -1,10 +1,13 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Interval } from '@nestjs/schedule';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../auth/auth.types';
 import { config as appConfig } from '../common/config';
 import { PrismaService } from '../prisma/prisma.service';
-import { computeRedirect } from './redirect-engine';
+import { askApiDestination, redirectSigningSecret } from './redirect-api';
+import { diffConfigs } from './redirect-diff';
+import { computeRedirect, EngineResult, finishApiRedirect } from './redirect-engine';
 import { validateConfig } from './redirect-resolver';
 import { OUTCOME_STATUSES, OutcomeStatus, RedirectConfig, redirectConfigSchema, RedirectModeT } from './redirect.types';
 
@@ -15,6 +18,9 @@ export function parseConfig(raw: unknown): RedirectConfig {
 
 @Injectable()
 export class RedirectsService {
+  private readonly log = new Logger(RedirectsService.name);
+  private running = false;
+
   constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
 
   private async load(u: AuthUser, projectId: string) {
@@ -81,6 +87,9 @@ export class RedirectsService {
         approvedById: v.approvedById,
         createdAt: v.createdAt,
         activatedAt: v.activatedAt,
+        scheduledAt: v.scheduledAt,
+        scheduledById: v.scheduledById,
+        scheduleError: v.scheduleError,
         previousVersionId: v.previousVersionId,
         config: parseConfig(v.config),
       })),
@@ -137,24 +146,129 @@ export class RedirectsService {
     const v = await this.prisma.redirectPolicyVersion.findFirst({ where: { id: versionId, projectId } });
     if (!v) throw new NotFoundException('Version not found');
     if (v.state === 'ACTIVE') return v;
-    const cfg = parseConfig(v.config);
-    const errors = this.validate(project, v.mode, cfg).filter((i) => i.level === 'error');
+    const errors = this.validate(project, v.mode, parseConfig(v.config)).filter((i) => i.level === 'error');
     if (errors.length) throw new BadRequestException({ message: 'Fix the redirect configuration before activating', issues: errors });
+    const a = await this.makeActive(u, projectId, v.id, v.state, 'redirect.activate');
+    if (!a) throw new BadRequestException('This version changed while you were activating it; reload and try again');
+    return a;
+  }
 
-    const activated = await this.prisma.$transaction(async (tx) => {
-      await tx.redirectPolicyVersion.updateMany({ where: { projectId, state: 'ACTIVE' }, data: { state: 'ARCHIVED' } });
-      const a = await tx.redirectPolicyVersion.update({
-        where: { id: v.id },
-        data: { state: 'ACTIVE', approvedById: u.id, activatedAt: new Date() },
+  /**
+   * Moves a version to ACTIVE and archives the current one, in one transaction. The update is guarded
+   * on the state the caller saw, so a manual activation and the scheduler never both win.
+   */
+  private async makeActive(actor: { id: string; organizationId: string }, projectId: string, versionId: string, fromState: 'DRAFT' | 'SCHEDULED' | 'ARCHIVED', action: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.redirectPolicyVersion.updateMany({
+        where: { id: versionId, state: fromState },
+        data: { state: 'ACTIVE', approvedById: actor.id, activatedAt: new Date(), scheduleError: null },
       });
+      if (!claimed.count) return null;
+      await tx.redirectPolicyVersion.updateMany({ where: { projectId, state: 'ACTIVE', id: { not: versionId } }, data: { state: 'ARCHIVED' } });
+      const a = await tx.redirectPolicyVersion.findUniqueOrThrow({ where: { id: versionId } });
       await tx.project.update({ where: { id: projectId }, data: { activeRedirectVersionId: a.id, redirectMode: a.mode } });
       await this.audit.record(
-        { organizationId: u.organizationId, actorId: u.id, action: 'redirect.activate', entityType: 'Project', entityId: projectId, detail: { version: a.version, mode: a.mode } },
+        { organizationId: actor.organizationId, actorId: actor.id, action, entityType: 'Project', entityId: projectId, detail: { version: a.version, mode: a.mode, ...(fromState === 'SCHEDULED' ? { scheduledAt: a.scheduledAt } : {}) } },
         tx,
       );
       return a;
     });
-    return activated;
+  }
+
+  /**
+   * Approves a draft to go live at a set time. It is validated now and again when it goes live; if it
+   * no longer passes then, it goes back to draft with the reason. One scheduled version per project.
+   */
+  async schedule(u: AuthUser, projectId: string, versionId: string, at: Date) {
+    const project = await this.load(u, projectId);
+    const v = await this.prisma.redirectPolicyVersion.findFirst({ where: { id: versionId, projectId } });
+    if (!v) throw new NotFoundException('Version not found');
+    if (v.state !== 'DRAFT') throw new BadRequestException('Only a draft can be scheduled');
+    const now = Date.now();
+    if (at.getTime() < now + 60_000) throw new BadRequestException('Pick a time at least a minute from now, or activate it now');
+    if (at.getTime() > now + 90 * 86_400_000) throw new BadRequestException('Pick a time within the next 90 days');
+    const errors = this.validate(project, v.mode, parseConfig(v.config)).filter((i) => i.level === 'error');
+    if (errors.length) throw new BadRequestException({ message: 'Fix the redirect configuration before scheduling it', issues: errors });
+    const other = await this.prisma.redirectPolicyVersion.findFirst({ where: { projectId, state: 'SCHEDULED' } });
+    if (other) throw new BadRequestException(`Version ${other.version} is already scheduled; cancel it first`);
+    const claimed = await this.prisma.redirectPolicyVersion.updateMany({
+      where: { id: v.id, state: 'DRAFT' },
+      data: { state: 'SCHEDULED', scheduledAt: at, scheduledById: u.id, scheduleError: null },
+    });
+    if (!claimed.count) throw new BadRequestException('This version changed; reload and try again');
+    await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'redirect.schedule', entityType: 'Project', entityId: projectId, detail: { version: v.version, at: at.toISOString() } });
+    return this.prisma.redirectPolicyVersion.findUniqueOrThrow({ where: { id: v.id } });
+  }
+
+  async cancelSchedule(u: AuthUser, projectId: string, versionId: string) {
+    await this.load(u, projectId);
+    const v = await this.prisma.redirectPolicyVersion.findFirst({ where: { id: versionId, projectId } });
+    if (!v) throw new NotFoundException('Version not found');
+    const done = await this.prisma.redirectPolicyVersion.updateMany({ where: { id: v.id, state: 'SCHEDULED' }, data: { state: 'DRAFT', scheduledAt: null, scheduledById: null } });
+    if (!done.count) throw new BadRequestException('This version is not scheduled');
+    await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'redirect.schedule-cancel', entityType: 'Project', entityId: projectId, detail: { version: v.version } });
+    return this.prisma.redirectPolicyVersion.findUniqueOrThrow({ where: { id: v.id } });
+  }
+
+  @Interval(30_000)
+  async tick() {
+    if (!appConfig.redirectSchedulerEnabled || this.running) return;
+    this.running = true;
+    try {
+      await this.runDue();
+    } catch (e) {
+      this.log.error(`Redirect scheduler failed: ${(e as Error).message}`);
+    } finally {
+      this.running = false;
+    }
+  }
+
+  /** Activates every scheduled version that is due. Returns what happened, for tests and logs. */
+  async runDue(now = new Date()) {
+    const due = await this.prisma.redirectPolicyVersion.findMany({
+      where: { state: 'SCHEDULED', scheduledAt: { lte: now } },
+      orderBy: { scheduledAt: 'asc' },
+      take: 50,
+      include: { project: { select: { organizationId: true } } },
+    });
+    const out: { versionId: string; ok: boolean; error?: string }[] = [];
+    for (const v of due) {
+      const actor = { id: v.scheduledById ?? v.createdById, organizationId: v.project.organizationId };
+      try {
+        const project = await this.load({ ...actor, role: 'ADMIN', email: '', name: '' }, v.projectId);
+        const errors = this.validate(project, v.mode, parseConfig(v.config)).filter((i) => i.level === 'error');
+        if (errors.length) {
+          const reason = errors.map((e) => e.message).slice(0, 3).join('; ').slice(0, 500);
+          const back = await this.prisma.redirectPolicyVersion.updateMany({ where: { id: v.id, state: 'SCHEDULED' }, data: { state: 'DRAFT', scheduleError: reason } });
+          if (back.count) {
+            await this.audit.record({ organizationId: actor.organizationId, actorId: actor.id, action: 'redirect.schedule-failed', entityType: 'Project', entityId: v.projectId, detail: { version: v.version, reason } });
+          }
+          out.push({ versionId: v.id, ok: false, error: reason });
+          continue;
+        }
+        const a = await this.makeActive(actor, v.projectId, v.id, 'SCHEDULED', 'redirect.activate-scheduled');
+        out.push({ versionId: v.id, ok: !!a, ...(a ? {} : { error: 'already handled' }) });
+      } catch (e) {
+        this.log.error(`Scheduled redirect version ${v.id} failed: ${(e as Error).message}`);
+        out.push({ versionId: v.id, ok: false, error: (e as Error).message });
+      }
+    }
+    return out;
+  }
+
+  /** What changed between two versions of a project's redirects. */
+  async compare(u: AuthUser, projectId: string, fromId: string, toId: string) {
+    await this.load(u, projectId);
+    const [a, b] = await Promise.all([
+      this.prisma.redirectPolicyVersion.findFirst({ where: { id: fromId, projectId } }),
+      this.prisma.redirectPolicyVersion.findFirst({ where: { id: toId, projectId } }),
+    ]);
+    if (!a || !b) throw new NotFoundException('Version not found');
+    return {
+      from: { id: a.id, version: a.version, state: a.state, mode: a.mode },
+      to: { id: b.id, version: b.version, state: b.state, mode: b.mode },
+      diff: diffConfigs({ mode: a.mode, config: parseConfig(a.config) }, { mode: b.mode, config: parseConfig(b.config) }),
+    };
   }
 
   /** Roll back by copying an earlier version into a new version and activating it, so history stays linear. */
@@ -194,6 +308,7 @@ export class RedirectsService {
             usedFallback: r.usedFallback,
             blockedReason: r.blockedReason ?? null,
             callbackRequired: r.callbackRequired,
+            apiEndpoint: r.api?.endpoint ?? null,
           });
         }
       }
@@ -231,11 +346,20 @@ export class RedirectsService {
       versionLabel = `version ${v.version}`;
     }
     const uid = body.uid ?? `QA-${Math.random().toString(36).slice(2, 10)}`;
-    const result = this.computeFor(project, mode, cfg, body.status, body.countryCode, alloc.vendor, uid, 'QA-SESSION-TOKEN');
+    let result: EngineResult = this.computeFor(project, mode, cfg, body.status, body.countryCode, alloc.vendor, uid, 'QA-SESSION-TOKEN');
+    let api: { endpoint: string; ms: number; answered: string | null; error: string | null } | null = null;
+    if (result.api) {
+      // QA asks the real endpoint, marked as a test so it can answer without counting anything.
+      const secret = await redirectSigningSecret(this.prisma, u.organizationId);
+      const answer = await askApiDestination(result.api.endpoint, { ...result.api.payload, test: true }, secret, result.api.timeoutMs);
+      api = { endpoint: result.api.endpoint, ms: answer.ms, answered: answer.url ?? null, error: answer.error ?? null };
+      result = finishApiRedirect(result, answer, { publicBaseUrl: appConfig.publicBaseUrl, allowHttp: appConfig.allowHttpRedirects });
+    }
     const callbackTemplate = alloc.callbackUrlTemplate ?? alloc.vendor.callbackUrlTemplate;
     return {
       input: { ...body, uid, version: versionLabel, mode },
-      result,
+      result: { ...result, api: undefined },
+      api,
       callbackPreview:
         result.callbackRequired && callbackTemplate
           ? { url: fillCallbackTemplate(callbackTemplate, { uid, status: body.status, vendorCode: alloc.vendor.code, countryCode: body.countryCode, projectCode: project.projectCode }) }

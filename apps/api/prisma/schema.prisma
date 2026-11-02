@@ -23,6 +23,8 @@ model Organization {
   redirectAllowedDomains String[]    @default([])
   /// Shown to respondents when no rule resolves or a destination is blocked.
   fallbackRedirectUrl    String?
+  /// Signs requests to API redirect destinations (X-Projexa-Signature). Made on first use.
+  redirectSigningSecret  String?
   /// Next numbers for human-readable IDs (FRP10001, FR9001 style).
   projectSeq             Int         @default(10000)
   workOrderSeq           Int         @default(9000)
@@ -406,6 +408,8 @@ model VendorAllocation {
 
 enum RedirectVersionState {
   DRAFT
+  /// Approved to go live at scheduledAt.
+  SCHEDULED
   ACTIVE
   ARCHIVED
 }
@@ -425,6 +429,10 @@ model RedirectPolicyVersion {
   changeReason      String?
   createdById       String
   approvedById      String?
+  /// When a SCHEDULED version goes live, who scheduled it, and why the last attempt failed.
+  scheduledAt       DateTime?
+  scheduledById     String?
+  scheduleError     String?
   previousVersionId String?
   createdAt         DateTime             @default(now())
   activatedAt       DateTime?
@@ -432,6 +440,7 @@ model RedirectPolicyVersion {
   sessions RespondentSession[]
 
   @@unique([projectId, version])
+  @@index([state, scheduledAt])
 }
 
 // ───────────────────────────── Respondent sessions and events (Module 5) ─────────────────────────────
@@ -560,6 +569,8 @@ model RedirectExecution {
   usedFallback  Boolean            @default(false)
   blockedReason String?
   durationMs    Int
+  /// API destinations: the endpoint failed and the rule's fallback URL was used.
+  apiFallback   Boolean            @default(false)
   createdAt     DateTime           @default(now())
 
   @@index([sessionId])

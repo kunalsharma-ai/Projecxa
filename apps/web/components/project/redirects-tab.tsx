@@ -1,17 +1,15 @@
 'use client';
 import clsx from 'clsx';
-import { CheckCircle2, History, Plus, RotateCcw, Trash2, TriangleAlert } from 'lucide-react';
+import { CheckCircle2, Plus, Trash2, TriangleAlert } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Empty, ErrorBox, Field, Loading, Section, StatusChip, Toggle } from '@/components/ui';
 import { get, post } from '@/lib/api';
 import { flag } from '@/lib/countries';
 import { OUTCOME_STATUSES, OutcomeStatus, ParamMapping, RedirectConfig, RedirectMode, RedirectRule, RuleType, STATUS_LABEL } from '@/lib/types';
+import { RedirectSigning } from './redirect-signing';
+import { RedirectVersions, Version } from './redirect-versions';
 import type { ProjectDetail } from './types';
 
-interface Version {
-  id: string; version: number; state: string; mode: RedirectMode; changeReason: string | null;
-  createdAt: string; activatedAt: string | null; approvedById: string | null; config: RedirectConfig;
-}
 interface Issue { level: 'error' | 'warning'; message: string; status?: string; scope?: { countryCode?: string; vendorId?: string } }
 interface Policy {
   mode: RedirectMode;
@@ -22,7 +20,7 @@ interface Policy {
   countries: string[];
   vendors: { id: string; name: string; code: string }[];
 }
-interface EffectiveRow { countryCode: string; vendor: { id: string; name: string }; status: OutcomeStatus; source: string | null; type: string | null; destination: string; usedFallback: boolean; blockedReason: string | null; callbackRequired: boolean }
+interface EffectiveRow { countryCode: string; vendor: { id: string; name: string }; status: OutcomeStatus; source: string | null; type: string | null; destination: string; usedFallback: boolean; blockedReason: string | null; callbackRequired: boolean; apiEndpoint: string | null }
 
 const CANONICAL = ['respondent_uid', 'vendor_id', 'country_code', 'project_code', 'status', 'session_token'];
 const CANONICAL_LABEL: Record<string, string> = { respondent_uid: 'UID', vendor_id: 'Vendor ID', country_code: 'Country code', project_code: 'Project code', status: 'Status', session_token: 'Session token' };
@@ -121,20 +119,6 @@ export function RedirectsTab({ project, editable, reload }: { project: ProjectDe
     }
   }
 
-  async function rollback(versionId: string) {
-    setBusy(true);
-    setError(null);
-    try {
-      await post(`/projects/${project.id}/redirects/rollback`, { versionId });
-      await load();
-      reload();
-    } catch (e) {
-      setError(e);
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function showEffective() {
     try {
       const r = await get<{ rows: EffectiveRow[] }>(`/projects/${project.id}/redirects/effective`);
@@ -149,7 +133,18 @@ export function RedirectsTab({ project, editable, reload }: { project: ProjectDe
     if (!override.url || !Object.keys(scope).length) return;
     edit({
       ...config,
-      rules: [...config.rules, { status: override.status as OutcomeStatus, type: (mode === 'HYBRID' ? override.type : mode) as RuleType, url: override.url, enabled: true, callbackRequired: !!override.callbackRequired, scope }],
+      rules: [
+        ...config.rules,
+        {
+          status: override.status as OutcomeStatus,
+          type: (mode === 'HYBRID' ? override.type : mode) as RuleType,
+          url: override.url,
+          enabled: true,
+          callbackRequired: !!override.callbackRequired,
+          scope,
+          ...((mode === 'HYBRID' ? override.type : mode) === 'API' ? { fallbackUrl: override.fallbackUrl ?? '' } : {}),
+        },
+      ],
     });
     setOverride({ status: 'COMPLETE', type: 'DYNAMIC' });
   }
@@ -204,7 +199,7 @@ export function RedirectsTab({ project, editable, reload }: { project: ProjectDe
           {([
             ['STATIC', 'Static', 'Fixed destination URL per status.'],
             ['DYNAMIC', 'Dynamic', 'URLs get UID, vendor ID and country code added at runtime.'],
-            ['HYBRID', 'Hybrid', 'Choose static or dynamic separately for each status.'],
+            ['HYBRID', 'Hybrid', 'Choose static, dynamic or API (asked live from an endpoint) for each status.'],
           ] as const).map(([m, label, desc]) => (
             <button key={m} role="radio" aria-checked={mode === m} disabled={ro} onClick={() => changeMode(m)} className={clsx('rounded-lg border p-4 text-left transition-colors', mode === m ? 'border-brand bg-brand/5 ring-2 ring-brand/20' : 'border-line hover:bg-sunken/50')}>
               <div className="text-sm font-semibold">{label}</div>
@@ -230,11 +225,17 @@ export function RedirectsTab({ project, editable, reload }: { project: ProjectDe
                     <td className="td font-medium">{STATUS_LABEL[s]}</td>
                     <td className="td">
                       <select className="input w-28 px-2 py-1" disabled={ro || mode !== 'HYBRID'} value={r ? (mode === 'HYBRID' ? r.type : mode) : mode === 'HYBRID' ? 'DYNAMIC' : mode} onChange={(e) => setProjectRule(s, { type: e.target.value as RuleType })}>
-                        <option value="STATIC">Static</option><option value="DYNAMIC">Dynamic</option>
+                        <option value="STATIC">Static</option><option value="DYNAMIC">Dynamic</option>{mode === 'HYBRID' && <option value="API">API</option>}
                       </select>
                     </td>
                     <td className="td w-full">
-                      <input className="input px-2 py-1 font-mono text-xs" disabled={ro} value={r?.url ?? ''} placeholder={inh ? `Inherited from ${inh}` : 'No rule: respondents see the PROJEXA end page'} onChange={(e) => (e.target.value || r ? setProjectRule(s, { url: e.target.value }) : null)} />
+                      <input className="input px-2 py-1 font-mono text-xs" disabled={ro} value={r?.url ?? ''} aria-label={`${STATUS_LABEL[s]} ${r?.type === 'API' ? 'endpoint' : 'URL'}`} placeholder={r?.type === 'API' ? 'Endpoint, e.g. https://router.client.example.com/projexa' : inh ? `Inherited from ${inh}` : 'No rule: respondents see the PROJEXA end page'} onChange={(e) => (e.target.value || r ? setProjectRule(s, { url: e.target.value }) : null)} />
+                      {r?.type === 'API' && mode === 'HYBRID' && (
+                        <div className="mt-1.5 grid gap-1.5 sm:grid-cols-[1fr_120px]">
+                          <input className="input px-2 py-1 font-mono text-xs" disabled={ro} value={r.fallbackUrl ?? ''} aria-label={`${STATUS_LABEL[s]} fallback URL`} placeholder="Fallback URL if the endpoint fails (macros allowed)" onChange={(e) => setProjectRule(s, { fallbackUrl: e.target.value })} />
+                          <input className="input px-2 py-1 text-xs" type="number" min={200} max={5000} step={100} disabled={ro} value={r.timeoutMs ?? ''} aria-label={`${STATUS_LABEL[s]} timeout`} placeholder="1500 ms" onChange={(e) => setProjectRule(s, { timeoutMs: e.target.value ? Number(e.target.value) : undefined })} />
+                        </div>
+                      )}
                     </td>
                     <td className="td"><Toggle label={`${s} callback`} checked={!!r?.callbackRequired} onChange={(v) => !ro && setProjectRule(s, { callbackRequired: v })} /></td>
                     <td className="td"><Toggle label={`${s} enabled`} checked={r ? r.enabled : true} onChange={(v) => !ro && setProjectRule(s, { enabled: v })} /></td>
@@ -260,7 +261,7 @@ export function RedirectsTab({ project, editable, reload }: { project: ProjectDe
                     <td className="td">{[r.scope?.vendorId && vendorName[r.scope.vendorId], r.scope?.countryCode && `${flag(r.scope.countryCode)} ${r.scope.countryCode}`].filter(Boolean).join(' + ')}</td>
                     <td className="td">{STATUS_LABEL[r.status]}</td>
                     <td className="td">{(mode === 'HYBRID' ? r.type : mode).toLowerCase()}</td>
-                    <td className="td max-w-[360px] truncate font-mono text-xs" title={r.url}>{r.url}</td>
+                    <td className="td max-w-[360px] truncate font-mono text-xs" title={r.fallbackUrl ? `${r.url}\nFallback: ${r.fallbackUrl}` : r.url}>{r.url}{r.type === 'API' && r.fallbackUrl && <div className="truncate text-muted">fallback: {r.fallbackUrl}</div>}</td>
                     <td className="td">{r.callbackRequired ? 'yes' : 'no'}</td>
                     <td className="td">{editable && <button className="btn-ghost p-1.5" aria-label="Remove override" onClick={() => edit({ ...config, rules: config.rules.filter((x) => x !== r) })}><Trash2 className="h-3.5 w-3.5" /></button>}</td>
                   </tr>
@@ -288,11 +289,14 @@ export function RedirectsTab({ project, editable, reload }: { project: ProjectDe
             </Field>
             <Field label="Type">
               <select className="input" disabled={mode !== 'HYBRID'} value={mode === 'HYBRID' ? override.type : mode} onChange={(e) => setOverride({ ...override, type: e.target.value as RuleType })}>
-                <option value="STATIC">Static</option><option value="DYNAMIC">Dynamic</option>
+                <option value="STATIC">Static</option><option value="DYNAMIC">Dynamic</option>{mode === 'HYBRID' && <option value="API">API</option>}
               </select>
             </Field>
-            <Field label="URL"><input className="input font-mono text-xs" value={override.url ?? ''} onChange={(e) => setOverride({ ...override, url: e.target.value })} /></Field>
-            <div className="flex items-end"><button className="btn-ghost" onClick={addOverride} disabled={!override.url || (!override.countryCode && !override.vendorId)}><Plus className="h-4 w-4" /> Add</button></div>
+            <Field label={mode === 'HYBRID' && override.type === 'API' ? 'Endpoint' : 'URL'}>
+              <input className="input font-mono text-xs" value={override.url ?? ''} onChange={(e) => setOverride({ ...override, url: e.target.value })} />
+              {mode === 'HYBRID' && override.type === 'API' && <input className="input mt-1.5 font-mono text-xs" aria-label="Fallback URL" placeholder="Fallback URL" value={override.fallbackUrl ?? ''} onChange={(e) => setOverride({ ...override, fallbackUrl: e.target.value })} />}
+            </Field>
+            <div className="flex items-end"><button className="btn-ghost" onClick={addOverride} disabled={!override.url || (!override.countryCode && !override.vendorId) || (mode === 'HYBRID' && override.type === 'API' && !override.fallbackUrl)}><Plus className="h-4 w-4" /> Add</button></div>
           </div>
         )}
       </Section>
@@ -333,7 +337,9 @@ export function RedirectsTab({ project, editable, reload }: { project: ProjectDe
                     <td className="td">{r.vendor.name}</td>
                     <td className="td">{STATUS_LABEL[r.status]}</td>
                     <td className="td text-xs">{r.source ?? <span className="text-warn">fallback</span>}{r.type && <span className="text-muted"> · {r.type.toLowerCase()}</span>}</td>
-                    <td className="td max-w-[420px] truncate font-mono text-xs" title={r.blockedReason ?? r.destination}>{r.usedFallback ? <span className="text-warn">{r.blockedReason}</span> : r.destination}</td>
+                    <td className="td max-w-[420px] truncate font-mono text-xs" title={r.blockedReason ?? (r.apiEndpoint ? `Asked from ${r.apiEndpoint}; fallback ${r.destination}` : r.destination)}>
+                      {r.usedFallback ? <span className="text-warn">{r.blockedReason}</span> : r.apiEndpoint ? <><span className="text-info">asks {r.apiEndpoint}</span><div className="truncate text-muted">fallback: {r.destination}</div></> : r.destination}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -342,31 +348,9 @@ export function RedirectsTab({ project, editable, reload }: { project: ProjectDe
         )}
       </Section>
 
-      <Section title={<span className="flex items-center gap-2"><History className="h-4 w-4" /> Version history</span>}>
-        <div className="-m-5 overflow-x-auto">
-          <table className="w-full min-w-[700px]">
-            <thead className="border-b border-line bg-sunken/60"><tr><th className="th">Version</th><th className="th">State</th><th className="th">Mode</th><th className="th">Reason</th><th className="th">Created</th><th className="th">Activated</th><th className="th" /></tr></thead>
-            <tbody className="divide-y divide-line">
-              {policy.versions.map((v) => (
-                <tr key={v.id}>
-                  <td className="td font-medium">v{v.version}</td>
-                  <td className="td"><StatusChip status={v.state} /></td>
-                  <td className="td">{v.mode.toLowerCase()}</td>
-                  <td className="td max-w-[280px] truncate">{v.changeReason ?? '–'}</td>
-                  <td className="td text-xs text-muted">{new Date(v.createdAt).toLocaleString()}</td>
-                  <td className="td text-xs text-muted">{v.activatedAt ? new Date(v.activatedAt).toLocaleString() : '–'}</td>
-                  <td className="td">
-                    {editable && v.state === 'DRAFT' && <button className="btn-ghost px-2 py-1 text-xs" disabled={busy} onClick={() => activate(v.id)}>Activate</button>}
-                    {editable && v.state === 'ARCHIVED' && v.approvedById && <button className="btn-ghost px-2 py-1 text-xs" disabled={busy} onClick={() => rollback(v.id)}><RotateCcw className="h-3.5 w-3.5" /> Restore</button>}
-                    {!editable || v.state === 'ACTIVE' ? null : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-6 text-xs text-muted">Restoring creates a new version from the old one. Respondents already in the survey keep the version they started with.</p>
-      </Section>
+      {mode === 'HYBRID' && <RedirectSigning />}
+
+      <RedirectVersions projectId={project.id} versions={policy.versions} editable={editable} vendorName={vendorName} onChanged={async () => { setDraftId(null); await load(); reload(); }} />
     </div>
   );
 }

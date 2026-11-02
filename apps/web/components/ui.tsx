@@ -39,6 +39,7 @@ const PROJECT_TONE: Record<string, string> = {
   PAUSED: 'bg-warn/15 text-warn',
   INACTIVE: 'bg-sunken text-muted',
   ARCHIVED: 'bg-sunken text-muted',
+  SCHEDULED: 'bg-info/15 text-info',
 };
 export function StatusChip({ status }: { status: string }) {
   return <span className={clsx('chip', PROJECT_TONE[status] ?? 'bg-sunken text-muted')}>{status.charAt(0) + status.slice(1).toLowerCase()}</span>;

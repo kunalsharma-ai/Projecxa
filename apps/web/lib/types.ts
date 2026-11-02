@@ -10,7 +10,7 @@ export const OUTCOME_STATUSES = [
 ] as const;
 export type OutcomeStatus = (typeof OUTCOME_STATUSES)[number];
 export type RedirectMode = 'STATIC' | 'DYNAMIC' | 'HYBRID';
-export type RuleType = 'STATIC' | 'DYNAMIC';
+export type RuleType = 'STATIC' | 'DYNAMIC' | 'API';
 
 export const STATUS_LABEL: Record<string, string> = {
   STARTED: 'In progress',
@@ -25,7 +25,7 @@ export const STATUS_LABEL: Record<string, string> = {
 };
 
 export interface Scope { countryCode?: string; vendorId?: string }
-export interface RedirectRule { status: OutcomeStatus; type: RuleType; url: string; enabled: boolean; callbackRequired: boolean; scope?: Scope }
+export interface RedirectRule { status: OutcomeStatus; type: RuleType; url: string; enabled: boolean; callbackRequired: boolean; scope?: Scope; fallbackUrl?: string; timeoutMs?: number }
 export interface ParamMapping { canonical: string; alias: string; required: boolean; scope?: Scope }
 export interface RedirectConfig { rules: RedirectRule[]; params: ParamMapping[] }
 
