@@ -59,6 +59,10 @@ export const createProjectSchema = z.object({
   bidReference: z.string().max(100).optional(),
   /** Set when the project is created from a won bid; links them, at most once. */
   wonBidId: z.string().min(1).max(64).optional(),
+  /** Copies the template's questions, page design, autopilot, redirects, quotas and vendors. */
+  templateId: z.string().min(1).max(64).optional(),
+  /** The saved draft this form came from; it is deleted once the project exists. */
+  draftId: z.string().min(1).max(64).optional(),
   type: z.enum(['AD_HOC', 'TRACKER', 'LONGITUDINAL', 'QUALITATIVE']).default('AD_HOC'),
   category: z.string().min(1).max(100),
   clientId: z.string().min(1),
@@ -130,3 +134,5 @@ export const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
+
+export const restoreSchema = z.object({ reason: z.string().trim().max(500).optional() });

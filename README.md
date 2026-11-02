@@ -176,6 +176,13 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - **Scheduled report emails** can attach the PDF as well as the CSV.
 - Details: `docs/REPORT_VIEWS.md`.
 
+## Milestone 23: project templates, drafts and settings history
+
+- **Templates** (Projects → Templates): save any project as a template, then pick it under **Start from** on Create project. Markets, shared settings, security, questions, page design, autopilot and redirects come with it, and optionally quota cells, vendors, the client and survey links. New vendor entry links are made each time.
+- **Drafts**: the Create project form saves itself as you type. Pick up where you left off, or discard a draft.
+- **History** tab on every project: each settings change is a version showing who changed what, before and after. **Restore** an earlier version in one click; the restore is a new version and status stays as it is.
+- Details: `docs/PROJECT_TEMPLATES.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).

@@ -66,7 +66,7 @@ export function CommandPalette({ open, onClose, onToggleInsights }: { open: bool
     const dark = prefs.mode === 'dark';
     const cmds: Cmd[] = [
       ...visibleNav(me?.user.role).map((n) => ({ id: `nav-${n.href}`, group: 'Go to', label: n.label, icon: n.icon, run: go(n.href), keywords: n.keywords })),
-      ...(canEdit(me) ? [{ id: 'new-project', group: 'Actions', label: 'Create project', icon: Zap, run: go('/projects/new') }] : []),
+      ...(canEdit(me) ? [{ id: 'new-project', group: 'Actions', label: 'Create project', icon: Zap, run: go('/projects/new') }, { id: 'project-templates', group: 'Actions', label: 'Project templates', icon: Zap, run: go('/projects/templates') }] : []),
       ...(BIDZO_URL ? [{ id: 'new-bid', group: 'Actions', label: 'Create bid in Bidzo', icon: Zap, run: () => { onClose(); window.open(`${BIDZO_URL.replace(/\/$/, '')}/bids/new`, '_blank', 'noopener'); } }] : []),
       { id: 'mode', group: 'Actions', label: dark ? 'Switch to light mode' : 'Switch to dark mode', icon: dark ? Sun : Moon, run: () => { update({ mode: dark ? 'light' : 'dark' }); onClose(); }, keywords: 'theme appearance' },
       { id: 'sidebar', group: 'Actions', label: prefs.sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar', hint: '[', icon: PanelLeft, run: () => { update({ sidebarCollapsed: !prefs.sidebarCollapsed }); onClose(); } },

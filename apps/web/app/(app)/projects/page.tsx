@@ -1,5 +1,5 @@
 'use client';
-import { ChevronLeft, ChevronRight, Download, Plus, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, LayoutTemplate, Plus, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Empty, ErrorBox, Loading, PageHeader, Progress, StatusChip } from '@/components/ui';
@@ -74,6 +74,7 @@ export default function ProjectsPage() {
         actions={
           <>
             <button className="btn-ghost" disabled={!data?.total || exporting} onClick={exportCsv}><Download className="h-4 w-4" /> {exporting ? 'Exporting…' : 'CSV'}</button>
+            <Link href="/projects/templates" className="btn-ghost"><LayoutTemplate className="h-4 w-4" /> Templates</Link>
             <Link href="/projects/new" className="btn-primary"><Plus className="h-4 w-4" /> Create project</Link>
           </>
         }

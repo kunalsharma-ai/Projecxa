@@ -87,6 +87,8 @@ model Organization {
   ledgerLinks       LedgerLink[]
   ledgerSyncs       LedgerSync[]
   reportViews       SavedReportView[]
+  projectTemplates  ProjectTemplate[]
+  projectDrafts     ProjectDraft[]
   tasks             Task[]
   aiConversations   AiConversation[]
   aiActions         AiAction[]
@@ -141,14 +143,17 @@ model User {
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
 
-  managedProjects Project[] @relation("ProjectManager")
-  salesProjects   Project[] @relation("SalesPerson")
-  tasksAssigned   Task[]    @relation("TaskAssignee")
-  tasksCreated    Task[]    @relation("TaskCreator")
+  managedProjects  Project[]                @relation("ProjectManager")
+  salesProjects    Project[]                @relation("SalesPerson")
+  tasksAssigned    Task[]                   @relation("TaskAssignee")
+  tasksCreated     Task[]                   @relation("TaskCreator")
+  reportViews      SavedReportView[]
+  projectTemplates ProjectTemplate[]
+  projectDrafts    ProjectDraft[]
+  projectVersions  ProjectSettingsVersion[]
 
   @@unique([organizationId, email])
   @@index([email])
-  reportViews SavedReportView[]
 }
 
 // ───────────────────────────── Clients and vendors ─────────────────────────────
@@ -287,13 +292,14 @@ model Project {
   updatedAt               DateTime               @updatedAt
 
   countries        ProjectCountry[]
-  redirectVersions RedirectPolicyVersion[] @relation("ProjectRedirectVersions")
+  redirectVersions RedirectPolicyVersion[]  @relation("ProjectRedirectVersions")
   sessions         RespondentSession[]
   invoices         Invoice[]
   reconciliations  Reconciliation[]
   alerts           Alert[]
   wonBid           WonBid?
   tasks            Task[]
+  settingsVersions ProjectSettingsVersion[]
 
   @@unique([organizationId, projectCode])
   @@index([organizationId, status])
@@ -1288,4 +1294,61 @@ model AiDocument {
   createdAt      DateTime     @default(now())
 
   @@index([organizationId, userId, createdAt])
+}
+
+/// A reusable project setup. `form` prefills the Create project form; `extras` are copied
+/// into the new project when it is created from the template. See docs/PROJECT_TEMPLATES.md.
+model ProjectTemplate {
+  id              String       @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name            String
+  description     String?
+  createdById     String?
+  createdBy       User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  /// Project the template was saved from (kept as text; the project may be deleted later).
+  sourceProjectId String?
+  /// { type, category, clientId, description, devices, security, redirectMode, defaults, countries }
+  form            Json
+  /// { include, captchaStyle, gateQuestions, prescreen, pageDesign, autopilot, redirectConfig, quotas, vendors }
+  extras          Json
+  useCount        Int          @default(0)
+  lastUsedAt      DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@unique([organizationId, name])
+}
+
+/// An unfinished Create project form, saved as the person types. Private to its owner.
+model ProjectDraft {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ownerId        String
+  owner          User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  title          String
+  data           Json
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId, ownerId])
+}
+
+/// One saved state of a project's settings, written whenever they change.
+model ProjectSettingsVersion {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  version   Int
+  /// Full settings after this change (see src/projects/project-history.ts).
+  snapshot  Json
+  /// [{ field, label, before, after }]
+  changes   Json     @default("[]")
+  reason    String?
+  actorId   String?
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, version])
 }
