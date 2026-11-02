@@ -55,7 +55,7 @@ export default function SettingsPage() {
       <BidzoConnection isAdmin={isAdmin} />
       <CaptchaKeys isAdmin={isAdmin} />
       {isAdmin && <AlertSettings />}
-      <FinanceSettings isAdmin={isAdmin} />
+      <div id="finance" className="scroll-mt-20"><FinanceSettings isAdmin={isAdmin} /></div>
       <InvoiceProfileSettings isAdmin={isAdmin} />
       <Section title="Redirect security policy">
         <p className="mb-4 text-sm text-muted">Respondents can only be redirected to these domains (plus each vendor&apos;s own domains for that vendor). Overrides cannot bypass this list.</p>

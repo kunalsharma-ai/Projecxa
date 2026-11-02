@@ -111,6 +111,33 @@ describe('Fieldwork reports (e2e)', () => {
     expect(JSON.stringify(r)).not.toMatch(/Other/);
   });
 
+  it('money is also converted into the reporting currency with the manual rates', async () => {
+    // No EUR rate yet: EUR money is left out of the converted figures and named.
+    const before = (await viewer.get('/reports/overall').expect(200)).body;
+    expect(before.totals.reporting).toEqual({ currency: 'USD', revenue: 18, payout: 6, profit: 12, margin: 66.7, missing: ['EUR'] });
+    expect(before.fx).toMatchObject({ currency: 'USD', rates: [] });
+
+    const orgId = (await prisma.organization.findUniqueOrThrow({ where: { slug: 'rep-a' } })).id;
+    await prisma.exchangeRate.create({ data: { organizationId: orgId, currency: 'EUR', rate: 1.1 } });
+    const r = (await viewer.get('/reports/overall').expect(200)).body;
+    // 18 USD + 8 EUR × 1.1 = 26.80; payout 6 + 3 × 1.1 = 9.30.
+    expect(r.totals.reporting).toEqual({ currency: 'USD', revenue: 26.8, payout: 9.3, profit: 17.5, margin: 65.3, missing: [] });
+    expect(r.totals.margin).toBeNull(); // the unconverted margin still refuses to mix currencies
+    expect(r.fx.rates).toEqual([{ currency: 'EUR', rate: 1.1 }]);
+
+    const byVendor = (await viewer.get('/reports/summary?groupBy=vendor').expect(200)).body;
+    const a = byVendor.rows.find((x: { label: string }) => x.label === 'Vendor A');
+    expect(a.reporting).toMatchObject({ currency: 'USD', revenue: 26.8, missing: [] });
+    expect(byVendor.fx.currency).toBe('USD');
+    // Rejected money stays out of converted figures too (vendor B's only complete is rejected).
+    expect(byVendor.rows.find((x: { label: string }) => x.label === 'Vendor B').reporting).toMatchObject({ revenue: 0, payout: 0, margin: null });
+
+    const pdf = await viewer.get('/reports/pdf?report=vendor&money=reporting').expect(200);
+    expect(pdf.headers['content-type']).toBe('application/pdf');
+    await viewer.get('/reports/pdf?report=vendor&money=sideways').expect(400);
+    await prisma.exchangeRate.deleteMany({ where: { organizationId: orgId } });
+  });
+
   it('date range is by UTC day, inclusive, and fills empty days', async () => {
     const jan = (await pm.get('/reports/overall?from=2026-01-14&to=2026-01-16').expect(200)).body;
     expect(jan.totals).toMatchObject({ clicks: 1, completes: 1, medianLoiMinutes: 12 });

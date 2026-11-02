@@ -18,6 +18,7 @@ const pdfSchema = z.object({
   title: z.string().trim().max(120).optional(),
   /** The browser's time zone, for the "generated" line. */
   tz: z.string().max(64).optional(),
+  money: z.enum(['market', 'reporting']).default('market'),
 });
 type List = z.infer<typeof listSchema>;
 
@@ -42,8 +43,8 @@ export class ReportsController {
   /** Grouped report. The client report is groupBy=client, the vendor report groupBy=vendor or vendor_country. */
   @Get('summary')
   async summary(@CurrentUser() u: AuthUser, @Query(new ZodPipe(filterSchema)) f: ReportFilter, @Query(new ZodPipe(groupSchema)) g: z.infer<typeof groupSchema>) {
-    const [rows, totals] = await Promise.all([this.reports.summary(u.organizationId, f, g.groupBy), this.reports.summary(u.organizationId, f, null)]);
-    return { groupBy: g.groupBy, rows, totals: totals[0] ?? null, currencyNote: CURRENCY_NOTE };
+    const [rows, totals, fx] = await Promise.all([this.reports.summary(u.organizationId, f, g.groupBy), this.reports.summary(u.organizationId, f, null), this.reports.fxInfo(u.organizationId)]);
+    return { groupBy: g.groupBy, rows, totals: totals[0] ?? null, currencyNote: CURRENCY_NOTE, fx };
   }
 
   @Get('conversion')
@@ -55,11 +56,12 @@ export class ReportsController {
   @Get('pdf')
   async pdf(@CurrentUser() u: AuthUser, @Query(new ZodPipe(filterSchema)) f: ReportFilter, @Query(new ZodPipe(pdfSchema)) p: z.infer<typeof pdfSchema>, @Res() res: Response) {
     const g = REPORT_GROUP[p.report];
-    const [rows, totals, org, labels] = await Promise.all([
+    const [rows, totals, org, labels, fx] = await Promise.all([
       this.reports.summary(u.organizationId, f, g.groupBy),
       this.reports.summary(u.organizationId, f, null),
       this.prisma.organization.findUniqueOrThrow({ where: { id: u.organizationId }, select: { name: true } }),
       this.reports.labels(u.organizationId, f),
+      this.reports.fxInfo(u.organizationId),
     ]);
     const ordered = p.report === 'overall' ? [...rows].sort((a, b) => b.completes - a.completes || b.clicks - a.clicks) : rows;
     let generated: string;
@@ -69,7 +71,7 @@ export class ReportsController {
       generated = new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
     }
     const title = p.title || `${REPORTS[p.report]} report`;
-    const buf = await renderReportPdf({ org: org.name, title, reportLabel: REPORTS[p.report], from: f.from ?? null, to: f.to ?? null, filters: labels, totals: totals[0] ?? null, rows: ordered, rowLabel: g.rowLabel, generated });
+    const buf = await renderReportPdf({ org: org.name, title, reportLabel: REPORTS[p.report], from: f.from ?? null, to: f.to ?? null, filters: labels, totals: totals[0] ?? null, rows: ordered, rowLabel: g.rowLabel, generated, moneyMode: p.money, fx });
     const name = `${fileSlug(title)}${f.from ? `-${f.from}` : ''}${f.to && f.to !== f.from ? `-to-${f.to}` : ''}.pdf`;
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${name}"`, 'Cache-Control': 'no-store' });
     res.send(buf);

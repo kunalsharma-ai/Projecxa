@@ -2,26 +2,30 @@
 import { Download } from 'lucide-react';
 import { downloadCsv } from '@/lib/csv';
 import { Empty } from '@/components/ui';
-import { moneyLines, type MoneyKey, type SummaryRow } from './types';
+import { marginFor, moneyLines, type MoneyKey, type MoneyMode, type SummaryRow } from './types';
 
 const n = (v: number) => v.toLocaleString();
 
-/** Money cell: one line per currency. */
-export function MoneyCell({ r, k }: { r: SummaryRow; k: MoneyKey }) {
+/** Money cell: one line per currency, or one converted amount. */
+export function MoneyCell({ r, k, mode = 'market' }: { r: SummaryRow; k: MoneyKey; mode?: MoneyMode }) {
   return (
     <>
-      {moneyLines(r, k).map((l) => (
+      {moneyLines(r, k, mode).map((l) => (
         <div key={l} className={l.includes('-') ? 'text-bad' : undefined}>{l}</div>
       ))}
     </>
   );
 }
 
+/** CSV with both views of money: per market currency (text) and converted into the reporting currency (numbers). */
 export function summaryCsv(filename: string, nameHeader: string, rows: SummaryRow[], withSub: string | null) {
+  const cur = rows.find((r) => r.reporting?.currency)?.reporting.currency ?? 'reporting currency';
   downloadCsv(
     filename,
-    [nameHeader, ...(withSub ? [withSub] : []), 'Clicks', 'Completes', 'Conversion %', 'Terminates', 'Quota full', 'Quality fails', 'Partial or error', 'In survey', 'Approved', 'Pending', 'Rejected', 'Median LOI (min)', 'Revenue', 'Payout', 'Profit', 'Margin %'],
-    rows.map((r) => [r.label, ...(withSub ? [r.sublabel ?? ''] : []), r.clicks, r.completes, r.conversion, r.terminates, r.quotaFull, r.qualityFail, r.partial, r.inProgress, r.approved, r.pending, r.rejected, r.medianLoiMinutes ?? '', moneyLines(r, 'revenue').join('; '), moneyLines(r, 'payout').join('; '), moneyLines(r, 'profit').join('; '), r.margin ?? '']),
+    [nameHeader, ...(withSub ? [withSub] : []), 'Clicks', 'Completes', 'Conversion %', 'Terminates', 'Quota full', 'Quality fails', 'Partial or error', 'In survey', 'Approved', 'Pending', 'Rejected', 'Median LOI (min)', 'Revenue', 'Payout', 'Profit', 'Margin %',
+      `Revenue (${cur})`, `Payout (${cur})`, `Profit (${cur})`, `Margin % (${cur})`, 'Not converted (no rate)'],
+    rows.map((r) => [r.label, ...(withSub ? [r.sublabel ?? ''] : []), r.clicks, r.completes, r.conversion, r.terminates, r.quotaFull, r.qualityFail, r.partial, r.inProgress, r.approved, r.pending, r.rejected, r.medianLoiMinutes ?? '', moneyLines(r, 'revenue').join('; '), moneyLines(r, 'payout').join('; '), moneyLines(r, 'profit').join('; '), r.margin ?? '',
+      r.reporting.revenue.toFixed(2), r.reporting.payout.toFixed(2), r.reporting.profit.toFixed(2), r.reporting.margin ?? '', r.reporting.missing.join(' ')]),
   );
 }
 
@@ -34,7 +38,7 @@ export function CsvButton({ onClick, disabled }: { onClick: () => void; disabled
 }
 
 /** Grouped metrics table used by the client and vendor reports. */
-export function SummaryTable({ rows, totals, nameHeader, subHeader }: { rows: SummaryRow[]; totals: SummaryRow | null; nameHeader: string; subHeader?: string }) {
+export function SummaryTable({ rows, totals, nameHeader, subHeader, mode = 'market' }: { rows: SummaryRow[]; totals: SummaryRow | null; nameHeader: string; subHeader?: string; mode?: MoneyMode }) {
   if (rows.length === 0) return <Empty>No traffic matches these filters.</Empty>;
   const Row = ({ r, total }: { r: SummaryRow; total?: boolean }) => (
     <tr className={total ? 'bg-sunken/60 font-medium' : undefined}>
@@ -51,10 +55,10 @@ export function SummaryTable({ rows, totals, nameHeader, subHeader }: { rows: Su
       <td className="td text-right tabular-nums">{n(r.qualityFail)}</td>
       <td className="td text-right tabular-nums">{r.medianLoiMinutes ?? '–'}</td>
       <td className="td text-right tabular-nums">{n(r.pending)} / {n(r.rejected)}</td>
-      <td className="td text-right align-top tabular-nums"><MoneyCell r={r} k="revenue" /></td>
-      <td className="td text-right align-top tabular-nums"><MoneyCell r={r} k="payout" /></td>
-      <td className="td text-right align-top tabular-nums"><MoneyCell r={r} k="profit" /></td>
-      <td className="td text-right tabular-nums">{r.margin == null ? '–' : `${r.margin}%`}</td>
+      <td className="td text-right align-top tabular-nums"><MoneyCell r={r} k="revenue" mode={mode} /></td>
+      <td className="td text-right align-top tabular-nums"><MoneyCell r={r} k="payout" mode={mode} /></td>
+      <td className="td text-right align-top tabular-nums"><MoneyCell r={r} k="profit" mode={mode} /></td>
+      <td className="td text-right tabular-nums">{marginFor(r, mode) == null ? '–' : `${marginFor(r, mode)}%`}</td>
     </tr>
   );
   return (

@@ -13,7 +13,13 @@ export interface SummaryRow {
   revenue: number; payout: number; profit: number; margin: number | null; conversion: number; medianLoiMinutes: number | null;
   currencies: string[];
   money: { currency: string; revenue: number; payout: number; profit: number }[];
+  /** The same money converted into the reporting currency with the manual rates. */
+  reporting: { currency: string; revenue: number; payout: number; profit: number; margin: number | null; missing: string[] };
 }
+/** Reporting currency and the manual rates behind converted figures. */
+export interface FxInfo { currency: string; rates: { currency: string; rate: number }[]; updatedAt: string | null }
+/** How money is shown: converted into the reporting currency, or per market currency. */
+export type MoneyMode = 'reporting' | 'market';
 export interface Options {
   clients: { id: string; name: string }[];
   vendors: { id: string; name: string }[];
@@ -32,7 +38,14 @@ export function filterQuery(f: Filters, extra: Record<string, string | number | 
 export type MoneyKey = 'revenue' | 'payout' | 'profit';
 const amount = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-/** One "CUR 0.00" entry per currency; sums are never mixed across currencies. */
-export function moneyLines(r: Pick<SummaryRow, 'money'>, k: MoneyKey): string[] {
+/**
+ * Market mode: one "CUR 0.00" entry per currency, never mixed. Reporting mode: one converted
+ * amount, marked with * when a currency without a rate was left out.
+ */
+export function moneyLines(r: Pick<SummaryRow, 'money' | 'reporting'>, k: MoneyKey, mode: MoneyMode = 'market'): string[] {
+  if (mode === 'reporting' && r.reporting) return [`${r.reporting.currency} ${amount(r.reporting[k])}${r.reporting.missing.length ? ' *' : ''}`];
   return r.money.length ? r.money.map((m) => `${m.currency} ${amount(m[k])}`) : ['0.00'];
 }
+
+/** Margin for the chosen mode: converted margins work across currencies; market margins only for one. */
+export const marginFor = (r: Pick<SummaryRow, 'margin' | 'reporting'>, mode: MoneyMode) => (mode === 'reporting' ? (r.reporting?.margin ?? null) : r.margin);
