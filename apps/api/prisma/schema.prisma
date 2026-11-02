@@ -87,36 +87,42 @@ enum Role {
 }
 
 model User {
-  id               String        @id @default(cuid())
-  organizationId   String
-  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  email            String
-  name             String
-  passwordHash     String
-  role             Role          @default(PROJECT_MANAGER)
-  active           Boolean       @default(true)
+  id                 String          @id @default(cuid())
+  organizationId     String
+  organization       Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email              String
+  name               String
+  passwordHash       String
+  role               Role            @default(PROJECT_MANAGER)
+  active             Boolean         @default(true)
   /// Set for CLIENT_USER (client portal) and VENDOR_USER (vendor portal) only.
-  clientId         String?
-  client           Client?       @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  vendorId         String?
-  vendor           Vendor?       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  clientId           String?
+  client             Client?         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  vendorId           String?
+  vendor             Vendor?         @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   /// Personal interface preferences (theme, density, motion, sidebar, favorites). Validated by the API.
-  preferences      Json?
+  preferences        Json?
   /// Two-step sign-in (docs/MFA.md). TOTP secrets are encrypted at rest (AES-256-GCM).
-  mfaSecret        String?
+  mfaSecret          String?
   /// Secret waiting for its first code during setup.
-  mfaPendingSecret String?
-  mfaEnabledAt     DateTime?
+  mfaPendingSecret   String?
+  mfaEnabledAt       DateTime?
   /// SHA-256 hashes of unused one-time recovery codes.
-  mfaRecoveryCodes String[]      @default([])
+  mfaRecoveryCodes   String[]        @default([])
   /// Last accepted 30-second step, so a code cannot be used twice.
-  mfaLastStep      Int?
+  mfaLastStep        Int?
   /// Wrong codes in a row; 10 locks the second step for 15 minutes.
-  mfaFailures      Int           @default(0)
-  mfaLockedUntil   DateTime?
-  ssoIdentities    SsoIdentity[]
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  mfaFailures        Int             @default(0)
+  mfaLockedUntil     DateTime?
+  ssoIdentities      SsoIdentity[]
+  /// When the person last chose a password. Null for someone invited who has not set one yet.
+  passwordSetAt      DateTime?
+  lastLoginAt        DateTime?
+  /// Sessions issued before this time are rejected (password reset, deactivation, sign out everywhere).
+  sessionsValidAfter DateTime?
+  passwordTokens     PasswordToken[]
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
 
   managedProjects Project[] @relation("ProjectManager")
   salesProjects   Project[] @relation("SalesPerson")
@@ -979,4 +985,20 @@ model AccountingExport {
   createdAt      DateTime     @default(now())
 
   @@index([organizationId, createdAt])
+}
+
+/// One-time link to set a password: an invitation (72 hours) or a reset (30 minutes). Only a SHA-256 hash is stored.
+model PasswordToken {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// invite | reset
+  purpose     String
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdById String?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, createdAt])
 }

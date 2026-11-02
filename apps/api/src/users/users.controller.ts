@@ -31,7 +31,7 @@ export class UsersController {
   @Roles('ADMIN')
   async create(@CurrentUser() u: AuthUser, @Body(new ZodPipe(createSchema)) body: z.infer<typeof createSchema>) {
     const created = await this.prisma.user.create({
-      data: { organizationId: u.organizationId, email: body.email, name: body.name, role: body.role, passwordHash: await bcrypt.hash(body.password, 10) },
+      data: { organizationId: u.organizationId, email: body.email, name: body.name, role: body.role, passwordHash: await bcrypt.hash(body.password, 10), passwordSetAt: new Date() },
       select: { id: true, name: true, email: true, role: true },
     });
     await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'user.create', entityType: 'User', entityId: created.id });

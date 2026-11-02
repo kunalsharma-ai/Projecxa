@@ -39,13 +39,13 @@ async function main() {
   });
   const hash = await bcrypt.hash(ADMIN_PASSWORD, 10);
   const admin = await prisma.user.create({
-    data: { organizationId: org.id, email: 'admin@projexa.local', name: 'Administrator', passwordHash: hash, role: 'ADMIN' },
+    data: { organizationId: org.id, email: 'admin@projexa.local', name: 'Administrator', passwordHash: hash, passwordSetAt: new Date(), role: 'ADMIN' },
   });
   const pm = await prisma.user.create({
-    data: { organizationId: org.id, email: 'pm@projexa.local', name: 'Priya Manager', passwordHash: hash, role: 'PROJECT_MANAGER' },
+    data: { organizationId: org.id, email: 'pm@projexa.local', name: 'Priya Manager', passwordHash: hash, passwordSetAt: new Date(), role: 'PROJECT_MANAGER' },
   });
   await prisma.user.create({
-    data: { organizationId: org.id, email: 'sales@projexa.local', name: 'Sam Sales', passwordHash: hash, role: 'SALES' },
+    data: { organizationId: org.id, email: 'sales@projexa.local', name: 'Sam Sales', passwordHash: hash, passwordSetAt: new Date(), role: 'SALES' },
   });
 
   const acme = await prisma.client.create({
@@ -76,10 +76,10 @@ async function main() {
 
   // Portal logins (milestone 2)
   await prisma.user.create({
-    data: { organizationId: org.id, email: 'client@projexa.local', name: 'Alex Client', passwordHash: hash, role: 'CLIENT_USER', clientId: acme.id },
+    data: { organizationId: org.id, email: 'client@projexa.local', name: 'Alex Client', passwordHash: hash, passwordSetAt: new Date(), role: 'CLIENT_USER', clientId: acme.id },
   });
   await prisma.user.create({
-    data: { organizationId: org.id, email: 'vendor@projexa.local', name: 'Val Vendor', passwordHash: hash, role: 'VENDOR_USER', vendorId: alpha.id },
+    data: { organizationId: org.id, email: 'vendor@projexa.local', name: 'Val Vendor', passwordHash: hash, passwordSetAt: new Date(), role: 'VENDOR_USER', vendorId: alpha.id },
   });
 
   const vendorEnd = (code: string) => `${WEB}/mock/vendor/${code}`;

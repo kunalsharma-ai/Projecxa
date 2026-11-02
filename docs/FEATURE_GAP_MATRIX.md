@@ -6,7 +6,7 @@ Classification follows the spec: **EXISTING** (done in this repo and tested), **
 | Module (spec) | Capability | Status | Notes |
 |---|---|---|---|
 | Foundation | Multi-tenant organizations, every query scoped by tenant | EXISTING | e2e test proves cross-tenant 404s |
-| Foundation | Login, roles (admin, PM, sales, viewer), audit log | EXISTING | Client/vendor portal roles exist in the schema but have no screens |
+| Foundation | Login, roles (admin, PM, sales, viewer), audit log | DONE | Portals have screens (milestone 2); staff team screen with invitations, roles, deactivation and sign-out everywhere, plus password reset by email (milestone 18) |
 | Foundation | SSO (SAML/OIDC), MFA | DONE (milestone 13: MFA with authenticator apps, recovery codes, org-wide requirement for staff, admin reset; milestone 15: OIDC sign-in with Google, Microsoft and Zoho, per-org domains and tenant, SSO-only mode) | SAML for other identity providers if a client asks |
 | 1 Project factory | Master project with many countries, shared settings plus overrides | EXISTING | |
 | 1 | Country clone (with vendors and quotas), Excel/CSV paste | EXISTING | |
@@ -37,7 +37,7 @@ Classification follows the spec: **EXISTING** (done in this repo and tested), **
 | 8 | RFQ submission, questionnaire upload, deliverables, tickets, invoices | MISSING | RFQs belong to Bidzo |
 | 9 Vendor portal | Own allocations, entry/test links, respondents, payouts by approval state, callback log, CSV | EXISTING | Milestone 2. Never shows client CPI, revenue or other vendors |
 | 9 | Self-registration, compliance documents, feasibility/CPI quotes, invoices, disputes | MISSING | |
-| 8 / 9 | Portal logins created by staff, deactivation takes effect immediately | EXISTING | Password reset by email missing (portal users can use single sign-on if their email domain is on the list) |
+| 8 / 9 | Portal logins created by staff, deactivation takes effect immediately | EXISTING | Password reset by email (milestone 18); portal users can also use single sign-on if their email domain is on the list |
 | 10 API hub | Public REST API with OpenAPI docs, API keys, webhooks | DONE (milestone 12: scoped API keys, /api/v1/public, OpenAPI, signed event webhooks with retries) | Rate limit is per API instance; move to Redis when running several |
 | 11 / 12 AI & voice | Copilot, agents, voice commands | MISSING | Phase 6 |
 | 13 Finance | Revenue/payout per complete, approve/reject completes, reconciliation against the client's ID list, client invoices (draft, sent, paid, void) | DONE (exports) | Milestone 11 added vendor bills (draft, approved, paid, void), tax on invoices and bills, manual exchange rates and reporting-currency totals. Milestone 16 added accounting exports (Zoho Books, Tally, QuickBooks Online, Xero, journal CSV) with export history. Payment exports and direct API sync to accounting systems missing |

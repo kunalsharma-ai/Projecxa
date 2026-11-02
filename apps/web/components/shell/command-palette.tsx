@@ -7,7 +7,7 @@ import { canEdit, useMe } from '@/components/me';
 import { useTheme } from '@/components/theme';
 import { get } from '@/lib/api';
 import { THEMES } from '@/lib/theme';
-import { BIDZO_URL, NAV } from './nav';
+import { BIDZO_URL, NAV, visibleNav } from './nav';
 
 interface Cmd { id: string; group: string; label: string; hint?: string; icon: React.ComponentType<{ className?: string }>; run: () => void; keywords?: string }
 interface Lookups { clients: { id: string; name: string; code: string }[]; vendors: { id: string; name: string; code: string }[] }
@@ -65,7 +65,7 @@ export function CommandPalette({ open, onClose, onToggleInsights }: { open: bool
   const commands = useMemo<Cmd[]>(() => {
     const dark = prefs.mode === 'dark';
     const cmds: Cmd[] = [
-      ...NAV.filter((n) => !n.editorsOnly || canEdit(me)).map((n) => ({ id: `nav-${n.href}`, group: 'Go to', label: n.label, icon: n.icon, run: go(n.href), keywords: n.keywords })),
+      ...visibleNav(me?.user.role).map((n) => ({ id: `nav-${n.href}`, group: 'Go to', label: n.label, icon: n.icon, run: go(n.href), keywords: n.keywords })),
       ...(canEdit(me) ? [{ id: 'new-project', group: 'Actions', label: 'Create project', icon: Zap, run: go('/projects/new') }] : []),
       ...(BIDZO_URL ? [{ id: 'new-bid', group: 'Actions', label: 'Create bid in Bidzo', icon: Zap, run: () => { onClose(); window.open(`${BIDZO_URL.replace(/\/$/, '')}/bids/new`, '_blank', 'noopener'); } }] : []),
       { id: 'mode', group: 'Actions', label: dark ? 'Switch to light mode' : 'Switch to dark mode', icon: dark ? Sun : Moon, run: () => { update({ mode: dark ? 'light' : 'dark' }); onClose(); }, keywords: 'theme appearance' },

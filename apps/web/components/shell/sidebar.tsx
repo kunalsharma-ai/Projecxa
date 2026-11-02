@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { canEdit, useMe } from '@/components/me';
 import { useTheme } from '@/components/theme';
-import { isActive, NAV, type NavItem } from './nav';
+import { isActive, NAV, visibleNav, type NavItem } from './nav';
 
 /** Collapsible navigation with favorites and recent projects. Compact mode shows icons with labels on hover/focus. */
 export function Sidebar({ mobileOpen, onClose, badges = {} }: { mobileOpen: boolean; onClose: () => void; badges?: Record<string, number> }) {
@@ -13,7 +13,7 @@ export function Sidebar({ mobileOpen, onClose, badges = {} }: { mobileOpen: bool
   const me = useMe();
   const pathname = usePathname();
   const compact = prefs.sidebarCollapsed;
-  const items = NAV.filter((n) => !n.editorsOnly || canEdit(me));
+  const items = visibleNav(me?.user.role);
   const favorites = prefs.favorites.map((h) => items.find((n) => n.href === h)).filter((n): n is NavItem => !!n);
   const toggleFav = (href: string) =>
     update({ favorites: prefs.favorites.includes(href) ? prefs.favorites.filter((f) => f !== href) : [...prefs.favorites, href].slice(0, 20) });
