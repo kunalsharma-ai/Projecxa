@@ -160,6 +160,14 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - **Admin controls** (Settings → AI copilot): on/off, which roles may use it, actions, documents, voice, per-person and organisation limits, and usage by day and person.
 - Provider-independent gateway; Google Gemini is the first provider. Set `GEMINI_API_KEY` on the API server. Setup, models and the free-tier data caveat: `docs/AI_COPILOT.md`.
 
+## Milestone 21: direct sync to Xero, QuickBooks Online and Tally Prime
+
+- **Accounting → Xero, QuickBooks and Tally sync**: send sent and paid invoices, approved and paid vendor bills, their payments and voids straight into Xero, QuickBooks Online or Tally Prime, with **Sync now** or every hour, like the Zoho Books sync.
+- Xero and QuickBooks: an admin connects with **Connect** (OAuth, no copying of keys). Tokens are stored encrypted and refreshed as they rotate; an expired sign-in shows **Sign in again**.
+- Tally Prime: the server posts vouchers to Tally's XML server (`TALLY_URL`), which must be reachable privately, for example over a VPN.
+- Each document is looked up by number before it is created and every created record is remembered, so nothing is sent twice. Runs list their problems per document.
+- Setup and the limits of each system: `docs/ACCOUNTING_SYNC.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).

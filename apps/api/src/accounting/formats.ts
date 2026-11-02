@@ -115,7 +115,7 @@ export function fmtDate(d: Date | null, c: AccountingConfig) {
   const mm = String(p.m).padStart(2, '0');
   return c.dateFormat === 'dd/mm/yyyy' ? `${dd}/${mm}/${p.y}` : c.dateFormat === 'mm/dd/yyyy' ? `${mm}/${dd}/${p.y}` : `${p.y}-${mm}-${dd}`;
 }
-const party = (d: Doc, c: AccountingConfig) => (c.partyName === 'code' ? d.party.code : d.party.name);
+export const party = (d: Doc, c: AccountingConfig) => (c.partyName === 'code' ? d.party.code : d.party.name);
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 // ───────────── Zoho Books ─────────────
@@ -184,8 +184,8 @@ function journal(docs: Doc[], c: AccountingConfig): string {
 
 // ───────────── Tally Prime ─────────────
 
-const xml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
-const tallyDate = (d: Date, c: AccountingConfig) => {
+export const xml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+export const tallyDate = (d: Date, c: AccountingConfig) => {
   const p = localParts(d, c.timezone);
   return `${p.y}${String(p.m).padStart(2, '0')}${String(p.d).padStart(2, '0')}`;
 };

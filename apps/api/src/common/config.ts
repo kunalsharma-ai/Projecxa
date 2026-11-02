@@ -86,6 +86,48 @@ export const config = {
     return process.env.ZOHO_BOOKS_SCHEDULER_ENABLED !== 'false';
   },
   /**
+   * Direct sync to Xero, QuickBooks Online and Tally Prime (docs/ACCOUNTING_SYNC.md). Xero and
+   * QuickBooks use an OAuth app per PROJEXA server; each organisation signs in to its own company.
+   * The URL settings only change for testing.
+   */
+  get ledgers() {
+    const v = (k: string) => process.env[k]?.trim() || '';
+    const qbSandbox = v('QUICKBOOKS_ENVIRONMENT') === 'sandbox';
+    return {
+      xero: v('XERO_CLIENT_ID') && v('XERO_CLIENT_SECRET')
+        ? {
+            clientId: v('XERO_CLIENT_ID'),
+            clientSecret: v('XERO_CLIENT_SECRET'),
+            authorizeUrl: v('XERO_AUTHORIZE_URL') || 'https://login.xero.com/identity/connect/authorize',
+            tokenUrl: v('XERO_TOKEN_URL') || 'https://identity.xero.com/connect/token',
+            revokeUrl: v('XERO_REVOKE_URL') || 'https://identity.xero.com/connect/revocation',
+            apiUrl: (v('XERO_API_URL') || 'https://api.xero.com').replace(/\/$/, ''),
+            scopes: v('XERO_SCOPES') || '',
+          }
+        : null,
+      quickbooks: v('QUICKBOOKS_CLIENT_ID') && v('QUICKBOOKS_CLIENT_SECRET')
+        ? {
+            clientId: v('QUICKBOOKS_CLIENT_ID'),
+            clientSecret: v('QUICKBOOKS_CLIENT_SECRET'),
+            sandbox: qbSandbox,
+            authorizeUrl: v('QUICKBOOKS_AUTHORIZE_URL') || 'https://appcenter.intuit.com/connect/oauth2',
+            tokenUrl: v('QUICKBOOKS_TOKEN_URL') || 'https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer',
+            revokeUrl: v('QUICKBOOKS_REVOKE_URL') || 'https://developer.api.intuit.com/v2/oauth2/tokens/revoke',
+            apiUrl: (v('QUICKBOOKS_API_URL') || (qbSandbox ? 'https://sandbox-quickbooks.api.intuit.com' : 'https://quickbooks.api.intuit.com')).replace(/\/$/, ''),
+            minorVersion: v('QUICKBOOKS_MINOR_VERSION') || '75',
+          }
+        : null,
+      /** Tally Prime's XML server is not safe on the internet, so it is set on the server and bound to one organisation. */
+      tally: v('TALLY_URL') && v('TALLY_TENANT') ? { url: v('TALLY_URL').replace(/\/$/, ''), tenant: v('TALLY_TENANT') } : null,
+      schedulerEnabled: process.env.LEDGER_SCHEDULER_ENABLED !== 'false',
+    };
+  },
+  /** Key that encrypts accounting sign-in tokens. Falls back to the two-step sign-in key. */
+  get accountingEncryptionKey(): string {
+    const k = process.env.ACCOUNTING_ENCRYPTION_KEY;
+    return k && k.length >= 16 ? k : this.mfaEncryptionKey;
+  },
+  /**
    * AI copilot and voice (docs/AI_COPILOT.md). Google Gemini through an AI Studio key, kept on the
    * server. Model names move often, so each is an env setting with a current default.
    */
