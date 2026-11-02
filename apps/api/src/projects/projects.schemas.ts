@@ -133,6 +133,9 @@ export const listQuerySchema = z.object({
   q: z.string().max(200).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  /** Column to sort by (the data grid's sortable columns); newest first by default. */
+  sort: z.enum(['created', 'name', 'code', 'status', 'client', 'manager', 'fieldEnd']).default('created'),
+  dir: z.enum(['asc', 'desc']).optional(),
 });
 
 export const restoreSchema = z.object({ reason: z.string().trim().max(500).optional() });

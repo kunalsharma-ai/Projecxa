@@ -189,13 +189,22 @@ export class ProjectsService {
           }
         : {}),
     };
-    const [total, rows] = await Promise.all([
+    // Text columns sort the way people read them (case-insensitive, numbers in order), which the
+    // database's byte-order collation does not do: order the matching ids here, then load one page.
+    let pageIds: string[] | null = null;
+    if (q.sort === 'name' || q.sort === 'client' || q.sort === 'manager') {
+      const keys = await this.prisma.project.findMany({ where, select: { id: true, createdAt: true, name: true, client: { select: { name: true } }, projectManager: { select: { name: true } } } });
+      const text = (k: (typeof keys)[number]) => (q.sort === 'name' ? k.name : q.sort === 'client' ? k.client.name : k.projectManager.name);
+      const f = q.dir === 'desc' ? -1 : 1;
+      keys.sort((x, y) => f * text(x).localeCompare(text(y), 'en', { sensitivity: 'base', numeric: true }) || y.createdAt.getTime() - x.createdAt.getTime() || y.id.localeCompare(x.id));
+      pageIds = keys.slice((q.page - 1) * q.pageSize, q.page * q.pageSize).map((k) => k.id);
+    }
+    const [total, found] = await Promise.all([
       this.prisma.project.count({ where }),
       this.prisma.project.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip: (q.page - 1) * q.pageSize,
-        take: q.pageSize,
+        where: pageIds ? { id: { in: pageIds }, organizationId: u.organizationId } : where,
+        orderBy: projectOrder(q.sort, q.dir),
+        ...(pageIds ? {} : { skip: (q.page - 1) * q.pageSize, take: q.pageSize }),
         include: {
           client: { select: { id: true, name: true } },
           projectManager: { select: { id: true, name: true } },
@@ -204,6 +213,7 @@ export class ProjectsService {
         },
       }),
     ]);
+    const rows = pageIds ? pageIds.map((id) => found.find((r) => r.id === id)!).filter(Boolean) : found;
     const stats = await this.sessionStats(rows.map((r) => r.id));
     return {
       total,
@@ -241,6 +251,8 @@ export class ProjectsService {
           loiMinutes: avg(r.countries.map((c) => c.loiMinutes)),
           irPercent: avg(r.countries.map((c) => c.irPercent)),
           redirectMode: r.redirectMode,
+          fieldStartAt: r.fieldStartAt,
+          fieldEndAt: r.fieldEndAt,
           createdAt: r.createdAt,
         };
       }),
@@ -583,4 +595,20 @@ export function outcomeEndpoints() {
     s2s: `${base}/api/v1/s2s/outcome`,
     statuses: ['complete', 'terminate', 'quota_full', 'quality_fail', 'duplicate', 'security_reject', 'partial', 'technical_error'],
   };
+}
+
+/** Sort order for the project list; ties fall back to newest first so paging stays stable. */
+export function projectOrder(sort: z.infer<typeof listQuerySchema>['sort'], dir?: 'asc' | 'desc'): Prisma.ProjectOrderByWithRelationInput[] {
+  const d = dir ?? (sort === 'created' ? 'desc' : 'asc');
+  const orders: Record<typeof sort, Prisma.ProjectOrderByWithRelationInput> = {
+    created: { createdAt: d },
+    name: { name: d },
+    code: { projectCode: d },
+    status: { status: d },
+    client: { client: { name: d } },
+    manager: { projectManager: { name: d } },
+    fieldEnd: { fieldEndAt: { sort: d, nulls: 'last' } },
+  };
+  const first = orders[sort];
+  return sort === 'created' ? [first, { id: d }] : [first, { createdAt: 'desc' }, { id: 'desc' }];
 }

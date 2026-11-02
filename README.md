@@ -223,6 +223,12 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - New widgets: a markets world map, a revenue-to-profit waterfall and a weekday-by-hour traffic heatmap. Key money numbers are now in the reporting currency.
 - Details: `docs/DASHBOARD_WIDGETS.md`.
 
+## Milestone 30: data grid and redirect diagram
+
+- A reusable data grid with sortable, resizable and hideable columns, a pinned first column, a sticky header and compact rows. The Projects list uses it, sorted on the server.
+- Redirects tab: a diagram of the respondent journey for any market and vendor, from entry link through checks and survey to each outcome's destination and the rule behind it.
+- Details: `docs/DATA_GRID_AND_REDIRECT_DIAGRAM.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).
