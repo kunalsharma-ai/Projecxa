@@ -236,6 +236,13 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - Access and erasure requests: find a respondent by the panel's ID and erase their personal data.
 - Details: `docs/PRIVACY.md`.
 
+## Milestone 32: smart forms
+
+- A reusable set of form controls: searchable and multi-select with chips, country (flags) and currency pickers, date pickers that understand "tomorrow" or "+7", date ranges with presets, radio cards, checkbox groups, segmented controls, switches, tags, inline edit, light rich text and drag-and-drop upload. All are keyboard friendly, with accessible errors.
+- `SmartForm` draws a whole form from a schema: sections, show-if rules, repeatable groups, validation with an error summary, rule-based suggestions, saved drafts and Ctrl+Enter to submit.
+- Used on Add client (with contacts), Add vendor (domains as tags) and client billing details (inline edit). Try every control at Form gallery (`/settings/forms`).
+- Details: `docs/SMART_FORMS.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).

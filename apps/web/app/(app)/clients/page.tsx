@@ -2,7 +2,11 @@
 import { Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { canEdit, useMe } from '@/components/me';
-import { Empty, ErrorBox, Field, Loading, PageHeader, Section, StatusChip } from '@/components/ui';
+import { FormField } from '@/components/form/field';
+import { SmartForm, type FormSchema, type Values } from '@/components/form/smart-form';
+import { InlineEdit } from '@/components/form/tags';
+import { Empty, ErrorBox, Loading, PageHeader, Section, StatusChip } from '@/components/ui';
+import { suggestCode } from '@/lib/suggest';
 import { get, patch, post } from '@/lib/api';
 
 interface ClientRow { id: string; name: string; code: string; status: string; contacts: { id: string; name: string; email: string | null }[]; _count: { projects: number } }
@@ -10,7 +14,6 @@ interface ClientRow { id: string; name: string; code: string; status: string; co
 export default function ClientsPage() {
   const me = useMe();
   const [rows, setRows] = useState<ClientRow[] | null>(null);
-  const [form, setForm] = useState({ name: '', code: '', contact: '', email: '', billingAddress: '', taxId: '' });
   const [billing, setBilling] = useState<{ id: string; billingAddress: string; taxId: string } | null>(null);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -28,21 +31,52 @@ export default function ClientsPage() {
       setError(e);
     }
   }
-  async function saveBilling() {
+  /** Saves one billing field at once (inline edit); a failure is shown next to the field. */
+  async function saveBilling(field: 'billingAddress' | 'taxId', v: string) {
     if (!billing) return;
-    try {
-      await patch(`/clients/${billing.id}`, { billingAddress: billing.billingAddress.trim() || null, taxId: billing.taxId.trim() || null });
-      setBilling(null);
-    } catch (e) {
-      setError(e);
-    }
+    await patch(`/clients/${billing.id}`, { [field]: v.trim() || null });
+    setBilling({ ...billing, [field]: v.trim() });
   }
 
-  async function create() {
+  const taken = rows?.map((c) => c.code) ?? [];
+  const schema: FormSchema = {
+    sections: [
+      {
+        columns: 2,
+        fields: [
+          { name: 'name', type: 'text', label: 'Name', required: true, maxLength: 200, placeholder: 'e.g. Acme Research' },
+          {
+            name: 'code', type: 'text', label: 'Code', required: true, pattern: [/^[A-Za-z0-9_-]{2,20}$/, 'Use 2–20 letters, digits, - or _.'], hint: 'Short and unique; used in project codes and reports',
+            validate: (v) => (taken.includes(String(v).trim().toUpperCase()) ? 'Another client already uses this code.' : null),
+            suggest: (v) => { const c = suggestCode(String(v.name ?? ''), taken); return c ? { value: c, reason: 'from the name, not used yet' } : null; },
+          },
+        ],
+      },
+      {
+        title: 'Contacts',
+        description: 'People at the client you work with. You can add more later.',
+        fields: [{ name: 'contacts', type: 'group', label: 'Contacts', itemLabel: 'Contact', maxItems: 10, fields: [
+          { name: 'name', type: 'text', label: 'Name', required: true },
+          { name: 'email', type: 'email', label: 'Email' },
+          { name: 'phone', type: 'text', label: 'Phone', pattern: [/^\+?[0-9 ()-]{6,20}$/, 'Use digits, spaces, (), - and an optional +.'] },
+        ], props: { columns: 3, hideLabel: true } }],
+      },
+      {
+        title: 'Billing',
+        description: 'Printed under “Bill to” on invoice PDFs.',
+        columns: 3,
+        fields: [
+          { name: 'billingAddress', type: 'textarea', label: 'Billing address', span: 2, maxLength: 1000 },
+          { name: 'taxId', type: 'text', label: 'Tax ID', hint: 'VAT, GST or similar', maxLength: 80 },
+        ],
+      },
+    ],
+  };
+  async function create(v: Values) {
     setError(null);
     try {
-      await post('/clients', { name: form.name, code: form.code, billingAddress: form.billingAddress || null, taxId: form.taxId || null, contacts: form.contact ? [{ name: form.contact, ...(form.email ? { email: form.email } : {}) }] : [] });
-      setForm({ name: '', code: '', contact: '', email: '', billingAddress: '', taxId: '' });
+      const contacts = (v.contacts as { name: string; email: string; phone: string }[]).map((c) => ({ name: c.name, ...(c.email ? { email: c.email } : {}), ...(c.phone ? { phone: c.phone } : {}) }));
+      await post('/clients', { name: v.name, code: v.code, billingAddress: v.billingAddress || null, taxId: v.taxId || null, contacts });
       setOpen(false);
       load();
     } catch (e) {
@@ -56,23 +90,18 @@ export default function ClientsPage() {
       <div className="mb-4"><ErrorBox error={error} /></div>
       {open && (
         <Section title="New client" className="mb-6">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-            <Field label="Name"><input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-            <Field label="Code" hint="2–20 letters or digits"><input className="input" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} /></Field>
-            <Field label="Contact name"><input className="input" value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} /></Field>
-            <Field label="Contact email"><input className="input" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
-            <Field label="Billing address" hint="Printed on invoice PDFs"><textarea className="input min-h-[4.5rem]" value={form.billingAddress} onChange={(e) => setForm({ ...form, billingAddress: e.target.value })} /></Field>
-            <Field label="Tax ID" hint="VAT, GST or similar"><input className="input" value={form.taxId} onChange={(e) => setForm({ ...form, taxId: e.target.value })} /></Field>
-          </div>
-          <button className="btn-primary mt-4" onClick={create} disabled={!form.name || !form.code}>Save client</button>
+          <SmartForm schema={schema} onSubmit={create} submitLabel="Save client" onCancel={() => setOpen(false)} draftKey="client-new" />
         </Section>
       )}
       {billing && (
-        <Section title={`Billing details · ${rows?.find((c) => c.id === billing.id)?.name ?? ''}`} className="mb-6">
-          <div className="grid gap-3 sm:grid-cols-[2fr_1fr_auto] sm:items-end">
-            <Field label="Billing address" hint="Printed under “Bill to” on invoice PDFs"><textarea className="input min-h-[4.5rem]" autoFocus value={billing.billingAddress} onChange={(e) => setBilling({ ...billing, billingAddress: e.target.value })} /></Field>
-            <Field label="Tax ID"><input className="input" value={billing.taxId} onChange={(e) => setBilling({ ...billing, taxId: e.target.value })} /></Field>
-            <div className="flex gap-2"><button className="btn-ghost" onClick={() => setBilling(null)}>Cancel</button><button className="btn-primary" onClick={saveBilling}>Save</button></div>
+        <Section title={`Billing details · ${rows?.find((c) => c.id === billing.id)?.name ?? ''}`} className="mb-6" actions={<button className="btn-ghost h-8 px-2.5 text-xs" onClick={() => setBilling(null)}>Done</button>}>
+          <div className="grid gap-4 sm:grid-cols-[2fr_1fr]">
+            <FormField label="Billing address" hint="Printed under “Bill to” on invoice PDFs. Click to edit; it saves when you leave the field.">
+              <InlineEdit label="billing address" multiline value={billing.billingAddress} placeholder="Add a billing address" onSave={(v) => saveBilling('billingAddress', v)} validate={(v) => (v.length > 1000 ? 'Use at most 1000 characters.' : null)} />
+            </FormField>
+            <FormField label="Tax ID">
+              <InlineEdit label="tax ID" value={billing.taxId} placeholder="Add a tax ID" onSave={(v) => saveBilling('taxId', v)} validate={(v) => (v.length > 80 ? 'Use at most 80 characters.' : null)} />
+            </FormField>
           </div>
         </Section>
       )}

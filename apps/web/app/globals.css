@@ -151,3 +151,16 @@ body {
   .print-area .no-print { display: none !important; }
   @page { margin: 16mm; }
 }
+
+/* Smart forms (docs/SMART_FORMS.md): floating labels sit inside the input and move up when it has a value or focus. */
+@layer components {
+  .float-field .input { padding-top: calc(var(--field-y) + 0.6rem); padding-bottom: calc(var(--field-y) - 0.1rem); }
+  .float-label {
+    @apply pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted;
+    transition: top var(--dur) var(--ease), font-size var(--dur) var(--ease), color var(--dur) var(--ease);
+  }
+  .float-field .input:focus ~ .float-label,
+  .float-field .input:not(:placeholder-shown) ~ .float-label { top: 0.55rem; font-size: 0.6875rem; }
+  .float-field .input:focus ~ .float-label { color: rgb(var(--brand)); }
+  .float-field[data-invalid] .float-label { color: rgb(var(--bad)); }
+}
