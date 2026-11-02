@@ -1,3 +1,4 @@
+import { BrandingService } from '../branding/branding';
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, PayloadTooLargeException } from '@nestjs/common';
 import { Prisma, SharedFileKind, TicketKind, TicketStatus } from '@prisma/client';
 import { createHash } from 'crypto';
@@ -50,7 +51,7 @@ type TicketWithParties = Prisma.TicketGetPayload<{ include: { client: { select: 
 @Injectable()
 export class RequestsService {
   private readonly log = new Logger(RequestsService.name);
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly mail: MailService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly mail: MailService, private readonly branding: BrandingService) {}
 
   /** The company a portal user belongs to. */
   async partyOf(u: AuthUser): Promise<Party> {
@@ -315,11 +316,12 @@ export class RequestsService {
       const to = await this.prisma.user.findFirst({ where: { id: toId, organizationId: t.organizationId, active: true }, select: { email: true, role: true } });
       if (!to) return;
       const portal = to.role === 'CLIENT_USER' || to.role === 'VENDOR_USER';
-      const link = `${config.webOrigins[0] ?? ''}${portal ? `/portal/requests/${t.id}` : `/requests/${t.id}`}`;
+      const brand = await this.branding.brand(t.organizationId);
+      const link = `${brand.webBase}${portal ? `/portal/requests/${t.id}` : `/requests/${t.id}`}`;
       const ref = ticketRef(t.number);
       const subject = what === 'created' ? `New request ${ref}: ${t.subject}` : `New reply on ${ref}: ${t.subject}`;
-      const text = `${author.name} ${what === 'created' ? 'opened a request' : 'replied'} on ${t.organization.name} PROJEXA.\n\n${ref}: ${t.subject}\n\nOpen it: ${link}\n`;
-      await this.mail.send({ to: [to.email], subject: subject.slice(0, 200), text, html: `<p>${esc(author.name)} ${what === 'created' ? 'opened a request' : 'replied'}.</p><p><b>${esc(ref)}</b>: ${esc(t.subject)}</p><p><a href="${esc(link)}">Open the request</a></p>` });
+      const text = `${author.name} ${what === 'created' ? 'opened a request' : 'replied'} on ${t.organization.name} ${brand.appName}.\n\n${ref}: ${t.subject}\n\nOpen it: ${link}\n`;
+      await this.mail.send({ to: [to.email], subject: subject.slice(0, 200), text, html: `<p>${esc(author.name)} ${what === 'created' ? 'opened a request' : 'replied'}.</p><p><b>${esc(ref)}</b>: ${esc(t.subject)}</p><p><a href="${esc(link)}">Open the request</a></p>`, fromName: brand.emailFromName, replyTo: brand.emailReplyTo });
     } catch (e) {
       if (!(e instanceof MailNotConfigured)) this.log.warn(`Request email failed: ${(e as Error).message}`);
     }

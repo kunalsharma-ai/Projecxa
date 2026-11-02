@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Injectable, Logger, Module, NotFoundException, Param, Patch, Post, Put } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { Prisma, ReportSchedule } from '@prisma/client';
+import { BrandingService } from '../branding/branding';
 import { z } from 'zod';
 import { AuditService } from '../audit/audit.service';
 import { CurrentUser, EDITORS, Roles } from '../auth/decorators';
@@ -29,6 +30,7 @@ export class SchedulesService {
     private readonly reports: ReportsService,
     private readonly mail: MailService,
     private readonly audit: AuditService,
+    private readonly branding: BrandingService,
   ) {}
 
   @Interval(60_000)
@@ -73,7 +75,7 @@ export class SchedulesService {
       else {
         const attachments: { filename: string; content: string | Buffer; contentType: string }[] = [{ filename: built.filename, content: built.csv, contentType: 'text/csv' }];
         if (s.attachPdf) attachments.push({ filename: built.filename.replace(/\.csv$/, '.pdf'), content: await built.pdf(), contentType: 'application/pdf' });
-        await this.mail.send({ to: s.recipients, subject: built.subject, html: built.html, text: built.text, attachments });
+        await this.mail.send({ to: s.recipients, subject: built.subject, html: built.html, text: built.text, attachments, fromName: built.brand.emailFromName, replyTo: built.brand.emailReplyTo });
       }
     } catch (e) {
       status = 'FAILED';
@@ -86,21 +88,22 @@ export class SchedulesService {
   async build(s: Pick<ReportSchedule, 'organizationId' | 'name' | 'report' | 'filters' | 'frequency' | 'dayOfWeek' | 'dayOfMonth' | 'hour' | 'timezone'>, from: string, to: string) {
     const kind = s.report as ReportKind;
     const f = { ...(s.filters as Filters), from, to };
-    const [rows, totals, org, labels] = await Promise.all([
+    const [rows, totals, org, labels, brand] = await Promise.all([
       this.reports.summary(s.organizationId, f, GROUP[kind].groupBy),
       this.reports.summary(s.organizationId, f, null),
       this.prisma.organization.findUniqueOrThrow({ where: { id: s.organizationId }, select: { name: true } }),
       this.filterLabels(s.organizationId, s.filters as Filters),
+      this.branding.brand(s.organizationId),
     ]);
     const ordered = kind === 'overall' ? [...rows].sort((a, b) => b.completes - a.completes || b.clicks - a.clicks) : rows;
     const email = renderEmail({
       org: org.name, name: s.name, reportLabel: REPORTS[kind], from, to, filters: labels, totals: totals[0] ?? null, rows: ordered, rowLabel: GROUP[kind].rowLabel,
-      appUrl: config.webOrigins[0] ?? '', schedule: describe(s),
+      appUrl: brand.webBase, appName: brand.appName, logoUrl: brand.logoUrl, schedule: describe(s),
     });
     const slug = s.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'report';
     const pdf = () =>
       renderReportPdf({ org: org.name, title: s.name, reportLabel: REPORTS[kind], from, to, filters: labels, totals: totals[0] ?? null, rows: ordered, rowLabel: GROUP[kind].rowLabel, generated: new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC' });
-    return { ...email, pdf, csv: toCsv(ordered), filename: `${slug}-${from}${from === to ? '' : `-to-${to}`}.csv`, rows: ordered.length, clicks: totals[0]?.clicks ?? 0 };
+    return { ...email, brand, pdf, csv: toCsv(ordered), filename: `${slug}-${from}${from === to ? '' : `-to-${to}`}.csv`, rows: ordered.length, clicks: totals[0]?.clicks ?? 0 };
   }
 
   private filterLabels(org: string, f: Filters) {
@@ -134,6 +137,7 @@ export class SchedulesController {
     private readonly schedules: SchedulesService,
     private readonly mail: MailService,
     private readonly audit: AuditService,
+    private readonly branding: BrandingService,
   ) {}
 
   @Get()
@@ -218,11 +222,14 @@ export class SchedulesController {
   @HttpCode(200)
   async testEmail(@CurrentUser() u: AuthUser) {
     try {
+      const brand = await this.branding.brand(u.organizationId);
       await this.mail.send({
         to: [u.email],
-        subject: 'PROJEXA test email',
-        text: 'Your PROJEXA email settings work. Scheduled reports will be sent from this address.',
-        html: '<p>Your PROJEXA email settings work. Scheduled reports will be sent from this address.</p>',
+        subject: `${brand.appName} test email`,
+        text: `Your ${brand.appName} email settings work. Scheduled reports will be sent from this address.`,
+        html: `<p>Your ${brand.appName} email settings work. Scheduled reports will be sent from this address.</p>`,
+        fromName: brand.emailFromName,
+        replyTo: brand.emailReplyTo,
       });
       return { ok: true, to: u.email };
     } catch (e) {

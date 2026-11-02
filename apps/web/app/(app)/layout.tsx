@@ -15,6 +15,7 @@ import { ThemeMenu } from '@/components/shell/theme-menu';
 import { useTheme } from '@/components/theme';
 import { Loading } from '@/components/ui';
 import { get, post } from '@/lib/api';
+import { applyDocumentBrand, orgTheme } from '@/lib/branding';
 import { isPortalRole, portalHome, type Me } from '@/lib/types';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -32,7 +33,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     get<Me>('/auth/me')
       .then((m) => {
         if (isPortalRole(m.user.role)) return router.replace(portalHome(m.user.role));
-        hydrate(m.preferences);
+        hydrate(m.preferences, orgTheme(m.branding));
+        if (m.branding) applyDocumentBrand(m.branding);
         setMe(m);
       })
       .catch(() => router.replace('/login'));

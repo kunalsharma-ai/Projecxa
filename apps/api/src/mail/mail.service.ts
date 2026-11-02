@@ -8,6 +8,9 @@ export interface Mail {
   html: string;
   text: string;
   attachments?: { filename: string; content: string | Buffer; contentType: string }[];
+  /** White-label: sender display name (the address stays the server's MAIL_FROM) and reply-to. */
+  fromName?: string | null;
+  replyTo?: string | null;
 }
 export type MailTransport = (from: string, mail: Mail) => Promise<{ messageId?: string }>;
 
@@ -32,12 +35,19 @@ export class MailService {
     return s ? { configured: true, host: s.host, port: s.port, from: s.from } : { configured: !!this.transport, host: null, port: null, from: null };
   }
 
+  /** "Name <address>" with the organisation's sender name, keeping the configured address. */
+  static from(configured: string, name?: string | null) {
+    if (!name) return configured;
+    const address = /<([^>]+)>/.exec(configured)?.[1] ?? configured.trim();
+    return `"${name.replace(/["\\\r\n<>]/g, '').slice(0, 60)}" <${address}>`;
+  }
+
   async send(mail: Mail) {
     const s = config.smtp;
-    if (this.transport) return this.transport(s?.from ?? 'reports@projexa.test', mail);
+    if (this.transport) return this.transport(MailService.from(s?.from ?? 'reports@projexa.test', mail.fromName), mail);
     if (!s) throw new MailNotConfigured();
     this.cached ??= nodemailer.createTransport({ host: s.host, port: s.port, secure: s.secure, auth: { user: s.user, pass: s.pass }, connectionTimeout: 15_000, greetingTimeout: 15_000, socketTimeout: 30_000 });
-    const r = await this.cached.sendMail({ from: s.from, to: mail.to, subject: mail.subject, html: mail.html, text: mail.text, attachments: mail.attachments });
+    const r = await this.cached.sendMail({ from: MailService.from(s.from, mail.fromName), replyTo: mail.replyTo ?? undefined, to: mail.to, subject: mail.subject, html: mail.html, text: mail.text, attachments: mail.attachments });
     this.log.log(`Sent "${mail.subject}" to ${mail.to.length} recipient(s)`);
     return { messageId: r.messageId };
   }

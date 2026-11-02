@@ -9,7 +9,10 @@ interface ThemeCtx {
   update: (p: Partial<Preferences>) => void;
   reset: () => Promise<void>;
   /** Load the signed-in user's saved preferences. */
-  hydrate: (server: Partial<Preferences> | undefined) => void;
+  /** `org` is the organisation's default look (white-label); the person's own choices win. */
+  hydrate: (server: Partial<Preferences> | undefined, org?: Partial<Preferences>) => void;
+  /** Signed-out pages on a custom domain: show the organisation's look unless this browser already has its own. Never saved. */
+  brandDefaults: (org: Partial<Preferences>) => void;
   /** Readability corrections the engine made to user-picked colours. */
   adjusted: string[];
   saving: boolean;
@@ -26,12 +29,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [prefs, setPrefs] = useState<Preferences>(DEFAULTS);
   const [saving, setSaving] = useState(false);
   const signedIn = useRef(false);
+  // Whether this browser had its own saved look when the app opened (applying preferences writes the cache, so check once).
+  const hadOwn = useRef<boolean | null>(null);
   const pending = useRef<Partial<Preferences>>({});
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Start from the cached copy (the boot script has already painted it).
   useEffect(() => {
     const c = cachedPreferences();
+    hadOwn.current = !!c;
     if (c) setPrefs(c);
   }, []);
 
@@ -69,9 +75,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     [flush],
   );
 
-  const hydrate = useCallback((server: Partial<Preferences> | undefined) => {
+  const hydrate = useCallback((server: Partial<Preferences> | undefined, org?: Partial<Preferences>) => {
     signedIn.current = true;
-    setPrefs({ ...DEFAULTS, ...(server ?? {}) });
+    const mine = Object.fromEntries(Object.entries(server ?? {}).filter(([, v]) => v !== null && v !== undefined));
+    setPrefs({ ...DEFAULTS, ...(org ?? {}), ...mine });
+  }, []);
+
+  const brandDefaults = useCallback((org: Partial<Preferences>) => {
+    if (signedIn.current || hadOwn.current !== false || Object.keys(org).length === 0) return;
+    setPrefs({ ...DEFAULTS, ...org });
   }, []);
 
   const reset = useCallback(async () => {
@@ -86,5 +98,5 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return resolve(prefs, dark).adjusted;
   }, [prefs]);
 
-  return <Ctx.Provider value={{ prefs, update, reset, hydrate, adjusted, saving }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ prefs, update, reset, hydrate, brandDefaults, adjusted, saving }}>{children}</Ctx.Provider>;
 }

@@ -164,3 +164,8 @@ body {
   .float-field .input:focus ~ .float-label { color: rgb(var(--brand)); }
   .float-field[data-invalid] .float-label { color: rgb(var(--bad)); }
 }
+
+/* White-label: show the dark-mode logo only in dark mode. */
+.dark-show { display: none; }
+[data-mode='dark'] .dark-show { display: inline-block; }
+[data-mode='dark'] .dark-hide { display: none; }

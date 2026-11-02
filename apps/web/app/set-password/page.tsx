@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { BrandLogo, useBrandedPage } from '@/components/brand-mark';
 import { FormEvent, useEffect, useState } from 'react';
 import { passwordProblems, PasswordRules } from '@/components/account/password-rules';
 import { ErrorBox, Loading } from '@/components/ui';
@@ -9,6 +10,8 @@ interface Info { purpose: 'invite' | 'reset'; name: string; email: string; organ
 
 /** Opened from an invitation or password-reset email. */
 export default function SetPasswordPage() {
+  const brand = useBrandedPage();
+  const appName = brand?.appName ?? 'PROJEXA';
   const [token, setToken] = useState<string | null>(null);
   const [info, setInfo] = useState<Info | null>(null);
   const [password, setPassword] = useState('');
@@ -39,8 +42,8 @@ export default function SetPasswordPage() {
     <main className="grid min-h-screen place-items-center px-4">
       <form onSubmit={submit} className="card w-full max-w-sm space-y-4 p-7">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-brand">Sampledge</div>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">{info?.purpose === 'invite' ? 'Welcome to PROJEXA' : 'Choose a new password'}</h1>
+          {brand && <BrandLogo brand={brand} />}
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight">{info?.purpose === 'invite' ? `Welcome to ${appName}` : 'Choose a new password'}</h1>
           {info && <p className="mt-1 text-sm text-muted">{info.purpose === 'invite' ? `Hi ${info.name}, choose a password for ${info.email} in ${info.organization.replace(/\.$/, '')}.` : `For ${info.email} in ${info.organization.replace(/\.$/, '')}. You'll be signed out everywhere else.`}</p>}
         </div>
         <ErrorBox error={error} />

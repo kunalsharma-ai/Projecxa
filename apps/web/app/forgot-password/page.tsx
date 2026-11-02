@@ -1,10 +1,12 @@
 'use client';
 import Link from 'next/link';
+import { BrandLogo, useBrandedPage } from '@/components/brand-mark';
 import { FormEvent, useState } from 'react';
 import { ErrorBox } from '@/components/ui';
 import { post } from '@/lib/api';
 
 export default function ForgotPasswordPage() {
+  const brand = useBrandedPage();
   const [email, setEmail] = useState('');
   const [organization, setOrganization] = useState('');
   const [done, setDone] = useState<string | null>(null);
@@ -25,7 +27,7 @@ export default function ForgotPasswordPage() {
     <main className="grid min-h-screen place-items-center px-4">
       <form onSubmit={submit} className="card w-full max-w-sm space-y-4 p-7">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-brand">Sampledge</div>
+          {brand && <BrandLogo brand={brand} />}
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">Reset your password</h1>
           <p className="mt-1 text-sm text-muted">Enter the email you sign in with. We&rsquo;ll send a link to choose a new password.</p>
         </div>

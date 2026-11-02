@@ -8,6 +8,7 @@ import { config } from '../common/config';
 import { randomToken, sha256 } from '../common/crypto';
 import { ZodPipe } from '../common/zod.pipe';
 import { MailNotConfigured, MailService } from '../mail/mail.service';
+import { BrandingService, emailHeader, webBaseOf } from '../branding/branding';
 import { PrismaService } from '../prisma/prisma.service';
 import { passwordBlocked } from './auth.controller';
 import { AuthUser } from './auth.types';
@@ -29,7 +30,6 @@ const STAFF: Role[] = ['ADMIN', 'PROJECT_MANAGER', 'SALES', 'VIEWER'];
 const ROLE_LABEL: Record<string, string> = { ADMIN: 'Admin', PROJECT_MANAGER: 'Project manager', SALES: 'Sales', VIEWER: 'Viewer', CLIENT_USER: 'Client portal', VENDOR_USER: 'Vendor portal' };
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
-const web = () => config.webOrigins[0] ?? '';
 
 type Purpose = 'invite' | 'reset';
 type UserWithOrg = User & { organization: Organization };
@@ -41,6 +41,7 @@ export class PasswordService {
     private readonly prisma: PrismaService,
     private readonly mail: MailService,
     private readonly audit: AuditService,
+    private readonly branding: BrandingService,
   ) {}
 
   /** Makes a new one-time link (earlier unused links for the same person stop working). */
@@ -51,26 +52,29 @@ export class PasswordService {
       this.prisma.passwordToken.updateMany({ where: { userId: user.id, usedAt: null }, data: { usedAt: new Date() } }),
       this.prisma.passwordToken.create({ data: { userId: user.id, purpose, tokenHash: sha256(token), expiresAt, createdById: by } }),
     ]);
-    return { url: `${web()}/set-password?token=${token}`, expiresAt };
+    return { url: `${webBaseOf(user.organization)}/set-password?token=${token}`, expiresAt };
   }
 
   /** Sends the link. Returns whether the email went out; an invite still works by copying the link. */
   async email(user: UserWithOrg, purpose: Purpose, link: { url: string; expiresAt: Date }, invitedBy?: string) {
     const org = user.organization.name;
-    const subject = purpose === 'invite' ? `You're invited to ${org} on PROJEXA` : 'Reset your PROJEXA password';
+    const brand = await this.branding.brand(user.organizationId);
+    const app = brand.appName;
+    const color = brand.brandColor ?? '#1d4ed8';
+    const subject = purpose === 'invite' ? `You're invited to ${org} on ${app}` : `Reset your ${app} password`;
     const lead = purpose === 'invite'
-      ? `${invitedBy ?? 'Your admin'} added you to ${org} on PROJEXA as ${ROLE_LABEL[user.role] ?? user.role}. Choose a password to start.`
-      : `Someone asked to reset the password for ${user.email} on PROJEXA (${org}). If it was you, choose a new password. If not, you can ignore this email; your password stays the same.`;
+      ? `${invitedBy ?? 'Your admin'} added you to ${org} on ${app} as ${ROLE_LABEL[user.role] ?? user.role}. Choose a password to start.`
+      : `Someone asked to reset the password for ${user.email} on ${app} (${org}). If it was you, choose a new password. If not, you can ignore this email; your password stays the same.`;
     const valid = purpose === 'invite' ? `The link works for ${INVITE_HOURS} hours.` : `The link works for ${RESET_MINUTES} minutes and only once.`;
     const button = purpose === 'invite' ? 'Choose a password' : 'Reset password';
     const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:520px;margin:auto;color:#0f172a">
-<p style="font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:#1d4ed8;font-weight:600">Sampledge · PROJEXA</p>
+${emailHeader(brand)}
 <p>Hi ${esc(user.name)},</p><p>${esc(lead)}</p>
-<p style="margin:28px 0"><a href="${esc(link.url)}" style="background:#1d4ed8;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">${button}</a></p>
-<p style="font-size:13px;color:#475569">${valid} If the button does not work, paste this into your browser:<br><span style="word-break:break-all">${esc(link.url)}</span></p></div>`;
+<p style="margin:28px 0"><a href="${esc(link.url)}" style="background:${color};color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">${button}</a></p>
+<p style="font-size:13px;color:#475569">${valid} If the button does not work, paste this into your browser:<br><span style="word-break:break-all">${esc(link.url)}</span></p>${brand.supportEmail ? `<p style="font-size:13px;color:#475569">Questions? Write to ${esc(brand.supportEmail)}.</p>` : ''}</div>`;
     const text = `Hi ${user.name},\n\n${lead}\n\n${button}: ${link.url}\n\n${valid}\n`;
     try {
-      await this.mail.send({ to: [user.email], subject, html, text });
+      await this.mail.send({ to: [user.email], subject, html, text, fromName: brand.emailFromName, replyTo: brand.emailReplyTo ?? brand.supportEmail });
       return true;
     } catch (e) {
       if (!(e instanceof MailNotConfigured)) this.log.warn(`Could not send ${purpose} email: ${(e as Error).message}`);

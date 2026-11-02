@@ -12,7 +12,7 @@ export type Values = Record<string, unknown>;
 export type FieldType =
   | 'text' | 'email' | 'url' | 'number' | 'textarea' | 'richtext'
   | 'select' | 'multiselect' | 'country' | 'countries' | 'currency'
-  | 'date' | 'daterange' | 'radiocards' | 'checkboxes' | 'segmented' | 'switch' | 'tags' | 'file' | 'group';
+  | 'date' | 'daterange' | 'radiocards' | 'checkboxes' | 'segmented' | 'switch' | 'tags' | 'file' | 'group' | 'color';
 
 export interface Suggestion { value: unknown; label?: string; reason?: string }
 
@@ -75,6 +75,7 @@ export function checkField(d: FieldDef, value: unknown, values: Values): string 
     return ['select', 'country', 'currency', 'radiocards', 'segmented'].includes(d.type) ? 'Please choose one.' : ['multiselect', 'countries', 'checkboxes', 'tags'].includes(d.type) ? 'Please choose at least one.' : d.type === 'file' ? 'Please add a file.' : d.type === 'daterange' ? 'Please choose the dates.' : 'This is required.';
   }
   const s = typeof value === 'string' ? value.trim() : '';
+  if (d.type === 'color' && !/^#[0-9a-f]{6}$/i.test(s)) return 'Use a colour like #1d4ed8.';
   if (d.type === 'email' && !EMAIL.test(s)) return 'Enter an email address like name@company.com.';
   if (d.type === 'url') { try { const u = new URL(s); if (!/^https?:$/.test(u.protocol)) throw 0; } catch { return 'Enter a full link starting with https://'; } }
   if (d.type === 'number') {

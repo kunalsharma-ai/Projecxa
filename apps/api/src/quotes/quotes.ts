@@ -6,6 +6,7 @@
  * A vendor sees the brief (market, LOI, IR, target group, completes wanted) but never the client,
  * the client CPI or other vendors' quotes.
  */
+import { BrandingService } from '../branding/branding';
 import { BadRequestException, Body, Controller, Get, Injectable, Logger, Module, NotFoundException, Param, Post, Query } from '@nestjs/common';
 import { Prisma, QuoteRequestStatus } from '@prisma/client';
 import { z } from 'zod';
@@ -46,7 +47,7 @@ const answerSchema = z.union([
 @Injectable()
 export class QuotesService {
   private readonly log = new Logger(QuotesService.name);
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly mail: MailService, private readonly projects: ProjectsService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly mail: MailService, private readonly projects: ProjectsService, private readonly branding: BrandingService) {}
 
   private async market(u: AuthUser, projectId: string, countryId: string) {
     const c = await this.prisma.projectCountry.findFirst({
@@ -199,8 +200,10 @@ export class QuotesService {
     try {
       const users = await this.prisma.user.findMany({ where: { vendorId, role: 'VENDOR_USER', active: true }, select: { email: true } });
       if (!users.length) return;
-      const link = `${config.webOrigins[0] ?? ''}/portal/quotes`;
-      await this.mail.send({ to: users.map((x) => x.email), subject: subject.slice(0, 200), text: `${text}\n\nOpen your portal: ${link}\n`, html: `<p>${esc(text)}</p><p><a href="${esc(link)}">Open your portal</a></p>` });
+      const v = await this.prisma.vendor.findUniqueOrThrow({ where: { id: vendorId }, select: { organizationId: true } });
+      const brand = await this.branding.brand(v.organizationId);
+      const link = `${brand.webBase}/portal/quotes`;
+      await this.mail.send({ to: users.map((x) => x.email), subject: subject.slice(0, 200), text: `${text}\n\nOpen your portal: ${link}\n`, html: `<p>${esc(text)}</p><p><a href="${esc(link)}">Open your portal</a></p>`, fromName: brand.emailFromName, replyTo: brand.emailReplyTo });
     } catch (e) {
       if (!(e instanceof MailNotConfigured)) this.log.warn(`Quote email failed: ${(e as Error).message}`);
     }

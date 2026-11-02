@@ -243,6 +243,13 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - Used on Add client (with contacts), Add vendor (domains as tags) and client billing details (inline edit). Try every control at Form gallery (`/settings/forms`).
 - Details: `docs/SMART_FORMS.md`.
 
+## Milestone 33: white-labelling
+
+- Settings → Branding: product name, tagline, logo (light and dark), icon, default theme and brand colour, sign-in message, support email, and the option to hide "Powered by". Every page, portal and email follows the brand, including the browser tab and authenticator app entries.
+- Emails use your sender name and reply-to address, and keep the server's own address so they still pass spam checks.
+- Custom domain checked by DNS (CNAME plus a TXT token). After the check, emails link there and sign-in pages on that address show your brand. Operations add TLS and build the web app with `NEXT_PUBLIC_CUSTOM_DOMAINS=true`.
+- There are no paid plans or billing. Details: `docs/WHITE_LABEL.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).

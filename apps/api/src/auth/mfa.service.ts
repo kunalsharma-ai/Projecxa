@@ -1,3 +1,4 @@
+import { BrandingService } from '../branding/branding';
 import { BadRequestException, Body, Controller, ForbiddenException, Get, HttpCode, Injectable, NotFoundException, Param, Post, Put, UnauthorizedException } from '@nestjs/common';
 import { Role, User } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
@@ -29,6 +30,7 @@ export class MfaService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly branding: BrandingService,
   ) {}
 
   /** What the signed-in person's two-step sign-in looks like, and whether their organization requires it. */
@@ -43,7 +45,7 @@ export class MfaService {
     if (u.mfaEnabledAt) throw new BadRequestException('Two-step sign-in is already on. Turn it off first to move to a new phone.');
     const secret = newTotpSecret();
     await this.prisma.user.update({ where: { id: u.id }, data: { mfaPendingSecret: encryptSecret(secret, config.mfaEncryptionKey) } });
-    const url = otpauthUrl(secret, u.email, `PROJEXA (${u.organization.name})`);
+    const url = otpauthUrl(secret, u.email, `${(await this.branding.brand(u.organizationId)).appName} (${u.organization.name})`);
     const qrSvg = await QRCode.toString(url, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' });
     return { secret, otpauthUrl: url, qrSvg };
   }
