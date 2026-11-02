@@ -217,6 +217,12 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - Currencies without a rate are left out and named. CSV, PDF and scheduled emails carry the converted figures too.
 - Details: `docs/REPORT_CURRENCY.md`.
 
+## Milestone 29: command center widgets
+
+- Customize the command center: drag, resize and hide widgets; each person's layout is saved to their account, with reset.
+- New widgets: a markets world map, a revenue-to-profit waterfall and a weekday-by-hour traffic heatmap. Key money numbers are now in the reporting currency.
+- Details: `docs/DASHBOARD_WIDGETS.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).

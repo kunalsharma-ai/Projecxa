@@ -13,26 +13,22 @@ import { FinanceService } from '../finance/finance.service';
 import { ReportsModule } from '../reports/reports.controller';
 import { ReportsService, SummaryRow } from '../reports/reports.service';
 import { TasksModule, TasksService } from '../tasks/tasks.service';
-
-const dayStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD');
-const periodSchema = z
-  .object({ from: dayStr.optional(), to: dayStr.optional() })
-  .refine((p) => !p.from || !p.to || p.from <= p.to, { message: '`from` must be on or before `to`', path: ['from'] })
-  .refine((p) => !p.from || !p.to || (Date.parse(p.to) - Date.parse(p.from)) / 86_400_000 <= 731, { message: 'Pick at most two years', path: ['to'] });
-const seriesSchema = z.object({ interval: z.enum(['day', 'week', 'month']).default('day') });
-const DAY = 86_400_000;
-const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
-
-/** The requested period (default: the last 30 UTC days) and the period of the same length just before it. */
-function periods(p: z.infer<typeof periodSchema>) {
-  const to = p.to ?? iso(Date.now());
-  const from = p.from ?? iso(Date.parse(to) - 29 * DAY);
-  const days = Math.round((Date.parse(to) - Date.parse(from)) / DAY) + 1;
-  return { from, to, days, prevFrom: iso(Date.parse(from) - days * DAY), prevTo: iso(Date.parse(from) - DAY) };
-}
+import { DashboardWidgetsController } from './dashboard-widgets';
+import { DAY, iso, periods, periodSchema, seriesSchema } from './period';
 
 function kpis(r: SummaryRow | undefined) {
   return { revenue: r?.revenue ?? 0, cost: r?.payout ?? 0, profit: r?.profit ?? 0, clicks: r?.clicks ?? 0, completes: r?.completes ?? 0, currencies: r?.currencies ?? [] };
+}
+function converted(cur: SummaryRow | undefined, prev: SummaryRow | undefined, base: string) {
+  const m = (r: SummaryRow | undefined) => ({ revenue: r?.reporting.revenue ?? 0, cost: r?.reporting.payout ?? 0, profit: r?.reporting.profit ?? 0, missing: r?.reporting.missing ?? [] });
+  const c = m(cur);
+  const p = m(prev);
+  return {
+    currency: base,
+    current: c,
+    previous: p,
+    trend: { revenue: trend(c.revenue, p.revenue), cost: trend(c.cost, p.cost), profit: trend(c.profit, p.profit) },
+  };
 }
 /** Change in percent against the previous period; null when there is nothing to compare with. */
 function trend(cur: number, prev: number) {
@@ -117,6 +113,8 @@ export class DashboardController {
           clicks: trend(c.clicks, p.clicks),
           completes: trend(c.completes, p.completes),
         },
+        /** The money KPIs in the reporting currency, so currencies are never mixed. */
+        converted: converted(cur[0], prev[0], (await this.reports.rateTable(org)).base),
       },
       finance: Object.fromEntries(Object.entries(finance).map(([k, t]) => [k, { ...t, base: toBase(t.byCurrency) }])),
       payables: { unbilled: payables.totals.unbilled, due: payables.totals.due, paid: payables.totals.paid },
@@ -342,5 +340,5 @@ function count(rows: { status: string; _count: { _all: number } }[], s: string) 
   return rows.find((r) => r.status === s)?._count._all ?? 0;
 }
 
-@Module({ imports: [ReportsModule, FinanceModule, TasksModule], controllers: [DashboardController] })
+@Module({ imports: [ReportsModule, FinanceModule, TasksModule], controllers: [DashboardWidgetsController, DashboardController] })
 export class DashboardModule {}
