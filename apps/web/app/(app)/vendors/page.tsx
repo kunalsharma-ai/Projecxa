@@ -1,5 +1,5 @@
 'use client';
-import { Plus } from 'lucide-react';
+import { Plus, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import { ScoreBadge, type Grade } from '@/components/vendors/score';
 import { flag } from '@/lib/countries';
@@ -45,7 +45,7 @@ export default function VendorsPage() {
 
   return (
     <>
-      <PageHeader title="Vendors" subtitle="Scores come from the last 180 days of traffic. Open a vendor for its scorecard and the markets it covers." actions={canEdit(me) && <button className="btn-primary" onClick={() => setOpen(!open)}><Plus className="h-4 w-4" /> Add vendor</button>} />
+      <PageHeader title="Vendors" subtitle="Scores come from the last 180 days of traffic. Open a vendor for its scorecard and the markets it covers." actions={<div className="flex flex-wrap gap-2"><Link href="/vendors/applications" className="btn-ghost"><UserPlus className="h-4 w-4" /> Applications</Link>{canEdit(me) && <button className="btn-primary" onClick={() => setOpen(!open)}><Plus className="h-4 w-4" /> Add vendor</button>}</div>} />
       <div className="mb-4"><ErrorBox error={error} /></div>
       {open && (
         <Section title="New vendor" className="mb-6">

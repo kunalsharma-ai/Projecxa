@@ -32,6 +32,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const home = me.user.role === 'CLIENT_USER' ? '/portal/client' : '/portal/vendor';
   const links = [
     { href: home, label: me.user.role === 'CLIENT_USER' ? 'Projects' : 'Links' },
+    ...(me.user.role === 'VENDOR_USER' ? [{ href: '/portal/quotes', label: 'Quotes' }] : []),
     { href: '/portal/requests', label: 'Requests' },
     { href: '/portal/files', label: 'Files' },
     ...(me.user.role === 'CLIENT_USER' ? [{ href: '/portal/invoices', label: 'Invoices' }] : []),

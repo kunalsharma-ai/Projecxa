@@ -22,6 +22,8 @@ import { PrismaModule } from './prisma/prisma.service';
 import { ProjectsModule } from './projects/projects.controller';
 import { RedirectsModule } from './redirects/redirects.controller';
 import { RequestsModule } from './requests/requests.controller';
+import { QuotesModule } from './quotes/quotes';
+import { VendorSignupModule } from './vendor-signup/vendor-signup';
 import { SurveyModule } from './survey/survey.controller';
 import { UsersModule } from './users/users.controller';
 import { VendorsModule } from './vendors/vendors.controller';
@@ -48,6 +50,8 @@ import { VendorsModule } from './vendors/vendors.controller';
     DashboardModule,
     PortalModule,
     RequestsModule,
+    QuotesModule,
+    VendorSignupModule,
     ReportsModule,
     WonBidsModule,
     WebhooksModule,
