@@ -38,6 +38,8 @@ model Organization {
   billTaxPercent   Decimal @default(0) @db.Decimal(5, 2)
   /// Staff must turn on two-step sign-in before using the app (portal users may opt in).
   mfaRequired      Boolean @default(false)
+  /// Single sign-on (docs/SSO.md): { providers: { google, microsoft, zoho }, domains: [], microsoftTenantId?, ssoOnly }
+  ssoConfig        Json?
   /// Fieldwork alert thresholds (src/monitor/monitor.rules.ts); null = defaults.
   alertSettings      Json?
   /// Optional HTTPS endpoint that receives new alerts, signed with alertWebhookSecret (HMAC-SHA256).
@@ -109,6 +111,7 @@ model User {
   /// Wrong codes in a row; 10 locks the second step for 15 minutes.
   mfaFailures      Int @default(0)
   mfaLockedUntil   DateTime?
+  ssoIdentities    SsoIdentity[]
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -927,4 +930,22 @@ model ReportRun {
   createdAt   DateTime @default(now())
 
   @@index([scheduleId, createdAt])
+}
+
+/// A Google, Microsoft or Zoho account linked to a PROJEXA user. After the first sign-in the
+/// provider's stable subject is used, never the email again.
+model SsoIdentity {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// google | microsoft | zoho
+  provider   String
+  /// The provider's stable user id (Microsoft: tenant id + object id).
+  subject    String
+  email      String
+  lastUsedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@unique([provider, subject])
+  @@index([userId])
 }
