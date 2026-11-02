@@ -224,13 +224,15 @@ export class DashboardController {
       this.prisma.auditEvent.findMany({ where: { organizationId: org }, orderBy: { createdAt: 'desc' }, take: 8 }),
       this.prisma.wonBid.count({ where: { organizationId: org, status: 'NEW' } }),
     ]);
-    const [failedSchedules, apiFallbacks] = await Promise.all([
+    const [failedSchedules, apiFallbacks, openRequests, expiringDocs] = await Promise.all([
       this.prisma.redirectPolicyVersion.findMany({
         where: { state: 'DRAFT', scheduleError: { not: null }, project: { organizationId: org } },
         select: { id: true, version: true, scheduleError: true, project: { select: { id: true, projectCode: true } } },
         take: 5,
       }),
       this.prisma.redirectExecution.count({ where: { apiFallback: true, createdAt: { gte: day }, session: { organizationId: org } } }),
+      this.prisma.ticket.groupBy({ by: ['kind'], where: { organizationId: org, status: 'OPEN' }, _count: { _all: true } }),
+      this.prisma.sharedFile.findMany({ where: { organizationId: org, kind: 'COMPLIANCE', expiresAt: { lte: new Date(Date.now() + 30 * 86_400_000) } }, select: { id: true, name: true, expiresAt: true, vendor: { select: { id: true, name: true } } }, orderBy: { expiresAt: 'asc' }, take: 5 }),
     ]);
     const openAlerts = await this.prisma.alert.findMany({ where: { organizationId: org, state: 'OPEN', severity: { in: ['warn', 'bad'] } }, orderBy: { lastSeenAt: 'desc' }, take: 10 });
     const projects = await this.prisma.project.findMany({ where: { id: { in: pending.map((p) => p.projectId) }, organizationId: org }, select: { id: true, projectCode: true, name: true } });
@@ -244,6 +246,13 @@ export class DashboardController {
     if (callbacks && !alertRules.has('callbacks_failed')) items.push({ id: 'callbacks', severity: 'bad', title: `${callbacks} vendor callback${callbacks === 1 ? '' : 's'} failed`, detail: 'Replay them from the project page once the vendor endpoint is fixed.', href: '/projects' });
     if (fallbacks) items.push({ id: 'fallbacks', severity: 'warn', title: `${fallbacks} redirect${fallbacks === 1 ? '' : 's'} used a fallback in 24h`, detail: 'A rule was missing or blocked by the security policy.', href: '/projects' });
     for (const f of failedSchedules) items.push({ id: `redirect-schedule-${f.id}`, severity: 'bad', title: `Scheduled redirect change on ${f.project.projectCode} did not go live`, detail: `Version ${f.version}: ${f.scheduleError}`, href: `/projects/${f.project.id}?tab=redirects` });
+    const waiting = openRequests.reduce((n, g) => n + g._count._all, 0);
+    const disputes = openRequests.find((g) => g.kind === 'DISPUTE')?._count._all ?? 0;
+    if (waiting) items.push({ id: 'requests', severity: disputes ? 'warn' : 'info', title: `${waiting} client or vendor request${waiting === 1 ? '' : 's'} waiting for an answer`, detail: disputes ? `${disputes} ${disputes === 1 ? 'is a dispute' : 'are disputes'} of rejected completes.` : 'Answer them from Requests.', href: '/requests?status=OPEN' });
+    for (const d of expiringDocs) {
+      const gone = !!d.expiresAt && d.expiresAt.getTime() < Date.now();
+      items.push({ id: `compliance-${d.id}`, severity: gone ? 'bad' : 'warn', title: `${d.vendor?.name ?? 'Vendor'}: ${d.name} ${gone ? 'expired' : 'expires soon'}`, detail: `Compliance document ${gone ? 'expired' : 'expires'} on ${d.expiresAt!.toISOString().slice(0, 10)}.`, href: d.vendor ? `/vendors/${d.vendor.id}` : '/vendors' });
+    }
     if (apiFallbacks) items.push({ id: 'api-fallbacks', severity: 'warn', title: `${apiFallbacks} API destination${apiFallbacks === 1 ? '' : 's'} used the fallback URL in 24h`, detail: 'The endpoint did not answer in time or answered a URL that is not allowed.', href: '/projects' });
     // The monitor's alert already covers a market it has an open alert for.
     const alerted = new Set(openAlerts.map((a) => a.projectCountryId).filter(Boolean));

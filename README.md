@@ -197,6 +197,14 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - **Compare versions**: see what changed between any two versions, rule by rule.
 - Details: `docs/REDIRECT_DESTINATIONS.md`.
 
+## Milestone 26: portal requests, files and invoices
+
+- **Requests**: clients and vendors ask questions or report problems from their portal; staff answer from Requests (with internal notes, an owner and a status). The other side gets an email through Zoho Mail, and the bell shows what is waiting.
+- **Disputes**: a vendor picks completes the client rejected and disputes them; staff approve them or keep them rejected in one click, and the vendor sees the decision.
+- **Files**: clients upload questionnaires and download deliverables; staff share files per client or vendor on each project (or keep them staff-only); vendors keep compliance documents with an expiry date, and the bell warns 30 days ahead.
+- **Client invoices** in the portal: sent and paid invoices with the PDF.
+- Details: `docs/PORTAL_REQUESTS.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).

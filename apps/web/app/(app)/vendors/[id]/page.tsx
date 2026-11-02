@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { canEdit, useMe } from '@/components/me';
+import { FilesPanel } from '@/components/requests/files-panel';
 import { Empty, ErrorBox, Loading, PageHeader, Section, StatusChip } from '@/components/ui';
 import { PART_LABELS, PartBar, ScoreBadge, WEIGHTS, type Grade, type ScoreParts, type VendorStats } from '@/components/vendors/score';
 import { api, get } from '@/lib/api';
@@ -159,6 +160,11 @@ export default function VendorScorecard() {
             </table>
           </div>
         )}
+      </Section>
+
+      <Section title="Compliance documents">
+        <p className="mb-4 text-sm text-muted">Certificates, data-protection agreements and panel books, with the date each stops being valid. The vendor can upload these from their portal; the bell warns 30 days before one expires.</p>
+        <FilesPanel portal={false} query={{ vendorId: id, kind: 'COMPLIANCE' }} kinds={['COMPLIANCE']} fixed={{ vendorId: id }} canUpload={canEdit(me)} canDelete={() => canEdit(me)} empty="No compliance documents yet." />
       </Section>
 
       <Section title="Recent links">
