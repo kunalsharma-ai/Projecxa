@@ -125,6 +125,12 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - Only people already added in PROJEXA can sign in; their account links on first sign-in by verified email, then by the provider's account ID. Two-step sign-in still asks for the code.
 - Client IDs and secrets live in the server environment only. Setup steps for Google Cloud, Microsoft Entra and the Zoho API console: `docs/SSO.md`.
 
+## Milestone 16: accounting exports
+
+- **Accounting exports** (`/accounting`): export sent and paid client invoices and approved vendor bills for **Zoho Books**, **Tally Prime** (XML vouchers), **QuickBooks Online**, **Xero** or a general journal CSV, filtered by date, status and currency, with a live preview.
+- Documents are marked exported; "only not exported yet" stops double imports. Every file stays in the export history to download again.
+- Account names, Xero codes and tax rates, and Tally voucher types and groups are set once by an admin. Tally amounts use the reporting currency and your manual exchange rates. Details: `docs/ACCOUNTING_EXPORTS.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).

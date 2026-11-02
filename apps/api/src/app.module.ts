@@ -6,6 +6,7 @@ import { CallbacksModule } from './callbacks/callbacks.service';
 import { ClientsModule } from './clients/clients.controller';
 import { DashboardModule } from './dashboard/dashboard.controller';
 import { FinanceModule } from './finance/finance.controller';
+import { AccountingModule } from './accounting/accounting.service';
 import { MonitorModule } from './monitor/monitor.controller';
 import { QuotasModule } from './quotas/quotas.controller';
 import { PortalModule } from './portal/portal.controller';
@@ -36,6 +37,7 @@ import { VendorsModule } from './vendors/vendors.controller';
     SurveyModule,
     CallbacksModule,
     FinanceModule,
+    AccountingModule,
     MonitorModule,
     QuotasModule,
     DashboardModule,

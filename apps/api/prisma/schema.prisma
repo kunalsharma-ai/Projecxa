@@ -14,64 +14,67 @@ datasource db {
 // ───────────────────────────── Tenancy and identity ─────────────────────────────
 
 model Organization {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
+  id                     String      @id @default(cuid())
+  name                   String
+  slug                   String      @unique
   /// Organization-level default redirect rules (lowest precedence). Shape: RedirectConfig.
-  defaultRedirectConfig Json?
+  defaultRedirectConfig  Json?
   /// Hostnames respondents may be redirected to (exact host or "*.example.com").
-  redirectAllowedDomains String[] @default([])
+  redirectAllowedDomains String[]    @default([])
   /// Shown to respondents when no rule resolves or a destination is blocked.
-  fallbackRedirectUrl String?
+  fallbackRedirectUrl    String?
   /// Next numbers for human-readable IDs (FRP10001, FR9001 style).
-  projectSeq   Int @default(10000)
-  workOrderSeq Int @default(9000)
+  projectSeq             Int         @default(10000)
+  workOrderSeq           Int         @default(9000)
   /// Invoice numbers: INV-<year>-<seq>, sequence per tenant.
-  invoiceSeq   Int @default(0)
+  invoiceSeq             Int         @default(0)
   /// Vendor bill numbers: BILL-<year>-<seq>.
-  billSeq      Int @default(0)
+  billSeq                Int         @default(0)
   /// Finance settings (docs/PAYABLES.md): reporting currency and default taxes.
-  baseCurrency     String  @default("USD")
-  invoiceTaxName   String?
-  invoiceTaxPercent Decimal @default(0) @db.Decimal(5, 2)
-  billTaxName      String?
-  billTaxPercent   Decimal @default(0) @db.Decimal(5, 2)
+  baseCurrency           String      @default("USD")
+  invoiceTaxName         String?
+  invoiceTaxPercent      Decimal     @default(0) @db.Decimal(5, 2)
+  billTaxName            String?
+  billTaxPercent         Decimal     @default(0) @db.Decimal(5, 2)
   /// Staff must turn on two-step sign-in before using the app (portal users may opt in).
-  mfaRequired      Boolean @default(false)
+  mfaRequired            Boolean     @default(false)
   /// Single sign-on (docs/SSO.md): { providers: { google, microsoft, zoho }, domains: [], microsoftTenantId?, ssoOnly }
-  ssoConfig        Json?
+  ssoConfig              Json?
+  /// Account and ledger names for accounting exports (docs/ACCOUNTING_EXPORTS.md).
+  accountingConfig       Json?
   /// Fieldwork alert thresholds (src/monitor/monitor.rules.ts); null = defaults.
-  alertSettings      Json?
+  alertSettings          Json?
   /// Optional HTTPS endpoint that receives new alerts, signed with alertWebhookSecret (HMAC-SHA256).
-  alertWebhookUrl    String?
-  alertWebhookSecret String?
-  projectCodePrefix   String @default("PRX")
-  workOrderPrefix     String @default("WO")
+  alertWebhookUrl        String?
+  alertWebhookSecret     String?
+  projectCodePrefix      String      @default("PRX")
+  workOrderPrefix        String      @default("WO")
   /// Shared secret Bidzo signs "bid won" webhooks with (HMAC-SHA256). Null = intake disabled.
-  bidzoWebhookSecret  String?
+  bidzoWebhookSecret     String?
   /// Free third-party captcha keys set by an admin: { turnstile?: { siteKey, secret }, hcaptcha?: { siteKey, secret } }.
-  captchaProviders    Json?
-  pageAssets          PageAsset[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  captchaProviders       Json?
+  pageAssets             PageAsset[]
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @updatedAt
 
-  users       User[]
-  clients     Client[]
-  vendors     Vendor[]
-  projects    Project[]
-  sessions    RespondentSession[]
-  auditEvents AuditEvent[]
-  callbacks   CallbackDelivery[]
-  wonBids     WonBid[]
-  invoices    Invoice[]
-  reconciliations Reconciliation[]
-  alerts      Alert[]
-  vendorBills VendorBill[]
-  exchangeRates ExchangeRate[]
-  apiKeys     ApiKey[]
-  webhookEndpoints WebhookEndpoint[]
+  users             User[]
+  clients           Client[]
+  vendors           Vendor[]
+  projects          Project[]
+  sessions          RespondentSession[]
+  auditEvents       AuditEvent[]
+  callbacks         CallbackDelivery[]
+  wonBids           WonBid[]
+  invoices          Invoice[]
+  reconciliations   Reconciliation[]
+  alerts            Alert[]
+  vendorBills       VendorBill[]
+  exchangeRates     ExchangeRate[]
+  apiKeys           ApiKey[]
+  webhookEndpoints  WebhookEndpoint[]
   webhookDeliveries WebhookDelivery[]
-  reportSchedules ReportSchedule[]
+  reportSchedules   ReportSchedule[]
+  accountingExports AccountingExport[]
 }
 
 enum Role {
@@ -84,36 +87,36 @@ enum Role {
 }
 
 model User {
-  id             String   @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  email          String
-  name           String
-  passwordHash   String
-  role           Role     @default(PROJECT_MANAGER)
-  active         Boolean  @default(true)
+  id               String        @id @default(cuid())
+  organizationId   String
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email            String
+  name             String
+  passwordHash     String
+  role             Role          @default(PROJECT_MANAGER)
+  active           Boolean       @default(true)
   /// Set for CLIENT_USER (client portal) and VENDOR_USER (vendor portal) only.
-  clientId       String?
-  client         Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  vendorId       String?
-  vendor         Vendor? @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  clientId         String?
+  client           Client?       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  vendorId         String?
+  vendor           Vendor?       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   /// Personal interface preferences (theme, density, motion, sidebar, favorites). Validated by the API.
-  preferences    Json?
+  preferences      Json?
   /// Two-step sign-in (docs/MFA.md). TOTP secrets are encrypted at rest (AES-256-GCM).
   mfaSecret        String?
   /// Secret waiting for its first code during setup.
   mfaPendingSecret String?
   mfaEnabledAt     DateTime?
   /// SHA-256 hashes of unused one-time recovery codes.
-  mfaRecoveryCodes String[] @default([])
+  mfaRecoveryCodes String[]      @default([])
   /// Last accepted 30-second step, so a code cannot be used twice.
   mfaLastStep      Int?
   /// Wrong codes in a row; 10 locks the second step for 15 minutes.
-  mfaFailures      Int @default(0)
+  mfaFailures      Int           @default(0)
   mfaLockedUntil   DateTime?
   ssoIdentities    SsoIdentity[]
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
   managedProjects Project[] @relation("ProjectManager")
   salesProjects   Project[] @relation("SalesPerson")
@@ -130,18 +133,18 @@ enum PartyStatus {
 }
 
 model Client {
-  id             String   @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  name           String
-  code           String
-  status         PartyStatus @default(ACTIVE)
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name             String
+  code             String
+  status           PartyStatus  @default(ACTIVE)
   /// Approved client redirect template (precedence below project config).
   redirectTemplate Json?
   /// Secret for verifying client server-to-server outcome postbacks (HMAC-SHA256).
-  s2sSecret      String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  s2sSecret        String
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
   contacts ClientContact[]
   projects Project[]
@@ -152,30 +155,30 @@ model Client {
 }
 
 model ClientContact {
-  id        String  @id @default(cuid())
-  clientId  String
-  client    Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  name      String
-  email     String?
-  phone     String?
-  projects  Project[]
+  id       String    @id @default(cuid())
+  clientId String
+  client   Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name     String
+  email    String?
+  phone    String?
+  projects Project[]
 }
 
 model Vendor {
-  id             String   @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  name           String
-  code           String
-  status         PartyStatus @default(ACTIVE)
+  id                     String       @id @default(cuid())
+  organizationId         String
+  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name                   String
+  code                   String
+  status                 PartyStatus  @default(ACTIVE)
   /// Extra redirect hostnames allowed for this vendor only.
-  redirectAllowedDomains String[] @default([])
+  redirectAllowedDomains String[]     @default([])
   /// Default server-to-server callback URL template (may use macros).
-  callbackUrlTemplate String?
+  callbackUrlTemplate    String?
   /// Secret used to sign callbacks we send to this vendor.
-  callbackSecret String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  callbackSecret         String
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
 
   allocations VendorAllocation[]
   users       User[]
@@ -209,50 +212,50 @@ enum RedirectMode {
 }
 
 model Project {
-  id             String   @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id                      String                 @id @default(cuid())
+  organizationId          String
+  organization            Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   /// Human-readable project ID, e.g. PRX10001. Unique per tenant.
-  projectCode    String
-  workOrderNo    String?
+  projectCode             String
+  workOrderNo             String?
   /// Reference to the won bid in Bidzo (Bidzo owns bids; we only keep the link).
-  bidReference   String?
-  name           String
-  type           ProjectType   @default(AD_HOC)
-  category       String
-  status         ProjectStatus @default(DRAFT)
-  description    String?
-  clientId       String
-  client         Client   @relation(fields: [clientId], references: [id])
-  clientContactId String?
-  clientContact  ClientContact? @relation(fields: [clientContactId], references: [id])
-  projectManagerId String
-  projectManager User     @relation("ProjectManager", fields: [projectManagerId], references: [id])
-  salesPersonId  String?
-  salesPerson    User?    @relation("SalesPerson", fields: [salesPersonId], references: [id])
+  bidReference            String?
+  name                    String
+  type                    ProjectType            @default(AD_HOC)
+  category                String
+  status                  ProjectStatus          @default(DRAFT)
+  description             String?
+  clientId                String
+  client                  Client                 @relation(fields: [clientId], references: [id])
+  clientContactId         String?
+  clientContact           ClientContact?         @relation(fields: [clientContactId], references: [id])
+  projectManagerId        String
+  projectManager          User                   @relation("ProjectManager", fields: [projectManagerId], references: [id])
+  salesPersonId           String?
+  salesPerson             User?                  @relation("SalesPerson", fields: [salesPersonId], references: [id])
   /// { desktop: boolean, mobile: boolean, tablet: boolean }
-  devices        Json
+  devices                 Json
   /// Security & respondent quality policy (gate survey, captcha, duplicate detection, ...).
-  security       Json
+  security                Json
   /// Gate survey questions (asked after the human check when security.gateSurvey is on).
   /// Same question model as the prescreener; see src/survey/questions.ts.
-  gateQuestions  Json?
+  gateQuestions           Json?
   /// Prescreener questions (asked after the gate survey when security.prescreening is on).
-  prescreen      Json?
+  prescreen               Json?
   /// Human check style on the gate page: math | logic | text_image | invisible | turnstile | hcaptcha.
-  captchaStyle   String @default("math")
+  captchaStyle            String                 @default("math")
   /// Look of the respondent-facing pages (gate and end pages); see src/survey/page-design.ts.
-  pageDesign     Json?
+  pageDesign              Json?
   /// Planned fieldwork window; pacing compares the delivery rate with the days left.
-  fieldStartAt   DateTime?
-  fieldEndAt     DateTime?
+  fieldStartAt            DateTime?
+  fieldEndAt              DateTime?
   /// Fieldwork autopilot settings, see src/monitor/monitor.rules.ts.
-  autopilot      Json?
-  redirectMode   RedirectMode @default(HYBRID)
-  activeRedirectVersionId String? @unique
+  autopilot               Json?
+  redirectMode            RedirectMode           @default(HYBRID)
+  activeRedirectVersionId String?                @unique
   activeRedirectVersion   RedirectPolicyVersion? @relation("ActiveRedirectVersion", fields: [activeRedirectVersionId], references: [id])
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
 
   countries        ProjectCountry[]
   redirectVersions RedirectPolicyVersion[] @relation("ProjectRedirectVersions")
@@ -275,29 +278,29 @@ enum CountryStatus {
 }
 
 model ProjectCountry {
-  id              String  @id @default(cuid())
-  projectId       String
-  project         Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id                String        @id @default(cuid())
+  projectId         String
+  project           Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   /// ISO 3166-1 alpha-2
-  countryCode     String
-  language        String
-  targetGroup     String?
-  status          CountryStatus @default(DRAFT)
-  loiMinutes      Int
-  irPercent       Int
+  countryCode       String
+  language          String
+  targetGroup       String?
+  status            CountryStatus @default(DRAFT)
+  loiMinutes        Int
+  irPercent         Int
   /// Client CPI in `currency`.
-  cpi             Decimal @db.Decimal(12, 2)
-  currency        String  @default("USD")
-  targetCompletes Int
+  cpi               Decimal       @db.Decimal(12, 2)
+  currency          String        @default("USD")
+  targetCompletes   Int
   /// Count of completes accepted against the country target (updated atomically).
-  completes       Int     @default(0)
+  completes         Int           @default(0)
   /// Client survey live link. Supports {session_token}, {country_code}, {project_code} macros.
-  liveSurveyUrl   String?
-  testSurveyUrl   String?
+  liveSurveyUrl     String?
+  testSurveyUrl     String?
   /// Session lifetime; defaults to 4 × LOI, minimum 60 minutes.
   sessionTtlMinutes Int?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
   quotas      QuotaCell[]
   allocations VendorAllocation[]
@@ -307,24 +310,24 @@ model ProjectCountry {
 }
 
 model QuotaCell {
-  id               String  @id @default(cuid())
+  id               String         @id @default(cuid())
   projectCountryId String
   projectCountry   ProjectCountry @relation(fields: [projectCountryId], references: [id], onDelete: Cascade)
   /// Display group, e.g. "Gender" or "Age x Region". Cells in a group usually do not overlap.
-  group            String  @default("")
+  group            String         @default("")
   name             String
   /// Legacy free-form description from milestone 1. Superseded by `conditions`.
   criteria         Json?
   /// All must match: [{ source: device|gate|prescreen, questionId?, values?, min?, max? }]. See docs/QUOTAS.md.
-  conditions       Json    @default("[]")
+  conditions       Json           @default("[]")
   target           Int
   /// Completes counted against this cell (updated atomically with the country count).
-  completes        Int     @default(0)
+  completes        Int            @default(0)
   /// Closed cells send matching respondents to quota full even below target.
-  isOpen           Boolean @default(true)
-  sortOrder        Int     @default(0)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @default(now()) @updatedAt
+  isOpen           Boolean        @default(true)
+  sortOrder        Int            @default(0)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @default(now()) @updatedAt
 
   @@index([projectCountryId])
 }
@@ -336,26 +339,26 @@ enum AllocationStatus {
 }
 
 model VendorAllocation {
-  id               String  @id @default(cuid())
-  projectCountryId String
-  projectCountry   ProjectCountry @relation(fields: [projectCountryId], references: [id], onDelete: Cascade)
-  vendorId         String
-  vendor           Vendor  @relation(fields: [vendorId], references: [id])
-  status           AllocationStatus @default(ACTIVE)
+  id                  String           @id @default(cuid())
+  projectCountryId    String
+  projectCountry      ProjectCountry   @relation(fields: [projectCountryId], references: [id], onDelete: Cascade)
+  vendorId            String
+  vendor              Vendor           @relation(fields: [vendorId], references: [id])
+  status              AllocationStatus @default(ACTIVE)
   /// Vendor payout per complete, in the country currency.
-  cpi              Decimal @db.Decimal(12, 2)
-  targetCompletes  Int
-  completes        Int     @default(0)
+  cpi                 Decimal          @db.Decimal(12, 2)
+  targetCompletes     Int
+  completes           Int              @default(0)
   /// Opaque public code used in the vendor entry link: /s/{entryCode}
-  entryCode        String  @unique
+  entryCode           String           @unique
   /// Opaque code for the test entry link (sessions are flagged isTest, never billable).
-  testEntryCode    String  @unique
+  testEntryCode       String           @unique
   /// Query parameter name the vendor uses for its respondent ID (default "uid").
-  uidParam         String  @default("uid")
+  uidParam            String           @default("uid")
   /// Overrides Vendor.callbackUrlTemplate for this allocation.
   callbackUrlTemplate String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
 
   sessions RespondentSession[]
 
@@ -374,20 +377,20 @@ enum RedirectVersionState {
 /// holds rules for every scope (project, country, vendor, vendor+country) and the
 /// parameter alias mappings. See src/redirects/redirect.types.ts (RedirectConfig).
 model RedirectPolicyVersion {
-  id            String  @id @default(cuid())
-  projectId     String
-  project       Project @relation("ProjectRedirectVersions", fields: [projectId], references: [id], onDelete: Cascade)
-  activeFor     Project? @relation("ActiveRedirectVersion")
-  version       Int
-  state         RedirectVersionState @default(DRAFT)
-  mode          RedirectMode
-  config        Json
-  changeReason  String?
-  createdById   String
-  approvedById  String?
+  id                String               @id @default(cuid())
+  projectId         String
+  project           Project              @relation("ProjectRedirectVersions", fields: [projectId], references: [id], onDelete: Cascade)
+  activeFor         Project?             @relation("ActiveRedirectVersion")
+  version           Int
+  state             RedirectVersionState @default(DRAFT)
+  mode              RedirectMode
+  config            Json
+  changeReason      String?
+  createdById       String
+  approvedById      String?
   previousVersionId String?
-  createdAt     DateTime @default(now())
-  activatedAt   DateTime?
+  createdAt         DateTime             @default(now())
+  activatedAt       DateTime?
 
   sessions RespondentSession[]
 
@@ -416,61 +419,61 @@ enum ApprovalStatus {
 }
 
 model RespondentSession {
-  id               String  @id @default(cuid())
-  organizationId   String
-  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  projectId        String
-  project          Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  projectCountryId String
-  projectCountry   ProjectCountry @relation(fields: [projectCountryId], references: [id], onDelete: Cascade)
+  id                 String                 @id @default(cuid())
+  organizationId     String
+  organization       Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectId          String
+  project            Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectCountryId   String
+  projectCountry     ProjectCountry         @relation(fields: [projectCountryId], references: [id], onDelete: Cascade)
   vendorAllocationId String
-  vendorAllocation VendorAllocation @relation(fields: [vendorAllocationId], references: [id], onDelete: Cascade)
+  vendorAllocation   VendorAllocation       @relation(fields: [vendorAllocationId], references: [id], onDelete: Cascade)
   /// Opaque random token handed to the client survey instead of the vendor UID.
-  token            String  @unique
+  token              String                 @unique
   /// The respondent ID supplied by the vendor. Kept server side; only returned to that vendor.
   vendorRespondentId String
-  status           RespondentStatus @default(STARTED)
+  status             RespondentStatus       @default(STARTED)
   /// Internal detail that can share one external status (e.g. ABANDONED / TIMED_OUT under PARTIAL).
-  statusDetail     String?
+  statusDetail       String?
   /// True once the outcome was confirmed server-to-server by the client survey platform.
-  outcomeVerified  Boolean @default(false)
-  approval         ApprovalStatus @default(NOT_APPLICABLE)
+  outcomeVerified    Boolean                @default(false)
+  approval           ApprovalStatus         @default(NOT_APPLICABLE)
   /// When the approval was last decided (by hand, the client portal or a reconciliation).
-  approvalAt       DateTime?
+  approvalAt         DateTime?
   /// Set once this approved complete is billed; locked against further approval changes until the invoice is voided.
-  invoiceId        String?
-  invoice          Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  invoiceId          String?
+  invoice            Invoice?               @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
   /// Set once this approved complete is on a vendor bill; voiding the bill releases it.
-  vendorBillId     String?
-  vendorBill       VendorBill? @relation(fields: [vendorBillId], references: [id], onDelete: SetNull)
-  isTest           Boolean @default(false)
+  vendorBillId       String?
+  vendorBill         VendorBill?            @relation(fields: [vendorBillId], references: [id], onDelete: SetNull)
+  isTest             Boolean                @default(false)
   /// Redirect configuration version used to process this session (historical traceability).
-  redirectVersionId String?
-  redirectVersion  RedirectPolicyVersion? @relation(fields: [redirectVersionId], references: [id])
-  revenue          Decimal? @db.Decimal(12, 2)
-  payout           Decimal? @db.Decimal(12, 2)
-  ipHash           String?
-  userAgent        String?
+  redirectVersionId  String?
+  redirectVersion    RedirectPolicyVersion? @relation(fields: [redirectVersionId], references: [id])
+  revenue            Decimal?               @db.Decimal(12, 2)
+  payout             Decimal?               @db.Decimal(12, 2)
+  ipHash             String?
+  userAgent          String?
   /// desktop | mobile | tablet, from the user agent at entry.
-  deviceType       String?
+  deviceType         String?
   /// Country reported by the edge (GEO_COUNTRY_HEADER), when configured.
-  geoCountry       String?
+  geoCountry         String?
   /// True when the respondent must pass the gate page before the client survey link is released.
-  gateRequired     Boolean @default(false)
-  gatePassedAt     DateTime?
+  gateRequired       Boolean                @default(false)
+  gatePassedAt       DateTime?
   /// Visible human check on the gate page (max 3 attempts).
-  humanAttempts    Int @default(0)
-  humanPassedAt    DateTime?
+  humanAttempts      Int                    @default(0)
+  humanPassedAt      DateTime?
   /// Answers given on the gate page: { gate: {...}, prescreen: {...} }, each { questionId: { value, label } }.
-  answers          Json?
+  answers            Json?
   /// Quota cells this respondent qualified for (set at entry or after the gate page).
-  quotaCellIds     String[] @default([])
+  quotaCellIds       String[]               @default([])
   /// Tenant-scoped hashes of the browser fingerprint and the long-lived browser cookie.
-  fingerprintHash  String?
-  browserIdHash    String?
-  startedAt        DateTime @default(now())
-  outcomeAt        DateTime?
-  expiresAt        DateTime
+  fingerprintHash    String?
+  browserIdHash      String?
+  startedAt          DateTime               @default(now())
+  outcomeAt          DateTime?
+  expiresAt          DateTime
 
   events     RespondentEvent[]
   executions RedirectExecution[]
@@ -494,22 +497,22 @@ enum EventSource {
 }
 
 model RespondentEvent {
-  id             String  @id @default(cuid())
+  id             String            @id @default(cuid())
   sessionId      String
   session        RespondentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   type           String
   status         RespondentStatus?
   source         EventSource
   /// Unique per logical event; repeated deliveries are ignored.
-  idempotencyKey String  @unique
+  idempotencyKey String            @unique
   detail         Json?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime          @default(now())
 
   @@index([sessionId])
 }
 
 model RedirectExecution {
-  id            String  @id @default(cuid())
+  id            String             @id @default(cuid())
   sessionId     String?
   session       RespondentSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   status        RespondentStatus
@@ -517,10 +520,10 @@ model RedirectExecution {
   ruleSource    String?
   versionId     String?
   destination   String
-  usedFallback  Boolean @default(false)
+  usedFallback  Boolean            @default(false)
   blockedReason String?
   durationMs    Int
-  createdAt     DateTime @default(now())
+  createdAt     DateTime           @default(now())
 
   @@index([sessionId])
   @@index([createdAt])
@@ -540,26 +543,26 @@ enum CallbackState {
 }
 
 model CallbackDelivery {
-  id             String  @id @default(cuid())
+  id             String        @id @default(cuid())
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   sessionId      String?
   targetType     String
   targetId       String?
   url            String
-  method         String  @default("GET")
+  method         String        @default("GET")
   body           Json?
   /// One callback per (session, status, target); retries reuse the same key.
-  idempotencyKey String  @unique
+  idempotencyKey String        @unique
   state          CallbackState @default(PENDING)
-  attempts       Int     @default(0)
-  maxAttempts    Int     @default(6)
-  nextAttemptAt  DateTime @default(now())
+  attempts       Int           @default(0)
+  maxAttempts    Int           @default(6)
+  nextAttemptAt  DateTime      @default(now())
   lastStatusCode Int?
   lastError      String?
   deliveredAt    DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@index([state, nextAttemptAt])
 }
@@ -567,7 +570,7 @@ model CallbackDelivery {
 // ───────────────────────────── Audit ─────────────────────────────
 
 model AuditEvent {
-  id             String  @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   actorId        String?
@@ -575,7 +578,7 @@ model AuditEvent {
   entityType     String
   entityId       String
   detail         Json?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime     @default(now())
 
   @@index([organizationId, entityType, entityId])
 }
@@ -589,38 +592,38 @@ enum WonBidStatus {
 
 /// A bid won in Bidzo, received by webhook. One row per Bidzo bid; a project is created from it at most once.
 model WonBid {
-  id             String  @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  source         String  @default("BIDZO")
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  source           String       @default("BIDZO")
   /// Bidzo's bid id; with source and organization it makes repeated deliveries idempotent.
-  externalId     String
-  bidNumber      String
-  bidVersion     Int?
-  projectName    String
-  description    String?
-  projectType    String?
-  projectCategory String?
-  clientName     String
+  externalId       String
+  bidNumber        String
+  bidVersion       Int?
+  projectName      String
+  description      String?
+  projectType      String?
+  projectCategory  String?
+  clientName       String
   clientExternalId String?
-  contactName    String?
-  contactEmail   String?
-  bidderName     String?
-  currency       String
-  totalAmount    Decimal? @db.Decimal(18, 4)
+  contactName      String?
+  contactEmail     String?
+  bidderName       String?
+  currency         String
+  totalAmount      Decimal?     @db.Decimal(18, 4)
   /// [{ countryCode, sampleSize, loiMinutes, incidencePct, cpi, notes }]
-  countries      Json
-  wonAt          DateTime
-  status         WonBidStatus @default(NEW)
-  dismissReason  String?
-  projectId      String? @unique
-  project        Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  countries        Json
+  wonAt            DateTime
+  status           WonBidStatus @default(NEW)
+  dismissReason    String?
+  projectId        String?      @unique
+  project          Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
   /// Last delivery's event id and full payload, kept for support.
-  lastEventId    String?
-  payload        Json
-  deliveries     Int     @default(1)
-  receivedAt     DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  lastEventId      String?
+  payload          Json
+  deliveries       Int          @default(1)
+  receivedAt       DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
   @@unique([organizationId, source, externalId])
   @@index([organizationId, status])
@@ -634,14 +637,14 @@ model TorExitNode {
 
 /// Images uploaded for respondent pages (logo, hero, background). Served publicly at /pa/:id.
 model PageAsset {
-  id             String   @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   projectId      String?
   contentType    String
   size           Int
   data           Bytes
-  createdAt      DateTime @default(now())
+  createdAt      DateTime     @default(now())
 
   @@index([organizationId, projectId])
 }
@@ -655,13 +658,13 @@ enum InvoiceStatus {
 
 /// Client invoice for approved completes of one project, in one currency.
 model Invoice {
-  id             String   @id @default(cuid())
+  id             String        @id @default(cuid())
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   projectId      String
-  project        Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   clientId       String
-  client         Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client         Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
   number         String
   status         InvoiceStatus @default(DRAFT)
   currency       String
@@ -669,20 +672,23 @@ model Invoice {
   lines          Json
   completes      Int
   /// Sum of the lines, before tax.
-  subtotal       Decimal @default(0) @db.Decimal(14, 2)
+  subtotal       Decimal       @default(0) @db.Decimal(14, 2)
   taxName        String?
-  taxPercent     Decimal @default(0) @db.Decimal(5, 2)
-  taxAmount      Decimal @default(0) @db.Decimal(14, 2)
+  taxPercent     Decimal       @default(0) @db.Decimal(5, 2)
+  taxAmount      Decimal       @default(0) @db.Decimal(14, 2)
   /// subtotal + taxAmount.
-  total          Decimal @db.Decimal(14, 2)
+  total          Decimal       @db.Decimal(14, 2)
   notes          String?
   issuedAt       DateTime?
   dueAt          DateTime?
   paidAt         DateTime?
   voidedAt       DateTime?
   createdById    String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  /// Last time this invoice went into an accounting export.
+  exportedAt DateTime?
 
   sessions RespondentSession[]
 
@@ -693,11 +699,11 @@ model Invoice {
 
 /// One applied reconciliation: the client's final list of valid IDs for a project.
 model Reconciliation {
-  id             String   @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   projectId      String
-  project        Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   /// final_list: listed approved, others rejected · approve_listed · reject_listed
   mode           String
   submitted      Int
@@ -711,7 +717,7 @@ model Reconciliation {
   unknownSample  Json?
   note           String?
   actorId        String?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime     @default(now())
 
   @@index([projectId, createdAt])
 }
@@ -724,32 +730,32 @@ enum AlertState {
 
 /// A fieldwork problem found by the monitor. One unresolved alert per dedupeKey; it resolves itself when the condition clears.
 model Alert {
-  id             String   @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  projectId      String?
-  project        Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id                 String       @id @default(cuid())
+  organizationId     String
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectId          String?
+  project            Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
   projectCountryId   String?
   vendorAllocationId String?
   /// stalled | behind_pace | low_ir | loi_short | loi_long | quality_spike | drop_off | quota_near | target_reached | callbacks_failed
-  rule           String
+  rule               String
   /// info | warn | bad
-  severity       String
-  title          String
-  detail         String
-  metrics        Json?
-  dedupeKey      String
-  state          AlertState @default(OPEN)
+  severity           String
+  title              String
+  detail             String
+  metrics            Json?
+  dedupeKey          String
+  state              AlertState   @default(OPEN)
   /// What the autopilot did about it, if anything (e.g. "Paused Panel Alpha in US").
-  autoAction     String?
-  webhookStatus  String?
-  firstSeenAt    DateTime @default(now())
-  lastSeenAt     DateTime @default(now())
-  acknowledgedAt DateTime?
-  acknowledgedById String?
-  resolvedAt     DateTime?
+  autoAction         String?
+  webhookStatus      String?
+  firstSeenAt        DateTime     @default(now())
+  lastSeenAt         DateTime     @default(now())
+  acknowledgedAt     DateTime?
+  acknowledgedById   String?
+  resolvedAt         DateTime?
   /// "auto" when the condition cleared, otherwise the user id.
-  resolvedBy     String?
+  resolvedBy         String?
 
   @@index([organizationId, state])
   @@index([organizationId, dedupeKey])
@@ -765,36 +771,39 @@ enum VendorBillStatus {
 
 /// What we owe a vendor for its approved completes, in one currency, across projects.
 model VendorBill {
-  id             String   @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  vendorId       String
-  vendor         Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  number         String
-  status         VendorBillStatus @default(DRAFT)
-  currency       String
+  id               String           @id @default(cuid())
+  organizationId   String
+  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  vendorId         String
+  vendor           Vendor           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  number           String
+  status           VendorBillStatus @default(DRAFT)
+  currency         String
   /// Completes with an outcome up to this time were included (null = everything approved).
-  periodTo       DateTime?
+  periodTo         DateTime?
   /// [{ projectId, projectCode, countryCode, description, quantity, unitPrice, amount }]
-  lines          Json
-  completes      Int
-  subtotal       Decimal @db.Decimal(14, 2)
-  taxName        String?
-  taxPercent     Decimal @default(0) @db.Decimal(5, 2)
-  taxAmount      Decimal @default(0) @db.Decimal(14, 2)
-  total          Decimal @db.Decimal(14, 2)
+  lines            Json
+  completes        Int
+  subtotal         Decimal          @db.Decimal(14, 2)
+  taxName          String?
+  taxPercent       Decimal          @default(0) @db.Decimal(5, 2)
+  taxAmount        Decimal          @default(0) @db.Decimal(14, 2)
+  total            Decimal          @db.Decimal(14, 2)
   /// The vendor's own invoice number, recorded on approval.
   vendorReference  String?
   /// Bank or payment reference, recorded when paid.
   paymentReference String?
-  notes          String?
-  approvedAt     DateTime?
-  dueAt          DateTime?
-  paidAt         DateTime?
-  voidedAt       DateTime?
-  createdById    String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  notes            String?
+  approvedAt       DateTime?
+  dueAt            DateTime?
+  paidAt           DateTime?
+  voidedAt         DateTime?
+  createdById      String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  /// Last time this bill went into an accounting export.
+  exportedAt DateTime?
 
   sessions RespondentSession[]
 
@@ -805,25 +814,25 @@ model VendorBill {
 
 /// Manual exchange rate: 1 unit of `currency` = `rate` units of the organisation's base currency.
 model ExchangeRate {
-  id             String   @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   currency       String
-  rate           Decimal @db.Decimal(18, 8)
-  updatedAt      DateTime @updatedAt
+  rate           Decimal      @db.Decimal(18, 8)
+  updatedAt      DateTime     @updatedAt
 
   @@unique([organizationId, currency])
 }
 
 /// Key for the public API (docs/PUBLIC_API.md). Only a SHA-256 hash is stored; the key is shown once.
 model ApiKey {
-  id             String   @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name           String
   /// First characters of the key (pjx_xxxxxxxx), shown in lists so people can tell keys apart.
   prefix         String
-  keyHash        String   @unique
+  keyHash        String       @unique
   /// e.g. projects:read, projects:write, sessions:read, quotas:read, finance:read
   scopes         String[]
   /// The admin who created it. Writes through the key are recorded as this person.
@@ -831,24 +840,24 @@ model ApiKey {
   lastUsedAt     DateTime?
   expiresAt      DateTime?
   revokedAt      DateTime?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime     @default(now())
 
   @@index([organizationId])
 }
 
 /// An HTTPS endpoint that receives signed event webhooks.
 model WebhookEndpoint {
-  id             String   @id @default(cuid())
+  id             String            @id @default(cuid())
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   url            String
   description    String?
   secret         String
   /// Event names this endpoint receives (see src/webhooks/webhook.events.ts).
   events         String[]
-  active         Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  active         Boolean           @default(true)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
   deliveries     WebhookDelivery[]
 
   @@index([organizationId])
@@ -856,23 +865,23 @@ model WebhookEndpoint {
 
 /// One event sent (or to be sent) to one endpoint, with retries.
 model WebhookDelivery {
-  id             String   @id @default(cuid())
+  id             String          @id @default(cuid())
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   endpointId     String
   endpoint       WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
   event          String
   /// Same for every endpoint that receives this event, so receivers can de-duplicate.
   eventId        String
   payload        Json
-  state          CallbackState @default(PENDING)
-  attempts       Int      @default(0)
-  maxAttempts    Int      @default(8)
-  nextAttemptAt  DateTime @default(now())
+  state          CallbackState   @default(PENDING)
+  attempts       Int             @default(0)
+  maxAttempts    Int             @default(8)
+  nextAttemptAt  DateTime        @default(now())
   lastStatusCode Int?
   lastError      String?
   deliveredAt    DateTime?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime        @default(now())
 
   @@index([state, nextAttemptAt])
   @@index([endpointId, createdAt])
@@ -880,7 +889,7 @@ model WebhookDelivery {
 
 /// A report emailed on a schedule (docs/SCHEDULED_REPORTS.md).
 model ReportSchedule {
-  id             String   @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name           String
@@ -889,7 +898,7 @@ model ReportSchedule {
   /// yesterday | last_7_days | last_30_days | month_to_date | last_month
   period         String
   /// Optional filters: { clientId?, vendorId?, projectId? }
-  filters        Json     @default("{}")
+  filters        Json         @default("{}")
   /// daily | weekly | monthly
   frequency      String
   /// 0 = Sunday … 6 = Saturday (weekly)
@@ -898,16 +907,16 @@ model ReportSchedule {
   dayOfMonth     Int?
   /// Local hour 0–23 in `timezone`
   hour           Int
-  timezone       String   @default("Asia/Kolkata")
+  timezone       String       @default("Asia/Kolkata")
   recipients     String[]
   /// Do not send when the period had no traffic.
-  skipEmpty      Boolean  @default(false)
-  active         Boolean  @default(true)
+  skipEmpty      Boolean      @default(false)
+  active         Boolean      @default(true)
   nextRunAt      DateTime
   lastRunAt      DateTime?
   createdById    String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
   runs           ReportRun[]
 
   @@index([active, nextRunAt])
@@ -915,19 +924,19 @@ model ReportSchedule {
 }
 
 model ReportRun {
-  id          String   @id @default(cuid())
-  scheduleId  String
-  schedule    ReportSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  id         String         @id @default(cuid())
+  scheduleId String
+  schedule   ReportSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
   /// SENT | FAILED | SKIPPED
-  status      String
+  status     String
   /// scheduled | manual
-  trigger     String
-  from        String
-  to          String
-  rows        Int      @default(0)
-  recipients  String[]
-  error       String?
-  createdAt   DateTime @default(now())
+  trigger    String
+  from       String
+  to         String
+  rows       Int            @default(0)
+  recipients String[]
+  error      String?
+  createdAt  DateTime       @default(now())
 
   @@index([scheduleId, createdAt])
 }
@@ -948,4 +957,26 @@ model SsoIdentity {
 
   @@unique([provider, subject])
   @@index([userId])
+}
+
+/// A file of invoices and/or vendor bills made for an accounting system. The file is kept so it can be downloaded again.
+model AccountingExport {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// zoho_books | tally | quickbooks | xero | journal
+  format         String
+  /// invoices | bills | both
+  kind           String
+  /// Filters used, for the history list.
+  filters        Json
+  invoiceCount   Int
+  billCount      Int
+  fileName       String
+  contentType    String
+  content        String
+  createdById    String?
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, createdAt])
 }
