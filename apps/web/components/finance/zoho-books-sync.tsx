@@ -6,23 +6,23 @@ import { useMe } from '@/components/me';
 import { ErrorBox, Loading, Section, Toggle } from '@/components/ui';
 import { api, get, post } from '@/lib/api';
 
-interface Settings { hourly: boolean; since: string | null; invoices: boolean; bills: boolean; payments: boolean }
-interface Counts { customers: number; vendors: number; invoices: number; bills: number; matched: number; paymentsReceived: number; paymentsMade: number; voided: number }
-interface Run { id: string; trigger: 'manual' | 'schedule'; status: 'running' | 'ok' | 'partial' | 'failed'; counts: Counts; errors: { type: string; number: string | null; message: string }[]; startedAt: string; finishedAt: string | null; by: string | null }
+export interface Settings { hourly: boolean; since: string | null; invoices: boolean; bills: boolean; payments: boolean }
+export interface Counts { customers: number; vendors: number; invoices: number; bills: number; matched: number; paymentsReceived: number; paymentsMade: number; voided: number }
+export interface Run { id: string; trigger: 'manual' | 'schedule'; status: 'running' | 'ok' | 'partial' | 'failed'; counts: Counts; errors: { type: string; number: string | null; message: string }[]; startedAt: string; finishedAt: string | null; by: string | null }
 interface Status {
   configured: boolean; missing: string[]; boundHere: boolean; otherTenant: boolean; dataCentre: string | null; apiHost: string | null; zohoOrganizationId: string | null;
   settings: Settings; linked: Record<string, number>; running: boolean; runs: Run[];
 }
 interface TestResult { ok: boolean; organization: { name: string; currency: string } | null; checks: { label: string; ok: boolean; detail: string }[] }
 
-const STATUS: Record<Run['status'], [string, string]> = {
+export const STATUS: Record<Run['status'], [string, string]> = {
   running: ['Running', 'bg-info/15 text-info'],
   ok: ['Done', 'bg-ok/15 text-ok'],
   partial: ['Partly done', 'bg-warn/15 text-warn'],
   failed: ['Failed', 'bg-bad/15 text-bad'],
 };
 
-function summary(c: Counts) {
+export function summary(c: Counts) {
   const parts = [
     c.invoices && `${c.invoices} ${c.invoices === 1 ? 'invoice' : 'invoices'}`,
     c.bills && `${c.bills} ${c.bills === 1 ? 'bill' : 'bills'}`,

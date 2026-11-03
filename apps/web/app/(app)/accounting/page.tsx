@@ -1,8 +1,9 @@
 'use client';
 import clsx from 'clsx';
 import { AlertTriangle, Download, FileDown, Settings2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { AccountingSettings } from '@/components/finance/accounting-settings';
+import { LedgerSync } from '@/components/finance/ledger-sync';
 import { ZohoBooksSync } from '@/components/finance/zoho-books-sync';
 import { canEdit, useMe } from '@/components/me';
 import { Empty, ErrorBox, Loading, PageHeader, Section, Toggle } from '@/components/ui';
@@ -220,6 +221,7 @@ export default function AccountingPage() {
       )}
 
       <ZohoBooksSync onSynced={() => { loadHistory(); setRefresh((n) => n + 1); }} />
+      <Suspense fallback={null}><LedgerSync onSynced={() => { loadHistory(); setRefresh((n) => n + 1); }} /></Suspense>
 
       <Section title="Export history" className="mt-6">
         {!history ? <Loading /> : history.length === 0 ? <p className="text-sm text-muted">No exports yet.</p> : (

@@ -81,6 +81,9 @@ model Organization {
   accountingExports AccountingExport[]
   zohoBooksLinks    ZohoBooksLink[]
   zohoBooksSyncs    ZohoBooksSync[]
+  ledgerConnections LedgerConnection[]
+  ledgerLinks       LedgerLink[]
+  ledgerSyncs       LedgerSync[]
   tasks             Task[]
   aiConversations   AiConversation[]
   aiActions         AiAction[]
@@ -1057,6 +1060,67 @@ model ZohoBooksSync {
   finishedAt     DateTime?
 
   @@index([organizationId, startedAt])
+}
+
+/// A connection to Xero, QuickBooks Online or Tally Prime (docs/ACCOUNTING_SYNC.md).
+model LedgerConnection {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// xero | quickbooks | tally
+  provider       String
+  /// connected | expired | disconnected
+  status         String       @default("connected")
+  /// Xero tenant id or QuickBooks realm (company) id.
+  remoteId       String?
+  remoteName     String?
+  /// OAuth tokens, AES-GCM encrypted with ACCOUNTING_ENCRYPTION_KEY. Never returned by the API.
+  tokens         String?
+  /// { hourly, since, invoices, bills, payments }
+  settings       Json?
+  lastError      String?
+  connectedById  String?
+  connectedAt    DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, provider])
+}
+
+/// A Projexa record that reached Xero, QuickBooks or Tally, so a sync never creates it twice.
+model LedgerLink {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  provider       String
+  /// customer | vendor | invoice | bill | invoice_payment | bill_payment
+  entityType     String
+  entityId       String
+  remoteId       String
+  /// sent, open, paid, void
+  state          String?
+  syncedAt       DateTime     @default(now())
+
+  @@unique([organizationId, provider, entityType, entityId])
+}
+
+/// One sync run to Xero, QuickBooks or Tally.
+model LedgerSync {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  provider       String
+  /// manual | schedule
+  trigger        String
+  /// running | ok | partial | failed
+  status         String
+  counts         Json?
+  errors         Json?
+  createdById    String?
+  startedAt      DateTime     @default(now())
+  finishedAt     DateTime?
+
+  @@index([organizationId, provider, startedAt])
 }
 
 // ───────────────────────────── Tasks ─────────────────────────────
