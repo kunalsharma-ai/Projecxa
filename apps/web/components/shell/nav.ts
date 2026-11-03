@@ -1,4 +1,4 @@
-import { Activity, Route, MessagesSquare, ListChecks, Sparkles, BarChart3, BookOpenCheck, Users, HandCoins, Building2, FolderKanban, FormInput, ReceiptText, KeyRound, LayoutDashboard, Palette, PlusCircle, Settings, ShieldCheck, Stamp, Trophy, Truck, type LucideIcon } from 'lucide-react';
+import { Activity, Route, MessagesSquare, ListChecks, Sparkles, BarChart3, BookOpenCheck, Users, HandCoins, Building2, FolderKanban, FormInput, ReceiptText, KeyRound, LayoutDashboard, Palette, PlugZap, PlusCircle, Settings, ShieldCheck, Stamp, Trophy, Truck, type LucideIcon } from 'lucide-react';
 
 export interface NavItem { href: string; label: string; icon: LucideIcon; keywords?: string; editorsOnly?: boolean; adminOnly?: boolean }
 
@@ -19,6 +19,7 @@ export const NAV: NavItem[] = [
   { href: '/clients', label: 'Clients', icon: Building2 },
   { href: '/vendors', label: 'Vendors', icon: Truck, keywords: 'panels suppliers' },
   { href: '/portal-access', label: 'Portal access', icon: KeyRound, keywords: 'client vendor logins' },
+  { href: '/settings/integrations', label: 'Integrations', icon: PlugZap, keywords: 'connect email smtp zoho mail google microsoft sso sign-in gemini ai api key zoho books xero quickbooks tally bidzo setup keys', adminOnly: true },
   { href: '/settings/team', label: 'Team', icon: Users, keywords: 'staff users invite people roles deactivate password', adminOnly: true },
   { href: '/settings/privacy', label: 'Privacy', icon: ShieldCheck, keywords: 'gdpr retention consent erase delete anonymise personal data', adminOnly: true },
   { href: '/settings/branding', label: 'Branding', icon: Stamp, keywords: 'white label logo colours domain custom brand name email sender', adminOnly: true },
@@ -34,8 +35,9 @@ export function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-/** Bids live in Bidzo; PROJEXA links there when the URL is configured. */
+/** Bids live in Bidzo; PROJEXA links there when the URL is set (Settings → Integrations, or the build env). */
 export const BIDZO_URL = process.env.NEXT_PUBLIC_BIDZO_URL || '';
+export const bidzoUrl = (me: { links?: { bidzoUrl: string | null } } | null) => (me?.links?.bidzoUrl || BIDZO_URL).replace(/\/$/, '');
 
 /** Items this person may see. */
 export const visibleNav = (role: string | undefined) => NAV.filter((n) => (!n.editorsOnly || role === 'ADMIN' || role === 'PROJECT_MANAGER') && (!n.adminOnly || role === 'ADMIN'));

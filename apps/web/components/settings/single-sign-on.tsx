@@ -1,5 +1,6 @@
 'use client';
 import { Check, Copy, Unlink } from 'lucide-react';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ErrorBox, Loading, Section, Toggle } from '@/components/ui';
 import { api, get } from '@/lib/api';
@@ -46,7 +47,7 @@ export function SingleSignOn() {
   const copy = async (v: string) => { await navigator.clipboard?.writeText(v); setCopied(v); setTimeout(() => setCopied(null), 1500); };
 
   return (
-    <Section title="Single sign-on" className="mb-6" actions={<button className="btn-primary" onClick={save}>{saved ? 'Saved' : 'Save'}</button>}>
+    <Section id="sso" title="Single sign-on" className="mb-6" actions={<button className="btn-primary" onClick={save}>{saved ? 'Saved' : 'Save'}</button>}>
       <div className="space-y-5">
         <ErrorBox error={error} />
         <p className="text-sm text-muted">Let staff sign in with their company Google, Microsoft or Zoho account. Only people you already added in PROJEXA can sign in. Their account links the first time, by email.</p>
@@ -58,7 +59,7 @@ export function SingleSignOn() {
                 <Toggle checked={draft.providers[a.id]} onChange={(v) => a.configured && set({ providers: { ...draft.providers, [a.id]: v } })} label={`${a.label} sign-in`} />
               </div>
               <p className="mt-1 text-xs text-muted">{HELP[a.id]}</p>
-              {!a.configured && <p className="mt-2 rounded bg-warn/10 px-2 py-1 text-xs text-warn">Not set up on the server yet. See docs/SSO.md.</p>}
+              {!a.configured && <p className="mt-2 rounded bg-warn/10 px-2 py-1 text-xs text-warn">Needs its client ID and secret first. <Link href={`/settings/integrations#sso_${a.id}`} className="underline">Set it up in Integrations</Link></p>}
               <div className="mt-3">
                 <span className="label">Redirect URI</span>
                 <button type="button" onClick={() => copy(a.redirectUri)} className="flex w-full items-center gap-2 rounded border border-line bg-sunken px-2 py-1 text-left font-mono text-[11px]" title="Copy">

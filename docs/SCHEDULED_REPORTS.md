@@ -1,5 +1,7 @@
 # Scheduled reports by email
 
+> **Now set up in the app.** Each organisation enters its Zoho Mail SMTP settings in **Settings → Integrations** (see `docs/INTEGRATIONS.md`). The environment variables are an optional fallback.
+
 Milestone 14. Reports are emailed on a schedule through the company's **Zoho Mail** account.
 Each email has the headline numbers and the top 25 rows; the full table is attached as a CSV.
 

@@ -5,7 +5,8 @@ import { z } from 'zod';
 import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../auth/auth.types';
 import { CurrentUser, EDITORS, Roles } from '../auth/decorators';
-import { config } from '../common/config';
+import { config, ZohoBooksConfig } from '../common/config';
+import { IntegrationsService } from '../integrations/integrations.service';
 import { ZodPipe } from '../common/zod.pipe';
 import { money } from '../finance/finance.service';
 import { PayablesService } from '../finance/payables.service';
@@ -67,23 +68,21 @@ export class ZohoBooksService {
     private readonly accounting: AccountingService,
     private readonly payables: PayablesService,
     private readonly audit: AuditService,
+    private readonly integrations: IntegrationsService,
   ) {}
 
-  /** The Zoho Books connection is set up in env and bound to this organisation. */
+  /** Zoho Books for this organisation: saved in Settings → Integrations, or the env one bound to it. */
   private async bound(org: string) {
-    const c = config.zohoBooks;
-    if (!c) return null;
-    const o = await this.prisma.organization.findUniqueOrThrow({ where: { id: org }, select: { slug: true } });
-    return o.slug === c.tenant ? c : null;
+    return (await this.integrations.zohoBooks(org)).config;
   }
 
   private async requireBound(org: string) {
-    const c = await this.bound(org);
-    if (!c) throw new BadRequestException(config.zohoBooks ? 'Zoho Books is connected to another Projexa organisation' : `Zoho Books is not set up on the server. Missing: ${config.zohoBooksMissing.join(', ')}`);
-    return c;
+    const z = await this.integrations.zohoBooks(org);
+    if (!z.config) throw new BadRequestException(z.otherTenant ? 'Zoho Books is connected to another Projexa organisation' : `Zoho Books is not set up yet. Add it in Settings → Integrations. Missing: ${z.missing.join(', ')}`);
+    return z.config;
   }
 
-  private client(c: NonNullable<typeof config.zohoBooks>) {
+  private client(c: ZohoBooksConfig) {
     return new ZohoBooksClient(c, this.http, { gapMs: this.gapMs, budget: this.budget, sleep: this.sleep });
   }
 
@@ -100,18 +99,19 @@ export class ZohoBooksService {
   }
 
   async status(org: string) {
-    const c = config.zohoBooks;
-    const [settings, runs, links, slug] = await Promise.all([
+    const z = await this.integrations.zohoBooks(org);
+    const c = z.config;
+    const [settings, runs, links] = await Promise.all([
       this.settings(org),
       this.runs(org),
       this.prisma.zohoBooksLink.groupBy({ by: ['entityType'], where: { organizationId: org }, _count: true }),
-      this.prisma.organization.findUniqueOrThrow({ where: { id: org }, select: { slug: true } }),
     ]);
     return {
-      configured: !!c,
-      missing: config.zohoBooksMissing,
-      boundHere: !!c && c.tenant === slug.slug,
-      otherTenant: !!c && c.tenant !== slug.slug,
+      configured: !!c || z.otherTenant,
+      source: z.source,
+      missing: z.missing,
+      boundHere: !!c,
+      otherTenant: z.otherTenant,
       dataCentre: c?.dc ?? null,
       apiHost: c ? new URL(c.apiUrl).host : null,
       zohoOrganizationId: c?.organizationId ?? null,
@@ -185,20 +185,24 @@ export class ZohoBooksService {
 
   @Interval(5 * 60_000)
   async tick() {
-    const c = config.zohoBooks;
-    if (!c || !config.zohoBooksSchedulerEnabled) return;
-    const o = await this.prisma.organization.findUnique({ where: { slug: c.tenant }, select: { id: true, zohoBooksConfig: true } });
-    if (!o) return;
-    const s = settingsOf(o.zohoBooksConfig);
-    if (!s.hourly || !s.since) return;
-    const last = await this.prisma.zohoBooksSync.findFirst({ where: { organizationId: o.id }, orderBy: { startedAt: 'desc' } });
-    if (last && (last.status === 'running' || last.startedAt.getTime() > Date.now() - HOUR)) return;
-    await this.start(o.id, 'schedule', null).catch((e) => this.log.warn(`Scheduled Zoho Books sync not started: ${(e as Error).message}`));
+    if (!config.zohoBooksSchedulerEnabled) return;
+    for (const id of await this.integrations.zohoBooksOrgs()) {
+      if (!(await this.bound(id))) continue;
+      const o = await this.prisma.organization.findUnique({ where: { id }, select: { id: true, zohoBooksConfig: true } });
+      if (!o) continue;
+      const s = settingsOf(o.zohoBooksConfig);
+      if (!s.hourly || !s.since) continue;
+      const last = await this.prisma.zohoBooksSync.findFirst({ where: { organizationId: o.id }, orderBy: { startedAt: 'desc' } });
+      if (last && (last.status === 'running' || last.startedAt.getTime() > Date.now() - HOUR)) continue;
+      await this.start(o.id, 'schedule', null).catch((e) => this.log.warn(`Scheduled Zoho Books sync not started: ${(e as Error).message}`));
+      // One run at a time per server.
+      if (this.current) await this.current;
+    }
   }
 
   // ───────────── The run ─────────────
 
-  private async run(org: string, runId: string, c: NonNullable<typeof config.zohoBooks>, s: ZohoSettings, userId: string | null) {
+  private async run(org: string, runId: string, c: ZohoBooksConfig, s: ZohoSettings, userId: string | null) {
     const counts = zero();
     const errors: RunError[] = [];
     let stopped = false;

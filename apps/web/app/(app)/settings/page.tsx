@@ -1,5 +1,5 @@
 'use client';
-import { Copy, Palette, ShieldCheck, Stamp, Webhook } from 'lucide-react';
+import { Copy, Palette, PlugZap, ShieldCheck, Stamp, Webhook } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useMe } from '@/components/me';
@@ -47,8 +47,15 @@ export default function SettingsPage() {
   if (!org) return error ? <ErrorBox error={error} /> : <Loading />;
   return (
     <>
-      <PageHeader title="Settings" subtitle={`${org.name} · ${org.slug}`} actions={<div className="flex flex-wrap gap-2"><Link href="/settings/branding" className="btn-ghost"><Stamp className="h-4 w-4" /> Branding</Link><Link href="/settings/privacy" className="btn-ghost"><ShieldCheck className="h-4 w-4" /> Privacy</Link><Link href="/settings/developers" className="btn-ghost"><Webhook className="h-4 w-4" /> API and webhooks</Link><Link href="/settings/appearance" className="btn-ghost"><Palette className="h-4 w-4" /> Theme Studio</Link></div>} />
+      <PageHeader title="Settings" subtitle={`${org.name} · ${org.slug}`} actions={<div className="flex flex-wrap gap-2">{isAdmin && <Link href="/settings/integrations" className="btn-primary"><PlugZap className="h-4 w-4" /> Integrations</Link>}<Link href="/settings/branding" className="btn-ghost"><Stamp className="h-4 w-4" /> Branding</Link><Link href="/settings/privacy" className="btn-ghost"><ShieldCheck className="h-4 w-4" /> Privacy</Link><Link href="/settings/developers" className="btn-ghost"><Webhook className="h-4 w-4" /> API and webhooks</Link><Link href="/settings/appearance" className="btn-ghost"><Palette className="h-4 w-4" /> Theme Studio</Link></div>} />
       <div className="mb-4"><ErrorBox error={error} /></div>
+      {isAdmin && (
+        <Link href="/settings/integrations" className="card mb-6 flex items-center gap-3 p-4 hover:bg-sunken/50">
+          <PlugZap className="h-5 w-5 shrink-0 text-brand" />
+          <span className="min-w-0 flex-1"><span className="block font-medium">Set up integrations</span><span className="block text-sm text-muted">Email (Zoho Mail), Google, Microsoft and Zoho sign-in, Gemini AI, Zoho Books, Xero, QuickBooks, Tally and Bidzo, all from here with step-by-step help.</span></span>
+          <span className="text-sm text-brand">Open →</span>
+        </Link>
+      )}
       {isAdmin && <SignInSecurity />}
       {isAdmin && <SingleSignOn />}
       {isAdmin && <AiCopilotSettings />}
@@ -96,7 +103,7 @@ function BidzoConnection({ isAdmin }: { isAdmin: boolean }) {
   const copy = (t: string) => navigator.clipboard?.writeText(t).catch(() => undefined);
 
   return (
-    <Section title="Bidzo connection" className="mb-6">
+    <Section id="bidzo" title="Bidzo connection" className="mb-6">
       <p className="mb-4 text-sm text-muted">When a bid is marked won in Bidzo, it is sent here and appears in <Link href="/won-bids" className="text-brand underline-offset-2 hover:underline">Won bids</Link> for a PM to set up. Bidzo signs each delivery with the secret below.</p>
       <ErrorBox error={error} />
       {b && (

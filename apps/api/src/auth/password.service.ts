@@ -74,7 +74,7 @@ ${emailHeader(brand)}
 <p style="font-size:13px;color:#475569">${valid} If the button does not work, paste this into your browser:<br><span style="word-break:break-all">${esc(link.url)}</span></p>${brand.supportEmail ? `<p style="font-size:13px;color:#475569">Questions? Write to ${esc(brand.supportEmail)}.</p>` : ''}</div>`;
     const text = `Hi ${user.name},\n\n${lead}\n\n${button}: ${link.url}\n\n${valid}\n`;
     try {
-      await this.mail.send({ to: [user.email], subject, html, text, fromName: brand.emailFromName, replyTo: brand.emailReplyTo ?? brand.supportEmail });
+      await this.mail.send({ organizationId: user.organizationId, to: [user.email], subject, html, text, fromName: brand.emailFromName, replyTo: brand.emailReplyTo ?? brand.supportEmail });
       return true;
     } catch (e) {
       if (!(e instanceof MailNotConfigured)) this.log.warn(`Could not send ${purpose} email: ${(e as Error).message}`);
@@ -202,7 +202,7 @@ export class TeamController {
       orderBy: [{ active: 'desc' }, { name: 'asc' }],
     });
     return {
-      emailConfigured: this.mail.status().configured,
+      emailConfigured: (await this.mail.status(u.organizationId)).configured,
       users: users.map((x) => ({
         id: x.id, name: x.name, email: x.email, role: x.role, active: x.active,
         status: !x.active ? 'deactivated' : x.passwordSetAt || x.ssoIdentities.length ? 'active' : 'invited',

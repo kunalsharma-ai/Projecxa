@@ -1,5 +1,7 @@
 # Zoho Books sync
 
+> **Now set up in the app.** An admin enters the Self Client ID, secret and grant code in **Settings → Integrations**; PROJEXA swaps the code for the refresh token, so the curl step below is no longer needed (see `docs/INTEGRATIONS.md`). The environment variables are an optional fallback.
+
 PROJEXA can send documents straight into **Zoho Books** through its v3 API, so nobody has to import files. It sends:
 
 | PROJEXA | Zoho Books | When |

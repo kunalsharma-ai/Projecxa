@@ -113,6 +113,29 @@ model Organization {
   customDomain           String?             @unique
   customDomainToken      String?
   customDomainVerifiedAt DateTime?
+  /// Integrations set up in Settings → Integrations (docs/INTEGRATIONS.md).
+  integrations           IntegrationSetting[]
+  /// The organisation that runs this PROJEXA server. Its admins set the server-wide sign-in and accounting apps. Null on every org = the oldest one.
+  platformOwner          Boolean             @default(false)
+}
+
+/// One integration's settings for an organisation (docs/INTEGRATIONS.md). Secrets are AES-256-GCM encrypted JSON.
+model IntegrationSetting {
+  id              String       @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// smtp | sso_google | sso_microsoft | sso_zoho | gemini | zoho_books | xero | quickbooks | tally | bidzo
+  kind            String
+  values          Json         @default("{}")
+  secrets         String?
+  lastTestAt      DateTime?
+  lastTestOk      Boolean?
+  lastTestMessage String?
+  updatedById     String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@unique([organizationId, kind])
 }
 
 enum Role {

@@ -39,7 +39,7 @@ export default function TeamPage() {
     setBusy(true);
     await run(async () => {
       const r = await post<{ emailed: boolean; inviteUrl: string }>('/team', form);
-      setNote(r.emailed ? { text: `Invitation sent to ${form.email}. The link works for 72 hours.` } : { text: `${form.name} was added, but email is not set up on the server, so no invitation was sent. Copy this link and send it to them yourself. It works for 72 hours.`, url: r.inviteUrl });
+      setNote(r.emailed ? { text: `Invitation sent to ${form.email}. The link works for 72 hours.` } : { text: `${form.name} was added, but email sending is not set up (Settings → Integrations), so no invitation was sent. Copy this link and send it to them yourself. It works for 72 hours.`, url: r.inviteUrl });
       setForm({ name: '', email: '', role: form.role });
     });
     setBusy(false);
@@ -48,7 +48,7 @@ export default function TeamPage() {
   const link = (m: Member) => void run(async () => {
     const r = await post<{ purpose: string; emailed: boolean; url: string }>(`/team/${m.id}/link`);
     const what = r.purpose === 'invite' ? 'A new invitation' : 'A password reset link';
-    setNote(r.emailed ? { text: `${what} was sent to ${m.email}.` } : { text: `${what} was made for ${m.name}, but email is not set up on the server. Copy it and send it to them yourself.`, url: r.url });
+    setNote(r.emailed ? { text: `${what} was sent to ${m.email}.` } : { text: `${what} was made for ${m.name}, but email sending is not set up (Settings → Integrations). Copy it and send it to them yourself.`, url: r.url });
   });
   const signOut = (m: Member) => { if (confirm(`Sign ${m.name} out of every browser and device?`)) void run(async () => { await post(`/team/${m.id}/sign-out`); setNote({ text: `${m.name} was signed out everywhere.` }); }); };
 
@@ -76,7 +76,7 @@ export default function TeamPage() {
           </label>
           <button className="btn-primary" disabled={busy}><Mail className="h-4 w-4" />{busy ? 'Sending…' : 'Send invitation'}</button>
         </form>
-        <p className="mt-3 text-xs text-muted">{ROLES.find(([k]) => k === form.role)![2]}. {team && !team.emailConfigured && 'Email is not set up on the server (Zoho SMTP), so you will get a link to share instead.'}</p>
+        <p className="mt-3 text-xs text-muted">{ROLES.find(([k]) => k === form.role)![2]}. {team && !team.emailConfigured && 'Email sending is not set up yet (Settings → Integrations), so you will get a link to share instead.'}</p>
       </Section>
       <Section
         title={`People${team ? ` (${team.users.filter((u) => u.active).length})` : ''}`}

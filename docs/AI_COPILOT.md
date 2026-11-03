@@ -1,5 +1,7 @@
 # AI copilot and voice assistant
 
+> **Now set up in the app.** An admin adds the Gemini API key and models in **Settings → Integrations** (see `docs/INTEGRATIONS.md`). The environment variables are an optional fallback.
+
 PROJEXA's copilot answers questions about projects, fieldwork, tasks, the team and finance, and proposes changes that a person confirms. It talks to the model through a provider-independent gateway (`apps/api/src/ai/provider.ts`). Google Gemini is the first provider (`gemini.provider.ts`); another provider is a new class implementing `AiProvider`.
 
 ## Setup

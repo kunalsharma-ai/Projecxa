@@ -4,7 +4,9 @@ import { Prisma, Role } from '@prisma/client';
 import { z } from 'zod';
 import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../auth/auth.types';
-import { config } from '../common/config';
+import { AiConfig } from '../common/config';
+import { IntegrationsService } from '../integrations/integrations.service';
+
 import { FinanceService } from '../finance/finance.service';
 import { PayablesService } from '../finance/payables.service';
 import { MonitorService } from '../monitor/monitor.service';
@@ -17,6 +19,8 @@ import { BRIEF_TOOL, briefSystem, normalizeBrief } from './brief';
 import { GeminiProvider } from './gemini.provider';
 import { AiProvider, AiProviderError, Http, Message, Part } from './provider';
 import { Display, toolByName, ToolContext, ToolError, toolsFor } from './tools';
+
+const NOT_SET_UP = 'The AI copilot is not set up yet (GEMINI_API_KEY is missing). An admin can add a Gemini API key in Settings → Integrations.';
 
 // ───────────── Settings ─────────────
 
@@ -96,11 +100,13 @@ export class AiService {
     private readonly finance: FinanceService,
     private readonly payables: PayablesService,
     private readonly tasks: TasksService,
+    private readonly integrations: IntegrationsService,
   ) {}
 
-  private provider(): { p: AiProvider; c: NonNullable<typeof config.ai> } {
-    const c = config.ai;
-    if (!c) throw new ServiceUnavailableException('The AI copilot is not set up on this server (GEMINI_API_KEY is missing).');
+  /** The Gemini key and models from Settings → Integrations, else the server env. */
+  private async provider(org: string): Promise<{ p: AiProvider; c: AiConfig }> {
+    const c = await this.integrations.ai(org);
+    if (!c) throw new ServiceUnavailableException(NOT_SET_UP);
     return { p: this.providerOverride ?? new GeminiProvider(c.apiKey, c.apiUrl, this.http), c };
   }
 
@@ -118,7 +124,7 @@ export class AiService {
 
   /** What this person can use, and how much is left today. */
   async status(u: AuthUser) {
-    const c = config.ai;
+    const c = await this.integrations.ai(u.organizationId);
     const s = await this.settings(u.organizationId);
     const since = startOfDayUtc();
     const [mine, org] = await Promise.all([
@@ -140,7 +146,7 @@ export class AiService {
   }
 
   private async gate(u: AuthUser, feature?: 'documents' | 'voice') {
-    if (!config.ai) throw new ServiceUnavailableException('The AI copilot is not set up on this server (GEMINI_API_KEY is missing).');
+    if (!(await this.integrations.ai(u.organizationId))) throw new ServiceUnavailableException(NOT_SET_UP);
     const s = await this.settings(u.organizationId);
     if (!s.enabled) throw new ForbiddenException('An admin has turned the AI copilot off');
     if (!s.roles.includes(u.role as (typeof STAFF_ROLES)[number])) throw new ForbiddenException('The AI copilot is not available for your role');
@@ -250,7 +256,7 @@ export class AiService {
   async chat(u: AuthUser, body: z.infer<typeof chatSchema>) {
     const s = await this.gate(u, body.documentIds.length ? 'documents' : undefined);
     await this.limit(u, s);
-    const { p, c } = this.provider();
+    const { p, c } = await this.provider(u.organizationId);
     const docs = body.documentIds.length ? await this.prisma.aiDocument.findMany({ where: { id: { in: body.documentIds }, userId: u.id, organizationId: u.organizationId } }) : [];
     if (docs.length !== body.documentIds.length) throw new BadRequestException('An attached file was not found');
     const conv = await this.conversation(u, body.conversationId, body.message);
@@ -417,7 +423,7 @@ export class AiService {
     const drafts = await this.prisma.projectDraft.count({ where: { organizationId: u.organizationId, ownerId: u.id } });
     if (drafts >= 20) throw new BadRequestException('You have 20 project drafts. Delete one on Create project first.');
     await this.limit(u, s);
-    const { p, c } = this.provider();
+    const { p, c } = await this.provider(u.organizationId);
     const clients = await this.prisma.client.findMany({ where: { organizationId: u.organizationId, status: 'ACTIVE' }, select: { id: true, name: true, code: true }, orderBy: { name: 'asc' }, take: 300 });
     const parts: Part[] = [{ text: 'Here is the brief. Record the project with project_brief.' }, doc ? docPart({ name: doc.name, mimeType: doc.mime, data: doc.data }) : { text: `[Pasted brief]\n${pasted}\n[End of brief]` }];
     const req = { system: briefSystem(new Date().toISOString().slice(0, 10), clients.map((x) => x.name)), messages: [{ role: 'user' as const, parts }], tools: [BRIEF_TOOL], forceTool: BRIEF_TOOL.name, temperature: 0 };
@@ -475,7 +481,7 @@ export class AiService {
   async voiceSession(u: AuthUser, body: z.infer<typeof voiceSessionSchema>) {
     const s = await this.gate(u, 'voice');
     await this.limit(u, s);
-    const { p, c } = this.provider();
+    const { p, c } = await this.provider(u.organizationId);
     if (!p.liveSession) throw new ServiceUnavailableException('This AI provider has no live voice');
     const conv = await this.conversation(u, body.conversationId, 'Voice conversation');
     try {
