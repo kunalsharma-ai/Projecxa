@@ -59,5 +59,31 @@ export const config = {
       from: process.env.MAIL_FROM?.trim() || user,
     };
   },
+  /**
+   * Direct sync to Zoho Books (docs/ZOHO_BOOKS.md). A self-client refresh token for one Zoho Books
+   * organisation, bound to one Projexa organisation by its slug. Null when any part is missing.
+   */
+  get zohoBooks(): { clientId: string; clientSecret: string; refreshToken: string; organizationId: string; tenant: string; apiUrl: string; accountsUrl: string; dc: string } | null {
+    const v = (k: string) => process.env[k]?.trim() || '';
+    const dc = (v('ZOHO_BOOKS_DC') || 'com').replace(/^\./, '');
+    const c = {
+      clientId: v('ZOHO_BOOKS_CLIENT_ID'),
+      clientSecret: v('ZOHO_BOOKS_CLIENT_SECRET'),
+      refreshToken: v('ZOHO_BOOKS_REFRESH_TOKEN'),
+      organizationId: v('ZOHO_BOOKS_ORGANIZATION_ID'),
+      tenant: v('ZOHO_BOOKS_TENANT'),
+      apiUrl: (v('ZOHO_BOOKS_API_URL') || `https://www.zohoapis.${dc}/books/v3`).replace(/\/$/, ''),
+      accountsUrl: (v('ZOHO_BOOKS_ACCOUNTS_URL') || `https://accounts.zoho.${dc}`).replace(/\/$/, ''),
+      dc,
+    };
+    return c.clientId && c.clientSecret && c.refreshToken && c.organizationId && c.tenant ? c : null;
+  },
+  /** Names of the Zoho Books variables that are not set, for the settings screen. */
+  get zohoBooksMissing(): string[] {
+    return ['ZOHO_BOOKS_CLIENT_ID', 'ZOHO_BOOKS_CLIENT_SECRET', 'ZOHO_BOOKS_REFRESH_TOKEN', 'ZOHO_BOOKS_ORGANIZATION_ID', 'ZOHO_BOOKS_TENANT'].filter((k) => !process.env[k]?.trim());
+  },
+  get zohoBooksSchedulerEnabled(): boolean {
+    return process.env.ZOHO_BOOKS_SCHEDULER_ENABLED !== 'false';
+  },
   cookieName: 'projexa_token',
 };

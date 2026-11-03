@@ -42,6 +42,8 @@ model Organization {
   ssoConfig              Json?
   /// Account and ledger names for accounting exports (docs/ACCOUNTING_EXPORTS.md).
   accountingConfig       Json?
+  /// Direct sync to Zoho Books: { enabled, hourly, since, invoices, bills, payments }. Credentials live in env only.
+  zohoBooksConfig        Json?
   /// Fieldwork alert thresholds (src/monitor/monitor.rules.ts); null = defaults.
   alertSettings          Json?
   /// Optional HTTPS endpoint that receives new alerts, signed with alertWebhookSecret (HMAC-SHA256).
@@ -75,6 +77,8 @@ model Organization {
   webhookDeliveries WebhookDelivery[]
   reportSchedules   ReportSchedule[]
   accountingExports AccountingExport[]
+  zohoBooksLinks    ZohoBooksLink[]
+  zohoBooksSyncs    ZohoBooksSync[]
 }
 
 enum Role {
@@ -693,8 +697,12 @@ model Invoice {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
+  /// Bank or payment reference, recorded when paid.
+  paymentReference  String?
   /// Last time this invoice went into an accounting export.
-  exportedAt DateTime?
+  exportedAt        DateTime?
+  /// Last time its payment went into a payments export.
+  paymentExportedAt DateTime?
 
   sessions RespondentSession[]
 
@@ -809,7 +817,9 @@ model VendorBill {
   updatedAt        DateTime         @updatedAt
 
   /// Last time this bill went into an accounting export.
-  exportedAt DateTime?
+  exportedAt        DateTime?
+  /// Last time its payment went into a payments export.
+  paymentExportedAt DateTime?
 
   sessions RespondentSession[]
 
@@ -1001,4 +1011,40 @@ model PasswordToken {
   createdAt   DateTime  @default(now())
 
   @@index([userId, createdAt])
+}
+
+/// A Projexa record that exists in Zoho Books, so a sync never creates it twice.
+model ZohoBooksLink {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// customer | vendor | invoice | bill | invoice_payment | bill_payment
+  entityType     String
+  entityId       String
+  zohoId         String
+  /// Zoho Books status we last set: sent, open, paid, void.
+  state          String?
+  syncedAt       DateTime     @default(now())
+
+  @@unique([organizationId, entityType, entityId])
+}
+
+/// One run of the Zoho Books sync, for the history list.
+model ZohoBooksSync {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// manual | schedule
+  trigger        String
+  /// running | ok | partial | failed
+  status         String
+  /// { customers, vendors, invoices, bills, paymentsReceived, paymentsMade, voided }
+  counts         Json?
+  /// [{ type, number, message }]
+  errors         Json?
+  createdById    String?
+  startedAt      DateTime     @default(now())
+  finishedAt     DateTime?
+
+  @@index([organizationId, startedAt])
 }
