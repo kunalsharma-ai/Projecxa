@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Organization, User } from '@prisma/client';
 import { Response } from 'express';
 import { config } from '../common/config';
+import { PrismaService } from '../prisma/prisma.service';
 
 /** Cookie that carries the in-between token when sign-in came back from Google, Microsoft or Zoho. */
 export const MFA_COOKIE = 'projexa_mfa';
@@ -14,10 +15,14 @@ export const homeOf = (role: string) => (role === 'CLIENT_USER' ? '/portal/clien
 
 @Injectable()
 export class SessionService {
-  constructor(private readonly jwt: JwtService) {}
+  constructor(
+    private readonly jwt: JwtService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   async start(user: User & { organization: Organization }, res: Response) {
     const token = await this.jwt.signAsync({ sub: user.id, org: user.organizationId }, { secret: config.jwtSecret, expiresIn: '12h' });
+    await this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     res.cookie(config.cookieName, token, { httpOnly: true, sameSite: 'lax', secure: secure(), maxAge: 12 * 3600 * 1000, path: '/' });
     res.clearCookie(MFA_COOKIE, { path: '/' });
     return {

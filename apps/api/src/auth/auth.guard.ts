@@ -24,7 +24,7 @@ export class AuthGuard implements CanActivate {
     const token = this.extractToken(req);
     if (!token) throw new UnauthorizedException('Not signed in');
 
-    let payload: { sub: string; purpose?: string };
+    let payload: { sub: string; purpose?: string; iat?: number };
     try {
       payload = await this.jwt.verifyAsync(token, { secret: config.jwtSecret });
     } catch {
@@ -35,6 +35,8 @@ export class AuthGuard implements CanActivate {
     // Re-load the user so deactivation and role changes apply immediately.
     const user = await this.prisma.user.findUnique({ where: { id: payload.sub }, include: { organization: { select: { mfaRequired: true } } } });
     if (!user || !user.active) throw new UnauthorizedException('Account is not active');
+    // Password changed or reset, or signed out everywhere: older sessions stop working.
+    if (user.sessionsValidAfter && (payload.iat ?? 0) < Math.floor(user.sessionsValidAfter.getTime() / 1000)) throw new UnauthorizedException('Session expired, sign in again');
     req.user = { id: user.id, organizationId: user.organizationId, role: user.role, email: user.email, name: user.name };
 
     // Default: staff only. Client/vendor portal roles must be granted explicitly per endpoint.

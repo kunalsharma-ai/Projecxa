@@ -362,7 +362,7 @@ export class PortalUsersController {
           role: body.kind === 'client' ? 'CLIENT_USER' : 'VENDOR_USER',
           clientId: body.kind === 'client' ? party.id : null,
           vendorId: body.kind === 'vendor' ? party.id : null,
-          passwordHash: await bcrypt.hash(body.password, 10),
+          passwordHash: await bcrypt.hash(body.password, 10), passwordSetAt: new Date(),
         },
         select: { id: true, name: true, email: true, role: true, active: true },
       });

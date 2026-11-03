@@ -137,6 +137,13 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - Each move shows why, the receiving link's pace and the CPI change. Untick or reduce moves, then **Apply** changes the vendor targets in one guarded step (never below completes already delivered). Completes nobody can take are shown as still at risk.
 - Details: `docs/FIELDWORK_MONITOR.md`.
 
+## Milestone 18: team and password reset
+
+- **Team** (admins, `/settings/team`): invite staff by email with a role, change roles, resend invitations, send reset links, sign someone out everywhere, deactivate and reactivate. Shows status, two-step and single sign-on use, and last sign-in.
+- **Forgot password?** on the sign-in page emails a single-use 30-minute link (Zoho Mail SMTP). The same answer for every email; at most 3 per hour per person.
+- **Change password** on Account security for staff and portal users. Changing or resetting a password signs out every other session.
+- Details: `docs/TEAM_AND_PASSWORDS.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).

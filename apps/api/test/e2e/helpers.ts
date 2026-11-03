@@ -26,7 +26,7 @@ export async function makeOrg(prisma: PrismaClient, slug: string, domains = ['cl
   const users: Record<string, { id: string; email: string }> = {};
   for (const role of ['ADMIN', 'PROJECT_MANAGER', 'VIEWER'] as Role[]) {
     const u = await prisma.user.create({
-      data: { organizationId: org.id, email: `${role.toLowerCase()}@${slug}.test`, name: role, role, passwordHash: hash },
+      data: { organizationId: org.id, email: `${role.toLowerCase()}@${slug}.test`, name: role, role, passwordHash: hash, passwordSetAt: new Date() },
     });
     users[role] = u;
   }

@@ -1,6 +1,6 @@
-import { Activity, BarChart3, BookOpenCheck, HandCoins, Building2, FolderKanban, ReceiptText, KeyRound, LayoutDashboard, Palette, PlusCircle, Settings, Trophy, Truck, type LucideIcon } from 'lucide-react';
+import { Activity, BarChart3, BookOpenCheck, Users, HandCoins, Building2, FolderKanban, ReceiptText, KeyRound, LayoutDashboard, Palette, PlusCircle, Settings, Trophy, Truck, type LucideIcon } from 'lucide-react';
 
-export interface NavItem { href: string; label: string; icon: LucideIcon; keywords?: string; editorsOnly?: boolean }
+export interface NavItem { href: string; label: string; icon: LucideIcon; keywords?: string; editorsOnly?: boolean; adminOnly?: boolean }
 
 export const NAV: NavItem[] = [
   { href: '/', label: 'Command center', icon: LayoutDashboard, keywords: 'dashboard home' },
@@ -15,6 +15,7 @@ export const NAV: NavItem[] = [
   { href: '/clients', label: 'Clients', icon: Building2 },
   { href: '/vendors', label: 'Vendors', icon: Truck, keywords: 'panels suppliers' },
   { href: '/portal-access', label: 'Portal access', icon: KeyRound, keywords: 'client vendor logins' },
+  { href: '/settings/team', label: 'Team', icon: Users, keywords: 'staff users invite people roles deactivate password', adminOnly: true },
   { href: '/settings', label: 'Settings', icon: Settings, keywords: 'organization redirects domains' },
   { href: '/settings/appearance', label: 'Theme Studio', icon: Palette, keywords: 'appearance theme colours dark light density motion' },
 ];
@@ -28,3 +29,6 @@ export function isActive(pathname: string, href: string) {
 
 /** Bids live in Bidzo; PROJEXA links there when the URL is configured. */
 export const BIDZO_URL = process.env.NEXT_PUBLIC_BIDZO_URL || '';
+
+/** Items this person may see. */
+export const visibleNav = (role: string | undefined) => NAV.filter((n) => (!n.editorsOnly || role === 'ADMIN' || role === 'PROJECT_MANAGER') && (!n.adminOnly || role === 'ADMIN'));

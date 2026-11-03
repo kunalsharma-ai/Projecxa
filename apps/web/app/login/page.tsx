@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
 import { ErrorBox } from '@/components/ui';
@@ -18,6 +19,7 @@ export default function LoginPage() {
   const [useRecovery, setUseRecovery] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [providers, setProviders] = useState<Provider[]>([]);
   // Back from Google, Microsoft or Zoho, and the person also uses an authenticator app: the in-between token is in a cookie.
   const [ssoStep, setSsoStep] = useState(false);
@@ -28,6 +30,9 @@ export default function LoginPage() {
     if (q.get('step') === 'code') setSsoStep(true);
     const msg = q.get('sso_error');
     if (msg) setError(new Error(msg));
+    const pw = q.get('password');
+    if (pw) setNotice(pw === 'welcome' ? 'Password saved. Sign in to start.' : 'Password changed. Sign in with your new password.');
+    if (q.get('email')) setEmail(q.get('email')!);
     if (q.size) window.history.replaceState(null, '', '/login');
     get<Provider[]>('/auth/sso/providers').then(setProviders).catch(() => setProviders([]));
   }, []);
@@ -73,6 +78,7 @@ export default function LoginPage() {
           {codeStep && <p className="mt-1 text-sm text-muted">{useRecovery ? 'Enter one of the recovery codes you saved. Each works once.' : 'Open your authenticator app and enter the 6-digit code for PROJEXA.'}</p>}
         </div>
         <ErrorBox error={error} />
+        {notice && !error && <p className="rounded-lg bg-ok/10 p-3 text-sm text-ok" role="status">{notice}</p>}
         {codeStep ? (
           <>
             <label className="block">
@@ -96,7 +102,7 @@ export default function LoginPage() {
               <input className="input" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </label>
             <label className="block">
-              <span className="label">Password</span>
+              <span className="label flex justify-between">Password<Link href="/forgot-password" className="font-normal text-brand hover:underline">Forgot password?</Link></span>
               <input className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
             </label>
             <details className="text-sm text-muted">
