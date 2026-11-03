@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ErrorBox, Loading, Section, Toggle } from '@/components/ui';
 import { api, get } from '@/lib/api';
@@ -29,13 +30,13 @@ export function AiCopilotSettings() {
   );
   const week = usage?.byDay.slice(-7) ?? [];
   return (
-    <Section title="AI copilot" className="mb-6" actions={<button className="btn-primary" onClick={save}>{saved ? 'Saved' : 'Save'}</button>}>
+    <Section id="ai" title="AI copilot" className="mb-6" actions={<button className="btn-primary" onClick={save}>{saved ? 'Saved' : 'Save'}</button>}>
       <div className="space-y-5">
         <ErrorBox error={error} />
         <p className="text-sm text-muted">
           {status.configured
-            ? <>Google Gemini, model <code className="font-mono text-xs">{status.model}</code>, voice <code className="font-mono text-xs">{status.liveModel}</code>. The API key stays on the server.</>
-            : <>Not set up: add <code className="font-mono text-xs">GEMINI_API_KEY</code> on the API server (docs/AI_COPILOT.md).</>}
+            ? <>Google Gemini, model <code className="font-mono text-xs">{status.model}</code>, voice <code className="font-mono text-xs">{status.liveModel}</code>. The API key is stored encrypted and never sent to browsers.</>
+            : <>Not set up yet: add a Gemini API key in <Link href="/settings/integrations#gemini" className="text-brand hover:underline">Integrations</Link>.</>}
         </p>
         <p className="rounded-lg border border-warn/40 bg-warn/10 p-3 text-xs text-warn">On Gemini&rsquo;s free tier, Google may use prompts and answers to improve its products. That includes the project, client and finance details the copilot looks up. Turn on billing for the Google AI Studio project before using it with confidential client work.</p>
         <div className="grid gap-2 sm:grid-cols-2">

@@ -8,7 +8,7 @@ import { CopilotChat } from '@/components/copilot/chat';
 import { canEdit, MeContext } from '@/components/me';
 import { CommandPalette } from '@/components/shell/command-palette';
 import { InsightsPanel, type Insights } from '@/components/shell/insights-panel';
-import { BIDZO_URL } from '@/components/shell/nav';
+import { bidzoUrl } from '@/components/shell/nav';
 import { Popover } from '@/components/shell/popover';
 import { Sidebar } from '@/components/shell/sidebar';
 import { ThemeMenu } from '@/components/shell/theme-menu';
@@ -115,15 +115,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                         <div className="font-medium">New project</div>
                         <div className="text-xs text-muted">Multi-country project wizard</div>
                       </Link>
-                      {BIDZO_URL ? (
-                        <a href={`${BIDZO_URL.replace(/\/$/, '')}/bids/new`} target="_blank" rel="noopener noreferrer" onClick={close} className="block rounded-md px-3 py-2 hover:bg-sunken">
+                      {bidzoUrl(me) ? (
+                        <a href={`${bidzoUrl(me)}/bids/new`} target="_blank" rel="noopener noreferrer" onClick={close} className="block rounded-md px-3 py-2 hover:bg-sunken">
                           <div className="font-medium">New bid</div>
                           <div className="text-xs text-muted">Opens Bidzo, where bids live</div>
                         </a>
                       ) : (
                         <div className="rounded-md px-3 py-2 text-muted">
                           <div className="font-medium">New bid</div>
-                          <div className="text-xs">Bids are created in Bidzo. Set NEXT_PUBLIC_BIDZO_URL to link it here.</div>
+                          <div className="text-xs">Bids are created in Bidzo. An admin can add its address in Settings → Integrations.</div>
                         </div>
                       )}
                     </div>

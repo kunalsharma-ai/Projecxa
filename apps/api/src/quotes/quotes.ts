@@ -203,7 +203,7 @@ export class QuotesService {
       const v = await this.prisma.vendor.findUniqueOrThrow({ where: { id: vendorId }, select: { organizationId: true } });
       const brand = await this.branding.brand(v.organizationId);
       const link = `${brand.webBase}/portal/quotes`;
-      await this.mail.send({ to: users.map((x) => x.email), subject: subject.slice(0, 200), text: `${text}\n\nOpen your portal: ${link}\n`, html: `<p>${esc(text)}</p><p><a href="${esc(link)}">Open your portal</a></p>`, fromName: brand.emailFromName, replyTo: brand.emailReplyTo });
+      await this.mail.send({ organizationId: v.organizationId, to: users.map((x) => x.email), subject: subject.slice(0, 200), text: `${text}\n\nOpen your portal: ${link}\n`, html: `<p>${esc(text)}</p><p><a href="${esc(link)}">Open your portal</a></p>`, fromName: brand.emailFromName, replyTo: brand.emailReplyTo });
     } catch (e) {
       if (!(e instanceof MailNotConfigured)) this.log.warn(`Quote email failed: ${(e as Error).message}`);
     }

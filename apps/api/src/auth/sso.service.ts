@@ -10,7 +10,8 @@ import { ZodPipe } from '../common/zod.pipe';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from './auth.types';
 import { AllowWithoutMfa, CurrentUser, Public, Roles } from './decorators';
-import { Discovery, Http, identityOf, OidcError, pkce, PROVIDER_LABEL, providerSettings, SSO_PROVIDERS, SsoProvider, verifyIdToken, ZOHO_ACCOUNTS_HOSTS } from './oidc';
+import { IntegrationsService } from '../integrations/integrations.service';
+import { Discovery, Http, identityOf, OidcError, pkce, PROVIDER_LABEL, SSO_PROVIDERS, SsoProvider, verifyIdToken, ZOHO_ACCOUNTS_HOSTS } from './oidc';
 import { SessionService } from './session.service';
 
 export interface SsoConfig { providers: Record<SsoProvider, boolean>; domains: string[]; microsoftTenantId: string | null; ssoOnly: boolean }
@@ -54,10 +55,17 @@ export class SsoService {
     private readonly jwt: JwtService,
     private readonly session: SessionService,
     private readonly audit: AuditService,
+    private readonly integrations: IntegrationsService,
   ) {}
 
-  configured(): SsoProvider[] {
-    return SSO_PROVIDERS.filter((p) => !!providerSettings(p));
+  /** Client ID and secret from Settings → Integrations (server owner), else the server env. */
+  settings(p: SsoProvider) {
+    return this.integrations.sso(p);
+  }
+
+  async configured(): Promise<SsoProvider[]> {
+    const on = await Promise.all(SSO_PROVIDERS.map(async (p) => !!(await this.settings(p))));
+    return SSO_PROVIDERS.filter((_, i) => on[i]);
   }
 
   private async getJson<T>(url: string, init?: Parameters<Http>[1]): Promise<T> {
@@ -85,8 +93,8 @@ export class SsoService {
 
   /** Step 1: send the browser to the provider, with state, nonce and PKCE kept in a short-lived signed cookie. */
   async start(p: SsoProvider, org: string | undefined, res: Response) {
-    const s = providerSettings(p);
-    if (!s) throw new SsoFailure(`${PROVIDER_LABEL[p]} sign-in is not set up on this server`);
+    const s = await this.settings(p);
+    if (!s) throw new SsoFailure(`${PROVIDER_LABEL[p]} sign-in is not set up yet`);
     const d = await this.discovery(s.discoveryUrl);
     const state = randomToken(16);
     const nonce = randomToken(16);
@@ -110,8 +118,8 @@ export class SsoService {
       }
       if (q.error) throw new SsoFailure(q.error === 'access_denied' ? 'Sign-in was cancelled.' : `${PROVIDER_LABEL[p]} said: ${q.error_description ?? q.error}`);
       if (st.p !== p || !q.state || q.state !== st.state || !q.code) throw new SsoFailure('Sign-in could not be checked. Try again.');
-      const s = providerSettings(p);
-      if (!s) throw new SsoFailure(`${PROVIDER_LABEL[p]} sign-in is not set up on this server`);
+      const s = await this.settings(p);
+      if (!s) throw new SsoFailure(`${PROVIDER_LABEL[p]} sign-in is not set up yet`);
 
       // Zoho: talk to the data centre the person's account lives in, if it is a real Zoho one.
       let discoveryUrl = s.discoveryUrl;
@@ -195,8 +203,8 @@ export class SsoController {
   constructor(private readonly sso: SsoService) {}
 
   @Get('providers')
-  providers() {
-    return this.sso.configured().map((id) => ({ id, label: PROVIDER_LABEL[id] }));
+  async providers() {
+    return (await this.sso.configured()).map((id) => ({ id, label: PROVIDER_LABEL[id] }));
   }
 
   @Get(':provider/start')
@@ -233,15 +241,16 @@ export class SsoAdminController {
     const ids = await this.prisma.ssoIdentity.findMany({ where: { user: { organizationId: u.organizationId } }, include: { user: { select: { id: true, name: true, email: true } } }, orderBy: { lastUsedAt: 'desc' } });
     return {
       settings: ssoConfigOf(org.ssoConfig),
-      available: SSO_PROVIDERS.map((id) => ({ id, label: PROVIDER_LABEL[id], configured: !!providerSettings(id), redirectUri: redirectUri(id) })),
+      available: await Promise.all(SSO_PROVIDERS.map(async (id) => ({ id, label: PROVIDER_LABEL[id], configured: !!(await this.sso.settings(id)), redirectUri: redirectUri(id) }))),
       identities: ids.map((i) => ({ id: i.id, provider: i.provider, email: i.email, lastUsedAt: i.lastUsedAt, user: i.user })),
     };
   }
 
   @Put('organization/sso')
   async put(@CurrentUser() u: AuthUser, @Body(new ZodPipe(ssoSettingsSchema)) body: z.infer<typeof ssoSettingsSchema>) {
-    const missing = SSO_PROVIDERS.filter((p) => body.providers[p] && !providerSettings(p));
-    if (missing.length) throw new BadRequestException(`${missing.map((p) => PROVIDER_LABEL[p]).join(', ')} sign-in is not set up on the server yet`);
+    const ready = await this.sso.configured();
+    const missing = SSO_PROVIDERS.filter((p) => body.providers[p] && !ready.includes(p));
+    if (missing.length) throw new BadRequestException(`${missing.map((p) => PROVIDER_LABEL[p]).join(', ')} sign-in is not set up yet. Add its client ID and secret in Settings → Integrations first.`);
     const data = { ...body, domains: [...new Set(body.domains)], microsoftTenantId: body.microsoftTenantId?.toLowerCase() ?? null };
     await this.prisma.organization.update({ where: { id: u.organizationId }, data: { ssoConfig: data as Prisma.InputJsonValue } });
     await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'sso.settings', entityType: 'Organization', entityId: u.organizationId, detail: data });

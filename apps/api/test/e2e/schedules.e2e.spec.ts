@@ -139,7 +139,7 @@ describe('Scheduled report emails (e2e)', () => {
       expect(r).toMatchObject({ status: 'FAILED' });
       expect(r.error).toMatch(/not set up/);
       await pm.post('/report-schedules/test-email').expect(403);
-      expect((await admin.post('/report-schedules/test-email').expect(400)).body.message).toMatch(/SMTP_USER/);
+      expect((await admin.post('/report-schedules/test-email').expect(400)).body.message).toMatch(/Settings → Integrations/);
     } finally {
       mail.transport = saved;
     }

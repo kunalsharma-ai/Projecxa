@@ -1,3 +1,4 @@
+import { IntegrationsService } from '../integrations/integrations.service';
 import { BrandingService } from '../branding/branding';
 import { Body, Controller, Get, HttpCode, Patch, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -35,6 +36,7 @@ export class AuthController {
     private readonly session: SessionService,
     private readonly mfa: MfaService,
     private readonly branding: BrandingService,
+    private readonly integrations: IntegrationsService,
   ) {}
 
   @Public()
@@ -94,6 +96,8 @@ export class AuthController {
       vendor: links.vendor,
       preferences: readPreferences(links.preferences),
       mfa: await this.mfa.status(user.id),
+      /** Links set in Settings → Integrations (staff only). */
+      links: { bidzoUrl: user.role === 'CLIENT_USER' || user.role === 'VENDOR_USER' ? null : await this.integrations.bidzoUrl(org.id) },
     };
   }
 

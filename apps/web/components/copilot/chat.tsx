@@ -177,7 +177,7 @@ export function CopilotChat({ conversationId, onConversation, compact }: { conve
         <div className="max-w-sm">
           <Sparkles className="mx-auto mb-3 h-8 w-8 text-muted" />
           <p className="font-medium">{status.reason === 'not_configured' ? 'The AI copilot is not set up yet' : status.reason === 'turned_off' ? 'The AI copilot is turned off' : 'The AI copilot is not available for your role'}</p>
-          <p className="mt-1 text-sm text-muted">{status.reason === 'not_configured' ? 'Your server administrator adds a Google Gemini API key (GEMINI_API_KEY). See docs/AI_COPILOT.md.' : 'An admin can change this under Settings → AI copilot.'}</p>
+          <p className="mt-1 text-sm text-muted">{status.reason === 'not_configured' ? 'An admin adds a Google Gemini API key under Settings → Integrations.' : 'An admin can change this under Settings → AI copilot.'}</p>
         </div>
       </div>
     );

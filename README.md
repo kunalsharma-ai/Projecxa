@@ -116,14 +116,14 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - **Reports → Scheduled reports**: email the overall summary or a report by client, vendor, project, country or day, covering yesterday, the last 7 or 30 days, this month so far or last month, optionally for one client, vendor or project.
 - Every day, week (pick the day) or month (day 1 to 28) at a local hour in any timezone (default Asia/Kolkata), to up to 20 addresses. The email has headline numbers and the top 25 rows; the full table is attached as CSV. Optionally skip periods with no traffic.
 - Preview, send now, pause and resume, and a send history with errors. Admins can send themselves a test email.
-- Sent through **Zoho Mail** SMTP with settings from the server environment only. Details: `docs/SCHEDULED_REPORTS.md`.
+- Sent through **Zoho Mail** SMTP, set up in Settings → Integrations (milestone 35). Details: `docs/SCHEDULED_REPORTS.md`.
 
 ## Milestone 15: single sign-on with Google, Microsoft and Zoho
 
 - **Sign-in page**: "Continue with Google / Microsoft / Zoho" buttons, shown for each provider set up on the server.
 - **Admins** (Settings → Single sign-on): turn each provider on, list the email domains allowed, add the Microsoft tenant ID, and optionally make single sign-on the only way in for staff (admins and portal users keep their password). See and unlink linked accounts.
 - Only people already added in PROJEXA can sign in; their account links on first sign-in by verified email, then by the provider's account ID. Two-step sign-in still asks for the code.
-- Client IDs and secrets live in the server environment only. Setup steps for Google Cloud, Microsoft Entra and the Zoho API console: `docs/SSO.md`.
+- Client IDs and secrets are set in Settings → Integrations (milestone 35). Setup steps for Google Cloud, Microsoft Entra and the Zoho API console: `docs/SSO.md`.
 
 ## Milestone 16: accounting exports
 
@@ -148,7 +148,7 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 
 - **Payment exports** (`/accounting`): payments received and payments made for **Zoho Books**, **Tally Prime** (Receipt and Payment vouchers) and the general journal, filtered by payment date and exported once. The payment reference can now be recorded when an invoice is marked paid, as it already could for bills.
 - **Zoho Books sync**: send sent and paid invoices, approved and paid vendor bills, their payments and voids straight into Zoho Books with **Sync now** or every hour. Contacts are found or created per currency, documents keep their numbers and are looked up first so nothing is created twice, and each run lists its problems per document.
-- The Zoho self-client credentials live in the server environment only and are bound to one PROJEXA organisation. Setup: `docs/ZOHO_BOOKS.md`.
+- The Zoho self-client credentials are set per organisation in Settings → Integrations (milestone 35). Setup: `docs/ZOHO_BOOKS.md`.
 
 ## Milestone 20: AI copilot and voice assistant
 
@@ -158,7 +158,7 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - **Voice**: talk to the copilot with Gemini Live (short-lived token, so the API key never reaches the browser; tool calls still run on the server). If Live is not available it falls back to the browser's own speech recognition and speech. Transcripts are saved as conversations.
 - **Tasks** (`/tasks`): a minimal tasks module with assignee, project, priority, due date, reminder and one "waits for" dependency. Reminders and overdue tasks show in the notifications bell.
 - **Admin controls** (Settings → AI copilot): on/off, which roles may use it, actions, documents, voice, per-person and organisation limits, and usage by day and person.
-- Provider-independent gateway; Google Gemini is the first provider. Set `GEMINI_API_KEY` on the API server. Setup, models and the free-tier data caveat: `docs/AI_COPILOT.md`.
+- Provider-independent gateway; Google Gemini is the first provider. The Gemini API key is set in Settings → Integrations (milestone 35). Setup, models and the free-tier data caveat: `docs/AI_COPILOT.md`.
 
 ## Milestone 21: direct sync to Xero, QuickBooks Online and Tally Prime
 
@@ -260,6 +260,14 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
   - vendor callbacks by host, with "Send again" for ones that gave up.
 - "Check survey links" opens every live client survey link once and reports broken, missing or slow links. It never reaches private networks.
 - Details: `docs/REDIRECT_HEALTH.md`.
+
+## Milestone 35: every integration set up in the app
+
+- **Settings → Integrations** (`/settings/integrations`, admins): email sending (Zoho Mail SMTP), sign in with Google, Microsoft and Zoho, the Gemini AI copilot, Zoho Books, Xero, QuickBooks Online, Tally Prime and the Bidzo link, all set up on screen. No server files to edit.
+- Each card has step-by-step help with links to where every key comes from, the redirect URI to copy, **Save and test**, and a status: Connected, Server settings, Check settings or Not set up.
+- Zoho Books needs no curl: paste the grant code and PROJEXA gets the refresh token and finds the organisation.
+- Secrets are encrypted at rest, never shown again and never written to the audit log. Old environment variables still work as a fallback, so existing servers keep running.
+- Only five values stay on the server (database, session key, master encryption key, the two addresses). Details: `docs/INTEGRATIONS.md`.
 
 ## Run it locally
 

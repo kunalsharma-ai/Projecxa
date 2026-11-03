@@ -321,7 +321,7 @@ export class RequestsService {
       const ref = ticketRef(t.number);
       const subject = what === 'created' ? `New request ${ref}: ${t.subject}` : `New reply on ${ref}: ${t.subject}`;
       const text = `${author.name} ${what === 'created' ? 'opened a request' : 'replied'} on ${t.organization.name} ${brand.appName}.\n\n${ref}: ${t.subject}\n\nOpen it: ${link}\n`;
-      await this.mail.send({ to: [to.email], subject: subject.slice(0, 200), text, html: `<p>${esc(author.name)} ${what === 'created' ? 'opened a request' : 'replied'}.</p><p><b>${esc(ref)}</b>: ${esc(t.subject)}</p><p><a href="${esc(link)}">Open the request</a></p>`, fromName: brand.emailFromName, replyTo: brand.emailReplyTo });
+      await this.mail.send({ organizationId: t.organizationId, to: [to.email], subject: subject.slice(0, 200), text, html: `<p>${esc(author.name)} ${what === 'created' ? 'opened a request' : 'replied'}.</p><p><b>${esc(ref)}</b>: ${esc(t.subject)}</p><p><a href="${esc(link)}">Open the request</a></p>`, fromName: brand.emailFromName, replyTo: brand.emailReplyTo });
     } catch (e) {
       if (!(e instanceof MailNotConfigured)) this.log.warn(`Request email failed: ${(e as Error).message}`);
     }
