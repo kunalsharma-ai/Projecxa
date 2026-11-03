@@ -5,7 +5,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Empty, ErrorBox, Field, Loading, Section, StatusChip, Toggle } from '@/components/ui';
 import { get, post } from '@/lib/api';
 import { flag } from '@/lib/countries';
-import { OUTCOME_STATUSES, OutcomeStatus, ParamMapping, RedirectConfig, RedirectMode, RedirectRule, RuleType, STATUS_LABEL } from '@/lib/types';
+import { OUTCOME_STATUSES, OutcomeStatus, ParamMapping, RedirectConfig, RedirectMode, RedirectRule, RuleType, SECURITY_LABELS, STATUS_LABEL } from '@/lib/types';
+import { RedirectDiagram } from './redirect-diagram';
 import { RedirectSigning } from './redirect-signing';
 import { RedirectVersions, Version } from './redirect-versions';
 import type { ProjectDetail } from './types';
@@ -36,6 +37,7 @@ export function RedirectsTab({ project, editable, reload }: { project: ProjectDe
   const [issues, setIssues] = useState<Issue[] | null>(null);
   const [draftId, setDraftId] = useState<string | null>(null);
   const [effective, setEffective] = useState<EffectiveRow[] | null>(null);
+  const [routeView, setRouteView] = useState<'diagram' | 'table'>('diagram');
   const [override, setOverride] = useState<Partial<RedirectRule> & { countryCode?: string; vendorId?: string }>({ status: 'COMPLETE', type: 'DYNAMIC' });
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
@@ -57,6 +59,10 @@ export function RedirectsTab({ project, editable, reload }: { project: ProjectDe
   useEffect(() => {
     load();
   }, [load]);
+  // Show the routing for the active version straight away.
+  useEffect(() => {
+    get<{ rows: EffectiveRow[] }>(`/projects/${project.id}/redirects/effective`).then((r) => setEffective(r.rows)).catch(() => {});
+  }, [project.id, project.activeRedirectVersion?.id]);
 
   const vendorName = useMemo(() => Object.fromEntries((policy?.vendors ?? []).map((v) => [v.id, v.name])), [policy]);
   const edit = (c: RedirectConfig) => {
@@ -321,11 +327,27 @@ export function RedirectsTab({ project, editable, reload }: { project: ProjectDe
         </div>
       </Section>
 
-      <Section title="Effective routing" actions={<button className="btn-ghost px-2.5 py-1.5 text-xs" onClick={showEffective}>{effective ? 'Refresh' : 'Show'} for active version</button>}>
+      <Section
+        title="Effective routing"
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex rounded-lg border border-line p-0.5" role="group" aria-label="View">
+              {(['diagram', 'table'] as const).map((v) => (
+                <button key={v} type="button" aria-pressed={routeView === v} onClick={() => setRouteView(v)} className={clsx('rounded-md px-2.5 py-1 text-xs', routeView === v ? 'bg-brand text-brand-ink' : 'text-muted hover:bg-sunken')}>
+                  {v === 'diagram' ? 'Diagram' : 'Table'}
+                </button>
+              ))}
+            </div>
+            <button className="btn-ghost px-2.5 py-1.5 text-xs" onClick={showEffective}>{effective ? 'Refresh' : 'Show'} for active version</button>
+          </div>
+        }
+      >
         {!effective ? (
           <p className="text-sm text-muted">See which rule applies for every country, vendor and status, and where it comes from.</p>
         ) : effective.length === 0 ? (
           <Empty>Add vendors to see effective routing.</Empty>
+        ) : routeView === 'diagram' ? (
+          <RedirectDiagram rows={effective} checks={Object.entries(project.security ?? {}).filter(([, on]) => on).map(([k]) => SECURITY_LABELS[k] ?? k)} gate={!!project.gateQuestions?.length} />
         ) : (
           <div className="-m-5 max-h-[480px] overflow-auto">
             <table className="w-full min-w-[900px]">

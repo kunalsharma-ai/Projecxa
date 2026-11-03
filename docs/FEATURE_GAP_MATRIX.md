@@ -45,7 +45,7 @@ Classification follows the spec: **EXISTING** (done in this repo and tested), **
 | 14 | Scheduled/emailed reports, saved views, FX-converted totals, PDF export | DONE | Scheduled email reports (M14, Zoho Mail SMTP), saved views and PDF (M22), report tables, CSV and PDF converted into the reporting currency with manual rates (M28) |
 | 15 Dashboard | Command center: KPI tiles, 14-day trend, quota achievement, fieldwork health, alerts, drag/resize widgets, map, waterfall, heatmap | DONE | Widgets with personal layouts, markets map, waterfall and traffic heatmap (M29) |
 | 16 UI/UX | Design tokens, 8 themes with light/dark, per-user Theme Studio, motion levels, collapsible shell, command palette, insights panel | EXISTING | Milestone 4; see FRONTEND_DESIGN_SYSTEM.md |
-| 16 | Smart form system, advanced data grid, country map, redirect diagram | PARTIAL | Country map on the command center (M29); smart forms, advanced data grid and redirect diagram missing |
+| 16 | Smart form system, advanced data grid, country map, redirect diagram | MOSTLY DONE | Country map (M29); data grid on Projects and redirect diagram (M30). A smart form system (schema-driven forms) is still missing; forms use shared fields with autosaved drafts |
 | 11 / 12 | Tasks (create, assign, priority, due date, reminder, one dependency) | DONE | Milestone 20 added a minimal tasks module (`/tasks`) used by the copilot; no subtasks, comments or recurring tasks |
 | 19 Compliance | Hashed IPs, tenant isolation, audit trail | PARTIAL | Retention policies and consent per country missing |
 | 20 SaaS | Plans, white labeling | MISSING | Phase 8 |
