@@ -2,6 +2,7 @@
 import clsx from 'clsx';
 import { CheckCircle2, ExternalLink, Link2, Link2Off, RefreshCw, XCircle } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useMe } from '@/components/me';
 import { ErrorBox, Loading, Section, Toggle } from '@/components/ui';
@@ -16,11 +17,6 @@ interface Conn {
 }
 interface TestResult { ok: boolean; checks: { label: string; ok: boolean; detail: string }[] }
 
-const ENV: Record<Provider, string[]> = {
-  xero: ['XERO_CLIENT_ID', 'XERO_CLIENT_SECRET'],
-  quickbooks: ['QUICKBOOKS_CLIENT_ID', 'QUICKBOOKS_CLIENT_SECRET'],
-  tally: ['TALLY_URL', 'TALLY_TENANT'],
-};
 const ABOUT: Record<Provider, string> = {
   xero: 'Sales invoices, bills, payments and voids go straight into your Xero organisation. An admin signs in to Xero once and picks the organisation.',
   quickbooks: 'Invoices, bills, payments and voids go straight into your QuickBooks Online company. An admin signs in to Intuit once and picks the company.',
@@ -106,11 +102,10 @@ export function LedgerSync({ onSynced }: { onSynced?: () => void }) {
 
         {!c.configured ? (
           <div className="rounded-lg border border-dashed border-line p-4 text-sm">
-            <p className="font-medium">Not set up on the server yet</p>
+            <p className="font-medium">Not set up yet</p>
             <p className="mt-1 text-muted">
-              Your server administrator {tab === 'tally' ? 'points PROJEXA at the Tally Prime XML server' : `registers a ${c.label} app`} and sets these variables (see <code className="font-mono text-xs">docs/ACCOUNTING_SYNC.md</code>):
+              An admin {tab === 'tally' ? 'enters the address of the Tally Prime XML server' : `adds the ${c.label} app's client ID and secret`} in <Link href={`/settings/integrations#${tab}`} className="text-brand hover:underline">Settings → Integrations</Link>, with step-by-step help.
             </p>
-            <div className="mt-2 flex flex-wrap gap-1.5">{ENV[tab].map((m) => <code key={m} className="chip bg-sunken font-mono text-xs text-ink">{m}</code>)}</div>
             {c.redirectUri && <p className="mt-2 text-xs text-muted">Redirect URI for the app: <code className="break-all font-mono text-ink">{c.redirectUri}</code></p>}
           </div>
         ) : c.otherTenant ? (

@@ -37,6 +37,8 @@ export interface Me {
   preferences?: Partial<import('./theme').Preferences>;
   mfa?: MfaStatus;
   branding?: import('./branding').Brand;
+  /** Set in Settings → Integrations. */
+  links?: { bidzoUrl: string | null };
 }
 export interface MfaStatus { enabled: boolean; enabledAt: string | null; recoveryCodesLeft: number; required: boolean; setupRequired: boolean }
 

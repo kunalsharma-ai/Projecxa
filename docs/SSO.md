@@ -1,5 +1,7 @@
 # Single sign-on (Google, Microsoft, Zoho)
 
+> **Now set up in the app.** Admins of the organisation that runs the server enter the client IDs and secrets in **Settings → Integrations** (see `docs/INTEGRATIONS.md`). The provider steps below still apply; the environment variables are an optional fallback.
+
 Staff can sign in with their company Google, Microsoft or Zoho account instead of a PROJEXA password. All three use OpenID Connect (authorization code flow with PKCE). Setting it up has two parts: register PROJEXA once with each provider (server environment), then each organization turns on the providers it wants (Settings → Single sign-on).
 
 ## How sign-in works

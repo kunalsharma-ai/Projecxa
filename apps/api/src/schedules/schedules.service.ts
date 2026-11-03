@@ -75,7 +75,7 @@ export class SchedulesService {
       else {
         const attachments: { filename: string; content: string | Buffer; contentType: string }[] = [{ filename: built.filename, content: built.csv, contentType: 'text/csv' }];
         if (s.attachPdf) attachments.push({ filename: built.filename.replace(/\.csv$/, '.pdf'), content: await built.pdf(), contentType: 'application/pdf' });
-        await this.mail.send({ to: s.recipients, subject: built.subject, html: built.html, text: built.text, attachments, fromName: built.brand.emailFromName, replyTo: built.brand.emailReplyTo });
+        await this.mail.send({ organizationId: s.organizationId, to: s.recipients, subject: built.subject, html: built.html, text: built.text, attachments, fromName: built.brand.emailFromName, replyTo: built.brand.emailReplyTo });
       }
     } catch (e) {
       status = 'FAILED';
@@ -149,7 +149,7 @@ export class SchedulesController {
     });
     return {
       schedules: rows.map(view),
-      mail: this.mail.status(),
+      mail: await this.mail.status(u.organizationId),
       reports: Object.entries(REPORTS).map(([id, label]) => ({ id, label })),
       periods: Object.entries(PERIODS).map(([id, label]) => ({ id, label })),
     };
@@ -224,6 +224,7 @@ export class SchedulesController {
     try {
       const brand = await this.branding.brand(u.organizationId);
       await this.mail.send({
+        organizationId: u.organizationId,
         to: [u.email],
         subject: `${brand.appName} test email`,
         text: `Your ${brand.appName} email settings work. Scheduled reports will be sent from this address.`,

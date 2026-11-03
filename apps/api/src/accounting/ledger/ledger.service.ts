@@ -8,6 +8,7 @@ import { AuditService } from '../../audit/audit.service';
 import { AuthUser } from '../../auth/auth.types';
 import { CurrentUser, EDITORS, Public, Roles } from '../../auth/decorators';
 import { decryptSecret, encryptSecret } from '../../auth/totp';
+import { IntegrationsService } from '../../integrations/integrations.service';
 import { config } from '../../common/config';
 import { randomToken } from '../../common/crypto';
 import { ZodPipe } from '../../common/zod.pipe';
@@ -64,22 +65,21 @@ export class LedgerService {
     private readonly payables: PayablesService,
     private readonly audit: AuditService,
     private readonly jwt: JwtService,
+    private readonly integrations: IntegrationsService,
   ) {}
 
   private provider(p: string): LedgerProvider {
     if (!isProvider(p)) throw new NotFoundException('Unknown accounting system');
     return p;
   }
-  private app(p: 'xero' | 'quickbooks') {
-    const a = config.ledgers[p];
-    if (!a) throw new BadRequestException(`${LEDGER_LABEL[p]} is not set up on the server. See docs/ACCOUNTING_SYNC.md.`);
+  /** The Xero or QuickBooks app from Settings → Integrations (server owner), else the server env. */
+  private async app<P extends 'xero' | 'quickbooks'>(p: P) {
+    const a = await this.integrations.ledgerApp(p);
+    if (!a) throw new BadRequestException(`${LEDGER_LABEL[p]} is not set up yet. Add its client ID and secret in Settings → Integrations.`);
     return a;
   }
   private async tallyBound(org: string) {
-    const t = config.ledgers.tally;
-    if (!t) return null;
-    const o = await this.prisma.organization.findUniqueOrThrow({ where: { id: org }, select: { slug: true } });
-    return o.slug === t.tenant ? t : null;
+    return (await this.integrations.tally(org)).config;
   }
 
   // ───────────── Status and settings ─────────────
@@ -93,7 +93,9 @@ export class LedgerService {
     ]);
     const users = await this.prisma.user.findMany({ where: { id: { in: [...runs.map((r) => r.createdById), ...conns.map((c) => c.connectedById)].filter((x): x is string => !!x) } }, select: { id: true, name: true } });
     const name = new Map(users.map((u) => [u.id, u.name]));
-    const t = config.ledgers.tally;
+    const tally = await this.integrations.tally(org);
+    const t = tally.config ?? (tally.otherTenant ? { url: '', tenant: '' } : null);
+    const apps = { xero: await this.integrations.ledgerApp('xero'), quickbooks: await this.integrations.ledgerApp('quickbooks') };
     return LEDGER_PROVIDERS.map((p) => {
       const c = conns.find((x) => x.provider === p);
       const mine = runs.filter((r) => r.provider === p).slice(0, 20);
@@ -101,8 +103,8 @@ export class LedgerService {
       return {
         provider: p,
         label: LEDGER_LABEL[p],
-        configured: p === 'tally' ? !!t : !!config.ledgers[p],
-        sandbox: p === 'quickbooks' ? !!config.ledgers.quickbooks?.sandbox : false,
+        configured: p === 'tally' ? !!t : !!apps[p],
+        sandbox: p === 'quickbooks' ? !!apps.quickbooks?.sandbox : false,
         otherTenant: p === 'tally' ? !!t && t.tenant !== slug.slug : false,
         status: p === 'tally' ? (connected ? 'connected' : 'disconnected') : c?.status ?? 'disconnected',
         connected,
@@ -136,8 +138,8 @@ export class LedgerService {
   /** Step 1: send the admin's browser to Xero or QuickBooks, with the state in a short-lived signed cookie. */
   async start(u: AuthUser, p: string, res: Response) {
     const provider = this.provider(p);
-    if (!isOAuth(provider)) throw new BadRequestException('Tally Prime is connected on the server (TALLY_URL)');
-    const app = this.app(provider);
+    if (!isOAuth(provider)) throw new BadRequestException('Tally Prime is connected by its address in Settings → Integrations');
+    const app = await this.app(provider);
     const state = randomToken(16);
     const cookie = await this.jwt.signAsync({ p: provider, state, org: u.organizationId, uid: u.id }, { secret: `${config.jwtSecret}:ledger-state`, expiresIn: '10m' });
     res.cookie(STATE_COOKIE, cookie, { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 10 * 60 * 1000, path: '/api/v1/accounting/ledgers' });
@@ -162,7 +164,7 @@ export class LedgerService {
     const admin = await this.prisma.user.findFirst({ where: { id: st.uid, organizationId: st.org, role: 'ADMIN', active: true } });
     if (!admin) return back('Only an admin can connect an accounting system.');
     try {
-      const app = this.app(p);
+      const app = await this.app(p);
       const tokens = await exchangeCode(this.http, app, q.code, redirectUri(p));
       let remoteId: string;
       let remoteName: string | null = null;
@@ -176,7 +178,7 @@ export class LedgerService {
       } else {
         if (!q.realmId) return back('QuickBooks did not say which company was picked. Try again.');
         remoteId = q.realmId;
-        const qb = config.ledgers.quickbooks!;
+        const qb = await this.app('quickbooks');
         remoteName = await quickBooksCompany(this.http, qb.apiUrl, qb.minorVersion, remoteId, tokens.access).catch(() => null);
       }
       const box = this.seal(tokens);
@@ -195,12 +197,12 @@ export class LedgerService {
 
   async disconnect(u: AuthUser, p: string) {
     const provider = this.provider(p);
-    if (!isOAuth(provider)) throw new BadRequestException('Tally Prime is set on the server. Remove TALLY_URL to disconnect it.');
+    if (!isOAuth(provider)) throw new BadRequestException('Tally Prime is set in Settings → Integrations. Remove it there to disconnect.');
     const c = await this.prisma.ledgerConnection.findUnique({ where: { organizationId_provider: { organizationId: u.organizationId, provider } } });
     if (!c || c.status === 'disconnected') return { ok: true };
     if (await this.prisma.ledgerSync.count({ where: { organizationId: u.organizationId, provider, status: 'running' } })) throw new ConflictException('Wait for the running sync to finish');
     // Best effort: tell the provider to forget the app's access too.
-    const app = config.ledgers[provider];
+    const app = await this.integrations.ledgerApp(provider);
     if (app && c.tokens) {
       try {
         const t = this.open(c.tokens);
@@ -240,17 +242,17 @@ export class LedgerService {
     const pace = { ...this.pace[provider], sleep: this.sleep };
     if (provider === 'tally') {
       const t = await this.tallyBound(org);
-      if (!t) throw new BadRequestException(config.ledgers.tally ? 'Tally Prime is connected to another PROJEXA organisation' : 'Tally Prime is not set up on the server (TALLY_URL and TALLY_TENANT)');
+      if (!t) throw new BadRequestException((await this.integrations.tally(org)).otherTenant ? 'Tally Prime is connected to another PROJEXA organisation' : 'Tally Prime is not set up yet. Add its address in Settings → Integrations.');
       return { ledger: new TallyLedger(new PacedClient(this.http, null, pace), t.url, ctx), conn: null };
     }
-    const app = this.app(provider);
+    const app = await this.app(provider);
     const conn = await this.prisma.ledgerConnection.findUnique({ where: { organizationId_provider: { organizationId: org, provider } } });
     if (!conn || conn.status !== 'connected' || !conn.tokens || !conn.remoteId) throw new BadRequestException(`Connect ${LEDGER_LABEL[provider]} first`);
     const session = new OAuthSession(app, this.open(conn.tokens), async (t) => {
       await this.prisma.ledgerConnection.update({ where: { id: conn.id }, data: { tokens: this.seal(t) } });
     }, this.http);
     const client = new PacedClient(this.http, session, pace);
-    const ledger = provider === 'xero' ? new XeroLedger(client, app.apiUrl, conn.remoteId, ctx) : new QuickBooksLedger(client, app.apiUrl, config.ledgers.quickbooks!.minorVersion, conn.remoteId, ctx);
+    const ledger = provider === 'xero' ? new XeroLedger(client, app.apiUrl, conn.remoteId, ctx) : new QuickBooksLedger(client, app.apiUrl, (app as { minorVersion?: string }).minorVersion ?? '75', conn.remoteId, ctx);
     return { ledger, conn };
   }
 
@@ -313,10 +315,9 @@ export class LedgerService {
   async tick() {
     if (!config.ledgers.schedulerEnabled) return;
     const conns = await this.prisma.ledgerConnection.findMany({ where: { settings: { path: ['hourly'], equals: true } }, select: { organizationId: true, provider: true, status: true } });
-    const t = config.ledgers.tally;
     for (const c of conns) {
       if (!isProvider(c.provider)) continue;
-      if (c.provider === 'tally' ? !t || !(await this.tallyBound(c.organizationId)) : c.status !== 'connected') continue;
+      if (c.provider === 'tally' ? !(await this.tallyBound(c.organizationId)) : c.status !== 'connected') continue;
       const last = await this.prisma.ledgerSync.findFirst({ where: { organizationId: c.organizationId, provider: c.provider }, orderBy: { startedAt: 'desc' } });
       if (last && (last.status === 'running' || last.startedAt.getTime() > Date.now() - HOUR)) continue;
       await this.startSync(c.organizationId, c.provider, 'schedule', null).catch((e) => this.log.warn(`Scheduled ${c.provider} sync not started: ${(e as Error).message}`));

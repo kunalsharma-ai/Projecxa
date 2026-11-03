@@ -18,6 +18,7 @@ import { PublicApiModule } from './public-api/public-api.controller';
 import { WebhooksModule } from './webhooks/webhooks.service';
 import { MailModule } from './mail/mail.service';
 import { SchedulesModule } from './schedules/schedules.service';
+import { IntegrationsModule } from './integrations/integrations.service';
 import { PrismaModule } from './prisma/prisma.service';
 import { ProjectsModule } from './projects/projects.controller';
 import { RedirectsModule } from './redirects/redirects.controller';
@@ -35,6 +36,7 @@ import { VendorsModule } from './vendors/vendors.controller';
     ScheduleModule.forRoot(),
     PrismaModule,
     AuditModule,
+    IntegrationsModule,
     AuthModule,
     UsersModule,
     ClientsModule,

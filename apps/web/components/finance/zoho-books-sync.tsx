@@ -1,6 +1,7 @@
 'use client';
 import clsx from 'clsx';
 import { CheckCircle2, PlugZap, RefreshCw, XCircle } from 'lucide-react';
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useMe } from '@/components/me';
 import { ErrorBox, Loading, Section, Toggle } from '@/components/ui';
@@ -94,11 +95,10 @@ export function ZohoBooksSync({ onSynced }: { onSynced?: () => void }) {
         {!s.configured ? (
           <div className="rounded-lg border border-dashed border-line p-4 text-sm">
             <p className="font-medium">Not connected yet</p>
-            <p className="mt-1 text-muted">Send sent and paid invoices, vendor bills and their payments straight into Zoho Books, without importing files. Your server administrator connects it once with a Zoho self-client (see <code className="font-mono text-xs">docs/ZOHO_BOOKS.md</code>). Still to set:</p>
-            <div className="mt-2 flex flex-wrap gap-1.5">{s.missing.map((m) => <code key={m} className="chip bg-sunken font-mono text-xs text-ink">{m}</code>)}</div>
+            <p className="mt-1 text-muted">Send sent and paid invoices, vendor bills and their payments straight into Zoho Books, without importing files. An admin connects it once with a Zoho self client in <Link href="/settings/integrations#zoho_books" className="text-brand hover:underline">Settings → Integrations</Link>. It takes about five minutes.</p>
           </div>
         ) : s.otherTenant ? (
-          <p className="rounded-lg border border-dashed border-line p-4 text-sm text-muted">This server&rsquo;s Zoho Books connection belongs to another Projexa organisation.</p>
+          <p className="rounded-lg border border-dashed border-line p-4 text-sm text-muted">The server&rsquo;s Zoho Books settings belong to another organisation. An admin can connect your own Zoho Books in <Link href="/settings/integrations#zoho_books" className="text-brand hover:underline">Settings → Integrations</Link>.</p>
         ) : (
           <>
             <p className="text-sm text-muted">
