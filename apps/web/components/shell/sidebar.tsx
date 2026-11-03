@@ -4,6 +4,8 @@ import { ChevronsLeft, ChevronsRight, Clock, Star, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { canEdit, useMe } from '@/components/me';
+import { BrandIcon } from '@/components/brand-mark';
+import { DEFAULT_BRAND } from '@/lib/branding';
 import { useTheme } from '@/components/theme';
 import { isActive, NAV, visibleNav, type NavItem } from './nav';
 
@@ -11,6 +13,7 @@ import { isActive, NAV, visibleNav, type NavItem } from './nav';
 export function Sidebar({ mobileOpen, onClose, badges = {} }: { mobileOpen: boolean; onClose: () => void; badges?: Record<string, number> }) {
   const { prefs, update } = useTheme();
   const me = useMe();
+  const brand = me?.branding ?? DEFAULT_BRAND;
   const pathname = usePathname();
   const compact = prefs.sidebarCollapsed;
   const items = visibleNav(me?.user.role);
@@ -78,11 +81,9 @@ export function Sidebar({ mobileOpen, onClose, badges = {} }: { mobileOpen: bool
     >
       <div className={clsx('flex h-14 shrink-0 items-center justify-between px-4', compact && 'lg:justify-center lg:px-0')}>
         <Link href="/" className="flex min-w-0 items-center gap-2.5 font-semibold tracking-tight">
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-brand to-accent2 text-[13px] font-bold text-brand-ink shadow-sm" aria-hidden>
-            PX
-          </span>
+          <BrandIcon brand={brand} />
           <span className={clsx('truncate', compact && 'lg:sr-only')}>
-            PROJEXA <span className="text-xs font-normal text-sidebar-muted">by Sampledge</span>
+            {brand.custom ? brand.appName : <>PROJEXA <span className="text-xs font-normal text-sidebar-muted">by Sampledge</span></>}
           </span>
         </Link>
         <button className="rounded p-1 lg:hidden" onClick={onClose} aria-label="Close menu">

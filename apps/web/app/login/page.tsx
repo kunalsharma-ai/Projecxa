@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { BrandLogo, useBrandedPage } from '@/components/brand-mark';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
 import { ErrorBox } from '@/components/ui';
@@ -10,6 +11,8 @@ interface Provider { id: string; label: string }
 interface LoginResult { home?: string; mfaRequired?: boolean; mfaToken?: string; recoveryCodesLeft?: number }
 
 export default function LoginPage() {
+  const brand = useBrandedPage();
+  const appName = brand?.appName ?? 'PROJEXA';
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -73,9 +76,10 @@ export default function LoginPage() {
     <main className="grid min-h-screen place-items-center px-4">
       <form onSubmit={submit} className="card w-full max-w-sm space-y-4 p-7">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-brand">Sampledge</div>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">{codeStep ? 'Enter your code' : 'Sign in to PROJEXA'}</h1>
-          {codeStep && <p className="mt-1 text-sm text-muted">{useRecovery ? 'Enter one of the recovery codes you saved. Each works once.' : 'Open your authenticator app and enter the 6-digit code for PROJEXA.'}</p>}
+          {brand && <BrandLogo brand={brand} />}
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight">{codeStep ? 'Enter your code' : `Sign in to ${appName}`}</h1>
+          {!codeStep && brand?.loginMessage && <p className="mt-1 text-sm text-muted">{brand.loginMessage}</p>}
+          {codeStep && <p className="mt-1 text-sm text-muted">{useRecovery ? 'Enter one of the recovery codes you saved. Each works once.' : `Open your authenticator app and enter the 6-digit code for ${appName}.`}</p>}
         </div>
         <ErrorBox error={error} />
         {notice && !error && <p className="rounded-lg bg-ok/10 p-3 text-sm text-ok" role="status">{notice}</p>}

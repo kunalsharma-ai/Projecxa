@@ -42,6 +42,15 @@ function Control({ d, value, set }: { d: FieldDef; value: unknown; set: (v: unkn
       return <RadioCards items={opts} value={(value as string) ?? null} onChange={set} columns={p.columns as 2 | 3 | 4} />;
     case 'checkboxes':
       return <CheckboxGroup items={opts} value={(value as string[]) ?? []} onChange={set} columns={p.columns as 1 | 2 | 3} selectAll={p.selectAll as boolean} />;
+    case 'color': {
+      const v = (value as string) ?? '';
+      return (
+        <div className="flex items-center gap-2">
+          <input type="color" aria-label={`${d.label} picker`} className="h-9 w-11 shrink-0 cursor-pointer rounded-md border border-line bg-panel p-1" value={/^#[0-9a-f]{6}$/i.test(v) ? v : '#000000'} onChange={(e) => set(e.target.value)} />
+          <input {...fieldProps(f)} className={clsx('input font-mono uppercase', f.invalid && 'border-bad')} placeholder={d.placeholder ?? '#1D4ED8'} maxLength={7} value={v} onChange={(e) => set(e.target.value)} />
+        </div>
+      );
+    }
     case 'segmented':
       return <Segmented items={opts} value={(value as string) ?? ''} onChange={set} full={p.full as boolean} />;
     case 'switch':

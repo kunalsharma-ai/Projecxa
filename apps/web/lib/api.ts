@@ -1,4 +1,12 @@
-export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000').replace(/\/$/, '');
+const CONFIGURED_API = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000').replace(/\/$/, '');
+const MAIN_WEB = (process.env.NEXT_PUBLIC_WEB_ORIGIN ?? 'http://localhost:3000').replace(/\/$/, '');
+/**
+ * White-label custom domains (docs/WHITE_LABEL.md): when turned on and the app is opened on an
+ * address other than the main one, the API is reached through this web server (/api/v1 is
+ * proxied by next.config.mjs), so the sign-in cookie belongs to the custom domain.
+ */
+export const API_URL =
+  process.env.NEXT_PUBLIC_CUSTOM_DOMAINS === 'true' && typeof window !== 'undefined' && window.location.origin !== MAIN_WEB ? window.location.origin : CONFIGURED_API;
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public issues: string[] = []) {

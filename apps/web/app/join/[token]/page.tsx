@@ -1,5 +1,6 @@
 'use client';
 import clsx from 'clsx';
+import { BrandLogo, useBrandedPage } from '@/components/brand-mark';
 import { CheckCircle2 } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
@@ -12,6 +13,7 @@ const SPECIALTY_LABEL: Record<string, string> = { B2C: 'Consumers', B2B: 'Busine
 
 /** Public sign-up form for panel companies. No login; the link itself identifies the organisation. */
 export default function JoinPage() {
+  const brand = useBrandedPage();
   const { token } = useParams<{ token: string }>();
   const [info, setInfo] = useState<FormInfo | null>(null);
   const [missing, setMissing] = useState(false);
@@ -83,7 +85,7 @@ export default function JoinPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
-      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-brand">Sampledge · PROJEXA</div>
+      {brand && <BrandLogo brand={brand} />}
       <h1 className="mt-1 text-2xl font-semibold tracking-tight">Become a sample partner of {info.organization}</h1>
       <p className="mt-1 text-sm text-muted">Tell us about your panel. We review every application; approved partners get a vendor portal login for links, quotes, payouts and documents.</p>
       <form onSubmit={submit} className="card mt-6 space-y-5 p-6">

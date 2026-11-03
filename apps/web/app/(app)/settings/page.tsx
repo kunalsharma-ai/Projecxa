@@ -1,5 +1,5 @@
 'use client';
-import { Copy, Palette, ShieldCheck, Webhook } from 'lucide-react';
+import { Copy, Palette, ShieldCheck, Stamp, Webhook } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useMe } from '@/components/me';
@@ -47,7 +47,7 @@ export default function SettingsPage() {
   if (!org) return error ? <ErrorBox error={error} /> : <Loading />;
   return (
     <>
-      <PageHeader title="Settings" subtitle={`${org.name} · ${org.slug}`} actions={<div className="flex flex-wrap gap-2"><Link href="/settings/privacy" className="btn-ghost"><ShieldCheck className="h-4 w-4" /> Privacy</Link><Link href="/settings/developers" className="btn-ghost"><Webhook className="h-4 w-4" /> API and webhooks</Link><Link href="/settings/appearance" className="btn-ghost"><Palette className="h-4 w-4" /> Theme Studio</Link></div>} />
+      <PageHeader title="Settings" subtitle={`${org.name} · ${org.slug}`} actions={<div className="flex flex-wrap gap-2"><Link href="/settings/branding" className="btn-ghost"><Stamp className="h-4 w-4" /> Branding</Link><Link href="/settings/privacy" className="btn-ghost"><ShieldCheck className="h-4 w-4" /> Privacy</Link><Link href="/settings/developers" className="btn-ghost"><Webhook className="h-4 w-4" /> API and webhooks</Link><Link href="/settings/appearance" className="btn-ghost"><Palette className="h-4 w-4" /> Theme Studio</Link></div>} />
       <div className="mb-4"><ErrorBox error={error} /></div>
       {isAdmin && <SignInSecurity />}
       {isAdmin && <SingleSignOn />}

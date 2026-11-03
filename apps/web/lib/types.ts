@@ -36,6 +36,7 @@ export interface Me {
   vendor?: { id: string; name: string } | null;
   preferences?: Partial<import('./theme').Preferences>;
   mfa?: MfaStatus;
+  branding?: import('./branding').Brand;
 }
 export interface MfaStatus { enabled: boolean; enabledAt: string | null; recoveryCodesLeft: number; required: boolean; setupRequired: boolean }
 

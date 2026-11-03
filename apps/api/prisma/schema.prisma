@@ -65,47 +65,54 @@ model Organization {
   createdAt              DateTime    @default(now())
   updatedAt              DateTime    @updatedAt
 
-  users              User[]
-  clients            Client[]
-  vendors            Vendor[]
-  projects           Project[]
-  sessions           RespondentSession[]
-  auditEvents        AuditEvent[]
-  callbacks          CallbackDelivery[]
-  wonBids            WonBid[]
-  invoices           Invoice[]
-  reconciliations    Reconciliation[]
-  alerts             Alert[]
-  vendorBills        VendorBill[]
-  exchangeRates      ExchangeRate[]
-  apiKeys            ApiKey[]
-  webhookEndpoints   WebhookEndpoint[]
-  webhookDeliveries  WebhookDelivery[]
-  reportSchedules    ReportSchedule[]
-  accountingExports  AccountingExport[]
-  zohoBooksLinks     ZohoBooksLink[]
-  zohoBooksSyncs     ZohoBooksSync[]
-  ledgerConnections  LedgerConnection[]
-  ledgerLinks        LedgerLink[]
-  ledgerSyncs        LedgerSync[]
-  reportViews        SavedReportView[]
-  projectTemplates   ProjectTemplate[]
-  projectDrafts      ProjectDraft[]
-  tasks              Task[]
-  aiConversations    AiConversation[]
-  aiActions          AiAction[]
-  aiUsage            AiUsage[]
-  aiDocuments        AiDocument[]
-  tickets            Ticket[]
-  sharedFiles        SharedFile[]
-  vendorApplications VendorApplication[]
-  quoteRequests      QuoteRequest[]
+  users                  User[]
+  clients                Client[]
+  vendors                Vendor[]
+  projects               Project[]
+  sessions               RespondentSession[]
+  auditEvents            AuditEvent[]
+  callbacks              CallbackDelivery[]
+  wonBids                WonBid[]
+  invoices               Invoice[]
+  reconciliations        Reconciliation[]
+  alerts                 Alert[]
+  vendorBills            VendorBill[]
+  exchangeRates          ExchangeRate[]
+  apiKeys                ApiKey[]
+  webhookEndpoints       WebhookEndpoint[]
+  webhookDeliveries      WebhookDelivery[]
+  reportSchedules        ReportSchedule[]
+  accountingExports      AccountingExport[]
+  zohoBooksLinks         ZohoBooksLink[]
+  zohoBooksSyncs         ZohoBooksSync[]
+  ledgerConnections      LedgerConnection[]
+  ledgerLinks            LedgerLink[]
+  ledgerSyncs            LedgerSync[]
+  reportViews            SavedReportView[]
+  projectTemplates       ProjectTemplate[]
+  projectDrafts          ProjectDraft[]
+  tasks                  Task[]
+  aiConversations        AiConversation[]
+  aiActions              AiAction[]
+  aiUsage                AiUsage[]
+  aiDocuments            AiDocument[]
+  tickets                Ticket[]
+  sharedFiles            SharedFile[]
+  vendorApplications     VendorApplication[]
+  quoteRequests          QuoteRequest[]
   /// Public vendor sign-up link token; null when sign-up is off.
-  vendorSignupToken  String?             @unique
+  vendorSignupToken      String?             @unique
   /// Retention settings (docs/PRIVACY.md): { respondentDays, eventDays }; null = keep everything.
-  retention          Json?
-  retentionRunAt     DateTime?
-  consentPolicies    ConsentPolicy[]
+  retention              Json?
+  retentionRunAt         DateTime?
+  consentPolicies        ConsentPolicy[]
+  /// White-label (docs/WHITE_LABEL.md): { appName, tagline, brandColor, theme, hidePoweredBy, supportEmail, emailFromName, emailReplyTo, loginMessage }.
+  branding               Json?
+  brandAssets            BrandAsset[]
+  /// Custom web domain for this organisation (e.g. research.acme.com), used once verified by DNS.
+  customDomain           String?             @unique
+  customDomainToken      String?
+  customDomainVerifiedAt DateTime?
 }
 
 enum Role {
@@ -1616,4 +1623,19 @@ model ConsentPolicy {
   updatedAt      DateTime     @updatedAt
 
   @@unique([organizationId, countryCode])
+}
+
+/// Logo and icon images for white-labelling, served publicly (they appear on sign-in pages and in emails).
+model BrandAsset {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// logo, logoDark or icon
+  kind           String
+  contentType    String
+  data           Bytes
+  hash           String
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, kind])
 }

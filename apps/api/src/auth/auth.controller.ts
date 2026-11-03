@@ -1,3 +1,4 @@
+import { BrandingService } from '../branding/branding';
 import { Body, Controller, Get, HttpCode, Patch, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
@@ -33,6 +34,7 @@ export class AuthController {
     private readonly prisma: PrismaService,
     private readonly session: SessionService,
     private readonly mfa: MfaService,
+    private readonly branding: BrandingService,
   ) {}
 
   @Public()
@@ -87,6 +89,7 @@ export class AuthController {
     return {
       user,
       organization: { id: org.id, name: org.name, slug: org.slug },
+      branding: await this.branding.brand(org.id),
       client: links.client,
       vendor: links.vendor,
       preferences: readPreferences(links.preferences),
