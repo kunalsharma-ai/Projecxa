@@ -205,6 +205,12 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - **Client invoices** in the portal: sent and paid invoices with the PDF.
 - Details: `docs/PORTAL_REQUESTS.md`.
 
+## Milestone 27: vendor sign-up and quote requests
+
+- **Vendor sign-up link**: new panel partners apply through a public form, protected by a free maths check, a honeypot and rate limits. Staff approve (creating the vendor, its capacity and an optional portal login with an invite email) or reject from Vendors → Applications.
+- **Quote requests**: ask several vendors for CPI and feasibility per market; vendors answer in their portal; staff compare quotes with margin and accept one to create the allocation at the quoted CPI.
+- Details: `docs/VENDOR_SIGNUP_QUOTES.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).

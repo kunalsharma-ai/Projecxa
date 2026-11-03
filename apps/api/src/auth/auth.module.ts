@@ -12,5 +12,6 @@ import { SsoAdminController, SsoController, SsoService } from './sso.service';
   imports: [JwtModule.register({})],
   controllers: [AuthController, MfaController, MfaAdminController, SsoController, SsoAdminController, PasswordController, TeamController],
   providers: [{ provide: APP_GUARD, useClass: AuthGuard }, MfaService, SessionService, SsoService, PasswordService],
+  exports: [PasswordService],
 })
 export class AuthModule {}

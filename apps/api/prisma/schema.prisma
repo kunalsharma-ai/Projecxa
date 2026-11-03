@@ -65,39 +65,43 @@ model Organization {
   createdAt              DateTime    @default(now())
   updatedAt              DateTime    @updatedAt
 
-  users             User[]
-  clients           Client[]
-  vendors           Vendor[]
-  projects          Project[]
-  sessions          RespondentSession[]
-  auditEvents       AuditEvent[]
-  callbacks         CallbackDelivery[]
-  wonBids           WonBid[]
-  invoices          Invoice[]
-  reconciliations   Reconciliation[]
-  alerts            Alert[]
-  vendorBills       VendorBill[]
-  exchangeRates     ExchangeRate[]
-  apiKeys           ApiKey[]
-  webhookEndpoints  WebhookEndpoint[]
-  webhookDeliveries WebhookDelivery[]
-  reportSchedules   ReportSchedule[]
-  accountingExports AccountingExport[]
-  zohoBooksLinks    ZohoBooksLink[]
-  zohoBooksSyncs    ZohoBooksSync[]
-  ledgerConnections LedgerConnection[]
-  ledgerLinks       LedgerLink[]
-  ledgerSyncs       LedgerSync[]
-  reportViews       SavedReportView[]
-  projectTemplates  ProjectTemplate[]
-  projectDrafts     ProjectDraft[]
-  tasks             Task[]
-  aiConversations   AiConversation[]
-  aiActions         AiAction[]
-  aiUsage           AiUsage[]
-  aiDocuments       AiDocument[]
-  tickets           Ticket[]
-  sharedFiles       SharedFile[]
+  users              User[]
+  clients            Client[]
+  vendors            Vendor[]
+  projects           Project[]
+  sessions           RespondentSession[]
+  auditEvents        AuditEvent[]
+  callbacks          CallbackDelivery[]
+  wonBids            WonBid[]
+  invoices           Invoice[]
+  reconciliations    Reconciliation[]
+  alerts             Alert[]
+  vendorBills        VendorBill[]
+  exchangeRates      ExchangeRate[]
+  apiKeys            ApiKey[]
+  webhookEndpoints   WebhookEndpoint[]
+  webhookDeliveries  WebhookDelivery[]
+  reportSchedules    ReportSchedule[]
+  accountingExports  AccountingExport[]
+  zohoBooksLinks     ZohoBooksLink[]
+  zohoBooksSyncs     ZohoBooksSync[]
+  ledgerConnections  LedgerConnection[]
+  ledgerLinks        LedgerLink[]
+  ledgerSyncs        LedgerSync[]
+  reportViews        SavedReportView[]
+  projectTemplates   ProjectTemplate[]
+  projectDrafts      ProjectDraft[]
+  tasks              Task[]
+  aiConversations    AiConversation[]
+  aiActions          AiAction[]
+  aiUsage            AiUsage[]
+  aiDocuments        AiDocument[]
+  tickets            Ticket[]
+  sharedFiles        SharedFile[]
+  vendorApplications VendorApplication[]
+  quoteRequests      QuoteRequest[]
+  /// Public vendor sign-up link token; null when sign-up is off.
+  vendorSignupToken  String?             @unique
 }
 
 enum Role {
@@ -220,12 +224,14 @@ model Vendor {
   createdAt              DateTime     @default(now())
   updatedAt              DateTime     @updatedAt
 
-  allocations VendorAllocation[]
-  users       User[]
-  bills       VendorBill[]
-  capacity    VendorCapacity[]
-  tickets     Ticket[]
-  sharedFiles SharedFile[]
+  allocations   VendorAllocation[]
+  users         User[]
+  bills         VendorBill[]
+  capacity      VendorCapacity[]
+  tickets       Ticket[]
+  sharedFiles   SharedFile[]
+  quoteRequests QuoteRequest[]
+  applications  VendorApplication[]
 
   @@unique([organizationId, code])
 }
@@ -349,9 +355,10 @@ model ProjectCountry {
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
-  quotas      QuotaCell[]
-  allocations VendorAllocation[]
-  sessions    RespondentSession[]
+  quotas        QuotaCell[]
+  allocations   VendorAllocation[]
+  sessions      RespondentSession[]
+  quoteRequests QuoteRequest[]
 
   @@unique([projectId, countryCode, language])
 }
@@ -1494,4 +1501,89 @@ model SharedFile {
   @@index([organizationId, vendorId, kind])
   @@index([organizationId, clientId])
   @@index([ticketId])
+}
+
+// ───────────────────────────── Vendor sign-up and quote requests (milestone 27) ─────────────────────────────
+
+enum VendorApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// A panel company that applied through the public sign-up page. Approving it creates the vendor.
+model VendorApplication {
+  id             String                  @id @default(cuid())
+  organizationId String
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  status         VendorApplicationStatus @default(PENDING)
+  companyName    String
+  website        String?
+  contactName    String
+  email          String
+  phone          String?
+  /// ISO country codes the panel covers.
+  countries      String[]
+  /// Panel members, as the applicant states it.
+  panelSize      Int?
+  /// e.g. B2B, B2C, HEALTHCARE, AUTOMOTIVE.
+  specialties    String[]
+  message        String?
+  /// sha256(organisation + IP), to spot repeat submissions without storing the address.
+  ipHash         String?
+  reviewedById   String?
+  reviewedAt     DateTime?
+  rejectReason   String?
+  vendorId       String?
+  vendor         Vendor?                 @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  createdAt      DateTime                @default(now())
+
+  @@index([organizationId, status, createdAt])
+  @@index([organizationId, email])
+}
+
+enum QuoteRequestStatus {
+  /// Sent to the vendor, waiting for an answer.
+  REQUESTED
+  QUOTED
+  DECLINED
+  /// Staff accepted it and a vendor link was created.
+  ACCEPTED
+  /// Staff closed it without accepting (another vendor won, or the market closed).
+  CLOSED
+}
+
+/// Feasibility and CPI asked of one vendor for one project market.
+model QuoteRequest {
+  id                String             @id @default(cuid())
+  organizationId    String
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectCountryId  String
+  projectCountry    ProjectCountry     @relation(fields: [projectCountryId], references: [id], onDelete: Cascade)
+  vendorId          String
+  vendor            Vendor             @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  status            QuoteRequestStatus @default(REQUESTED)
+  /// The brief as sent, so later project edits do not change what the vendor quoted on.
+  completesWanted   Int
+  loiMinutes        Int
+  irPercent         Int
+  targetGroup       String?
+  note              String?
+  respondBy         DateTime?
+  requestedById     String
+  /// The vendor's answer.
+  cpi               Decimal?           @db.Decimal(10, 2)
+  currency          String
+  feasibleCompletes Int?
+  daysNeeded        Int?
+  vendorNote        String?
+  respondedById     String?
+  respondedAt       DateTime?
+  allocationId      String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@unique([projectCountryId, vendorId])
+  @@index([organizationId, status])
+  @@index([vendorId, status])
 }

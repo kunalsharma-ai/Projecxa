@@ -224,7 +224,7 @@ export class DashboardController {
       this.prisma.auditEvent.findMany({ where: { organizationId: org }, orderBy: { createdAt: 'desc' }, take: 8 }),
       this.prisma.wonBid.count({ where: { organizationId: org, status: 'NEW' } }),
     ]);
-    const [failedSchedules, apiFallbacks, openRequests, expiringDocs] = await Promise.all([
+    const [failedSchedules, apiFallbacks, openRequests, expiringDocs, applications, quoted] = await Promise.all([
       this.prisma.redirectPolicyVersion.findMany({
         where: { state: 'DRAFT', scheduleError: { not: null }, project: { organizationId: org } },
         select: { id: true, version: true, scheduleError: true, project: { select: { id: true, projectCode: true } } },
@@ -233,6 +233,8 @@ export class DashboardController {
       this.prisma.redirectExecution.count({ where: { apiFallback: true, createdAt: { gte: day }, session: { organizationId: org } } }),
       this.prisma.ticket.groupBy({ by: ['kind'], where: { organizationId: org, status: 'OPEN' }, _count: { _all: true } }),
       this.prisma.sharedFile.findMany({ where: { organizationId: org, kind: 'COMPLIANCE', expiresAt: { lte: new Date(Date.now() + 30 * 86_400_000) } }, select: { id: true, name: true, expiresAt: true, vendor: { select: { id: true, name: true } } }, orderBy: { expiresAt: 'asc' }, take: 5 }),
+      this.prisma.vendorApplication.count({ where: { organizationId: org, status: 'PENDING' } }),
+      this.prisma.quoteRequest.findMany({ where: { organizationId: org, status: 'QUOTED' }, select: { projectCountry: { select: { countryCode: true, project: { select: { id: true, projectCode: true } } } } }, take: 200 }),
     ]);
     const openAlerts = await this.prisma.alert.findMany({ where: { organizationId: org, state: 'OPEN', severity: { in: ['warn', 'bad'] } }, orderBy: { lastSeenAt: 'desc' }, take: 10 });
     const projects = await this.prisma.project.findMany({ where: { id: { in: pending.map((p) => p.projectId) }, organizationId: org }, select: { id: true, projectCode: true, name: true } });
@@ -249,6 +251,16 @@ export class DashboardController {
     const waiting = openRequests.reduce((n, g) => n + g._count._all, 0);
     const disputes = openRequests.find((g) => g.kind === 'DISPUTE')?._count._all ?? 0;
     if (waiting) items.push({ id: 'requests', severity: disputes ? 'warn' : 'info', title: `${waiting} client or vendor request${waiting === 1 ? '' : 's'} waiting for an answer`, detail: disputes ? `${disputes} ${disputes === 1 ? 'is a dispute' : 'are disputes'} of rejected completes.` : 'Answer them from Requests.', href: '/requests?status=OPEN' });
+    if (applications) items.push({ id: 'vendor-applications', severity: 'info', title: `${applications} vendor application${applications === 1 ? '' : 's'} to review`, detail: 'Panel companies that signed up through your link.', href: '/vendors/applications' });
+    const quotedBy = new Map<string, { id: string; code: string; n: number; markets: Set<string> }>();
+    for (const q of quoted) {
+      const p = q.projectCountry.project;
+      const e = quotedBy.get(p.id) ?? { id: p.id, code: p.projectCode, n: 0, markets: new Set<string>() };
+      e.n++;
+      e.markets.add(q.projectCountry.countryCode);
+      quotedBy.set(p.id, e);
+    }
+    for (const e of quotedBy.values()) items.push({ id: `quotes-${e.id}`, severity: 'info', title: `${e.n} vendor quote${e.n === 1 ? '' : 's'} to review on ${e.code}`, detail: `Markets: ${[...e.markets].join(', ')}.`, href: `/projects/${e.id}?tab=vendors` });
     for (const d of expiringDocs) {
       const gone = !!d.expiresAt && d.expiresAt.getTime() < Date.now();
       items.push({ id: `compliance-${d.id}`, severity: gone ? 'bad' : 'warn', title: `${d.vendor?.name ?? 'Vendor'}: ${d.name} ${gone ? 'expired' : 'expires soon'}`, detail: `Compliance document ${gone ? 'expired' : 'expires'} on ${d.expiresAt!.toISOString().slice(0, 10)}.`, href: d.vendor ? `/vendors/${d.vendor.id}` : '/vendors' });
