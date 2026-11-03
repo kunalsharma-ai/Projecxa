@@ -1,0 +1,42 @@
+export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000').replace(/\/$/, '');
+
+export class ApiError extends Error {
+  constructor(public status: number, message: string, public issues: string[] = []) {
+    super(message);
+  }
+}
+
+function issueText(i: unknown): string {
+  if (typeof i === 'string') return i;
+  if (i && typeof i === 'object') {
+    const o = i as { path?: string; message?: string; status?: string; scope?: { countryCode?: string; vendorId?: string } };
+    const where = [o.status, o.scope?.countryCode, o.path].filter(Boolean).join(' · ');
+    return where ? `${where}: ${o.message}` : String(o.message);
+  }
+  return String(i);
+}
+
+export async function api<T = unknown>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
+  const { json, headers, ...rest } = init;
+  const res = await fetch(`${API_URL}/api/v1${path}`, {
+    credentials: 'include',
+    ...rest,
+    headers: { ...(json !== undefined ? { 'Content-Type': 'application/json' } : {}), ...headers },
+    body: json !== undefined ? JSON.stringify(json) : rest.body,
+  });
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!res.ok) {
+    if (res.status === 401 && typeof window !== 'undefined' && !path.startsWith('/auth/')) {
+      window.location.href = '/login';
+    }
+    const msg = data?.message && typeof data.message === 'object' ? data.message.message : data?.message;
+    const issues = (data?.issues ?? data?.message?.issues ?? []).map(issueText);
+    throw new ApiError(res.status, msg ?? `Request failed (${res.status})`, issues);
+  }
+  return data as T;
+}
+
+export const get = <T,>(p: string) => api<T>(p);
+export const post = <T,>(p: string, json?: unknown) => api<T>(p, { method: 'POST', json: json ?? {} });
+export const patch = <T,>(p: string, json?: unknown) => api<T>(p, { method: 'PATCH', json: json ?? {} });
