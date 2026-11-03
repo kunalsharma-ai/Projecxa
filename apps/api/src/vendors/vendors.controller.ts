@@ -1,3 +1,5 @@
+import { VendorInsightsController } from './vendor-insights.controller';
+import { VendorScoringService } from './vendor-scoring';
 import { Body, Controller, Get, Module, NotFoundException, Param, Patch, Post } from '@nestjs/common';
 import { z } from 'zod';
 import { CurrentUser, EDITORS, Roles } from '../auth/decorators';
@@ -70,5 +72,5 @@ export class VendorsController {
   }
 }
 
-@Module({ controllers: [VendorsController] })
+@Module({ controllers: [VendorInsightsController, VendorsController], providers: [VendorScoringService], exports: [VendorScoringService] })
 export class VendorsModule {}

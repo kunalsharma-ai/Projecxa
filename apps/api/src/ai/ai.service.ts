@@ -1,3 +1,4 @@
+import { VendorScoringService } from '../vendors/vendor-scoring';
 import { BadRequestException, ForbiddenException, HttpException, HttpStatus, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { Prisma, Role } from '@prisma/client';
 import { z } from 'zod';
@@ -87,6 +88,7 @@ export class AiService {
     private readonly projects: ProjectsService,
     private readonly monitor: MonitorService,
     private readonly reallocation: ReallocationService,
+    private readonly vendorScoring: VendorScoringService,
     private readonly reports: ReportsService,
     private readonly finance: FinanceService,
     private readonly payables: PayablesService,
@@ -162,7 +164,7 @@ export class AiService {
   }
 
   private ctx(u: AuthUser): ToolContext {
-    return { u, prisma: this.prisma, projects: this.projects, monitor: this.monitor, reallocation: this.reallocation, reports: this.reports, finance: this.finance, payables: this.payables, tasks: this.tasks, now: new Date() };
+    return { u, prisma: this.prisma, projects: this.projects, monitor: this.monitor, reallocation: this.reallocation, reports: this.reports, finance: this.finance, payables: this.payables, tasks: this.tasks, vendorScoring: this.vendorScoring, now: new Date() };
   }
 
   private async system(u: AuthUser, path: string | null | undefined, voice: boolean) {

@@ -1,10 +1,14 @@
 'use client';
 import { Plus } from 'lucide-react';
+import Link from 'next/link';
+import { ScoreBadge, type Grade } from '@/components/vendors/score';
+import { flag } from '@/lib/countries';
 import { useEffect, useState } from 'react';
 import { canEdit, useMe } from '@/components/me';
 import { Empty, ErrorBox, Field, Loading, PageHeader, Section, StatusChip } from '@/components/ui';
 import { get, post } from '@/lib/api';
 
+interface ScoreRow { id: string; score: number | null; grade: Grade; markets: string[]; committed: number; stats: { clicks: number; completes: number; qualityRate: number } }
 interface VendorRow { id: string; name: string; code: string; status: string; redirectAllowedDomains: string[]; callbackUrlTemplate: string | null; _count: { allocations: number } }
 
 export default function VendorsPage() {
@@ -13,7 +17,11 @@ export default function VendorsPage() {
   const [form, setForm] = useState({ name: '', code: '', domains: '', callback: '' });
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  const load = () => get<VendorRow[]>('/vendors').then(setRows).catch(setError);
+  const [scores, setScores] = useState<Map<string, ScoreRow>>(new Map());
+  const load = () => {
+    get<VendorRow[]>('/vendors').then(setRows).catch(setError);
+    get<{ vendors: ScoreRow[] }>('/vendors/scores').then((r) => setScores(new Map(r.vendors.map((x) => [x.id, x])))).catch(() => undefined);
+  };
   useEffect(() => {
     load();
   }, []);
@@ -37,7 +45,7 @@ export default function VendorsPage() {
 
   return (
     <>
-      <PageHeader title="Vendors" actions={canEdit(me) && <button className="btn-primary" onClick={() => setOpen(!open)}><Plus className="h-4 w-4" /> Add vendor</button>} />
+      <PageHeader title="Vendors" subtitle="Scores come from the last 180 days of traffic. Open a vendor for its scorecard and the markets it covers." actions={canEdit(me) && <button className="btn-primary" onClick={() => setOpen(!open)}><Plus className="h-4 w-4" /> Add vendor</button>} />
       <div className="mb-4"><ErrorBox error={error} /></div>
       {open && (
         <Section title="New vendor" className="mb-6">
@@ -53,11 +61,14 @@ export default function VendorsPage() {
       {!rows ? <Loading /> : rows.length === 0 ? <Empty>No vendors yet.</Empty> : (
         <div className="card overflow-x-auto">
           <table className="w-full">
-            <thead className="border-b border-line bg-sunken/60"><tr><th className="th">Vendor</th><th className="th">Code</th><th className="th">Status</th><th className="th">Redirect domains</th><th className="th">Callback</th><th className="th text-right">Allocations</th></tr></thead>
+            <thead className="border-b border-line bg-sunken/60"><tr><th className="th">Vendor</th><th className="th">Code</th><th className="th">Status</th><th className="th">Score (180 days)</th><th className="th">Markets</th><th className="th text-right">Owed on live projects</th><th className="th">Redirect domains</th><th className="th">Callback</th><th className="th text-right">Allocations</th></tr></thead>
             <tbody className="divide-y divide-line">
               {rows.map((v) => (
                 <tr key={v.id}>
-                  <td className="td font-medium">{v.name}</td><td className="td">{v.code}</td><td className="td"><StatusChip status={v.status} /></td>
+                  <td className="td font-medium"><Link className="hover:text-brand hover:underline" href={`/vendors/${v.id}`}>{v.name}</Link></td><td className="td">{v.code}</td><td className="td"><StatusChip status={v.status} /></td>
+                  <td className="td"><Link href={`/vendors/${v.id}`}><ScoreBadge score={scores.get(v.id)?.score ?? null} grade={scores.get(v.id)?.grade ?? null} /></Link></td>
+                  <td className="td text-sm" title={scores.get(v.id)?.markets.join(', ')}>{scores.get(v.id)?.markets.length ? scores.get(v.id)!.markets.slice(0, 6).map(flag).join(' ') + (scores.get(v.id)!.markets.length > 6 ? ` +${scores.get(v.id)!.markets.length - 6}` : '') : <span className="text-muted">–</span>}</td>
+                  <td className="td text-right tabular-nums">{scores.get(v.id)?.committed ?? 0}</td>
                   <td className="td text-xs text-muted">{v.redirectAllowedDomains.join(', ') || '–'}</td>
                   <td className="td max-w-[320px] truncate font-mono text-xs text-muted" title={v.callbackUrlTemplate ?? ''}>{v.callbackUrlTemplate ?? '–'}</td>
                   <td className="td text-right tabular-nums">{v._count.allocations}</td>

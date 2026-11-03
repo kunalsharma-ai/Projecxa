@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ProjectsService } from '../projects/projects.service';
 import { ReportsService } from '../reports/reports.service';
 import { TasksService } from '../tasks/tasks.service';
+import { emptyStats, scoreVendor, VendorScoringService } from '../vendors/vendor-scoring';
 import { JsonSchema, ToolSpec } from './provider';
 
 /**
@@ -26,6 +27,7 @@ export interface ToolContext {
   finance: FinanceService;
   payables: PayablesService;
   tasks: TasksService;
+  vendorScoring: VendorScoringService;
   now: Date;
 }
 
@@ -460,6 +462,33 @@ export const TOOLS: Tool[] = [
       const p = s(a.project) ? await findProject(ctx, s(a.project)!) : null;
       const r = await ctx.reallocation.suggestions(ctx.u.organizationId, p?.id, ctx.now);
       return { data: r.map((m) => ({ project: `${m.project.projectCode} ${m.project.name}`, market: m.country.countryCode, moves: m.moves.map((x) => ({ from: x.fromName, to: x.toName, completes: x.completes, why: x.reasonLabel, because: x.because, cpiChange: x.cpiDelta })), stillAtRisk: m.uncovered })) };
+    },
+  },
+  {
+    kind: 'read',
+    roles: STAFF,
+    spec: {
+      name: 'vendor_scores',
+      description: 'Vendor scorecards (0-100, grade A-D) from delivery history: quality rejects, client rejections, delivery against target, incidence and drop-outs, with the reasons. Optionally for one market. Use to compare or pick vendors.',
+      parameters: obj({ countryCode: str('ISO country code, e.g. DE, to score vendors in that market only'), days: { type: 'number', description: 'Look-back in days (default 180)' } }),
+    },
+    async run(ctx, a) {
+      const days = Math.min(730, Math.max(7, Number(a.days) || 180));
+      const cc = s(a.countryCode)?.toUpperCase();
+      const { vendors, markets } = await ctx.vendorScoring.stats(ctx.u.organizationId, days);
+      const list = await ctx.prisma.vendor.findMany({ where: { organizationId: ctx.u.organizationId, status: 'ACTIVE' }, select: { id: true, name: true, code: true } });
+      const rows = list
+        .map((v) => {
+          const st = (cc ? markets.get(`${v.id}|${cc}`) : vendors.get(v.id)) ?? emptyStats();
+          const sc = scoreVendor(st);
+          return { vendor: `${v.name} (${v.code})`, score: sc.score, grade: sc.grade, clicks: st.clicks, completes: st.completes, notes: sc.notes };
+        })
+        .filter((r) => r.clicks > 0)
+        .sort((x, y) => (y.score ?? -1) - (x.score ?? -1));
+      return {
+        data: { days, market: cc ?? 'all', vendors: rows },
+        display: [{ type: 'table', title: `Vendor scores${cc ? ` in ${cc}` : ''}, last ${days} days`, columns: [{ key: 'vendor', label: 'Vendor' }, { key: 'grade', label: 'Grade' }, { key: 'score', label: 'Score', align: 'right' }, { key: 'completes', label: 'Completes', align: 'right' }, { key: 'note', label: 'Main point' }], rows: rows.map((r) => ({ vendor: r.vendor, grade: r.grade ?? '–', score: r.score, completes: r.completes, note: r.notes[0] })) }],
+      };
     },
   },
   {
