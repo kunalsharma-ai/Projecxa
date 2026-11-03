@@ -56,13 +56,13 @@ PROJEXA milestone 1 is a fresh codebase. Each item below says how milestone 1 tr
 
 ## Reports (`/member/report/*`)
 
-| Report | Visible content | Milestone 1 |
+| Report | Visible content | Status in PROJEXA |
 |---|---|---|
-| Overall | Client, vendor, project and financial metrics | Not yet. Data model supports it (sessions carry revenue, payout, status, country, vendor). |
-| Conversion | UID, VID, status, revenue, payout, LOI, approval | Partly: the project "Respondents" tab lists UID, vendor, status, revenue, payout, approval. LOI per respondent is not captured yet. |
-| Client | Revenue, payout, profit, clicks, conversion per client | Not yet |
-| Vendor | Vendor economics, clicks, conversion, profit | Per-vendor completes/terminates/quota full per country on the project page |
-| Clicks | Respondent-level events and response status | Respondent events are stored (`RespondentEvent`); no report screen yet |
+| Overall | Client, vendor, project and financial metrics | Milestone 3: Reports › Overall (totals, outcome mix, daily completes, top clients/vendors/projects). |
+| Conversion | UID, VID, status, revenue, payout, LOI, approval | Milestone 3: Reports › Conversion, respondent level with LOI (entry to complete), paging and CSV. |
+| Client | Revenue, payout, profit, clicks, conversion per client | Milestone 3: Reports › Clients (or by market). |
+| Vendor | Vendor economics, clicks, conversion, profit | Milestone 3: Reports › Vendors, optionally split by market. |
+| Clicks | Respondent-level events and response status | Milestone 3: Reports › Clicks, the respondent event log. |
 
 ## Not visible in the screenshots
 

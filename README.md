@@ -20,6 +20,17 @@ This is **milestone 1**: the foundation, multi-country project setup, and the su
 - **Portal access** (staff): create client and vendor logins, deactivate them instantly.
 - Portal users cannot reach any staff endpoint, and each portal only returns its own company's data (covered by e2e tests).
 
+## Milestone 3: fieldwork reports
+
+The five reports of the current Fieldwork platform, at `/reports`, with one filter bar (date range in UTC days, client, project, vendor, market):
+
+- **Overall**: clicks, completes (pending and rejected), conversion, median LOI, revenue, payout and profit per currency, completes per day, outcome mix, top clients, vendors and projects.
+- **Conversion**: one row per respondent with UID, project, client, market, vendor, status, approval, S2S check, LOI, revenue and payout; status filter, paging, CSV export (up to 50,000 rows).
+- **Clients** and **Vendors**: the same metrics grouped by client (or market) and by vendor (optionally split by market), with totals and CSV.
+- **Clicks**: the respondent event log (entries, outcomes, repeat entries, repeated or conflicting outcomes), with CSV.
+
+Test traffic never counts. Revenue and payout leave out rejected completes. Money stays in each market's currency until FX conversion exists. The demo seed now adds three weeks of synthetic traffic so the reports have data.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).
