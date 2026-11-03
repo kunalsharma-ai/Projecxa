@@ -5,7 +5,7 @@ import { Role } from '@prisma/client';
 import { Request } from 'express';
 import { config } from '../common/config';
 import { PrismaService } from '../prisma/prisma.service';
-import { IS_PUBLIC, ROLES, STAFF } from './decorators';
+import { ALLOW_WITHOUT_MFA, IS_PUBLIC, ROLES, STAFF } from './decorators';
 import { AuthUser } from './auth.types';
 
 @Injectable()
@@ -24,14 +24,16 @@ export class AuthGuard implements CanActivate {
     const token = this.extractToken(req);
     if (!token) throw new UnauthorizedException('Not signed in');
 
-    let payload: { sub: string };
+    let payload: { sub: string; purpose?: string };
     try {
       payload = await this.jwt.verifyAsync(token, { secret: config.jwtSecret });
     } catch {
       throw new UnauthorizedException('Session expired, sign in again');
     }
+    // Only full sessions; the short-lived token between password and code is not one.
+    if (payload.purpose) throw new UnauthorizedException('Finish signing in first');
     // Re-load the user so deactivation and role changes apply immediately.
-    const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
+    const user = await this.prisma.user.findUnique({ where: { id: payload.sub }, include: { organization: { select: { mfaRequired: true } } } });
     if (!user || !user.active) throw new UnauthorizedException('Account is not active');
     req.user = { id: user.id, organizationId: user.organizationId, role: user.role, email: user.email, name: user.name };
 
@@ -39,6 +41,10 @@ export class AuthGuard implements CanActivate {
     const roles = this.reflector.getAllAndOverride<Role[]>(ROLES, targets) ?? STAFF;
     if (user.role !== 'ADMIN' && !roles.includes(user.role)) {
       throw new ForbiddenException('Your role cannot do this');
+    }
+    // Organization requires two-step sign-in: staff without it can only reach the setup routes.
+    if (user.organization.mfaRequired && !user.mfaEnabledAt && STAFF.includes(user.role) && !this.reflector.getAllAndOverride<boolean>(ALLOW_WITHOUT_MFA, targets)) {
+      throw new ForbiddenException({ statusCode: 403, code: 'MFA_SETUP_REQUIRED', message: 'Your organization requires two-step sign-in. Set it up to continue.' });
     }
     return true;
   }

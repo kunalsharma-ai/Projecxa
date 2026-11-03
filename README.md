@@ -104,6 +104,13 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - **Event webhooks**: `session.completed`, `project.status_changed`, `alert.opened`, `invoice.status_changed`, `bill.status_changed`, signed with HMAC-SHA256, retried with backoff, with a delivery log, test ping, secret rotation and "send again".
 - Details: `docs/PUBLIC_API.md`.
 
+## Milestone 13: two-step sign-in (MFA)
+
+- **Account security** (account menu, and a shield button in the portals): turn on two-step sign-in with any free authenticator app (Google Authenticator, Microsoft Authenticator, Authy, 1Password) by scanning a QR code. Ten one-time recovery codes, downloadable, can be regenerated.
+- **Sign-in** asks for the 6-digit code after the password, or a recovery code. Codes work once; ten wrong codes lock the second step for 15 minutes.
+- **Admins** (Settings → Sign-in security) can require it for all staff (portal users stay optional), see who has it on, and reset it for someone who lost their phone. Staff without it can only reach the setup page until they turn it on.
+- Secrets are encrypted at rest (`MFA_ENCRYPTION_KEY`). Details: `docs/MFA.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).

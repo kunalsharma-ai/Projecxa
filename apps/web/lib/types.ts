@@ -35,7 +35,9 @@ export interface Me {
   client?: { id: string; name: string } | null;
   vendor?: { id: string; name: string } | null;
   preferences?: Partial<import('./theme').Preferences>;
+  mfa?: MfaStatus;
 }
+export interface MfaStatus { enabled: boolean; enabledAt: string | null; recoveryCodesLeft: number; required: boolean; setupRequired: boolean }
 
 export const isPortalRole = (role: string) => role === 'CLIENT_USER' || role === 'VENDOR_USER';
 export const portalHome = (role: string) => (role === 'CLIENT_USER' ? '/portal/client' : role === 'VENDOR_USER' ? '/portal/vendor' : '/');

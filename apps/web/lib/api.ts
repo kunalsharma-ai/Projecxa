@@ -30,6 +30,10 @@ export async function api<T = unknown>(path: string, init: RequestInit & { json?
     if (res.status === 401 && typeof window !== 'undefined' && !path.startsWith('/auth/')) {
       window.location.href = '/login';
     }
+    // The organization requires two-step sign-in and this person has not set it up yet.
+    if (res.status === 403 && data?.code === 'MFA_SETUP_REQUIRED' && typeof window !== 'undefined' && window.location.pathname !== '/account/security') {
+      window.location.href = '/account/security';
+    }
     const msg = data?.message && typeof data.message === 'object' ? data.message.message : data?.message;
     const issues = (data?.issues ?? data?.message?.issues ?? []).map(issueText);
     throw new ApiError(res.status, msg ?? `Request failed (${res.status})`, issues);
