@@ -1,4 +1,5 @@
 import { PROVIDERS } from './captcha';
+import { brandHtml, designCss, gateBackgroundCss } from './page-design';
 import { Question } from './questions';
 import type { GateView } from './survey.service';
 
@@ -89,7 +90,7 @@ export function renderGatePage(view: GateView, nonce: string): string {
   if (view.gateQuestions.length) steps.push({ id: 'gate', title: 'About you', intro: 'A few questions before the survey starts.', html: view.gateQuestions.map((q, i) => renderQuestion('gate', q, i)).join('') });
   if (view.prescreen.length) steps.push({ id: 'prescreen', title: 'A few more questions', intro: 'These help us check the survey is right for you.', html: view.prescreen.map((q, i) => renderQuestion('prescreen', q, i)).join('') });
 
-  const cfg = JSON.stringify({ captcha: view.captcha, collect: view.collect, steps: steps.map((s) => s.id), human: view.human ? { kind: view.human.kind, style: view.human.style } : null }).replace(/</g, '\\u003c');
+  const cfg = JSON.stringify({ preview: !!view.preview, captcha: view.captcha, collect: view.collect, steps: steps.map((s) => s.id), human: view.human ? { kind: view.human.kind, style: view.human.style } : null }).replace(/</g, '\\u003c');
   const total = steps.length;
   const stepHtml = steps
     .map(
@@ -101,24 +102,26 @@ export function renderGatePage(view: GateView, nonce: string): string {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex"><title>Survey</title>
 <style nonce="${nonce}">
-:root{color-scheme:light dark;--bg:#f5f7fb;--card:#fff;--ink:#111827;--muted:#6b7280;--line:#e5e7eb;--brand:#2563eb;--brand-ink:#fff;--bad:#dc2626}
-@media (prefers-color-scheme:dark){:root{--bg:#0b1020;--card:#121a2f;--ink:#e5e7eb;--muted:#9ca3af;--line:#243049;--brand:#60a5fa;--brand-ink:#0b1020;--bad:#f87171}}
-*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px}
-main{width:100%;max-width:36rem;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px}
+${designCss(view.design)}
+${gateBackgroundCss(view.design, view.base)}
+body{display:grid;place-items:center;padding:16px}
+.shell{width:100%;max-width:36rem}.shell>.brand{margin:4px 4px 14px;color:var(--page-ink)}${view.design.template === 'spotlight' || view.design.template === 'bold' ? '.shell>.brand{color:#fff}' : ''}
+main{width:100%;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:24px;box-shadow:0 20px 60px -30px #0003}
 h1{font-size:1.25rem;margin:0 0 4px}.intro{margin:0 0 20px;color:var(--muted)}.prog{margin:0 0 6px;font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 fieldset{border:0;margin:0 0 22px;padding:0;min-width:0}legend{font-weight:600;margin-bottom:8px;padding:0}.qn{color:var(--muted);font-weight:500}.opt-tag,.help{color:var(--muted);font-weight:400;font-size:.875rem}.help{margin:-4px 0 8px}
-.opt{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer}
+.opt{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:min(var(--ctl),12px);padding:10px 12px;margin-bottom:8px;cursor:pointer}
 .opt:has(input:checked),.pill:has(input:checked){border-color:var(--brand);box-shadow:0 0 0 1px var(--brand)}input[type=radio],input[type=checkbox]{accent-color:var(--brand);width:18px;height:18px;flex:none}
-input[type=text],input[type=number],input[type=email],select{width:100%;font:inherit;color:inherit;background:transparent;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+input[type=text],input[type=number],input[type=email],select{width:100%;font:inherit;color:inherit;background:transparent;border:1px solid var(--line);border-radius:min(var(--ctl),12px);padding:10px 12px}
 input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 .grow{border-top:1px solid var(--line);padding:10px 0}.glabel{font-size:.95rem;margin-bottom:6px}.gopts{display:flex;flex-wrap:wrap;gap:6px}
+.foot{font-size:.8rem;color:var(--page-ink);opacity:.75;text-align:center;margin:16px 0 0}
 .pill{display:flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:999px;padding:6px 10px;font-size:.875rem;cursor:pointer}
-button{width:100%;border:0;border-radius:10px;padding:12px 16px;font:inherit;font-weight:600;background:var(--brand);color:var(--brand-ink);cursor:pointer}
+button{width:100%;border:0;border-radius:var(--ctl);padding:12px 16px;font:inherit;font-weight:600;background:var(--brand);color:var(--brand-ink);cursor:pointer}
 button:disabled{opacity:.6;cursor:progress}.spin{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--brand);border-radius:50%;animation:s 1s linear infinite;margin:8px auto 16px}
 @keyframes s{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){.spin{animation:none}}
 .cimg{display:block;width:100%;max-width:330px;height:auto;border:1px solid var(--line);border-radius:10px;margin-bottom:10px;background:#f8fafc}
 .qerr,.err{color:var(--bad);font-size:.875rem;margin:6px 0 0}.q.bad legend{color:var(--bad)}[hidden]{display:none!important}
-</style></head><body><main>
+</style></head><body><div class="shell">${brandHtml(view.design, view.base)}<main>
 <noscript><h1>Please turn on JavaScript</h1><p class="intro">This survey needs JavaScript to start.</p></noscript>
 <form id="f" hidden novalidate>
 ${stepHtml}
@@ -144,7 +147,7 @@ var work=(async function(){var out={};
  if(cfg.collect.fingerprint)out.fingerprint=hex(await sha(JSON.stringify([navigator.userAgent,navigator.languages,navigator.platform,navigator.hardwareConcurrency,navigator.deviceMemory,screen.width,screen.height,screen.colorDepth,window.devicePixelRatio,tz,canvas(),gl()])));
  if(cfg.captcha)out.nonce=await solve(cfg.captcha);
  return out})();
-function post(path,body){return fetch(location.pathname+path,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify(body)}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()})}
+function post(path,body){if(cfg.preview)return new Promise(function(){});return fetch(location.pathname+path,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify(body)}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()})}
 function fail(){err.textContent='Something went wrong. Please check your connection and try again.';err.hidden=false}
 function show(id){Array.prototype.forEach.call(f.querySelectorAll('.step'),function(s){s.hidden=s.getAttribute('data-step')!==id});window.scrollTo(0,0);var first=f.querySelector('.step[data-step="'+id+'"] input,.step[data-step="'+id+'"] select');if(first&&id!=='wait')first.focus({preventScroll:true})}
 // "None of these" clears other choices, and choosing another clears it.
@@ -189,5 +192,5 @@ Array.prototype.forEach.call(f.querySelectorAll('.next'),function(b){b.addEventL
 f.addEventListener('submit',function(e){e.preventDefault();next()});
 if(!cfg.steps.length)submit();else show(cfg.steps[0]);
 })();
-</script></main></body></html>`;
+</script></main>${view.design.footer ? `<p class="foot">${esc(view.design.footer)}</p>` : ''}</div></body></html>`;
 }

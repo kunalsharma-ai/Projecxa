@@ -57,6 +57,15 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - **Answers** tab on each project and an **Answers** report: per-question counts, filter by any answer, status and market, and CSV export.
 - Details: `docs/RESPONDENT_SECURITY.md`.
 
+## Milestone 7: designed respondent pages
+
+- **Respondent pages tab** on each project: pick one of six templates (Aurora, Minimal, Split, Spotlight, Bold, Playful), a colour palette or your own colours (with a readability warning), font, corner style, brand name, logo, hero picture and footer.
+- **Words per page**: own heading, message and an optional https button for complete, terminate, quota full, quality fail, duplicate, security reject, partial and technical error. Blank fields fall back to friendly defaults.
+- **Live preview** of every page and the gate page, at desktop and phone width, before saving.
+- **Confetti** on complete (skipped when the respondent turns off motion), and an optional **countdown page** shown before a vendor's own return link.
+- The gate page uses the same design. Pages are server-rendered with a strict nonce CSP, no outside fonts or scripts; images are checked by their bytes and served from `/pa/:id`.
+- Details: `docs/RESPONDENT_PAGES.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).

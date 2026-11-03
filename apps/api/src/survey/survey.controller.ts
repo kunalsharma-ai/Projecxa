@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Header, Module, Param, Post, Query, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, Module, Param, Post, Query, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { randomBytes } from 'crypto';
@@ -6,6 +6,8 @@ import { Public } from '../auth/decorators';
 import { config as appConfig } from '../common/config';
 import { PROVIDERS } from './captcha';
 import { renderGatePage } from './gate-page';
+import { PageDesignController } from './page-design.controller';
+import { renderEndPage } from './page-design';
 import { ZodPipe } from '../common/zod.pipe';
 import { SurveyService } from './survey.service';
 import { AnswersController } from './answers.controller';
@@ -21,17 +23,6 @@ const s2sSchema = z.object({
 
 const GATE_COOKIE = 'pxg';
 const BROWSER_COOKIE = 'pxb';
-
-const END_MESSAGES: Record<string, string> = {
-  complete: 'Thank you for completing the survey.',
-  terminate: 'Thank you for your time. You did not qualify for this survey.',
-  quota_full: 'Thank you for your interest. This survey is now full.',
-  quality_fail: 'Thank you for your time.',
-  duplicate: 'It looks like you have already taken part in this survey.',
-  security_reject: 'This survey link is not valid.',
-  partial: 'Thank you for your time.',
-  technical_error: 'Sorry, something went wrong. Please try again later.',
-};
 
 /** Public respondent-facing endpoints (no login). Mounted outside the /api/v1 prefix. */
 @Controller()
@@ -102,13 +93,17 @@ export class SurveyPublicController {
   }
 
   @Get('end/:status')
-  @Header('Content-Type', 'text/html; charset=utf-8')
-  @Header('Cache-Control', 'no-store')
-  end(@Param('status') status: string) {
-    const msg = END_MESSAGES[status] ?? 'Thank you for your time.';
-    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Survey</title>
-<style>body{font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;background:#f5f7fb;color:#1f2937}main{max-width:28rem;padding:2rem;text-align:center}</style>
-</head><body><main><h1 style="font-size:1.25rem">${msg}</h1><p style="color:#6b7280">You can close this window.</p></main></body></html>`;
+  async end(@Param('status') status: string, @Query('t') t: string | undefined, @Res() res: Response) {
+    const v = await this.survey.endView(String(status).slice(0, 40), typeof t === 'string' ? t : undefined);
+    const nonce = randomBytes(12).toString('base64');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader(
+      'Content-Security-Policy',
+      `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`,
+    );
+    res.status(200).send(renderEndPage(v.design, v.status, { base: appConfig.publicBaseUrl, nonce, continueUrl: v.continueUrl, seconds: v.seconds }));
   }
 }
 
@@ -125,5 +120,5 @@ export class SurveyS2SController {
   }
 }
 
-@Module({ controllers: [SurveyPublicController, SurveyS2SController, SecurityController, AnswersController], providers: [SurveyService, TorService], exports: [SurveyService, TorService] })
+@Module({ controllers: [SurveyPublicController, SurveyS2SController, SecurityController, AnswersController, PageDesignController], providers: [SurveyService, TorService], exports: [SurveyService, TorService] })
 export class SurveyModule {}
