@@ -40,6 +40,14 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - **Command center** dashboard with a 14-day completes trend and quota achievement.
 - Shortcuts: `Ctrl/⌘ K` or `/` search, `[` sidebar, `]` insights.
 
+## Milestone 5: won bids from Bidzo
+
+- When a bid is won in Bidzo, it shows up automatically in **Won bids** (`/won-bids`), with a count badge in the sidebar and an item in the insights panel.
+- **Set up project** opens the new-project wizard prefilled from the bid: name, description, bid number, category, client (or one click to add the client), and one market per bid country with LOI, IR, CPI, currency and sample size as target. Each won bid becomes at most one project.
+- Bids that will not run can be dismissed with a reason and restored later.
+- Admins connect Bidzo under **Settings → Bidzo connection** (endpoint, tenant and a signing secret shown once). The webhook contract for the Bidzo side is in `docs/BIDZO_INTEGRATION.md`.
+- The demo seed adds three synthetic won bids.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).

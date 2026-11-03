@@ -56,3 +56,12 @@ export const SECURITY_LABELS: Record<string, string> = {
 };
 
 export const CATEGORIES = ['B2B', 'B2C', 'B2C-B2B', 'Consumer', 'Healthcare-Professional', 'Healthcare-Consumer', 'Teens-And-Parents'];
+
+/** A bid won in Bidzo, waiting to become (or linked to) a project. */
+export interface BidLine { countryCode: string; sampleSize: number; loiMinutes: number; incidencePct: number; cpi?: number; language?: string; notes?: string }
+export interface WonBid {
+  id: string; bidNumber: string; bidVersion: number | null; projectName: string; description: string | null; projectType: string | null; projectCategory: string | null;
+  clientName: string; contactName: string | null; contactEmail: string | null; bidderName: string | null; currency: string; totalAmount: string | null;
+  countries: BidLine[]; wonAt: string; status: 'NEW' | 'PROJECT_CREATED' | 'DISMISSED'; dismissReason: string | null; deliveries: number; receivedAt: string;
+  project: { id: string; projectCode: string; status: string } | null;
+}

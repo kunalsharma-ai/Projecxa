@@ -28,6 +28,8 @@ model Organization {
   workOrderSeq Int @default(9000)
   projectCodePrefix   String @default("PRX")
   workOrderPrefix     String @default("WO")
+  /// Shared secret Bidzo signs "bid won" webhooks with (HMAC-SHA256). Null = intake disabled.
+  bidzoWebhookSecret  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -38,6 +40,7 @@ model Organization {
   sessions    RespondentSession[]
   auditEvents AuditEvent[]
   callbacks   CallbackDelivery[]
+  wonBids     WonBid[]
 }
 
 enum Role {
@@ -194,6 +197,7 @@ model Project {
   countries        ProjectCountry[]
   redirectVersions RedirectPolicyVersion[] @relation("ProjectRedirectVersions")
   sessions         RespondentSession[]
+  wonBid           WonBid?
 
   @@unique([organizationId, projectCode])
   @@index([organizationId, status])
@@ -470,4 +474,50 @@ model AuditEvent {
   createdAt      DateTime @default(now())
 
   @@index([organizationId, entityType, entityId])
+}
+
+enum WonBidStatus {
+  /// Waiting for a PM to set up the project.
+  NEW
+  PROJECT_CREATED
+  DISMISSED
+}
+
+/// A bid won in Bidzo, received by webhook. One row per Bidzo bid; a project is created from it at most once.
+model WonBid {
+  id             String  @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  source         String  @default("BIDZO")
+  /// Bidzo's bid id; with source and organization it makes repeated deliveries idempotent.
+  externalId     String
+  bidNumber      String
+  bidVersion     Int?
+  projectName    String
+  description    String?
+  projectType    String?
+  projectCategory String?
+  clientName     String
+  clientExternalId String?
+  contactName    String?
+  contactEmail   String?
+  bidderName     String?
+  currency       String
+  totalAmount    Decimal? @db.Decimal(18, 4)
+  /// [{ countryCode, sampleSize, loiMinutes, incidencePct, cpi, notes }]
+  countries      Json
+  wonAt          DateTime
+  status         WonBidStatus @default(NEW)
+  dismissReason  String?
+  projectId      String? @unique
+  project        Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  /// Last delivery's event id and full payload, kept for support.
+  lastEventId    String?
+  payload        Json
+  deliveries     Int     @default(1)
+  receivedAt     DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([organizationId, source, externalId])
+  @@index([organizationId, status])
 }

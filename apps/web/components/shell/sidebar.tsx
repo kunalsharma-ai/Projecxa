@@ -8,7 +8,7 @@ import { useTheme } from '@/components/theme';
 import { isActive, NAV, type NavItem } from './nav';
 
 /** Collapsible navigation with favorites and recent projects. Compact mode shows icons with labels on hover/focus. */
-export function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose: () => void }) {
+export function Sidebar({ mobileOpen, onClose, badges = {} }: { mobileOpen: boolean; onClose: () => void; badges?: Record<string, number> }) {
   const { prefs, update } = useTheme();
   const me = useMe();
   const pathname = usePathname();
@@ -36,6 +36,14 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose:
           {active && <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-sidebar-active anim-pop" aria-hidden />}
           <n.icon className={clsx('h-[18px] w-[18px] shrink-0 transition-transform duration-[var(--dur)] group-hover/item:scale-110', active && 'text-sidebar-active')} aria-hidden />
           <span className={clsx('truncate', compact && 'lg:sr-only')}>{n.label}</span>
+          {!!badges[n.href] && (
+            <span
+              className={clsx('ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-sidebar-active px-1.5 text-[11px] font-semibold text-sidebar', compact && 'lg:absolute lg:right-1 lg:top-0.5 lg:ml-0 lg:h-4 lg:min-w-4 lg:text-[10px]', !compact && 'mr-6')}
+              aria-label={`${badges[n.href]} new`}
+            >
+              {badges[n.href] > 99 ? '99+' : badges[n.href]}
+            </span>
+          )}
         </Link>
         {!compact && (
           <button

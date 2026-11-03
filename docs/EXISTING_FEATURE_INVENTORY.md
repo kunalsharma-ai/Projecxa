@@ -24,7 +24,7 @@ PROJEXA milestone 1 is a fresh codebase. Each item below says how milestone 1 tr
 
 | Visible feature | Milestone 1 |
 |---|---|
-| List of won bids with "create project" and "open project" | Not rebuilt. PROJEXA stores `bidReference` on the project; the Bidzo "bid won" event that should create a draft project is planned in Phase 3/4 (see integration plan). |
+| List of won bids with "create project" and "open project" | **Rebuilt in milestone 5** at `/won-bids`. Bids won in Bidzo arrive automatically through a signed `bid.won` webhook (see `docs/BIDZO_INTEGRATION.md`). Tabs for waiting, created and dismissed; "Set up project" opens the wizard prefilled from the bid; "Open project" once created. |
 
 ## Create project (`/member/project/create`)
 

@@ -9,7 +9,7 @@ import { PrismaService } from '../../src/prisma/prisma.service';
 
 export async function createApp() {
   const mod = await Test.createTestingModule({ imports: [AppModule] }).compile();
-  const app = configureApp(mod.createNestApplication());
+  const app = configureApp(mod.createNestApplication({ rawBody: true }));
   await app.init();
   return { app, prisma: app.get(PrismaService) as PrismaClient, mod };
 }

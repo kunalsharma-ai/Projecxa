@@ -162,11 +162,13 @@ async function main() {
   await prisma.project.update({ where: { id: project.id }, data: { activeRedirectVersionId: v1.id } });
 
   await seedHistory(project.id, org.id, v1.id);
+  await seedWonBids(org.id);
 
   console.log(`Seeded organization "demo".
   Sign in: admin@projexa.local or pm@projexa.local, password: ${ADMIN_PASSWORD}
   Portals: client@projexa.local (Acme Insights), vendor@projexa.local (Panel Alpha), same password
-  Demo project: ${project.projectCode} (US, GB, DE × Panel Alpha, Sample Beta)`);
+  Demo project: ${project.projectCode} (US, GB, DE × Panel Alpha, Sample Beta)
+  Won bids: 3 synthetic Bidzo bids waiting for setup at /won-bids`);
 }
 
 /**
@@ -224,3 +226,28 @@ main()
     process.exit(1);
   })
   .finally(() => prisma.$disconnect());
+
+/** Synthetic bids as if Bidzo had sent `bid.won`, so the Won bids list has something to set up. */
+async function seedWonBids(organizationId: string) {
+  const day = 86_400_000;
+  const bids = [
+    { n: 'BID-2026-0412', name: 'Retail shopper journey tracker', client: 'Acme Insights', type: 'Tracker', cat: 'B2C', cur: 'USD', total: 18_450, ago: 1,
+      countries: [{ countryCode: 'US', sampleSize: 800, loiMinutes: 15, incidencePct: 45, cpi: 3.75 }, { countryCode: 'CA', sampleSize: 300, loiMinutes: 15, incidencePct: 40, cpi: 4.1 }] },
+    { n: 'BID-2026-0419', name: 'IT decision maker cloud study', client: 'Northwind Research', type: 'Ad hoc', cat: 'B2B', cur: 'EUR', total: 22_100, ago: 2,
+      countries: [{ countryCode: 'DE', sampleSize: 150, loiMinutes: 20, incidencePct: 8, cpi: 48 }, { countryCode: 'FR', sampleSize: 120, loiMinutes: 20, incidencePct: 7.5, cpi: 52 }] },
+    { n: 'BID-2026-0423', name: 'Pet food concept test', client: 'Harbor Analytics', type: 'Concept test', cat: 'B2C', cur: 'GBP', total: 6_900, ago: 0,
+      countries: [{ countryCode: 'GB', sampleSize: 600, loiMinutes: 12, incidencePct: 35, cpi: 2.9, language: 'en' }] },
+  ];
+  for (const b of bids) {
+    const wonAt = new Date(Date.now() - b.ago * day);
+    const payload = { event: 'bid.won', eventId: `seed-${b.n}`, occurredAt: wonAt.toISOString(), bid: { id: `seed-${b.n}`, bidNumber: b.n, projectName: b.name, currency: b.cur, totalAmount: b.total, client: { name: b.client }, countries: b.countries } };
+    await prisma.wonBid.create({
+      data: {
+        organizationId, externalId: `seed-${b.n}`, bidNumber: b.n, bidVersion: 1, projectName: b.name,
+        description: `${b.name} (synthetic demo bid).`, projectType: b.type, projectCategory: b.cat,
+        clientName: b.client, contactName: 'Jordan Buyer', contactEmail: 'jordan@example.com', bidderName: 'Sam Sales',
+        currency: b.cur, totalAmount: b.total, countries: b.countries, wonAt, lastEventId: `seed-${b.n}`, payload,
+      },
+    });
+  }
+}

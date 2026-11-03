@@ -74,7 +74,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <MeContext.Provider value={me}>
       <a href="#main" className="sr-only z-50 rounded bg-panel px-3 py-2 focus:not-sr-only focus:fixed focus:left-3 focus:top-3">Skip to content</a>
       <div className="flex min-h-screen">
-        <Sidebar mobileOpen={mobileNav} onClose={() => setMobileNav(false)} />
+        <Sidebar mobileOpen={mobileNav} onClose={() => setMobileNav(false)} badges={{ '/won-bids': insights?.wonBidsNew ?? 0 }} />
         {mobileNav && <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setMobileNav(false)} aria-hidden />}
 
         <div className="flex min-w-0 flex-1 flex-col">

@@ -13,7 +13,7 @@ Classification follows the spec: **EXISTING** (done in this repo and tested), **
 | 1 | Project templates, version history of project settings, draft saving | PARTIAL | Projects start as Draft; settings changes are in the audit log, no template library yet |
 | 1 | Quota cells, nested/interlocking quotas | PARTIAL | Country and vendor targets are enforced atomically; quota cells can be stored but are not enforced at entry |
 | 1 | AI-assisted and API-driven project creation | MISSING | Phase 2/6 |
-| 2 RFQ & feasibility | RFQ extraction, feasibility | MISSING / EXTERNAL_DEPENDENCY | RFQs belong to Bidzo; PROJEXA should consume a "bid won" event |
+| 2 RFQ & feasibility | RFQ extraction, feasibility | PARTIAL / EXTERNAL_DEPENDENCY | RFQs and feasibility stay in Bidzo. PROJEXA consumes the signed `bid.won` event into Won bids and prefills the project (milestone 5); Bidzo still has to send it |
 | 3 Vendors | Vendor records, per-country allocation with CPI and target, pause/resume | EXISTING | |
 | 3 | Vendor scoring, capacity, AI matching | MISSING | Needs delivery history first |
 | 4 Fieldwork autopilot | Monitoring, pacing, alerts | MISSING | Phase 5 |
