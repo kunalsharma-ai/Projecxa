@@ -13,6 +13,13 @@ This is **milestone 1**: the foundation, multi-country project setup, and the su
 - **Redirects**: static, dynamic and hybrid (default) modes; all 8 statuses; UID / vendor ID / country code parameters with per-vendor names; project, country, vendor and vendor+country overrides; client template and organization default; domain allowlist; versioning with approve/activate and rollback; QA studio and effective-routing view.
 - **Callbacks**: outbox with retries, backoff with jitter, dead letter and replay; HMAC-signed requests.
 
+## Milestone 2: client and vendor portals
+
+- **Vendor portal** (`/portal/vendor`): the vendor's own projects with entry and test links, CPI, LOI, IR and progress; respondents with status, approval and payout (CSV); callback delivery log; payout totals by approval state.
+- **Client portal** (`/portal/client`): the client's own live, test, on-hold and closed projects; progress by market; spend; review completes by the respondent ID their survey received, download CSV, approve or reject.
+- **Portal access** (staff): create client and vendor logins, deactivate them instantly.
+- Portal users cannot reach any staff endpoint, and each portal only returns its own company's data (covered by e2e tests).
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).
@@ -27,7 +34,7 @@ pnpm db:seed                         # synthetic demo data
 pnpm dev                             # API on :4000, web on :3000
 ```
 
-Sign in at http://localhost:3000 with `pm@projexa.local` or `admin@projexa.local`, password `projexa-demo-2026` (set `SEED_ADMIN_PASSWORD` to change it). The demo project has US, GB and DE with two vendors and a hybrid redirect setup that points at local mock survey and vendor pages, so you can open a test link from the QA studio and click through a full respondent journey.
+Sign in at http://localhost:3000 with `pm@projexa.local` or `admin@projexa.local`, password `projexa-demo-2026` (set `SEED_ADMIN_PASSWORD` to change it). Portal demo logins: `client@projexa.local` (Acme Insights) and `vendor@projexa.local` (Panel Alpha), same password. The demo project has US, GB and DE with two vendors and a hybrid redirect setup that points at local mock survey and vendor pages, so you can open a test link from the QA studio and click through a full respondent journey.
 
 ## Tests
 

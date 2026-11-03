@@ -66,6 +66,14 @@ async function main() {
     data: { organizationId: org.id, name: 'Sample Beta', code: 'SBETA', callbackSecret: token(32), redirectAllowedDomains: ['sample-beta.example.com'] },
   });
 
+  // Portal logins (milestone 2)
+  await prisma.user.create({
+    data: { organizationId: org.id, email: 'client@projexa.local', name: 'Alex Client', passwordHash: hash, role: 'CLIENT_USER', clientId: acme.id },
+  });
+  await prisma.user.create({
+    data: { organizationId: org.id, email: 'vendor@projexa.local', name: 'Val Vendor', passwordHash: hash, role: 'VENDOR_USER', vendorId: alpha.id },
+  });
+
   const vendorEnd = (code: string) => `${WEB}/mock/vendor/${code}`;
   const config = {
     rules: [
@@ -155,6 +163,7 @@ async function main() {
 
   console.log(`Seeded organization "demo".
   Sign in: admin@projexa.local or pm@projexa.local, password: ${ADMIN_PASSWORD}
+  Portals: client@projexa.local (Acme Insights), vendor@projexa.local (Panel Alpha), same password
   Demo project: ${project.projectCode} (US, GB, DE × Panel Alpha, Sample Beta)`);
 }
 

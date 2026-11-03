@@ -33,7 +33,11 @@ Classification follows the spec: **EXISTING** (done in this repo and tested), **
 | 6 | Quota cells, reallocation suggestions | MISSING | |
 | 7 Quality | Duplicate detection (same UID; optional same device) | EXISTING | |
 | 7 | Gate survey, captcha, geolocation, fingerprinting, TOR, cookies, language, timezone | PARTIAL | Stored per project, not enforced yet |
-| 8 / 9 Portals | Client and vendor self-service portals | MISSING | Phase 3 |
+| 8 Client portal | Own projects (non-draft), progress by market, spend, approve/reject completes, CSV | EXISTING | Milestone 2. Never shows vendors, vendor UIDs or payouts |
+| 8 | RFQ submission, questionnaire upload, deliverables, tickets, invoices | MISSING | RFQs belong to Bidzo |
+| 9 Vendor portal | Own allocations, entry/test links, respondents, payouts by approval state, callback log, CSV | EXISTING | Milestone 2. Never shows client CPI, revenue or other vendors |
+| 9 | Self-registration, compliance documents, feasibility/CPI quotes, invoices, disputes | MISSING | |
+| 8 / 9 | Portal logins created by staff, deactivation takes effect immediately | EXISTING | Password reset by email and SSO missing |
 | 10 API hub | Public REST API with OpenAPI docs, API keys, webhooks | MISSING | Internal REST API exists |
 | 11 / 12 AI & voice | Copilot, agents, voice commands | MISSING | Phase 6 |
 | 13 Finance | Revenue/payout per complete, approve/reject completes | PARTIAL | Invoices, FX and reconciliation exports missing |

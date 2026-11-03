@@ -17,8 +17,8 @@ export default function LoginPage() {
     setBusy(true);
     setError(null);
     try {
-      await post('/auth/login', { email, password, ...(organization ? { organization } : {}) });
-      router.replace('/');
+      const r = await post<{ home?: string }>('/auth/login', { email, password, ...(organization ? { organization } : {}) });
+      router.replace(r.home ?? '/');
     } catch (err) {
       setError(err);
     } finally {

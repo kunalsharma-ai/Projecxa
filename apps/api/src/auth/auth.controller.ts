@@ -44,6 +44,7 @@ export class AuthController {
     return {
       token,
       user: { id: user.id, name: user.name, email: user.email, role: user.role },
+      home: user.role === 'CLIENT_USER' ? '/portal/client' : user.role === 'VENDOR_USER' ? '/portal/vendor' : '/',
       organization: { id: user.organization.id, name: user.organization.name, slug: user.organization.slug },
     };
   }
@@ -60,7 +61,11 @@ export class AuthController {
   @Roles('ADMIN', 'PROJECT_MANAGER', 'SALES', 'VIEWER', 'CLIENT_USER', 'VENDOR_USER')
   async me(@CurrentUser() user: AuthUser) {
     const org = await this.prisma.organization.findUniqueOrThrow({ where: { id: user.organizationId } });
-    return { user, organization: { id: org.id, name: org.name, slug: org.slug } };
+    const links = await this.prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+      select: { client: { select: { id: true, name: true } }, vendor: { select: { id: true, name: true } } },
+    });
+    return { user, organization: { id: org.id, name: org.name, slug: org.slug }, client: links.client, vendor: links.vendor };
   }
 }
 

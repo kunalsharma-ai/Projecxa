@@ -1,13 +1,13 @@
 'use client';
 import clsx from 'clsx';
-import { Building2, FolderKanban, LayoutDashboard, LogOut, Menu, PlusCircle, Settings, Truck, X } from 'lucide-react';
+import { Building2, FolderKanban, KeyRound, LayoutDashboard, LogOut, Menu, PlusCircle, Settings, Truck, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { MeContext } from '@/components/me';
 import { Loading } from '@/components/ui';
 import { get, post } from '@/lib/api';
-import type { Me } from '@/lib/types';
+import { isPortalRole, portalHome, type Me } from '@/lib/types';
 
 
 const NAV = [
@@ -16,6 +16,7 @@ const NAV = [
   { href: '/projects/new', label: 'Create project', icon: PlusCircle },
   { href: '/clients', label: 'Clients', icon: Building2 },
   { href: '/vendors', label: 'Vendors', icon: Truck },
+  { href: '/portal-access', label: 'Portal access', icon: KeyRound },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -26,7 +27,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    get<Me>('/auth/me').then(setMe).catch(() => router.replace('/login'));
+    get<Me>('/auth/me')
+      .then((m) => (isPortalRole(m.user.role) ? router.replace(portalHome(m.user.role)) : setMe(m)))
+      .catch(() => router.replace('/login'));
   }, [router]);
   useEffect(() => setOpen(false), [pathname]);
 

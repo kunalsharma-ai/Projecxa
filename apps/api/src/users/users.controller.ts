@@ -21,7 +21,7 @@ export class UsersController {
   @Get()
   list(@CurrentUser() u: AuthUser) {
     return this.prisma.user.findMany({
-      where: { organizationId: u.organizationId, active: true },
+      where: { organizationId: u.organizationId, active: true, role: { in: ['ADMIN', 'PROJECT_MANAGER', 'SALES', 'VIEWER'] } },
       select: { id: true, name: true, email: true, role: true },
       orderBy: { name: 'asc' },
     });
