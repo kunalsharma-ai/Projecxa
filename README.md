@@ -118,6 +118,13 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - Preview, send now, pause and resume, and a send history with errors. Admins can send themselves a test email.
 - Sent through **Zoho Mail** SMTP with settings from the server environment only. Details: `docs/SCHEDULED_REPORTS.md`.
 
+## Milestone 15: single sign-on with Google, Microsoft and Zoho
+
+- **Sign-in page**: "Continue with Google / Microsoft / Zoho" buttons, shown for each provider set up on the server.
+- **Admins** (Settings → Single sign-on): turn each provider on, list the email domains allowed, add the Microsoft tenant ID, and optionally make single sign-on the only way in for staff (admins and portal users keep their password). See and unlink linked accounts.
+- Only people already added in PROJEXA can sign in; their account links on first sign-in by verified email, then by the provider's account ID. Two-step sign-in still asks for the code.
+- Client IDs and secrets live in the server environment only. Setup steps for Google Cloud, Microsoft Entra and the Zoho API console: `docs/SSO.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).

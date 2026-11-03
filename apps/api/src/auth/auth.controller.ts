@@ -1,14 +1,14 @@
-import { Body, Controller, Get, HttpCode, Patch, Post, Res, UnauthorizedException } from '@nestjs/common';
-import { Organization, Prisma, User } from '@prisma/client';
-import { JwtService } from '@nestjs/jwt';
+import { Body, Controller, Get, HttpCode, Patch, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { z } from 'zod';
 import { config } from '../common/config';
 import { ZodPipe } from '../common/zod.pipe';
 import { PrismaService } from '../prisma/prisma.service';
 import { AllowWithoutMfa, CurrentUser, Public, Roles } from './decorators';
 import { MfaService, secondFactorSchema } from './mfa.service';
+import { MFA_COOKIE, SessionService } from './session.service';
 import { AuthUser } from './auth.types';
 import { Preferences, preferencesSchema, readPreferences } from './preferences';
 
@@ -18,16 +18,20 @@ const loginSchema = z.object({
   organization: z.string().optional(),
 });
 
-const mfaLoginSchema = z.object({ mfaToken: z.string().min(10).max(2000) }).and(secondFactorSchema);
-/** The short-lived token between the password and the code uses its own key, so it can never pass as a session. */
-const mfaTokenSecret = () => `${config.jwtSecret}:mfa-step`;
+const mfaLoginSchema = z.object({ mfaToken: z.string().min(10).max(2000).optional() }).and(secondFactorSchema);
+
+/** The organization signs staff in with Google, Microsoft or Zoho only (admins keep their password as a way back in). */
+export function passwordBlocked(user: { role: string; organization: { ssoConfig: unknown } }) {
+  const c = (user.organization.ssoConfig ?? {}) as { ssoOnly?: boolean };
+  return !!c.ssoOnly && ['PROJECT_MANAGER', 'SALES', 'VIEWER'].includes(user.role);
+}
 
 @Controller('auth')
 @AllowWithoutMfa()
 export class AuthController {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly jwt: JwtService,
+    private readonly session: SessionService,
     private readonly mfa: MfaService,
   ) {}
 
@@ -44,50 +48,24 @@ export class AuthController {
     const user = users[0];
     const ok = user ? await bcrypt.compare(body.password, user.passwordHash) : await bcrypt.compare(body.password, DUMMY_HASH);
     if (!user || !ok) throw new UnauthorizedException('Wrong email or password');
+    if (passwordBlocked(user)) throw new UnauthorizedException('Your organization signs in with Google, Microsoft or Zoho. Use the buttons below.');
 
     // Two-step sign-in: no session yet, only a 5-minute token to send with the code.
-    if (user.mfaEnabledAt) {
-      const mfaToken = await this.jwt.signAsync({ sub: user.id, purpose: 'mfa' }, { secret: mfaTokenSecret(), expiresIn: '5m' });
-      return { mfaRequired: true, mfaToken };
-    }
-    return this.startSession(user, res);
+    if (user.mfaEnabledAt) return { mfaRequired: true, mfaToken: await this.session.mfaToken(user.id) };
+    return this.session.start(user, res);
   }
 
-  /** Second step of sign-in: the code from the authenticator app, or a recovery code. */
+  /** Second step of sign-in: the code from the authenticator app, or a recovery code. The token comes in the body, or in a cookie after single sign-on. */
   @Public()
   @Post('login/mfa')
   @HttpCode(200)
-  async loginMfa(@Body(new ZodPipe(mfaLoginSchema)) body: z.infer<typeof mfaLoginSchema>, @Res({ passthrough: true }) res: Response) {
-    let sub: string;
-    try {
-      const p = await this.jwt.verifyAsync<{ sub: string; purpose?: string }>(body.mfaToken, { secret: mfaTokenSecret() });
-      if (p.purpose !== 'mfa') throw new Error('wrong token');
-      sub = p.sub;
-    } catch {
-      throw new UnauthorizedException('This sign-in took too long. Enter your email and password again.');
-    }
+  async loginMfa(@Body(new ZodPipe(mfaLoginSchema)) body: z.infer<typeof mfaLoginSchema>, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const sub = await this.session.readMfaToken(body.mfaToken ?? (req as Request & { cookies?: Record<string, string> }).cookies?.[MFA_COOKIE]);
     const user = await this.prisma.user.findUnique({ where: { id: sub }, include: { organization: true } });
     if (!user || !user.active) throw new UnauthorizedException('Account is not active');
     const used = await this.mfa.verify(user, body);
-    const out = await this.startSession(user, res);
+    const out = await this.session.start(user, res);
     return used === 'recovery' ? { ...out, recoveryCodesLeft: (await this.mfa.status(user.id)).recoveryCodesLeft } : out;
-  }
-
-  private async startSession(user: User & { organization: Organization }, res: Response) {
-    const token = await this.jwt.signAsync({ sub: user.id, org: user.organizationId }, { secret: config.jwtSecret, expiresIn: '12h' });
-    res.cookie(config.cookieName, token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 12 * 3600 * 1000,
-      path: '/',
-    });
-    return {
-      token,
-      user: { id: user.id, name: user.name, email: user.email, role: user.role },
-      home: user.role === 'CLIENT_USER' ? '/portal/client' : user.role === 'VENDOR_USER' ? '/portal/vendor' : '/',
-      organization: { id: user.organization.id, name: user.organization.name, slug: user.organization.slug },
-    };
   }
 
   @Public()

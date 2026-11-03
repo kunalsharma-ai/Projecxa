@@ -6,6 +6,7 @@ import { useMe } from '@/components/me';
 import { AlertSettings } from '@/components/settings/alert-settings';
 import { FinanceSettings } from '@/components/settings/finance-settings';
 import { SignInSecurity } from '@/components/settings/sign-in-security';
+import { SingleSignOn } from '@/components/settings/single-sign-on';
 import { ErrorBox, Field, Loading, PageHeader, Section } from '@/components/ui';
 import { api, get, patch, post } from '@/lib/api';
 
@@ -47,6 +48,7 @@ export default function SettingsPage() {
       <PageHeader title="Settings" subtitle={`${org.name} · ${org.slug}`} actions={<div className="flex flex-wrap gap-2"><Link href="/settings/developers" className="btn-ghost"><Webhook className="h-4 w-4" /> API and webhooks</Link><Link href="/settings/appearance" className="btn-ghost"><Palette className="h-4 w-4" /> Theme Studio</Link></div>} />
       <div className="mb-4"><ErrorBox error={error} /></div>
       {isAdmin && <SignInSecurity />}
+      {isAdmin && <SingleSignOn />}
       <BidzoConnection isAdmin={isAdmin} />
       <CaptchaKeys isAdmin={isAdmin} />
       {isAdmin && <AlertSettings />}
