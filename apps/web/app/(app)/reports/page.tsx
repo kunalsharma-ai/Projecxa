@@ -1,7 +1,8 @@
 'use client';
 import clsx from 'clsx';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { defaultFilters, FilterBar } from '@/components/reports/filter-bar';
 import { CsvButton, SummaryTable, summaryCsv } from '@/components/reports/summary-table';
 import { TrendChart } from '@/components/reports/trend-chart';
@@ -33,7 +34,16 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`;
 const dt = (s: string | null) => (s ? new Date(s).toLocaleString() : '');
 const EVENT_LABEL: Record<string, string> = { ENTRY: 'Entry', OUTCOME: 'Outcome', DUPLICATE_ENTRY: 'Repeat entry', OUTCOME_REPEAT: 'Repeated outcome', OUTCOME_CONFLICT: 'Conflicting outcome' };
 
-export default function ReportsPage() {
+export default function Page() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <ReportsPage />
+    </Suspense>
+  );
+}
+
+function ReportsPage() {
+  const params = useSearchParams();
   const [tab, setTab] = useState<Tab>('Overall');
   const [filters, setFilters] = useState<Filters>(defaultFilters);
   const [preset, setPreset] = useState('30');
@@ -43,6 +53,13 @@ export default function ReportsPage() {
   useEffect(() => {
     get<Options>('/reports/options').then(setOptions).catch(setError);
   }, []);
+  // Deep links from search: /reports?clientId=…, ?vendorId=… or ?projectId=…
+  useEffect(() => {
+    const pick = (k: 'clientId' | 'vendorId' | 'projectId') => params.get(k) ?? '';
+    if (!pick('clientId') && !pick('vendorId') && !pick('projectId')) return;
+    setFilters((f) => ({ ...f, clientId: pick('clientId'), vendorId: pick('vendorId'), projectId: pick('projectId') }));
+    setTab(pick('vendorId') ? 'Vendors' : pick('clientId') ? 'Clients' : 'Overall');
+  }, [params]);
 
   return (
     <>
@@ -147,7 +164,7 @@ function OverallTab({ filters }: { filters: Filters }) {
             {mix.map(([l, v]) => (
               <div key={l}>
                 <div className="flex justify-between gap-3"><dt className="text-muted">{l}</dt><dd className="tabular-nums">{v.toLocaleString()} <span className="text-xs text-muted">({t.clicks ? Math.round((v / t.clicks) * 1000) / 10 : 0}%)</span></dd></div>
-                <div className="mt-1 h-1.5 rounded-full bg-sunken"><div className="h-1.5 rounded-full bg-brand/75" style={{ width: `${t.clicks ? (v / t.clicks) * 100 : 0}%` }} /></div>
+                <div className="mt-1 h-1.5 rounded-full bg-sunken"><div className="h-1.5 rounded-full bg-chart-1/75 transition-[width] duration-[var(--dur-slow)]" style={{ width: `${t.clicks ? (v / t.clicks) * 100 : 0}%` }} /></div>
               </div>
             ))}
           </dl>

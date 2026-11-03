@@ -79,6 +79,64 @@ export class DashboardController {
     };
   }
 
+  /**
+   * Rules-based attention list for the insights panel and notification count.
+   * Every item is computed from live data and links to where it can be acted on.
+   */
+  @Get('insights')
+  async insights(@CurrentUser() u: AuthUser) {
+    const org = u.organizationId;
+    const day = new Date(Date.now() - 24 * 3600_000);
+    const [pending, liveCountries, recentTraffic, callbacks, fallbacks, activity] = await Promise.all([
+      this.prisma.respondentSession.groupBy({
+        by: ['projectId'],
+        where: { organizationId: org, isTest: false, status: 'COMPLETE', approval: 'PENDING' },
+        _count: { _all: true },
+        orderBy: { _count: { projectId: 'desc' } },
+        take: 5,
+      }),
+      this.prisma.projectCountry.findMany({
+        where: { status: 'LIVE', project: { organizationId: org, status: 'LIVE' } },
+        select: { id: true, countryCode: true, completes: true, targetCompletes: true, project: { select: { id: true, projectCode: true, name: true } } },
+      }),
+      this.prisma.respondentSession.groupBy({
+        by: ['projectCountryId'],
+        where: { organizationId: org, isTest: false, startedAt: { gte: day } },
+        _count: { _all: true },
+      }),
+      this.prisma.callbackDelivery.count({ where: { organizationId: org, state: { in: ['FAILED', 'DEAD_LETTER'] } } }),
+      this.prisma.redirectExecution.count({ where: { usedFallback: true, createdAt: { gte: day }, session: { organizationId: org } } }),
+      this.prisma.auditEvent.findMany({ where: { organizationId: org }, orderBy: { createdAt: 'desc' }, take: 8 }),
+    ]);
+    const projects = await this.prisma.project.findMany({ where: { id: { in: pending.map((p) => p.projectId) }, organizationId: org }, select: { id: true, projectCode: true, name: true } });
+    const actors = await this.prisma.user.findMany({ where: { id: { in: activity.map((a) => a.actorId).filter((x): x is string => !!x) }, organizationId: org }, select: { id: true, name: true } });
+    const traffic = new Set(recentTraffic.map((t) => t.projectCountryId));
+
+    type Item = { id: string; severity: 'info' | 'warn' | 'bad'; title: string; detail: string; href: string };
+    const items: Item[] = [];
+    if (callbacks) items.push({ id: 'callbacks', severity: 'bad', title: `${callbacks} vendor callback${callbacks === 1 ? '' : 's'} failed`, detail: 'Replay them from the project page once the vendor endpoint is fixed.', href: '/projects' });
+    if (fallbacks) items.push({ id: 'fallbacks', severity: 'warn', title: `${fallbacks} redirect${fallbacks === 1 ? '' : 's'} used a fallback in 24h`, detail: 'A rule was missing or blocked by the security policy.', href: '/projects' });
+    for (const c of liveCountries) {
+      const share = c.targetCompletes ? c.completes / c.targetCompletes : 0;
+      if (share >= 0.9) {
+        items.push({ id: `quota-${c.id}`, severity: share >= 1 ? 'info' : 'warn', title: `${c.project.projectCode} ${c.countryCode} at ${Math.round(share * 100)}% of target`, detail: share >= 1 ? 'Target reached; new entries are sent to quota full.' : 'Close to target; plan to close or raise the quota.', href: `/projects/${c.project.id}` });
+      } else if (!traffic.has(c.id)) {
+        items.push({ id: `idle-${c.id}`, severity: 'warn', title: `${c.project.projectCode} ${c.countryCode} has had no traffic for 24h`, detail: `${c.completes} of ${c.targetCompletes} completes so far.`, href: `/projects/${c.project.id}` });
+      }
+    }
+    for (const p of pending) {
+      const proj = projects.find((x) => x.id === p.projectId);
+      if (proj) items.push({ id: `approve-${proj.id}`, severity: 'info', title: `${p._count._all} complete${p._count._all === 1 ? '' : 's'} to review on ${proj.projectCode}`, detail: proj.name, href: `/projects/${proj.id}` });
+    }
+    const rank = { bad: 0, warn: 1, info: 2 } as const;
+    items.sort((a, b) => rank[a.severity] - rank[b.severity]);
+    return {
+      items: items.slice(0, 20),
+      alerts: items.filter((i) => i.severity !== 'info').length,
+      activity: activity.map((a) => ({ id: a.id, action: a.action, entityType: a.entityType, entityId: a.entityId, at: a.createdAt, actor: actors.find((x) => x.id === a.actorId)?.name ?? 'System' })),
+    };
+  }
+
   @Get('organization')
   async org(@CurrentUser() u: AuthUser) {
     return this.prisma.organization.findUniqueOrThrow({

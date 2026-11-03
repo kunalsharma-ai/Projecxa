@@ -2,52 +2,136 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Design tokens. The theme engine (lib/theme.ts) overwrites these on <html> from the
+ * user's preferences; the values below are the Arctic Executive defaults so the page is
+ * correct even before JavaScript runs.
+ */
 :root {
   --bg: 245 247 251;
   --panel: 255 255 255;
   --sunken: 238 241 247;
-  --ink: 17 24 39;
-  --muted: 100 112 132;
-  --line: 223 228 238;
-  --brand: 37 99 235;
+  --ink: 15 23 42;
+  --muted: 91 102 120;
+  --line: 222 226 233;
+  --brand: 29 78 216;
   --brand-ink: 255 255 255;
-  --ok: 22 163 74;
-  --warn: 217 119 6;
-  --bad: 220 38 38;
-  --info: 8 145 178;
+  --accent2: 71 85 105;
+  --ok: 21 128 61;
+  --warn: 180 83 9;
+  --bad: 185 28 28;
+  --info: 14 116 144;
+  --sidebar: 255 255 255;
+  --sidebar-ink: 11 13 18;
+  --sidebar-muted: 82 88 102;
+  --sidebar-active: 29 78 216;
+  --chart-1: 29 78 216;
+  --chart-2: 71 85 105;
+  --chart-3: 14 116 144;
+  --chart-4: 21 128 61;
+  --grad: 0.4;
+  --glass: 0.3;
+  --radius: 12px;
+  --font-scale: 100%;
+  /* density */
+  --row-y: 0.625rem;
+  --cell-x: 0.75rem;
+  --field-y: 0.5rem;
+  /* motion */
+  --dur: 160ms;
+  --dur-slow: 260ms;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg: 11 15 25;
-    --panel: 19 25 38;
-    --sunken: 26 33 49;
+  :root:not([data-mode]) {
+    --bg: 11 17 32;
+    --panel: 18 26 44;
+    --sunken: 26 35 56;
     --ink: 229 233 242;
-    --muted: 145 156 178;
-    --line: 41 50 70;
-    --brand: 96 140 250;
-    --brand-ink: 10 14 24;
+    --muted: 149 160 181;
+    --line: 45 54 74;
+    --brand: 122 165 255;
+    --brand-ink: 11 13 18;
+    --accent2: 148 163 184;
     --ok: 74 222 128;
     --warn: 251 191 36;
     --bad: 248 113 113;
     --info: 34 211 238;
+    --sidebar: 11 17 32;
+    --sidebar-ink: 255 255 255;
+    --sidebar-muted: 160 168 186;
+    --sidebar-active: 122 165 255;
     color-scheme: dark;
   }
 }
 
+
+[data-motion='essential'] { --dur: 0ms; --dur-slow: 0ms; }
+[data-motion='cinematic'] { --dur: 220ms; --dur-slow: 420ms; }
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur: 0ms !important; --dur-slow: 0ms !important; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+}
+
+html { font-size: var(--font-scale); }
 html, body { background: rgb(var(--bg)); color: rgb(var(--ink)); }
-body { font-feature-settings: 'cv11', 'ss01'; -webkit-font-smoothing: antialiased; }
+body {
+  font-feature-settings: 'cv11', 'ss01';
+  -webkit-font-smoothing: antialiased;
+  /* A quiet wash of the two accents; strength follows the gradient-intensity preference. */
+  background-image:
+    radial-gradient(1200px 600px at 100% -10%, rgb(var(--brand) / calc(var(--grad) * 0.10)), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgb(var(--accent2) / calc(var(--grad) * 0.08)), transparent 60%);
+  background-attachment: fixed;
+}
+:focus-visible { outline: 2px solid rgb(var(--brand)); outline-offset: 2px; }
 
 @layer components {
-  .card { @apply rounded-xl border border-line bg-panel shadow-sm; }
-  .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand; }
-  .btn-primary { @apply btn bg-brand text-brand-ink hover:bg-brand/90; }
+  .card { @apply border border-line bg-panel shadow-sm; border-radius: var(--radius); }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-3.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50;
+    padding-block: var(--field-y);
+    border-radius: calc(var(--radius) * 0.66);
+    transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease), border-color var(--dur) var(--ease), transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  }
+  .btn:active:not(:disabled) { transform: scale(0.97); }
+  .btn-primary { @apply btn bg-brand text-brand-ink hover:bg-brand/90; box-shadow: 0 1px 0 rgb(255 255 255 / 0.12) inset, 0 4px 14px -6px rgb(var(--brand) / calc(0.25 + var(--grad) * 0.4)); }
   .btn-ghost { @apply btn border border-line bg-panel text-ink hover:bg-sunken; }
   .btn-danger { @apply btn border border-bad/40 bg-panel text-bad hover:bg-bad/10; }
-  .input { @apply w-full rounded-lg border border-line bg-panel px-3 py-2 text-sm text-ink placeholder:text-muted/70 focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20; }
+  .input {
+    @apply w-full border border-line bg-panel px-3 text-sm text-ink placeholder:text-muted focus:border-brand focus:outline-none;
+    padding-block: var(--field-y);
+    border-radius: calc(var(--radius) * 0.66);
+    transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  }
+  .input:focus { box-shadow: 0 0 0 3px rgb(var(--brand) / 0.2); }
   .label { @apply mb-1 block text-xs font-medium text-muted; }
-  .th { @apply whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted; }
-  .td { @apply whitespace-nowrap px-3 py-2.5 text-sm; }
+  .th { @apply whitespace-nowrap text-left text-xs font-semibold uppercase tracking-wide text-muted; padding: calc(var(--row-y) * 0.9) var(--cell-x); }
+  .td { @apply whitespace-nowrap text-sm; padding: var(--row-y) var(--cell-x); }
   .chip { @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium; }
+  /* Chrome surfaces (sidebar, top bar, overlays) may be translucent; content cards never are. */
+  .glass {
+    background-color: rgb(var(--panel) / calc(1 - var(--glass) * 0.3));
+    backdrop-filter: blur(calc(var(--glass) * 18px)) saturate(1.2);
+  }
+  .accent-edge { position: relative; overflow: hidden; }
+  .accent-edge::before {
+    content: ''; position: absolute; inset: 0 0 auto 0; height: 2px;
+    background: linear-gradient(90deg, rgb(var(--brand)), rgb(var(--accent2)));
+    opacity: calc(0.35 + var(--grad) * 0.65);
+  }
 }
+
+@layer utilities {
+  .anim-in { animation: fade-up var(--dur-slow) var(--ease) both; }
+  .anim-pop { animation: pop var(--dur) var(--ease) both; }
+  .skeleton { @apply rounded-md bg-sunken; background-image: linear-gradient(90deg, transparent, rgb(var(--panel) / 0.6), transparent); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
+  [data-motion='essential'] .skeleton { animation: none; }
+}
+
+@keyframes fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes pop { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+[data-motion='essential'] .anim-in, [data-motion='essential'] .anim-pop { animation: none; }

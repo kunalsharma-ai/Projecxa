@@ -6,9 +6,9 @@ import { STATUS_LABEL } from '@/lib/types';
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: ReactNode; actions?: ReactNode }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+    <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+      <div className="min-w-0">
+        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{title}</h1>
         {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
@@ -19,7 +19,7 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
 export function Section({ title, children, actions, className }: { title: ReactNode; children: ReactNode; actions?: ReactNode; className?: string }) {
   return (
     <section className={clsx('card', className)}>
-      <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3">
         <h2 className="text-sm font-semibold">{title}</h2>
         {actions}
       </div>
@@ -66,8 +66,11 @@ export function Progress({ value, max }: { value: number; max: number }) {
       <div className="mb-1 text-xs tabular-nums text-muted">
         <span className="font-medium text-ink">{value}</span> / {max}
       </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-sunken">
-        <div className={clsx('h-full rounded-full', pct >= 100 ? 'bg-ok' : 'bg-brand')} style={{ width: `${pct}%` }} />
+      <div className="h-1.5 overflow-hidden rounded-full bg-sunken" role="progressbar" aria-valuenow={value} aria-valuemin={0} aria-valuemax={max}>
+        <div
+          className={clsx('h-full rounded-full transition-[width] duration-[var(--dur-slow)] ease-[var(--ease)]', pct >= 100 ? 'bg-ok' : 'bg-gradient-to-r from-brand to-accent2')}
+          style={{ width: `${pct}%` }}
+        />
       </div>
     </div>
   );
@@ -92,10 +95,17 @@ export function ErrorBox({ error }: { error: unknown }) {
   );
 }
 
+/** Skeleton placeholder in the shape of a page; the label is announced to screen readers. */
 export function Loading({ label = 'Loading' }: { label?: string }) {
   return (
-    <div className="flex items-center gap-2 p-8 text-sm text-muted">
-      <Loader2 className="h-4 w-4 animate-spin" /> {label}…
+    <div className="space-y-3 p-2" role="status" aria-live="polite">
+      <span className="sr-only">{label}…</span>
+      <div className="flex items-center gap-2 text-sm text-muted" aria-hidden>
+        <Loader2 className="h-4 w-4 animate-spin" /> {label}…
+      </div>
+      <div className="skeleton h-4 w-1/3" aria-hidden />
+      <div className="skeleton h-24 w-full" aria-hidden />
+      <div className="skeleton h-4 w-2/3" aria-hidden />
     </div>
   );
 }

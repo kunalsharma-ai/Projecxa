@@ -1,4 +1,6 @@
 'use client';
+import { Palette } from 'lucide-react';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useMe } from '@/components/me';
 import { ErrorBox, Field, Loading, PageHeader, Section } from '@/components/ui';
@@ -38,7 +40,7 @@ export default function SettingsPage() {
   if (!org) return error ? <ErrorBox error={error} /> : <Loading />;
   return (
     <>
-      <PageHeader title="Settings" subtitle={`${org.name} · ${org.slug}`} />
+      <PageHeader title="Settings" subtitle={`${org.name} · ${org.slug}`} actions={<Link href="/settings/appearance" className="btn-ghost"><Palette className="h-4 w-4" /> Theme Studio</Link>} />
       <div className="mb-4"><ErrorBox error={error} /></div>
       <Section title="Redirect security policy">
         <p className="mb-4 text-sm text-muted">Respondents can only be redirected to these domains (plus each vendor&apos;s own domains for that vendor). Overrides cannot bypass this list.</p>

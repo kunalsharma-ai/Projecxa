@@ -63,6 +63,8 @@ model User {
   client         Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
   vendorId       String?
   vendor         Vendor? @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  /// Personal interface preferences (theme, density, motion, sidebar, favorites). Validated by the API.
+  preferences    Json?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

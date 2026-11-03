@@ -31,6 +31,15 @@ The five reports of the current Fieldwork platform, at `/reports`, with one filt
 
 Test traffic never counts. Revenue and payout leave out rejected completes. Money stays in each market's currency until FX conversion exists. The demo seed now adds three weeks of synthetic traffic so the reports have data.
 
+## Milestone 4: design system, themes and new workspace shell
+
+Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the full audit, tokens, components and phases):
+
+- **Theme Studio** (`/settings/appearance`): 8 themes (Midnight Intelligence, Arctic Executive, Emerald Matrix, Obsidian Gold, Royal Sapphire, Aurora Rose, Graphite Minimal, Solar Executive), each in light and dark, plus accents, surfaces, sidebar style, border, gradient and glass strength, font size, density, corner radius, motion level (Essential, Refined, Cinematic) and chart palette. Saved per user; contrast is kept at WCAG AA automatically.
+- **Shell**: collapsible sidebar with favorites and recent projects, command bar with `Ctrl/⌘ K` search and commands, quick create, alerts, theme switcher and a hideable insights panel (rules-based alerts and recent activity).
+- **Command center** dashboard with a 14-day completes trend and quota achievement.
+- Shortcuts: `Ctrl/⌘ K` or `/` search, `[` sidebar, `]` insights.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).
