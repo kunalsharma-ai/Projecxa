@@ -9,6 +9,7 @@
  * Invoicing: approved completes that are not yet billed become a client invoice, one per
  * currency, with one line per market and price. Voiding an invoice releases its completes.
  */
+import { ProjectHistoryService } from '../projects/project-history';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { ApprovalStatus, InvoiceStatus, Prisma } from '@prisma/client';
 import { z } from 'zod';
@@ -86,6 +87,7 @@ export class FinanceService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly webhooks: WebhooksService,
+    private readonly history: ProjectHistoryService,
   ) {}
 
   private async project(u: AuthUser, id: string) {
@@ -413,6 +415,7 @@ export class FinanceService {
       if (body.status === 'VOID') await tx.respondentSession.updateMany({ where: { invoiceId: id }, data: { invoiceId: null } });
       if (body.status === 'SENT') await tx.project.updateMany({ where: { id: inv.projectId, status: 'CLOSED' }, data: { status: 'INVOICED' } });
     });
+    if (body.status === 'SENT') await this.history.record(u, inv.projectId, null, `Invoice ${inv.number} sent`);
     if (body.status) {
       await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: `invoice.${body.status.toLowerCase()}`, entityType: 'Invoice', entityId: id, detail: { number: inv.number, total: Number(inv.total), currency: inv.currency } });
     }

@@ -1,10 +1,12 @@
 'use client';
 import clsx from 'clsx';
-import { ClipboardPaste, Copy, Monitor, Smartphone, Tablet, Trash2, Trophy } from 'lucide-react';
+import { ClipboardPaste, Copy, FileStack, LayoutTemplate, Monitor, Smartphone, Tablet, Trash2, Trophy } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { ErrorBox, Field, Loading, PageHeader, Section, Toggle } from '@/components/ui';
-import { get, post } from '@/lib/api';
+import { api, get, post } from '@/lib/api';
+import { describeTemplate, type ProjectTemplate, type TemplateForm } from '@/lib/templates';
 import { COUNTRIES, countryName, flag } from '@/lib/countries';
 import { CATEGORIES, RedirectMode, SECURITY_LABELS, type WonBid } from '@/lib/types';
 
@@ -32,6 +34,12 @@ function blankRow(code: string): CountryRow {
 }
 
 const num = (v: string): Num => (v === '' ? '' : Number(v));
+const opt = (v: number | string | undefined | null): Num => (v === undefined || v === null || v === '' ? '' : Number(v));
+
+interface DraftRow { id: string; title: string; updatedAt: string }
+interface DraftData { info: typeof EMPTY_INFO; devices: Record<'desktop' | 'mobile' | 'tablet', boolean>; security: Record<string, boolean>; mode: RedirectMode; shared: typeof SHARED_DEFAULTS; rows: CountryRow[]; templateId: string | null; wonBidId: string | null }
+const EMPTY_INFO = { name: '', workOrderNo: '', generateWorkOrder: true, type: 'AD_HOC', category: '', clientId: '', clientContactId: '', salesPersonId: '', projectManagerId: '', description: '', bidReference: '' };
+const time = (d: string | Date) => new Date(d).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 export default function Page() {
   return (
@@ -60,12 +68,12 @@ function rowsFromBid(b: WonBid): CountryRow[] {
 function CreateProjectPage() {
   const router = useRouter();
   const params = useSearchParams();
-  const wonBidId = params.get('wonBid');
+  const [wonBidId, setWonBidId] = useState(params.get('wonBid'));
   const [wonBid, setWonBid] = useState<(WonBid & { suggestedClient: { id: string; name: string } | null }) | null>(null);
   const [addingClient, setAddingClient] = useState(false);
   const [clients, setClients] = useState<ClientOpt[]>([]);
   const [users, setUsers] = useState<UserOpt[]>([]);
-  const [info, setInfo] = useState({ name: '', workOrderNo: '', generateWorkOrder: true, type: 'AD_HOC', category: '', clientId: '', clientContactId: '', salesPersonId: '', projectManagerId: '', description: '', bidReference: '' });
+  const [info, setInfo] = useState(EMPTY_INFO);
   const [devices, setDevices] = useState({ desktop: true, mobile: true, tablet: true });
   const [security, setSecurity] = useState<Record<string, boolean>>({ gateSurvey: true, captcha: true });
   const [mode, setMode] = useState<RedirectMode>('HYBRID');
@@ -75,11 +83,147 @@ function CreateProjectPage() {
   const [paste, setPaste] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
+  const [template, setTemplate] = useState<ProjectTemplate | null>(null);
+  const [drafts, setDrafts] = useState<DraftRow[]>([]);
+  const [draftId, setDraftId] = useState<string | null>(params.get('draft'));
+  const [draftState, setDraftState] = useState<{ status: 'idle' | 'saving' | 'saved' | 'error'; at?: string }>({ status: 'idle' });
+  const lastSaved = useRef<string>('');
+  const ready = useRef(false);
+  const fromDraft = useRef(false);
+  const draftRef = useRef<string | null>(draftId);
+  const inflight = useRef<Promise<unknown>>(Promise.resolve());
+  draftRef.current = draftId;
 
   useEffect(() => {
     get<ClientOpt[]>('/clients').then(setClients).catch(setError);
     get<UserOpt[]>('/users').then(setUsers).catch(setError);
+    get<ProjectTemplate[]>('/project-templates').then(setTemplates).catch(() => setTemplates([]));
+    get<DraftRow[]>('/project-drafts').then(setDrafts).catch(() => setDrafts([]));
+    const t = params.get('template');
+    const d = params.get('draft');
+    if (d) loadDraft(d);
+    else if (t) applyTemplate(t);
+    else ready.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function setUrl(q: Record<string, string | null>) {
+    const u = new URL(window.location.href);
+    for (const [k, v] of Object.entries(q)) (v ? u.searchParams.set(k, v) : u.searchParams.delete(k));
+    window.history.replaceState(null, '', u.toString());
+  }
+
+  async function applyTemplate(id: string) {
+    setError(null);
+    if (!id) {
+      setTemplate(null);
+      setUrl({ template: null });
+      return;
+    }
+    try {
+      const t = await get<ProjectTemplate & { form: TemplateForm }>(`/project-templates/${id}`);
+      const f = t.form;
+      const d = f.defaults;
+      setTemplate(t);
+      setInfo((i) => ({ ...i, type: f.type, category: f.category, clientId: f.clientId ?? i.clientId, clientContactId: f.clientId ? '' : i.clientContactId, description: i.description || (f.description ?? '') }));
+      setDevices({ desktop: !!f.devices.desktop, mobile: !!f.devices.mobile, tablet: !!f.devices.tablet });
+      setSecurity(f.security);
+      setMode(f.redirectMode as RedirectMode);
+      setShared({ targetGroup: d.targetGroup ?? '', loiMinutes: opt(d.loiMinutes), irPercent: opt(d.irPercent), cpi: opt(d.cpi), targetCompletes: opt(d.targetCompletes), liveSurveyUrl: d.liveSurveyUrl ?? '', testSurveyUrl: d.testSurveyUrl ?? '' });
+      setRows(
+        f.countries.map((c) => ({
+          ...blankRow(c.countryCode),
+          language: c.language,
+          currency: c.currency,
+          targetGroup: c.targetGroup ?? '',
+          loiMinutes: opt(c.loiMinutes),
+          irPercent: opt(c.irPercent),
+          cpi: opt(c.cpi),
+          targetCompletes: opt(c.targetCompletes),
+          liveSurveyUrl: c.liveSurveyUrl ?? '',
+        })),
+      );
+      setUrl({ template: id });
+    } catch (e) {
+      setError(e);
+    } finally {
+      ready.current = true;
+    }
+  }
+
+  async function loadDraft(id: string) {
+    setError(null);
+    try {
+      const d = await get<{ id: string; data: DraftData; updatedAt: string }>(`/project-drafts/${id}`);
+      const x = d.data;
+      fromDraft.current = true;
+      lastSaved.current = JSON.stringify(x);
+      setInfo({ ...EMPTY_INFO, ...x.info });
+      if (x.devices) setDevices(x.devices);
+      if (x.security) setSecurity(x.security);
+      if (x.mode) setMode(x.mode);
+      setShared({ ...SHARED_DEFAULTS, ...x.shared });
+      setRows(x.rows ?? []);
+      setWonBidId(x.wonBidId ?? null);
+      setTemplate(x.templateId ? templates.find((t) => t.id === x.templateId) ?? (await get<ProjectTemplate>(`/project-templates/${x.templateId}`).catch(() => null)) : null);
+      setDraftId(d.id);
+      setDraftState({ status: 'saved', at: d.updatedAt });
+      setUrl({ draft: d.id, template: null, wonBid: null });
+    } catch (e) {
+      setError(e);
+      setDraftId(null);
+      setUrl({ draft: null });
+    } finally {
+      ready.current = true;
+    }
+  }
+
+  async function discardDraft(id: string) {
+    if (!confirm('Delete this draft? This cannot be undone.')) return;
+    await api(`/project-drafts/${id}`, { method: 'DELETE' }).catch(setError);
+    setDrafts((ds) => ds.filter((d) => d.id !== id));
+    if (id === draftId) {
+      draftRef.current = null;
+      setDraftId(null);
+      setDraftState({ status: 'idle' });
+      lastSaved.current = '';
+      setUrl({ draft: null });
+    }
+  }
+
+  // Save the form as a draft a moment after each change, once it has a name or a market.
+  const draftData: DraftData = { info, devices, security, mode, shared, rows, templateId: template?.id ?? null, wonBidId: wonBid?.status === 'NEW' ? wonBid.id : null };
+  const draftJson = JSON.stringify(draftData);
+  useEffect(() => {
+    if (!ready.current || busy) return;
+    if (!info.name.trim() && !rows.length) return;
+    if (draftJson === lastSaved.current) return;
+    const timer = setTimeout(() => {
+      // One save at a time, so a slow first save cannot create two drafts.
+      inflight.current = inflight.current.then(async () => {
+        if (draftJson === lastSaved.current) return;
+        setDraftState({ status: 'saving' });
+        try {
+          const body = { title: info.name.trim() || `Untitled project (${rows.map((r) => r.countryCode).join(', ')})`.slice(0, 300), data: JSON.parse(draftJson) };
+          const id = draftRef.current;
+          const saved = id ? await api<DraftRow>(`/project-drafts/${id}`, { method: 'PUT', json: body }) : await post<DraftRow>('/project-drafts', body);
+          lastSaved.current = draftJson;
+          if (!id) {
+            draftRef.current = saved.id;
+            setDraftId(saved.id);
+            setUrl({ draft: saved.id });
+          }
+          setDrafts((ds) => [saved, ...ds.filter((d) => d.id !== saved.id)]);
+          setDraftState({ status: 'saved', at: saved.updatedAt });
+        } catch {
+          setDraftState({ status: 'error' });
+        }
+      });
+    }, 1500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftJson]);
 
   // Prefill from a won bid (Won bids › Set up project).
   useEffect(() => {
@@ -87,7 +231,7 @@ function CreateProjectPage() {
     get<WonBid & { suggestedClient: { id: string; name: string } | null }>(`/won-bids/${wonBidId}`)
       .then((b) => {
         setWonBid(b);
-        if (b.status !== 'NEW') return;
+        if (b.status !== 'NEW' || fromDraft.current) return;
         const category = CATEGORIES.find((c) => c.toLowerCase() === (b.projectCategory ?? '').toLowerCase()) ?? '';
         setInfo((i) => ({ ...i, name: b.projectName, description: b.description ?? '', bidReference: b.bidNumber, category, clientId: b.suggestedClient?.id ?? '', clientContactId: '' }));
         setShared((sh) => ({ ...sh, loiMinutes: '', irPercent: '', targetCompletes: '' }));
@@ -145,7 +289,7 @@ function CreateProjectPage() {
     setError(null);
     const clean = <T extends object>(o: T) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== '' && v !== undefined)) as Partial<T>;
     try {
-      const p = await post<{ id: string }>('/projects', {
+      const p = await post<{ id: string; templateSkipped?: string[] }>('/projects', {
         ...clean({ ...info, generateWorkOrder: undefined }),
         generateWorkOrder: info.generateWorkOrder && !info.workOrderNo,
         devices,
@@ -154,7 +298,15 @@ function CreateProjectPage() {
         defaults: clean(shared),
         countries: rows.map((r) => clean(r)),
         ...(wonBid?.status === 'NEW' ? { wonBidId: wonBid.id } : {}),
+        ...(template ? { templateId: template.id } : {}),
+        ...(draftId ? { draftId } : {}),
       });
+      lastSaved.current = draftJson;
+      if (p.templateSkipped?.length) {
+        try {
+          sessionStorage.setItem(`projexa:template-skipped:${p.id}`, JSON.stringify(p.templateSkipped));
+        } catch {}
+      }
       router.push(`/projects/${p.id}`);
     } catch (e) {
       setError(e);
@@ -166,8 +318,53 @@ function CreateProjectPage() {
 
   return (
     <>
-      <PageHeader title="Create project" subtitle="Set shared settings once, then override them per country where markets differ." />
+      <PageHeader
+        title="Create project"
+        subtitle="Set shared settings once, then override them per country where markets differ."
+        actions={<Link href="/projects/templates" className="btn-ghost"><LayoutTemplate className="h-4 w-4" /> Templates</Link>}
+      />
       <div className="mb-4"><ErrorBox error={error} /></div>
+      <div className="card mb-5 flex flex-wrap items-center gap-x-4 gap-y-2 p-3 text-sm">
+        <label className="flex w-full min-w-0 items-center gap-2 sm:w-auto sm:flex-1">
+          <LayoutTemplate className="h-4 w-4 shrink-0 text-muted" />
+          <span className="shrink-0 text-muted">Start from</span>
+          <select className="input min-w-0 flex-1 py-1.5 sm:max-w-xs" aria-label="Start from template" value={template?.id ?? ''} onChange={(e) => (e.target.value === '' || !rows.length || confirm('Replace the markets and settings in this form with the template?')) && applyTemplate(e.target.value)}>
+            <option value="">Blank project</option>
+            {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </label>
+        <span className="text-xs text-muted" role="status" aria-live="polite">
+          {draftState.status === 'saving' && 'Saving draft…'}
+          {draftState.status === 'saved' && draftState.at && `Draft saved ${time(draftState.at)}`}
+          {draftState.status === 'error' && <span className="text-bad">Draft not saved. Check your connection.</span>}
+          {draftState.status === 'idle' && 'Your work is saved as a draft as you type.'}
+        </span>
+        {draftId && <button className="btn-ghost h-8 px-2.5 text-xs" onClick={() => discardDraft(draftId)}><Trash2 className="h-3.5 w-3.5" /> Discard draft</button>}
+      </div>
+      {template && (
+        <div className="mb-5 flex items-start gap-3 rounded-lg border border-brand/30 bg-brand/5 p-4 text-sm" role="status">
+          <LayoutTemplate className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+          <div className="min-w-0 flex-1">
+            <div className="font-medium">From template “{template.name}”</div>
+            <div className="text-muted">{describeTemplate(template)} Check the markets below and add the survey links{template.include.surveyLinks ? ' if they changed' : ''}.</div>
+          </div>
+        </div>
+      )}
+      {!draftId && !wonBidId && drafts.length > 0 && (
+        <div className="mb-5 rounded-lg border border-line p-4 text-sm">
+          <div className="mb-2 flex items-center gap-2 font-medium"><FileStack className="h-4 w-4 text-muted" /> Continue where you left off</div>
+          <ul className="divide-y divide-line">
+            {drafts.slice(0, 5).map((d) => (
+              <li key={d.id} className="flex flex-wrap items-center gap-2 py-2">
+                <span className="min-w-0 flex-1 truncate">{d.title}</span>
+                <span className="text-xs text-muted">{time(d.updatedAt)}</span>
+                <button className="btn-ghost h-8 px-2.5 text-xs" onClick={() => loadDraft(d.id)}>Continue</button>
+                <button className="btn-ghost h-8 px-2 text-xs" aria-label={`Delete draft ${d.title}`} onClick={() => discardDraft(d.id)}><Trash2 className="h-3.5 w-3.5" /></button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {wonBid && (
         <div className={clsx('mb-5 flex flex-wrap items-start gap-3 rounded-lg border p-4 text-sm', wonBid.status === 'NEW' ? 'border-brand/30 bg-brand/5' : 'border-warn/40 bg-warn/10')} role="status">
           <Trophy className="mt-0.5 h-4 w-4 shrink-0 text-brand" />

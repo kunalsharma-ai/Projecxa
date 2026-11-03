@@ -1,3 +1,4 @@
+import { ProjectHistoryService } from '../projects/project-history';
 import {
   BadRequestException, Body, Controller, Get, NotFoundException, Param, Post, Put, Res, UploadedFile, UseInterceptors,
 } from '@nestjs/common';
@@ -37,6 +38,7 @@ export class PageDesignController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly history: ProjectHistoryService,
   ) {}
 
   private async project(u: AuthUser, id: string) {
@@ -70,7 +72,9 @@ export class PageDesignController {
       const owned = await this.prisma.pageAsset.count({ where: { id: { in: ids }, organizationId: u.organizationId } });
       if (owned !== new Set(ids).size) throw new BadRequestException('Unknown image');
     }
+    const before = await this.history.snapshot(id);
     await this.prisma.project.update({ where: { id }, data: { pageDesign: design as unknown as Prisma.InputJsonValue } });
+    await this.history.record(u, id, before);
     await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'project.page-design', entityType: 'Project', entityId: id, detail: { template: design.template } });
     return this.get(u, id);
   }

@@ -10,7 +10,7 @@ Classification follows the spec: **EXISTING** (done in this repo and tested), **
 | Foundation | SSO (SAML/OIDC), MFA | DONE (milestone 13: MFA with authenticator apps, recovery codes, org-wide requirement for staff, admin reset; milestone 15: OIDC sign-in with Google, Microsoft and Zoho, per-org domains and tenant, SSO-only mode) | SAML for other identity providers if a client asks |
 | 1 Project factory | Master project with many countries, shared settings plus overrides | EXISTING | |
 | 1 | Country clone (with vendors and quotas), Excel/CSV paste | EXISTING | |
-| 1 | Project templates, version history of project settings, draft saving | PARTIAL | Projects start as Draft; settings changes are in the audit log, no template library yet |
+| 1 | Project templates, version history of project settings, draft saving | DONE (milestone 23) | Template library with optional quotas, vendors, client and survey links; autosaved Create project drafts; per-project settings versions with before/after and restore |
 | 1 | Quota cells, nested/interlocking quotas | EXISTING | Milestone 10: cells on device and gate/prescreen answers, combined conditions, enforced at entry, after the gate page and at complete (docs/QUOTAS.md) |
 | 1 | AI-assisted and API-driven project creation | PARTIAL | The AI copilot creates projects after confirmation (milestone 20); creating from a brief or document in one step is not built |
 | 2 RFQ & feasibility | RFQ extraction, feasibility | PARTIAL / EXTERNAL_DEPENDENCY | RFQs and feasibility stay in Bidzo. PROJEXA consumes the signed `bid.won` event into Won bids and prefills the project (milestone 5); Bidzo still has to send it |

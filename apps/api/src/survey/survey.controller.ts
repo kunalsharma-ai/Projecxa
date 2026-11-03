@@ -1,3 +1,4 @@
+import { ProjectHistoryService } from '../projects/project-history';
 import { Body, Controller, Get, Module, Param, Post, Query, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { z } from 'zod';
@@ -120,5 +121,5 @@ export class SurveyS2SController {
   }
 }
 
-@Module({ controllers: [SurveyPublicController, SurveyS2SController, SecurityController, AnswersController, PageDesignController], providers: [SurveyService, TorService], exports: [SurveyService, TorService] })
+@Module({ controllers: [SurveyPublicController, SurveyS2SController, SecurityController, AnswersController, PageDesignController], providers: [SurveyService, TorService, ProjectHistoryService], exports: [SurveyService, TorService] })
 export class SurveyModule {}

@@ -2,6 +2,8 @@ import { BadRequestException, Injectable, NotFoundException, ConflictException }
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { WebhooksService } from '../webhooks/webhooks.service';
+import { COUNTRY_RESTORABLE, ProjectHistoryService, RESTORABLE, SettingsSnapshot } from './project-history';
+import { applyTemplateExtras, TemplateExtras, templateRedirects } from './project-templates';
 import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../auth/auth.types';
 import { config } from '../common/config';
@@ -36,6 +38,7 @@ export class ProjectsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly webhooks: WebhooksService,
+    private readonly history: ProjectHistoryService,
   ) {}
 
   async create(u: AuthUser, input: CreateProjectInput) {
@@ -64,6 +67,12 @@ export class ProjectsService {
     });
     if (errors.length) throw new BadRequestException({ message: 'Country configuration is incomplete', issues: errors });
 
+    const template = input.templateId ? await this.prisma.projectTemplate.findFirst({ where: { id: input.templateId, organizationId: u.organizationId } }) : null;
+    if (input.templateId && !template) throw new BadRequestException('Template not found');
+    const extras = template?.extras as unknown as TemplateExtras | undefined;
+    if (input.draftId && !(await this.prisma.projectDraft.count({ where: { id: input.draftId, organizationId: u.organizationId, ownerId: u.id } }))) throw new BadRequestException('Draft not found');
+    let skipped: string[] = [];
+
     const project = await this.prisma.$transaction(async (tx) => {
       const org = await tx.organization.update({
         where: { id: u.organizationId },
@@ -89,6 +98,15 @@ export class ProjectsService {
           devices: input.devices,
           security: normalizeSecurity(input.security),
           redirectMode: input.redirectMode,
+          ...(extras
+            ? {
+                captchaStyle: extras.captchaStyle,
+                gateQuestions: (extras.gateQuestions ?? undefined) as Prisma.InputJsonValue | undefined,
+                prescreen: (extras.prescreen ?? undefined) as Prisma.InputJsonValue | undefined,
+                pageDesign: (extras.pageDesign ?? undefined) as Prisma.InputJsonValue | undefined,
+                autopilot: (extras.autopilot ?? undefined) as Prisma.InputJsonValue | undefined,
+              }
+            : {}),
           countries: {
             create: countries.map((c) => ({
               countryCode: c.countryCode,
@@ -109,7 +127,15 @@ export class ProjectsService {
 
       // Version 1 of the redirect policy is active from the start: default UID / Vendor ID /
       // Country Code mappings, and any rules supplied at creation (validated by the redirect service on edit).
-      const initial: RedirectConfig = input.redirectConfig ?? { rules: [], params: defaultParamMappings() };
+      let fromTemplate: RedirectConfig | undefined;
+      if (template && extras) {
+        const applied = await applyTemplateExtras(tx, u.organizationId, p.id, extras);
+        skipped = applied.skipped;
+        fromTemplate = templateRedirects(extras, applied.activeVendors);
+        await tx.projectTemplate.update({ where: { id: template.id }, data: { useCount: { increment: 1 }, lastUsedAt: new Date() } });
+      }
+      if (input.draftId) await tx.projectDraft.deleteMany({ where: { id: input.draftId, ownerId: u.id } });
+      const initial: RedirectConfig = input.redirectConfig ?? fromTemplate ?? { rules: [], params: defaultParamMappings() };
       if (!input.redirectConfig?.params?.length) initial.params = defaultParamMappings();
       const v1 = await tx.redirectPolicyVersion.create({
         data: {
@@ -138,12 +164,13 @@ export class ProjectsService {
         );
       }
       await this.audit.record(
-        { organizationId: u.organizationId, actorId: u.id, action: 'project.create', entityType: 'Project', entityId: p.id, detail: { projectCode, countries: countries.map((c) => c.countryCode) } },
+        { organizationId: u.organizationId, actorId: u.id, action: 'project.create', entityType: 'Project', entityId: p.id, detail: { projectCode, countries: countries.map((c) => c.countryCode), ...(template ? { templateId: template.id, template: template.name, skipped } : {}) } },
         tx,
       );
       return p;
     });
-    return this.get(u, project.id);
+    await this.history.record(u, project.id, null, template ? `Created from template “${template.name}”` : 'Created');
+    return { ...(await this.get(u, project.id)), templateSkipped: skipped };
   }
 
   async list(u: AuthUser, q: z.infer<typeof listQuerySchema>) {
@@ -298,7 +325,9 @@ export class ProjectsService {
     if (body.fieldStartAt !== undefined) data.fieldStartAt = body.fieldStartAt ? new Date(`${body.fieldStartAt}T00:00:00.000Z`) : null;
     if (body.fieldEndAt !== undefined) data.fieldEndAt = body.fieldEndAt ? new Date(`${body.fieldEndAt}T23:59:59.999Z`) : null;
     if (body.status === 'LIVE') await this.assertLaunchable(p.id);
+    const before = await this.history.snapshot(id);
     await this.prisma.project.update({ where: { id }, data });
+    await this.history.record(u, id, before);
     await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'project.update', entityType: 'Project', entityId: id, detail: body });
     if (body.status && body.status !== p.status) {
       await this.webhooks.emit(u.organizationId, 'project.status_changed', { project: { id, projectCode: p.projectCode, name: body.name ?? p.name }, from: p.status, to: body.status, changedBy: { name: u.name, email: u.email } });
@@ -323,6 +352,7 @@ export class ProjectsService {
     await this.mustOwn(u, projectId);
     const missing = REQUIRED_COUNTRY_FIELDS.filter((f) => body[f] === undefined);
     if (missing.length) throw new BadRequestException(`Missing ${missing.join(', ')}`);
+    const before = await this.history.snapshot(projectId);
     const c = await this.prisma.projectCountry.create({
       data: {
         projectId,
@@ -340,6 +370,7 @@ export class ProjectsService {
       },
     });
     await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'country.add', entityType: 'Project', entityId: projectId, detail: { countryCode: c.countryCode } });
+    await this.history.record(u, projectId, before);
     return c;
   }
 
@@ -347,6 +378,7 @@ export class ProjectsService {
     await this.mustOwn(u, projectId);
     const src = await this.prisma.projectCountry.findFirst({ where: { id: body.fromCountryId, projectId }, include: { allocations: true, quotas: true } });
     if (!src) throw new NotFoundException('Source country not found');
+    const before = await this.history.snapshot(projectId);
     const created = await this.prisma.projectCountry.create({
       data: {
         projectId,
@@ -377,17 +409,20 @@ export class ProjectsService {
       },
     });
     await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'country.clone', entityType: 'Project', entityId: projectId, detail: { from: src.countryCode, to: created.countryCode } });
+    await this.history.record(u, projectId, before);
     return created;
   }
 
   async updateCountry(u: AuthUser, projectId: string, countryId: string, body: z.infer<typeof updateCountrySchema>) {
     await this.mustOwnCountry(u, projectId, countryId);
     const { cpi, ...rest } = body;
+    const before = await this.history.snapshot(projectId);
     const c = await this.prisma.projectCountry.update({
       where: { id: countryId },
       data: { ...rest, ...(cpi !== undefined ? { cpi: new Prisma.Decimal(cpi) } : {}) },
     });
     await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'country.update', entityType: 'ProjectCountry', entityId: countryId, detail: body });
+    await this.history.record(u, projectId, before);
     return c;
   }
 
@@ -449,6 +484,51 @@ export class ProjectsService {
         redirectVersion: { select: { version: true } },
       },
     });
+  }
+
+  async settingsHistory(u: AuthUser, projectId: string) {
+    await this.mustOwn(u, projectId);
+    const rows = await this.prisma.projectSettingsVersion.findMany({ where: { projectId }, orderBy: { version: 'desc' }, take: 200, include: { actor: { select: { name: true } } } });
+    return rows.map((r) => ({ id: r.id, version: r.version, createdAt: r.createdAt, actor: r.actor?.name ?? null, reason: r.reason, changes: r.changes }));
+  }
+
+  /**
+   * Puts the project and its markets back to the settings of an earlier version. Status, markets
+   * added since, vendors, quotas and redirects are left as they are. The restore is itself a version.
+   */
+  async restoreVersion(u: AuthUser, projectId: string, version: number, reason?: string) {
+    const p = await this.mustOwn(u, projectId);
+    const v = await this.prisma.projectSettingsVersion.findUnique({ where: { projectId_version: { projectId, version } } });
+    if (!v) throw new NotFoundException('Version not found');
+    const snap = v.snapshot as unknown as SettingsSnapshot;
+    const data: Prisma.ProjectUncheckedUpdateInput = {};
+    for (const k of RESTORABLE) {
+      const val = snap[k];
+      if (k === 'fieldStartAt') data.fieldStartAt = val ? new Date(`${val}T00:00:00.000Z`) : null;
+      else if (k === 'fieldEndAt') data.fieldEndAt = val ? new Date(`${val}T23:59:59.999Z`) : null;
+      else if (k === 'gateQuestions' || k === 'prescreen' || k === 'pageDesign' || k === 'autopilot') data[k] = val == null ? Prisma.DbNull : (val as Prisma.InputJsonValue);
+      else (data as Record<string, unknown>)[k] = val;
+    }
+    // People and contacts may have left since; keep the current ones then.
+    const pm = await this.prisma.user.findFirst({ where: { id: snap.projectManagerId, organizationId: u.organizationId, active: true } });
+    if (!pm) data.projectManagerId = p.projectManagerId;
+    if (snap.salesPersonId && !(await this.prisma.user.count({ where: { id: snap.salesPersonId, organizationId: u.organizationId } }))) data.salesPersonId = p.salesPersonId;
+    if (snap.clientContactId && !(await this.prisma.clientContact.count({ where: { id: snap.clientContactId, clientId: p.clientId } }))) data.clientContactId = p.clientContactId;
+    const before = await this.history.snapshot(projectId);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.project.update({ where: { id: projectId }, data });
+      const countries = await tx.projectCountry.findMany({ where: { projectId } });
+      for (const c of countries) {
+        const s = snap.countries[`${c.countryCode}/${c.language}`];
+        if (!s) continue;
+        const cd: Prisma.ProjectCountryUncheckedUpdateInput = {};
+        for (const k of COUNTRY_RESTORABLE) (cd as Record<string, unknown>)[k] = k === 'cpi' ? new Prisma.Decimal(s.cpi) : s[k];
+        await tx.projectCountry.update({ where: { id: c.id }, data: cd });
+      }
+    });
+    await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'project.restore-settings', entityType: 'Project', entityId: projectId, detail: { version, reason: reason ?? null } });
+    const made = await this.history.record(u, projectId, before, `Restored version ${version}${reason ? `: ${reason}` : ''}`);
+    return { ...(await this.get(u, projectId)), restoredVersion: made };
   }
 
   async auditTrail(u: AuthUser, projectId: string) {

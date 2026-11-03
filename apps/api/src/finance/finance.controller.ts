@@ -1,3 +1,4 @@
+import { ProjectHistoryService } from '../projects/project-history';
 import { Body, Controller, Get, Module, Param, Patch, Post, Put, Query, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { z } from 'zod';
@@ -114,5 +115,5 @@ export class PayablesController {
   }
 }
 
-@Module({ controllers: [FinanceController, PayablesController], providers: [FinanceService, PayablesService], exports: [FinanceService, PayablesService] })
+@Module({ controllers: [FinanceController, PayablesController], providers: [FinanceService, PayablesService, ProjectHistoryService], exports: [FinanceService, PayablesService] })
 export class FinanceModule {}

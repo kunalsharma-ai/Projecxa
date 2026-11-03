@@ -6,6 +6,9 @@ import { canEdit, useMe } from '@/components/me';
 import { useTheme } from '@/components/theme';
 import { CountriesTab } from '@/components/project/countries-tab';
 import { FinanceTab } from '@/components/project/finance-tab';
+import { HistoryTab } from '@/components/project/history-tab';
+import { SaveTemplate } from '@/components/project/save-template';
+import { LayoutTemplate } from 'lucide-react';
 import { MonitorTab } from '@/components/project/monitor-tab';
 import { QuotasTab } from '@/components/project/quotas-tab';
 import { QaStudio } from '@/components/project/qa-studio';
@@ -21,7 +24,7 @@ import { get, patch } from '@/lib/api';
 import { flag } from '@/lib/countries';
 import { SECURITY_LABELS } from '@/lib/types';
 
-const TABS = ['Overview', 'Vendors & links', 'Quotas', 'Monitor', 'Gate & security', 'Respondent pages', 'Redirects', 'QA studio', 'Respondents', 'Answers', 'Reconcile & invoice'] as const;
+const TABS = ['Overview', 'Vendors & links', 'Quotas', 'Monitor', 'Gate & security', 'Respondent pages', 'Redirects', 'QA studio', 'Respondents', 'Answers', 'Reconcile & invoice', 'History'] as const;
 const NEXT_STATUS: Record<string, string[]> = {
   DRAFT: ['TEST', 'LIVE'],
   TEST: ['LIVE', 'HOLD'],
@@ -38,6 +41,18 @@ export default function ProjectPage() {
   const [p, setP] = useState<ProjectDetail | null>(null);
   const [tab, setTab] = useState<(typeof TABS)[number]>('Overview');
   const [error, setError] = useState<unknown>(null);
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [skipped, setSkipped] = useState<string[]>([]);
+  useEffect(() => {
+    try {
+      const k = `projexa:template-skipped:${id}`;
+      const v = sessionStorage.getItem(k);
+      if (v) {
+        setSkipped(JSON.parse(v));
+        sessionStorage.removeItem(k);
+      }
+    } catch {}
+  }, [id]);
 
   const reload = useCallback(() => get<ProjectDetail>(`/projects/${id}`).then(setP).catch(setError), [id]);
   useEffect(() => {
@@ -85,15 +100,26 @@ export default function ProjectPage() {
           </span>
         }
         actions={
-          editable &&
-          NEXT_STATUS[p.status]?.map((s) => (
-            <button key={s} className={s === 'LIVE' ? 'btn-primary' : 'btn-ghost'} onClick={() => setStatus(s)}>
-              {s === 'LIVE' ? 'Go live' : `Set ${s.toLowerCase()}`}
-            </button>
-          ))
+          editable && (
+            <>
+              <button className="btn-ghost" onClick={() => setSavingTemplate(!savingTemplate)}><LayoutTemplate className="h-4 w-4" /> Save as template</button>
+              {NEXT_STATUS[p.status]?.map((s) => (
+                <button key={s} className={s === 'LIVE' ? 'btn-primary' : 'btn-ghost'} onClick={() => setStatus(s)}>
+                  {s === 'LIVE' ? 'Go live' : `Set ${s.toLowerCase()}`}
+                </button>
+              ))}
+            </>
+          )
         }
       />
       <div className="mb-4"><ErrorBox error={error} /></div>
+      {skipped.length > 0 && (
+        <div className="mb-4 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm" role="status">
+          <div className="font-medium">Created from the template, with these left out:</div>
+          <ul className="mt-1 list-disc pl-5">{skipped.map((x) => <li key={x}>{x}</li>)}</ul>
+        </div>
+      )}
+      {savingTemplate && <SaveTemplate project={p} onClose={() => setSavingTemplate(false)} />}
 
       <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {[
@@ -128,6 +154,7 @@ export default function ProjectPage() {
       {tab === 'Gate & security' && <SecurityTab key={p.id} project={p} editable={editable} reload={reload} />}
       {tab === 'Reconcile & invoice' && <FinanceTab key={p.id} project={p} editable={editable} reload={reload} />}
       {tab === 'Respondent pages' && <RespondentPagesTab key={p.id} project={p} editable={editable} />}
+      {tab === 'History' && <HistoryTab key={p.id} project={p} editable={editable} reload={reload} />}
       {tab === 'Answers' && <AnswersView projectId={p.id} projectCode={p.projectCode} />}
     </>
   );

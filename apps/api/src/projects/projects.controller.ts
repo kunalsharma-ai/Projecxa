@@ -1,4 +1,6 @@
-import { Body, Controller, Get, Module, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Module, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
+import { ProjectHistoryService } from './project-history';
+import { ProjectDraftsController, ProjectTemplatesController } from './project-templates';
 import { z } from 'zod';
 import { CurrentUser, EDITORS, Roles } from '../auth/decorators';
 import { AuthUser } from '../auth/auth.types';
@@ -10,6 +12,7 @@ import {
   createProjectSchema,
   CreateProjectInput,
   listQuerySchema,
+  restoreSchema,
   updateAllocationSchema,
   updateCountrySchema,
   updateProjectSchema,
@@ -94,11 +97,22 @@ export class ProjectsController {
     return this.projects.sessions(u, id, { includeTest: includeTest === 'true', take: 200 });
   }
 
+  @Get(':id/history')
+  history(@CurrentUser() u: AuthUser, @Param('id') id: string) {
+    return this.projects.settingsHistory(u, id);
+  }
+
+  @Post(':id/history/:version/restore')
+  @Roles(...EDITORS)
+  restore(@CurrentUser() u: AuthUser, @Param('id') id: string, @Param('version', ParseIntPipe) version: number, @Body(new ZodPipe(restoreSchema)) body: z.infer<typeof restoreSchema>) {
+    return this.projects.restoreVersion(u, id, version, body.reason);
+  }
+
   @Get(':id/audit')
   audit(@CurrentUser() u: AuthUser, @Param('id') id: string) {
     return this.projects.auditTrail(u, id);
   }
 }
 
-@Module({ controllers: [ProjectsController], providers: [ProjectsService], exports: [ProjectsService] })
+@Module({ controllers: [ProjectsController, ProjectTemplatesController, ProjectDraftsController], providers: [ProjectsService, ProjectHistoryService], exports: [ProjectsService, ProjectHistoryService] })
 export class ProjectsModule {}
