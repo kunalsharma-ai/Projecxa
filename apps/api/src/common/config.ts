@@ -37,5 +37,27 @@ export const config = {
     const k = process.env.MFA_ENCRYPTION_KEY;
     return k && k.length >= 16 ? k : this.jwtSecret;
   },
+  /** Scheduled report emails: the minute-by-minute scheduler. */
+  get reportSchedulerEnabled(): boolean {
+    return process.env.REPORT_SCHEDULER_ENABLED !== 'false';
+  },
+  /**
+   * Outgoing email (docs/SCHEDULED_REPORTS.md). Zoho Mail SMTP by default: smtp.zoho.com, or
+   * smtp.zoho.in / smtp.zoho.eu for accounts in those data centres. Null when not set up.
+   */
+  get smtp(): { host: string; port: number; secure: boolean; user: string; pass: string; from: string } | null {
+    const user = process.env.SMTP_USER?.trim();
+    const pass = process.env.SMTP_PASS;
+    if (!user || !pass) return null;
+    const port = Number(process.env.SMTP_PORT ?? 465);
+    return {
+      host: process.env.SMTP_HOST?.trim() || 'smtp.zoho.com',
+      port,
+      secure: process.env.SMTP_SECURE ? process.env.SMTP_SECURE === 'true' : port === 465,
+      user,
+      pass,
+      from: process.env.MAIL_FROM?.trim() || user,
+    };
+  },
   cookieName: 'projexa_token',
 };

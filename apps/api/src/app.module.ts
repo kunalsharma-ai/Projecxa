@@ -13,6 +13,8 @@ import { ReportsModule } from './reports/reports.controller';
 import { WonBidsModule } from './won-bids/won-bids.controller';
 import { PublicApiModule } from './public-api/public-api.controller';
 import { WebhooksModule } from './webhooks/webhooks.service';
+import { MailModule } from './mail/mail.service';
+import { SchedulesModule } from './schedules/schedules.service';
 import { PrismaModule } from './prisma/prisma.service';
 import { ProjectsModule } from './projects/projects.controller';
 import { RedirectsModule } from './redirects/redirects.controller';
@@ -42,6 +44,8 @@ import { VendorsModule } from './vendors/vendors.controller';
     WonBidsModule,
     WebhooksModule,
     PublicApiModule,
+    MailModule,
+    SchedulesModule,
   ],
 })
 export class AppModule {}

@@ -111,6 +111,13 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - **Admins** (Settings → Sign-in security) can require it for all staff (portal users stay optional), see who has it on, and reset it for someone who lost their phone. Staff without it can only reach the setup page until they turn it on.
 - Secrets are encrypted at rest (`MFA_ENCRYPTION_KEY`). Details: `docs/MFA.md`.
 
+## Milestone 14: scheduled reports by email
+
+- **Reports → Scheduled reports**: email the overall summary or a report by client, vendor, project, country or day, covering yesterday, the last 7 or 30 days, this month so far or last month, optionally for one client, vendor or project.
+- Every day, week (pick the day) or month (day 1 to 28) at a local hour in any timezone (default Asia/Kolkata), to up to 20 addresses. The email has headline numbers and the top 25 rows; the full table is attached as CSV. Optionally skip periods with no traffic.
+- Preview, send now, pause and resume, and a send history with errors. Admins can send themselves a test email.
+- Sent through **Zoho Mail** SMTP with settings from the server environment only. Details: `docs/SCHEDULED_REPORTS.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).
