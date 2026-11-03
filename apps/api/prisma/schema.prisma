@@ -28,6 +28,11 @@ model Organization {
   workOrderSeq Int @default(9000)
   /// Invoice numbers: INV-<year>-<seq>, sequence per tenant.
   invoiceSeq   Int @default(0)
+  /// Fieldwork alert thresholds (src/monitor/monitor.rules.ts); null = defaults.
+  alertSettings      Json?
+  /// Optional HTTPS endpoint that receives new alerts, signed with alertWebhookSecret (HMAC-SHA256).
+  alertWebhookUrl    String?
+  alertWebhookSecret String?
   projectCodePrefix   String @default("PRX")
   workOrderPrefix     String @default("WO")
   /// Shared secret Bidzo signs "bid won" webhooks with (HMAC-SHA256). Null = intake disabled.
@@ -48,6 +53,7 @@ model Organization {
   wonBids     WonBid[]
   invoices    Invoice[]
   reconciliations Reconciliation[]
+  alerts      Alert[]
 }
 
 enum Role {
@@ -205,6 +211,11 @@ model Project {
   captchaStyle   String @default("math")
   /// Look of the respondent-facing pages (gate and end pages); see src/survey/page-design.ts.
   pageDesign     Json?
+  /// Planned fieldwork window; pacing compares the delivery rate with the days left.
+  fieldStartAt   DateTime?
+  fieldEndAt     DateTime?
+  /// Fieldwork autopilot settings, see src/monitor/monitor.rules.ts.
+  autopilot      Json?
   redirectMode   RedirectMode @default(HYBRID)
   activeRedirectVersionId String? @unique
   activeRedirectVersion   RedirectPolicyVersion? @relation("ActiveRedirectVersion", fields: [activeRedirectVersionId], references: [id])
@@ -216,6 +227,7 @@ model Project {
   sessions         RespondentSession[]
   invoices         Invoice[]
   reconciliations  Reconciliation[]
+  alerts           Alert[]
   wonBid           WonBid?
 
   @@unique([organizationId, projectCode])
@@ -647,4 +659,44 @@ model Reconciliation {
   createdAt      DateTime @default(now())
 
   @@index([projectId, createdAt])
+}
+
+enum AlertState {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+/// A fieldwork problem found by the monitor. One unresolved alert per dedupeKey; it resolves itself when the condition clears.
+model Alert {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectId      String?
+  project        Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectCountryId   String?
+  vendorAllocationId String?
+  /// stalled | behind_pace | low_ir | loi_short | loi_long | quality_spike | drop_off | quota_near | target_reached | callbacks_failed
+  rule           String
+  /// info | warn | bad
+  severity       String
+  title          String
+  detail         String
+  metrics        Json?
+  dedupeKey      String
+  state          AlertState @default(OPEN)
+  /// What the autopilot did about it, if anything (e.g. "Paused Panel Alpha in US").
+  autoAction     String?
+  webhookStatus  String?
+  firstSeenAt    DateTime @default(now())
+  lastSeenAt     DateTime @default(now())
+  acknowledgedAt DateTime?
+  acknowledgedById String?
+  resolvedAt     DateTime?
+  /// "auto" when the condition cleared, otherwise the user id.
+  resolvedBy     String?
+
+  @@index([organizationId, state])
+  @@index([organizationId, dedupeKey])
+  @@index([projectId, state])
 }

@@ -291,6 +291,8 @@ export class ProjectsService {
       const v = body[k];
       if (v !== undefined) data[k] = v === null || v.length === 0 ? Prisma.DbNull : (v as Prisma.InputJsonValue);
     }
+    if (body.fieldStartAt !== undefined) data.fieldStartAt = body.fieldStartAt ? new Date(`${body.fieldStartAt}T00:00:00.000Z`) : null;
+    if (body.fieldEndAt !== undefined) data.fieldEndAt = body.fieldEndAt ? new Date(`${body.fieldEndAt}T23:59:59.999Z`) : null;
     if (body.status === 'LIVE') await this.assertLaunchable(p.id);
     await this.prisma.project.update({ where: { id }, data });
     await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'project.update', entityType: 'Project', entityId: id, detail: body });

@@ -16,7 +16,7 @@ Classification follows the spec: **EXISTING** (done in this repo and tested), **
 | 2 RFQ & feasibility | RFQ extraction, feasibility | PARTIAL / EXTERNAL_DEPENDENCY | RFQs and feasibility stay in Bidzo. PROJEXA consumes the signed `bid.won` event into Won bids and prefills the project (milestone 5); Bidzo still has to send it |
 | 3 Vendors | Vendor records, per-country allocation with CPI and target, pause/resume | EXISTING | |
 | 3 | Vendor scoring, capacity, AI matching | MISSING | Needs delivery history first |
-| 4 Fieldwork autopilot | Monitoring, pacing, alerts | MISSING | Phase 5 |
+| 4 Fieldwork autopilot | Monitoring, pacing, alerts | DONE (milestone 9: monitor, alerts, autopilot, webhook) | Phase 5 |
 | 5 Survey links | Vendor entry links (live and test), opaque session tokens, client survey link macros | EXISTING | |
 | 5 | Canonical respondent event log, idempotent outcomes, out-of-order and duplicate handling | EXISTING | First terminal status wins; later conflicting statuses are logged |
 | 5 | Signed S2S outcome confirmation from client platforms | EXISTING | HMAC-SHA256 with timestamp window |

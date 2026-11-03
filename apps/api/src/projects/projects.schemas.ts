@@ -1,3 +1,4 @@
+import { autopilotSchema } from '../monitor/monitor.rules';
 import { z } from 'zod';
 import { redirectConfigSchema, REDIRECT_MODES } from '../redirects/redirect.types';
 import { CAPTCHA_STYLES } from '../survey/captcha';
@@ -87,7 +88,11 @@ export const updateProjectSchema = z.object({
   captchaStyle: z.enum(CAPTCHA_STYLES).optional(),
   prescreen: questionListSchema.nullable().optional(),
   status: z.enum(['DRAFT', 'TEST', 'LIVE', 'HOLD', 'CLOSED', 'INVOICED']).optional(),
-});
+  /** Planned field dates (UTC days). The end date is inclusive: fieldwork runs until 23:59 UTC. */
+  fieldStartAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').nullable().optional(),
+  fieldEndAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').nullable().optional(),
+  autopilot: autopilotSchema.optional(),
+}).refine((b) => !b.fieldStartAt || !b.fieldEndAt || b.fieldStartAt <= b.fieldEndAt, { message: 'The field end date must be on or after the start date', path: ['fieldEndAt'] });
 
 export const updateCountrySchema = countrySettingsSchema.extend({
   status: z.enum(['DRAFT', 'TEST', 'LIVE', 'HOLD', 'CLOSED']).optional(),
