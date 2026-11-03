@@ -33,6 +33,8 @@ export interface GenerateRequest {
   messages: Message[];
   tools: ToolSpec[];
   temperature?: number;
+  /** Make the model answer by calling this one tool (structured extraction). */
+  forceTool?: string;
 }
 
 export interface GenerateResult {

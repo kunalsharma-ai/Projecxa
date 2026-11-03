@@ -1,5 +1,5 @@
 import { VendorScoringService } from '../vendors/vendor-scoring';
-import { BadRequestException, ForbiddenException, HttpException, HttpStatus, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, HttpException, HttpStatus, Injectable, Logger, NotFoundException, ServiceUnavailableException, UnprocessableEntityException } from '@nestjs/common';
 import { Prisma, Role } from '@prisma/client';
 import { z } from 'zod';
 import { AuditService } from '../audit/audit.service';
@@ -13,6 +13,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ProjectsService } from '../projects/projects.service';
 import { ReportsService } from '../reports/reports.service';
 import { TasksService } from '../tasks/tasks.service';
+import { BRIEF_TOOL, briefSystem, normalizeBrief } from './brief';
 import { GeminiProvider } from './gemini.provider';
 import { AiProvider, AiProviderError, Http, Message, Part } from './provider';
 import { Display, toolByName, ToolContext, ToolError, toolsFor } from './tools';
@@ -67,6 +68,8 @@ export const MAX_DOC_BYTES = 10 * 1024 * 1024;
 const MAX_TOOL_ROUNDS = 6;
 const ACTION_TTL_MS = 30 * 60_000;
 const HISTORY = 40;
+/** Matches EMPTY_INFO on the Create project form, so a draft from a brief loads like any other. */
+const EMPTY_DRAFT_INFO = { name: '', workOrderNo: '', generateWorkOrder: true, type: 'AD_HOC', category: '', clientId: '', clientContactId: '', salesPersonId: '', projectManagerId: '', description: '', bidReference: '', fieldStartAt: '', fieldEndAt: '' };
 
 type Stored = { parts: Part[]; raw?: Message['raw'] };
 type DisplayCol = { blocks?: Display[]; actions?: string[] };
@@ -119,8 +122,8 @@ export class AiService {
     const s = await this.settings(u.organizationId);
     const since = startOfDayUtc();
     const [mine, org] = await Promise.all([
-      this.prisma.aiUsage.count({ where: { userId: u.id, createdAt: { gte: since }, kind: { in: ['chat', 'voice'] } } }),
-      this.prisma.aiUsage.count({ where: { organizationId: u.organizationId, createdAt: { gte: since }, kind: { in: ['chat', 'voice'] } } }),
+      this.prisma.aiUsage.count({ where: { userId: u.id, createdAt: { gte: since }, kind: { in: ['chat', 'voice', 'brief'] } } }),
+      this.prisma.aiUsage.count({ where: { organizationId: u.organizationId, createdAt: { gte: since }, kind: { in: ['chat', 'voice', 'brief'] } } }),
     ]);
     const allowed = s.enabled && s.roles.includes(u.role as (typeof STAFF_ROLES)[number]);
     return {
@@ -148,7 +151,7 @@ export class AiService {
   /** Per person per minute and per day, and per organisation per day. */
   private async limit(u: AuthUser, s: AiSettings) {
     const now = Date.now();
-    const kinds = { kind: { in: ['chat', 'voice'] } };
+    const kinds = { kind: { in: ['chat', 'voice', 'brief'] } };
     const [minute, day, org] = await Promise.all([
       this.prisma.aiUsage.count({ where: { userId: u.id, createdAt: { gte: new Date(now - 60_000) }, ...kinds } }),
       this.prisma.aiUsage.count({ where: { userId: u.id, createdAt: { gte: startOfDayUtc() }, ...kinds } }),
@@ -399,18 +402,59 @@ export class AiService {
     return shapeAction(done);
   }
 
+  // ───────────── Project from a brief ─────────────
+
+  /**
+   * Reads a brief (a file, or pasted text) and saves what it says as the person's project draft.
+   * Nothing is created: the draft opens in Create project for review (docs/PROJECT_FROM_BRIEF.md).
+   */
+  async brief(u: AuthUser, input: { file?: { originalname: string; mimetype: string; size: number; buffer: Buffer }; text?: string }) {
+    const pasted = input.text?.trim() ?? '';
+    if (!input.file && pasted.length < 40) throw new BadRequestException('Attach the brief, or paste at least a few sentences of it');
+    if (pasted.length > 100_000) throw new BadRequestException('Paste up to 100,000 characters, or attach the file instead');
+    const s = await this.gate(u, input.file ? 'documents' : undefined);
+    const doc = input.file ? { ...checkDocument(input.file), data: new Uint8Array(input.file.buffer) } : null;
+    const drafts = await this.prisma.projectDraft.count({ where: { organizationId: u.organizationId, ownerId: u.id } });
+    if (drafts >= 20) throw new BadRequestException('You have 20 project drafts. Delete one on Create project first.');
+    await this.limit(u, s);
+    const { p, c } = this.provider();
+    const clients = await this.prisma.client.findMany({ where: { organizationId: u.organizationId, status: 'ACTIVE' }, select: { id: true, name: true, code: true }, orderBy: { name: 'asc' }, take: 300 });
+    const parts: Part[] = [{ text: 'Here is the brief. Record the project with project_brief.' }, doc ? docPart({ name: doc.name, mimeType: doc.mime, data: doc.data }) : { text: `[Pasted brief]\n${pasted}\n[End of brief]` }];
+    const req = { system: briefSystem(new Date().toISOString().slice(0, 10), clients.map((x) => x.name)), messages: [{ role: 'user' as const, parts }], tools: [BRIEF_TOOL], forceTool: BRIEF_TOOL.name, temperature: 0 };
+    let model = c.model;
+    let out: Awaited<ReturnType<AiProvider['generate']>>;
+    for (;;) {
+      try {
+        out = await p.generate({ ...req, model });
+        await this.usage(u, p.id, model, 'brief', out.usage);
+        break;
+      } catch (e) {
+        await this.usage(u, p.id, model, 'brief', null, (e as Error).message);
+        if (e instanceof AiProviderError && (e.kind === 'rate_limited' || e.kind === 'unavailable') && c.fallbackModel && model !== c.fallbackModel) {
+          model = c.fallbackModel;
+          continue;
+        }
+        if (e instanceof AiProviderError) throw new HttpException(e.message, e.kind === 'rate_limited' ? HttpStatus.TOO_MANY_REQUESTS : e.kind === 'blocked' ? HttpStatus.UNPROCESSABLE_ENTITY : HttpStatus.SERVICE_UNAVAILABLE);
+        throw e;
+      }
+    }
+    const call = out.calls.find((x) => x.name === BRIEF_TOOL.name);
+    if (!call) throw new UnprocessableEntityException('The AI could not find a project brief in this. Try a clearer document, or paste the key details.');
+    const r = normalizeBrief(call.args, { clients, fileName: doc?.name ?? null });
+    if (!r.info.name && !r.rows.length) throw new UnprocessableEntityException('This does not look like a project brief: no project or markets were found.');
+    const data = { info: { ...EMPTY_DRAFT_INFO, ...r.info }, devices: r.devices, security: { gateSurvey: true, captcha: true }, mode: 'HYBRID', shared: r.shared, rows: r.rows, templateId: null, wonBidId: null, brief: r.brief };
+    const title = (r.info.name || `Brief: ${doc?.name ?? 'pasted text'}`).slice(0, 300);
+    const draft = await this.prisma.projectDraft.create({ data: { organizationId: u.organizationId, ownerId: u.id, title, data: data as unknown as Prisma.InputJsonValue }, select: { id: true, title: true, updatedAt: true } });
+    await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'ai.brief.read', entityType: 'ProjectDraft', entityId: draft.id, detail: { file: doc?.name ?? null, pasted: doc ? 0 : pasted.length, filled: r.brief.filled, missing: r.brief.missing, model } });
+    return { draftId: draft.id, title: draft.title, brief: r.brief };
+  }
+
   // ───────────── Documents ─────────────
 
   async upload(u: AuthUser, file: { originalname: string; mimetype: string; size: number; buffer: Buffer } | undefined) {
     await this.gate(u, 'documents');
-    if (!file) throw new BadRequestException('Choose a file');
-    if (file.size > MAX_DOC_BYTES) throw new BadRequestException('Files can be up to 10 MB');
-    const name = file.originalname.replace(/[^\w .()-]/g, '_').slice(0, 120) || 'file';
-    let mime = file.mimetype.split(';')[0].toLowerCase();
-    if (mime === 'application/octet-stream' || !DOC_TYPES[mime]) mime = guess(name) ?? mime;
-    if (/\.docx?$/i.test(name) || mime.includes('word')) throw new BadRequestException('Word files cannot be read directly. Save it as PDF and upload that.');
-    if (!DOC_TYPES[mime]) throw new BadRequestException('PDF, text, Markdown, CSV, HTML, JSON or images (PNG, JPEG, WebP)');
-    if (mime === 'application/pdf' && file.buffer.subarray(0, 5).toString() !== '%PDF-') throw new BadRequestException('That is not a valid PDF');
+    const { name, mime } = checkDocument(file);
+    file = file!;
     const d = await this.prisma.aiDocument.create({ data: { organizationId: u.organizationId, userId: u.id, name, mimeType: mime, size: file.size, data: new Uint8Array(file.buffer) } });
     await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'ai.document.upload', entityType: 'AiDocument', entityId: d.id, detail: { name, size: file.size, mimeType: mime } });
     return { id: d.id, name: d.name, mimeType: d.mimeType, size: d.size, createdAt: d.createdAt };
@@ -508,6 +552,19 @@ function messageOf(e: unknown) {
 
 export function shapeAction(a: { id: string; tool: string; summary: string; status: string; result: Prisma.JsonValue; error: string | null; createdAt: Date; decidedAt: Date | null }) {
   return { id: a.id, tool: a.tool, summary: a.summary, status: a.status, result: a.result, error: a.error, createdAt: a.createdAt, decidedAt: a.decidedAt };
+}
+
+/** The checks every uploaded document goes through; returns a safe name and the real type. */
+export function checkDocument(file: { originalname: string; mimetype: string; size: number; buffer: Buffer } | undefined) {
+  if (!file) throw new BadRequestException('Choose a file');
+  if (file.size > MAX_DOC_BYTES) throw new BadRequestException('Files can be up to 10 MB');
+  const name = file.originalname.replace(/[^\w .()-]/g, '_').slice(0, 120) || 'file';
+  let mime = file.mimetype.split(';')[0].toLowerCase();
+  if (mime === 'application/octet-stream' || !DOC_TYPES[mime]) mime = guess(name) ?? mime;
+  if (/\.docx?$/i.test(name) || mime.includes('word')) throw new BadRequestException('Word files cannot be read directly. Save it as PDF and upload that.');
+  if (!DOC_TYPES[mime]) throw new BadRequestException('PDF, text, Markdown, CSV, HTML, JSON or images (PNG, JPEG, WebP)');
+  if (mime === 'application/pdf' && file.buffer.subarray(0, 5).toString() !== '%PDF-') throw new BadRequestException('That is not a valid PDF');
+  return { name, mime };
 }
 
 function guess(name: string) {

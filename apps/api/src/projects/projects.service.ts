@@ -98,6 +98,8 @@ export class ProjectsService {
           devices: input.devices,
           security: normalizeSecurity(input.security),
           redirectMode: input.redirectMode,
+          fieldStartAt: input.fieldStartAt ? new Date(`${input.fieldStartAt}T00:00:00Z`) : undefined,
+          fieldEndAt: input.fieldEndAt ? new Date(`${input.fieldEndAt}T00:00:00Z`) : undefined,
           ...(extras
             ? {
                 captchaStyle: extras.captchaStyle,

@@ -88,7 +88,7 @@ export class GeminiProvider implements AiProvider {
     const body = {
       systemInstruction: { parts: [{ text: req.system }] },
       contents: toContents(req.messages),
-      ...(req.tools.length ? { tools: geminiTools(req.tools), toolConfig: { functionCallingConfig: { mode: 'AUTO' } } } : {}),
+      ...(req.tools.length ? { tools: geminiTools(req.tools), toolConfig: { functionCallingConfig: req.forceTool ? { mode: 'ANY', allowedFunctionNames: [req.forceTool] } : { mode: 'AUTO' } } } : {}),
       generationConfig: { temperature: req.temperature ?? 0.2 },
     };
     const j = (await this.post(`/v1beta/models/${encodeURIComponent(req.model)}:generateContent`, body)) as {

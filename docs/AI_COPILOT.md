@@ -56,6 +56,10 @@ PROJEXA has no teams, departments, budgets or expenses. When asked about them th
 
 Attach a PDF, image (PNG or JPEG), plain text, Markdown, CSV or JSON file (10 MB max) and ask for a summary, the requirements, or what is missing. PDFs are read by Gemini directly (about 258 tokens per page); Word files must be saved as PDF first. Files are stored in the database for the uploader and can be deleted from the attachment list.
 
+## Project from a brief
+
+Create project can also read a brief into the form with one forced tool call. It uses the same settings and limits, and counts as usage kind `brief`. See `docs/PROJECT_FROM_BRIEF.md`.
+
 ## Voice
 
 The microphone button starts a spoken conversation.

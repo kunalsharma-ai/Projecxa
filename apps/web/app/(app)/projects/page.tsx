@@ -1,6 +1,7 @@
 'use client';
-import { ChevronLeft, ChevronRight, Download, LayoutTemplate, Plus, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, LayoutTemplate, Plus, Search, Sparkles } from 'lucide-react';
 import Link from 'next/link';
+import { useBriefAvailability } from '@/components/project/brief-reader';
 import { useEffect, useState } from 'react';
 import { DataGrid, type GridColumn, type Sort } from '@/components/data-grid';
 import { Empty, ErrorBox, Loading, PageHeader, Progress, StatusChip } from '@/components/ui';
@@ -117,6 +118,7 @@ export default function ProjectsPage() {
     }
   }
 
+  const briefAvailable = useBriefAvailability();
   return (
     <>
       <PageHeader
@@ -126,6 +128,7 @@ export default function ProjectsPage() {
           <>
             <button className="btn-ghost" disabled={!data?.total || exporting} onClick={exportCsv}><Download className="h-4 w-4" /> {exporting ? 'Exporting…' : 'CSV'}</button>
             <Link href="/projects/templates" className="btn-ghost"><LayoutTemplate className="h-4 w-4" /> Templates</Link>
+            {briefAvailable && <Link href="/projects/new?brief=1" className="btn-ghost"><Sparkles className="h-4 w-4" /> From a brief</Link>}
             <Link href="/projects/new" className="btn-primary"><Plus className="h-4 w-4" /> Create project</Link>
           </>
         }
