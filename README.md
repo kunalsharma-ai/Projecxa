@@ -66,6 +66,14 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - The gate page uses the same design. Pages are server-rendered with a strict nonce CSP, no outside fonts or scripts; images are checked by their bytes and served from `/pa/:id`.
 - Details: `docs/RESPONDENT_PAGES.md`.
 
+## Milestone 8: reconciliation, invoicing and finance dashboard
+
+- **Reconcile & invoice tab** on each project: paste or load the client's ID list (session tokens or vendor UIDs), choose final list, approve listed or reject listed, preview exactly what changes, then apply. IDs that match nothing or that we recorded as another outcome are flagged for the client. Every run is kept in a history.
+- **Invoices** from approved completes: one draft per currency with a line per market and price, then sent (with payment terms), paid or void. Invoiced completes are locked; voiding releases them. Printable invoice page (print or save as PDF), invoice list with filters and CSV.
+- **Command center**: date range with trend % against the previous period, reconciliation and invoicing tiles, top 5 vendors, projects and clients, and a revenue, payout and profit chart (daily, weekly or monthly; bars or lines; table view).
+- **Projects list**: link status (live links / all links) and CSV export of every matching project.
+- Details: `docs/FINANCE.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).

@@ -26,6 +26,8 @@ model Organization {
   /// Next numbers for human-readable IDs (FRP10001, FR9001 style).
   projectSeq   Int @default(10000)
   workOrderSeq Int @default(9000)
+  /// Invoice numbers: INV-<year>-<seq>, sequence per tenant.
+  invoiceSeq   Int @default(0)
   projectCodePrefix   String @default("PRX")
   workOrderPrefix     String @default("WO")
   /// Shared secret Bidzo signs "bid won" webhooks with (HMAC-SHA256). Null = intake disabled.
@@ -44,6 +46,8 @@ model Organization {
   auditEvents AuditEvent[]
   callbacks   CallbackDelivery[]
   wonBids     WonBid[]
+  invoices    Invoice[]
+  reconciliations Reconciliation[]
 }
 
 enum Role {
@@ -105,6 +109,7 @@ model Client {
   contacts ClientContact[]
   projects Project[]
   users    User[]
+  invoices Invoice[]
 
   @@unique([organizationId, code])
 }
@@ -209,6 +214,8 @@ model Project {
   countries        ProjectCountry[]
   redirectVersions RedirectPolicyVersion[] @relation("ProjectRedirectVersions")
   sessions         RespondentSession[]
+  invoices         Invoice[]
+  reconciliations  Reconciliation[]
   wonBid           WonBid?
 
   @@unique([organizationId, projectCode])
@@ -373,6 +380,11 @@ model RespondentSession {
   /// True once the outcome was confirmed server-to-server by the client survey platform.
   outcomeVerified  Boolean @default(false)
   approval         ApprovalStatus @default(NOT_APPLICABLE)
+  /// When the approval was last decided (by hand, the client portal or a reconciliation).
+  approvalAt       DateTime?
+  /// Set once this approved complete is billed; locked against further approval changes until the invoice is voided.
+  invoiceId        String?
+  invoice          Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
   isTest           Boolean @default(false)
   /// Redirect configuration version used to process this session (historical traceability).
   redirectVersionId String?
@@ -409,6 +421,7 @@ model RespondentSession {
   @@index([projectId, browserIdHash])
   @@index([projectId, ipHash])
   @@index([organizationId, startedAt])
+  @@index([invoiceId])
 }
 
 enum EventSource {
@@ -570,4 +583,68 @@ model PageAsset {
   createdAt      DateTime @default(now())
 
   @@index([organizationId, projectId])
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  VOID
+}
+
+/// Client invoice for approved completes of one project, in one currency.
+model Invoice {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectId      String
+  project        Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  clientId       String
+  client         Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  number         String
+  status         InvoiceStatus @default(DRAFT)
+  currency       String
+  /// [{ countryCode, description, quantity, unitPrice, amount }]
+  lines          Json
+  completes      Int
+  total          Decimal @db.Decimal(14, 2)
+  notes          String?
+  issuedAt       DateTime?
+  dueAt          DateTime?
+  paidAt         DateTime?
+  voidedAt       DateTime?
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  sessions RespondentSession[]
+
+  @@unique([organizationId, number])
+  @@index([organizationId, status])
+  @@index([projectId])
+}
+
+/// One applied reconciliation: the client's final list of valid IDs for a project.
+model Reconciliation {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectId      String
+  project        Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  /// final_list: listed approved, others rejected · approve_listed · reject_listed
+  mode           String
+  submitted      Int
+  matched        Int
+  approved       Int
+  rejected       Int
+  unchanged      Int
+  unknown        Int
+  locked         Int
+  /// Up to 50 IDs that matched nothing, for follow-up with the client.
+  unknownSample  Json?
+  note           String?
+  actorId        String?
+  createdAt      DateTime @default(now())
+
+  @@index([projectId, createdAt])
 }

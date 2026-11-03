@@ -288,7 +288,7 @@ export class ClientPortalController {
     const p = await this.ownProject(u, id);
     const r = await this.prisma.respondentSession.updateMany({
       where: { id: { in: body.sessionIds }, projectId: p.id, status: 'COMPLETE', isTest: false, approval: 'PENDING' },
-      data: { approval: body.approval },
+      data: { approval: body.approval, approvalAt: new Date() },
     });
     await this.audit.record({
       organizationId: u.organizationId,

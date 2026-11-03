@@ -13,11 +13,11 @@ PROJEXA milestone 1 is a fresh codebase. Each item below says how milestone 1 tr
 | Client count | Total plus active/inactive split (54 / 1) | Rebuilt from live data (`GET /dashboard`) |
 | Vendor count | Total plus active/inactive split | Rebuilt |
 | Project count by status | 190 split into 4 status counts | Rebuilt (`projects.byStatus`) |
-| Statistics for a date range | Revenue, cost, profit, clicks, completes with trend % | Totals rebuilt; date range and trend % not yet |
-| Reconciliation and invoicing tiles | Total reconciled, invoice pending, invoiced, payment received | Not yet (Phase 7). Approval status per complete exists. |
-| Top 5 vendors / projects / clients | Ranked lists | Not yet |
+| Statistics for a date range | Revenue, cost, profit, clicks, completes with trend % | **Milestone 8:** any date range (presets or custom) with trend % against the previous period of the same length |
+| Reconciliation and invoicing tiles | Total reconciled, invoice pending, invoiced, payment received | **Milestone 8:** reconciled, awaiting reconciliation, invoice pending, invoiced and payment received, per currency |
+| Top 5 vendors / projects / clients | Ranked lists | **Milestone 8:** ranked by revenue in the selected period |
 | Live projects table | Project ID, bid number, work order, name, completes, terminates, overquotas, dropouts | Rebuilt as a compact list with progress |
-| Monthly revenue chart | Revenue / payout / profit / loss, monthly-weekly-daily, bar-line | Not yet (Phase 7 analytics) |
+| Monthly revenue chart | Revenue / payout / profit / loss, monthly-weekly-daily, bar-line | **Milestone 8:** revenue, payout and profit (loss shows below zero), daily / weekly / monthly, bars or lines, with a table view |
 | Bidding dashboard, vendor dashboard | Menu entries only | Out of scope: bidding belongs to Bidzo |
 
 ## Won bids (`/member/project/won`)
@@ -48,9 +48,9 @@ PROJEXA milestone 1 is a fresh codebase. Each item below says how milestone 1 tr
 | Terminates, overquotas, dropouts | Yes, counted from respondent sessions |
 | LOI, IR | Yes (average across countries) |
 | Project manager, sales person, sample options, category | PM and category yes; sample options not yet |
-| Link status (e.g. 4/4, 0/1) | Not yet; live countries count is returned by the API |
+| Link status (e.g. 4/4, 0/1) | **Milestone 8:** live links / all links per project in the list |
 | Created on, description | Yes |
-| Filters: status, sample options, category; search; CSV download | Status, category and search yes; CSV export not yet |
+| Filters: status, sample options, category; search; CSV download | Status, category and search yes; CSV export of every matching project since milestone 8 |
 | Pagination | Yes |
 | Marketplace projects (menu) | Out of scope (DIY Marketplace product) |
 
