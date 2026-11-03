@@ -3,7 +3,7 @@ import { countryName, flag } from '@/lib/countries';
 import type { Filters, Options } from './types';
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
-function presetRange(p: string): { from: string; to: string } {
+export function presetRange(p: string): { from: string; to: string } {
   const today = new Date();
   const back = (days: number) => iso(new Date(today.getTime() - days * 86_400_000));
   switch (p) {

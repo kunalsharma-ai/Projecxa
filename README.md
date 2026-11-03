@@ -168,6 +168,14 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - Each document is looked up by number before it is created and every created record is remembered, so nothing is sent twice. Runs list their problems per document.
 - Setup and the limits of each system: `docs/ACCOUNTING_SYNC.md`.
 
+## Milestone 22: saved report views and PDF export
+
+- **Saved views** (Reports): save the tab, date range and client, project, vendor and market filters under a name. Keep a view to yourself or share it with the team. Relative ranges such as "Last 30 days" move with the calendar. Only the owner or an admin can rename, share or delete a view.
+- **Report PDF**: **Download PDF** on the Overall, Clients and Vendors tabs gives a landscape A4 report with the same filters as the screen: total tiles and the grouped table, money per currency.
+- **Invoice PDF**: **Download PDF** on each client invoice. The seller block, tax ID and payment details come from Settings → Invoice details; each client's billing address and tax ID are set on the Clients page. Drafts, void and paid invoices carry a stamp.
+- **Scheduled report emails** can attach the PDF as well as the CSV.
+- Details: `docs/REPORT_VIEWS.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).

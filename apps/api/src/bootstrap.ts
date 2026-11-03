@@ -17,7 +17,7 @@ export function configureApp(app: INestApplication) {
       { path: 'pa/:id', method: RequestMethod.GET },
     ],
   });
-  app.enableCors({ origin: config.webOrigins, credentials: true });
+  app.enableCors({ origin: config.webOrigins, credentials: true, exposedHeaders: ['Content-Disposition'] });
   const http = app.getHttpAdapter().getInstance();
   http.set('trust proxy', 1);
   http.disable('x-powered-by');

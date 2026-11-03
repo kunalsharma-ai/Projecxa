@@ -109,6 +109,16 @@ export function dayRange(f: Pick<ReportFilter, 'from' | 'to'>) {
 export class ReportsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** Human labels for the filters, for PDF and email headings. Only this organisation's records. */
+  async labels(org: string, f: { clientId?: string; vendorId?: string; projectId?: string; countryCode?: string }) {
+    const [c, v, p] = await Promise.all([
+      f.clientId ? this.prisma.client.findFirst({ where: { id: f.clientId, organizationId: org }, select: { name: true } }) : null,
+      f.vendorId ? this.prisma.vendor.findFirst({ where: { id: f.vendorId, organizationId: org }, select: { name: true } }) : null,
+      f.projectId ? this.prisma.project.findFirst({ where: { id: f.projectId, organizationId: org }, select: { projectCode: true } }) : null,
+    ]);
+    return [c && `Client ${c.name}`, v && `Vendor ${v.name}`, p && `Project ${p.projectCode}`, f.countryCode && `Market ${f.countryCode}`].filter(Boolean) as string[];
+  }
+
   private where(org: string, f: ReportFilter) {
     const { gte, lt } = dayRange(f);
     const parts: Prisma.Sql[] = [Prisma.sql`s."organizationId" = ${org}`, Prisma.sql`s."isTest" = false`];

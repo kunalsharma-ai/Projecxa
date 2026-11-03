@@ -44,6 +44,8 @@ model Organization {
   accountingConfig       Json?
   /// Direct sync to Zoho Books: { enabled, hourly, since, invoices, bills, payments }. Credentials live in env only.
   zohoBooksConfig        Json?
+  /// Seller details printed on invoice PDFs: { legalName, address, taxId, email, phone, bankDetails, footer }.
+  invoiceProfile         Json?
   /// AI copilot settings (docs/AI_COPILOT.md): { enabled, voice, documents, actions, roles, perUserDaily, orgDaily }.
   aiSettings             Json?
   /// Fieldwork alert thresholds (src/monitor/monitor.rules.ts); null = defaults.
@@ -84,6 +86,7 @@ model Organization {
   ledgerConnections LedgerConnection[]
   ledgerLinks       LedgerLink[]
   ledgerSyncs       LedgerSync[]
+  reportViews       SavedReportView[]
   tasks             Task[]
   aiConversations   AiConversation[]
   aiActions         AiAction[]
@@ -145,6 +148,7 @@ model User {
 
   @@unique([organizationId, email])
   @@index([email])
+  reportViews SavedReportView[]
 }
 
 // ───────────────────────────── Clients and vendors ─────────────────────────────
@@ -165,6 +169,9 @@ model Client {
   redirectTemplate Json?
   /// Secret for verifying client server-to-server outcome postbacks (HMAC-SHA256).
   s2sSecret        String
+  /// Printed under "Bill to" on invoice PDFs.
+  billingAddress   String?
+  taxId            String?
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
@@ -940,6 +947,8 @@ model ReportSchedule {
   recipients     String[]
   /// Do not send when the period had no traffic.
   skipEmpty      Boolean      @default(false)
+  /// Attach a PDF of the report as well as the CSV.
+  attachPdf      Boolean      @default(false)
   active         Boolean      @default(true)
   nextRunAt      DateTime
   lastRunAt      DateTime?
@@ -1060,6 +1069,27 @@ model ZohoBooksSync {
   finishedAt     DateTime?
 
   @@index([organizationId, startedAt])
+}
+
+/// A saved set of report filters (docs/REPORT_VIEWS.md). Shared views are visible to all staff.
+model SavedReportView {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ownerId        String
+  owner          User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name           String
+  /// Overall | Conversion | Clients | Vendors | Clicks
+  tab            String
+  /// today | 7 | 30 | 90 | month | all | custom (custom keeps the dates in filters)
+  period         String
+  /// { from?, to?, clientId?, vendorId?, projectId?, countryCode? }
+  filters        Json         @default("{}")
+  shared         Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId, ownerId])
 }
 
 /// A connection to Xero, QuickBooks Online or Tally Prime (docs/ACCOUNTING_SYNC.md).

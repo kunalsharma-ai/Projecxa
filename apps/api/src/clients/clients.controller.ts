@@ -15,11 +15,15 @@ const createSchema = z.object({
   code: z.string().regex(/^[A-Z0-9_-]{2,20}$/i).transform((s) => s.toUpperCase()),
   contacts: z.array(contactSchema).default([]),
   redirectTemplate: redirectConfigSchema.optional(),
+  billingAddress: z.string().trim().max(1000).nullable().optional(),
+  taxId: z.string().trim().max(80).nullable().optional(),
 });
 const updateSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   status: z.enum(['ACTIVE', 'INACTIVE']).optional(),
   redirectTemplate: redirectConfigSchema.nullable().optional(),
+  billingAddress: z.string().trim().max(1000).nullable().optional(),
+  taxId: z.string().trim().max(80).nullable().optional(),
 });
 
 @Controller('clients')
@@ -39,7 +43,7 @@ export class ClientsController {
   async get(@CurrentUser() u: AuthUser, @Param('id') id: string) {
     const c = await this.prisma.client.findFirst({
       where: { id, organizationId: u.organizationId },
-      select: { id: true, name: true, code: true, status: true, contacts: true, redirectTemplate: true },
+      select: { id: true, name: true, code: true, status: true, contacts: true, redirectTemplate: true, billingAddress: true, taxId: true },
     });
     if (!c) throw new NotFoundException();
     return c;
@@ -55,6 +59,8 @@ export class ClientsController {
         code: body.code,
         s2sSecret: randomToken(32),
         redirectTemplate: body.redirectTemplate,
+        billingAddress: body.billingAddress || null,
+        taxId: body.taxId || null,
         contacts: { create: body.contacts },
       },
       include: { contacts: true },

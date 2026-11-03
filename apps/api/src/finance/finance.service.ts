@@ -12,6 +12,8 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { ApprovalStatus, InvoiceStatus, Prisma } from '@prisma/client';
 import { z } from 'zod';
+import { configOf } from '../accounting/formats';
+import { EMPTY_PROFILE, InvoiceProfile, renderInvoicePdf } from '../pdf/invoice-pdf';
 import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../auth/auth.types';
 import { WebhooksService } from '../webhooks/webhooks.service';
@@ -25,6 +27,10 @@ export const reconcileSchema = z.object({
 });
 export type ReconcileInput = z.infer<typeof reconcileSchema>;
 
+const profileText = (max: number) => z.string().max(max).nullable().optional();
+export const invoiceProfileSchema = z
+  .object({ legalName: profileText(200), address: profileText(1000), taxId: profileText(80), email: profileText(200), phone: profileText(60), bankDetails: profileText(1000), footer: profileText(300) })
+  .strict();
 export const createInvoiceSchema = z.object({ notes: z.string().max(1000).optional() });
 /** Tax on a draft: a name such as "GST" or "VAT" and a percentage. 0 removes it. */
 export const taxSchema = z.object({ taxName: z.string().trim().max(40).nullable().optional(), taxPercent: z.number().min(0).max(100).optional() });
@@ -324,6 +330,44 @@ export class FinanceService {
     });
     const now = Date.now();
     return rows.map((r) => ({ ...shape(r), project: r.project, client: r.client, overdue: r.status === 'SENT' && !!r.dueAt && r.dueAt.getTime() < now }));
+  }
+
+  /** Seller details for invoice PDFs. */
+  async invoiceProfile(org: string): Promise<InvoiceProfile> {
+    const o = await this.prisma.organization.findUniqueOrThrow({ where: { id: org }, select: { invoiceProfile: true } });
+    return { ...EMPTY_PROFILE, ...((o.invoiceProfile ?? {}) as Partial<InvoiceProfile>) };
+  }
+
+  async saveInvoiceProfile(u: AuthUser, b: z.infer<typeof invoiceProfileSchema>) {
+    const clean = Object.fromEntries(Object.entries(b).map(([k, v]) => [k, v?.trim() ? v.trim() : null])) as unknown as InvoiceProfile;
+    await this.prisma.organization.update({ where: { id: u.organizationId }, data: { invoiceProfile: clean as unknown as Prisma.InputJsonValue } });
+    await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'invoice_profile.update', entityType: 'Organization', entityId: u.organizationId, detail: {} });
+    return clean;
+  }
+
+  /** The invoice as a PDF, with the seller details from Settings and the client's billing address. */
+  async invoicePdf(u: AuthUser, id: string) {
+    const r = await this.prisma.invoice.findFirst({
+      where: { id, organizationId: u.organizationId },
+      include: {
+        project: { select: { projectCode: true, name: true, workOrderNo: true } },
+        client: { select: { name: true, code: true, billingAddress: true, taxId: true } },
+        organization: { select: { name: true, invoiceProfile: true, accountingConfig: true } },
+      },
+    });
+    if (!r) throw new NotFoundException('Invoice not found');
+    const tz = configOf(r.organization.accountingConfig).timezone;
+    const day = (d: Date | null) => (d ? new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: tz }).format(d) : null);
+    const lines = (r.lines as unknown as { description: string; countryCode?: string; quantity: number; unitPrice: number; amount: number }[]).map((l) => ({ description: String(l.description), countryCode: l.countryCode ?? null, quantity: Number(l.quantity), unitPrice: Number(l.unitPrice), amount: Number(l.amount) }));
+    const buf = await renderInvoicePdf({
+      org: r.organization.name,
+      profile: { ...EMPTY_PROFILE, ...((r.organization.invoiceProfile ?? {}) as Partial<InvoiceProfile>) },
+      number: r.number, status: r.status, currency: r.currency,
+      issuedAt: day(r.issuedAt), dueAt: day(r.dueAt), paidAt: day(r.paidAt), paymentReference: r.paymentReference,
+      client: r.client, project: { code: r.project.projectCode, name: r.project.name, workOrderNo: r.project.workOrderNo },
+      lines, subtotal: money(r.subtotal), taxName: r.taxName, taxPercent: Number(r.taxPercent), taxAmount: money(r.taxAmount), total: money(r.total), notes: r.notes,
+    });
+    return { buf, fileName: `${r.number}.pdf` };
   }
 
   async getInvoice(u: AuthUser, id: string) {

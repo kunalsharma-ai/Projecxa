@@ -92,7 +92,7 @@ describe('Scheduled report emails (e2e)', () => {
     expect(m.html).toContain('=Acme Insights');
     expect(m.html).toContain('By client');
     expect(m.text).toContain('2 completes');
-    const csv = m.attachments![0];
+    const csv = m.attachments![0] as { filename: string; content: string };
     expect(csv.filename).toMatch(/^weekly-client-report-.+\.csv$/);
     expect(csv.content.split('\r\n')[0]).toContain('Clicks,Completes');
     // Spreadsheet formulas are defused.
