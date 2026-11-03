@@ -1,7 +1,8 @@
 'use client';
 import { LogOut, ShieldCheck } from 'lucide-react';
+import clsx from 'clsx';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { MeContext } from '@/components/me';
 import { ThemeMenu } from '@/components/shell/theme-menu';
@@ -13,6 +14,7 @@ import { isPortalRole, type Me } from '@/lib/types';
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
   const router = useRouter();
+  const pathname = usePathname();
   const { hydrate } = useTheme();
 
   useEffect(() => {
@@ -28,6 +30,12 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   if (!me) return <Loading label="Checking your session" />;
   const company = me.client?.name ?? me.vendor?.name ?? '';
   const home = me.user.role === 'CLIENT_USER' ? '/portal/client' : '/portal/vendor';
+  const links = [
+    { href: home, label: me.user.role === 'CLIENT_USER' ? 'Projects' : 'Links' },
+    { href: '/portal/requests', label: 'Requests' },
+    { href: '/portal/files', label: 'Files' },
+    ...(me.user.role === 'CLIENT_USER' ? [{ href: '/portal/invoices', label: 'Invoices' }] : []),
+  ];
 
   return (
     <MeContext.Provider value={me}>
@@ -45,6 +53,16 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             </button>
           </div>
         </div>
+        <nav className="mx-auto flex max-w-[1200px] gap-1 overflow-x-auto px-4 pb-2 sm:px-6" aria-label="Portal">
+          {links.map((l) => {
+            const on = l.href === home ? pathname === home || pathname.startsWith(`${home}/`) : pathname.startsWith(l.href);
+            return (
+              <Link key={l.href} href={l.href} aria-current={on ? 'page' : undefined} className={clsx('whitespace-nowrap rounded-full px-3 py-1 text-sm', on ? 'bg-brand text-white' : 'text-muted hover:bg-sunken')}>
+                {l.label}
+              </Link>
+            );
+          })}
+        </nav>
       </header>
       <main className="anim-in mx-auto max-w-[1200px] px-4 py-6 sm:px-6">{children}</main>
       <footer className="pb-8 text-center text-xs text-muted">Operated by {me.organization.name} · Powered by Sampledge PROJEXA</footer>

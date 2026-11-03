@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { canEdit, useMe } from '@/components/me';
 import { useTheme } from '@/components/theme';
 import { CountriesTab } from '@/components/project/countries-tab';
+import { FilesTab } from '@/components/project/files-tab';
 import { FinanceTab } from '@/components/project/finance-tab';
 import { HistoryTab } from '@/components/project/history-tab';
 import { SaveTemplate } from '@/components/project/save-template';
@@ -24,7 +25,7 @@ import { get, patch } from '@/lib/api';
 import { flag } from '@/lib/countries';
 import { SECURITY_LABELS } from '@/lib/types';
 
-const TABS = ['Overview', 'Vendors & links', 'Quotas', 'Monitor', 'Gate & security', 'Respondent pages', 'Redirects', 'QA studio', 'Respondents', 'Answers', 'Reconcile & invoice', 'History'] as const;
+const TABS = ['Overview', 'Vendors & links', 'Quotas', 'Monitor', 'Gate & security', 'Respondent pages', 'Redirects', 'QA studio', 'Respondents', 'Answers', 'Reconcile & invoice', 'Files & requests', 'History'] as const;
 const NEXT_STATUS: Record<string, string[]> = {
   DRAFT: ['TEST', 'LIVE'],
   TEST: ['LIVE', 'HOLD'],
@@ -161,6 +162,7 @@ export default function ProjectPage() {
       {tab === 'Gate & security' && <SecurityTab key={p.id} project={p} editable={editable} reload={reload} />}
       {tab === 'Reconcile & invoice' && <FinanceTab key={p.id} project={p} editable={editable} reload={reload} />}
       {tab === 'Respondent pages' && <RespondentPagesTab key={p.id} project={p} editable={editable} />}
+      {tab === 'Files & requests' && <FilesTab project={p} editable={editable} />}
       {tab === 'History' && <HistoryTab key={p.id} project={p} editable={editable} reload={reload} />}
       {tab === 'Answers' && <AnswersView projectId={p.id} projectCode={p.projectCode} />}
     </>

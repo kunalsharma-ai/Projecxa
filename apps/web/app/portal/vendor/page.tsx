@@ -1,6 +1,7 @@
 'use client';
 import clsx from 'clsx';
 import { Download } from 'lucide-react';
+import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { VendorBills } from '@/components/finance/vendor-bills';
 import { CopyButton } from '@/components/project/vendors-tab';
@@ -39,10 +40,12 @@ export default function VendorPortal() {
   const [tab, setTab] = useState<(typeof TABS)[number]>('Projects');
   const [allocFilter, setAllocFilter] = useState('');
   const [error, setError] = useState<unknown>(null);
+  const [disputable, setDisputable] = useState(0);
 
   useEffect(() => {
     get<Summary>('/portal/vendor/summary').then(setSummary).catch(setError);
     get<Allocation[]>('/portal/vendor/allocations').then(setAllocs).catch(setError);
+    get<unknown[]>('/portal/vendor/disputable').then((r) => setDisputable(r.length)).catch(() => {});
   }, []);
   const requestNo = useRef(0);
   const loadSessions = useCallback(() => {
@@ -82,6 +85,12 @@ export default function VendorPortal() {
       </div>
       <p className="mb-6 mt-2 text-xs text-muted">
         {summary.currencyNote} Rejected completes: {summary.payout.rejected.completes}. Payout becomes final when the client approves a complete.
+        {disputable > 0 && (
+          <>
+            {' '}
+            <Link className="font-medium text-brand hover:underline" href="/portal/requests?new=dispute">Dispute {disputable} rejected complete{disputable === 1 ? '' : 's'}</Link>
+          </>
+        )}
       </p>
 
       <div className="mb-5 flex gap-1 overflow-x-auto border-b border-line" role="tablist">

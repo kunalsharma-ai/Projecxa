@@ -96,6 +96,8 @@ model Organization {
   aiActions         AiAction[]
   aiUsage           AiUsage[]
   aiDocuments       AiDocument[]
+  tickets           Ticket[]
+  sharedFiles       SharedFile[]
 }
 
 enum Role {
@@ -182,10 +184,12 @@ model Client {
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
-  contacts ClientContact[]
-  projects Project[]
-  users    User[]
-  invoices Invoice[]
+  contacts    ClientContact[]
+  projects    Project[]
+  users       User[]
+  invoices    Invoice[]
+  tickets     Ticket[]
+  sharedFiles SharedFile[]
 
   @@unique([organizationId, code])
 }
@@ -220,6 +224,8 @@ model Vendor {
   users       User[]
   bills       VendorBill[]
   capacity    VendorCapacity[]
+  tickets     Ticket[]
+  sharedFiles SharedFile[]
 
   @@unique([organizationId, code])
 }
@@ -303,6 +309,8 @@ model Project {
   wonBid           WonBid?
   tasks            Task[]
   settingsVersions ProjectSettingsVersion[]
+  tickets          Ticket[]
+  sharedFiles      SharedFile[]
 
   @@unique([organizationId, projectCode])
   @@index([organizationId, status])
@@ -1378,4 +1386,112 @@ model VendorCapacity {
   updatedAt         DateTime @updatedAt
 
   @@unique([vendorId, countryCode])
+}
+
+// ───────────────────────────── Portal requests and shared files (milestone 26) ─────────────────────────────
+
+enum TicketKind {
+  QUESTION
+  ISSUE
+  /// A vendor disputes completes the client rejected.
+  DISPUTE
+}
+
+enum TicketStatus {
+  /// Waiting for staff.
+  OPEN
+  /// Staff answered; waiting for the client or vendor.
+  ANSWERED
+  CLOSED
+}
+
+/// A request between a client or vendor company and the operating organisation.
+model Ticket {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// Per-organisation number shown as REQ-<number>.
+  number         Int
+  kind           TicketKind   @default(QUESTION)
+  status         TicketStatus @default(OPEN)
+  subject        String
+  /// Exactly one of clientId / vendorId: whose request it is.
+  clientId       String?
+  client         Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  vendorId       String?
+  vendor         Vendor?      @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  projectId      String?
+  project        Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  /// Disputes: the respondent sessions in question.
+  sessionIds     String[]
+  createdById    String
+  assigneeId     String?
+  lastMessageAt  DateTime     @default(now())
+  closedAt       DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  messages TicketMessage[]
+  files    SharedFile[]
+
+  @@unique([organizationId, number])
+  @@index([organizationId, status, lastMessageAt])
+  @@index([clientId])
+  @@index([vendorId])
+}
+
+model TicketMessage {
+  id         String   @id @default(cuid())
+  ticketId   String
+  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId   String
+  /// True when written by a client or vendor user.
+  fromPortal Boolean  @default(false)
+  /// Staff-only note, never shown in a portal.
+  internal   Boolean  @default(false)
+  body       String
+  createdAt  DateTime @default(now())
+
+  @@index([ticketId, createdAt])
+}
+
+enum SharedFileKind {
+  QUESTIONNAIRE
+  DELIVERABLE
+  COMPLIANCE
+  OTHER
+}
+
+/// A document shared between staff and one client or one vendor. Stored in the database (10 MB cap).
+/// Staff-only files have neither clientId nor vendorId.
+model SharedFile {
+  id             String         @id @default(cuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  kind           SharedFileKind @default(OTHER)
+  name           String
+  contentType    String
+  size           Int
+  sha256         String
+  data           Bytes
+  clientId       String?
+  client         Client?        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  vendorId       String?
+  vendor         Vendor?        @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  projectId      String?
+  project        Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  ticketId       String?
+  ticket         Ticket?        @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+  note           String?
+  /// Compliance documents: when it stops being valid.
+  expiresAt      DateTime?
+  uploadedById   String
+  /// True when a client or vendor user uploaded it.
+  fromPortal     Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+
+  @@index([organizationId, projectId])
+  @@index([organizationId, vendorId, kind])
+  @@index([organizationId, clientId])
+  @@index([ticketId])
 }
