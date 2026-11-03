@@ -1,6 +1,7 @@
 'use client';
 import clsx from 'clsx';
-import { CheckCircle2, Plus, Trash2, TriangleAlert } from 'lucide-react';
+import { Activity, CheckCircle2, Plus, Trash2, TriangleAlert } from 'lucide-react';
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Empty, ErrorBox, Field, Loading, Section, StatusChip, Toggle } from '@/components/ui';
 import { get, post } from '@/lib/api';
@@ -174,6 +175,7 @@ export function RedirectsTab({ project, editable, reload }: { project: ProjectDe
           Active: <b>version {policy.active?.version ?? '–'}</b> · {policy.active?.mode.toLowerCase()}
           {dirty && <span className="ml-2 chip bg-warn/15 text-warn">Unsaved changes</span>}
           {draftId && !dirty && <span className="ml-2 chip bg-info/15 text-info">Draft saved, not active yet</span>}
+          <Link href={`/redirect-health?project=${project.id}`} className="ml-3 inline-flex items-center gap-1 text-brand hover:underline"><Activity className="h-3.5 w-3.5" /> Redirect health</Link>
         </div>
         {editable && (
           <div className="flex flex-wrap items-center gap-2">

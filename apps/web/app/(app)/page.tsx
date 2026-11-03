@@ -326,7 +326,7 @@ export default function DashboardPage() {
         );
       case 'health':
         return (
-          <Section title={<span className="flex items-center gap-2"><Activity className="h-4 w-4" /> Fieldwork health</span>}>
+          <Section title={<span className="flex items-center gap-2"><Activity className="h-4 w-4" /> Fieldwork health</span>} actions={<Link href="/redirect-health" className="text-xs text-brand hover:underline">Redirect health</Link>}>
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between"><dt className="text-muted">Redirects in the last 24h</dt><dd className="tabular-nums">{d.redirectHealth24h.total}</dd></div>
               <div className="flex justify-between"><dt className="text-muted">Redirects that used a fallback</dt><dd className={d.redirectHealth24h.fallbacks ? 'text-warn' : ''}>{d.redirectHealth24h.fallbacks}</dd></div>
