@@ -150,6 +150,16 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - **Zoho Books sync**: send sent and paid invoices, approved and paid vendor bills, their payments and voids straight into Zoho Books with **Sync now** or every hour. Contacts are found or created per currency, documents keep their numbers and are looked up first so nothing is created twice, and each run lists its problems per document.
 - The Zoho self-client credentials live in the server environment only and are bound to one PROJEXA organisation. Setup: `docs/ZOHO_BOOKS.md`.
 
+## Milestone 20: AI copilot and voice assistant
+
+- **AI copilot** (`/copilot`, and the sparkle button in the header for a side panel on any page): ask about projects, fieldwork pace, delayed projects, tasks, workload, today's activity, performance reports, invoices, vendor bills and quota reallocation. Answers come from tools that read PROJEXA records as the signed-in person, scoped to their organisation and role; tables and charts are built from those records, never by the model.
+- **Changes need confirmation**: creating or updating tasks, creating a project, pausing or closing a project or vendor link and running a fieldwork check are shown as cards with Confirm and Cancel. Every proposal, confirmation and result is in the audit log.
+- **Documents**: attach a PDF or text file (up to 10 MB) and ask for a summary, requirements or missing information.
+- **Voice**: talk to the copilot with Gemini Live (short-lived token, so the API key never reaches the browser; tool calls still run on the server). If Live is not available it falls back to the browser's own speech recognition and speech. Transcripts are saved as conversations.
+- **Tasks** (`/tasks`): a minimal tasks module with assignee, project, priority, due date, reminder and one "waits for" dependency. Reminders and overdue tasks show in the notifications bell.
+- **Admin controls** (Settings → AI copilot): on/off, which roles may use it, actions, documents, voice, per-person and organisation limits, and usage by day and person.
+- Provider-independent gateway; Google Gemini is the first provider. Set `GEMINI_API_KEY` on the API server. Setup, models and the free-tier data caveat: `docs/AI_COPILOT.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).

@@ -1,10 +1,12 @@
-import { Activity, BarChart3, BookOpenCheck, Users, HandCoins, Building2, FolderKanban, ReceiptText, KeyRound, LayoutDashboard, Palette, PlusCircle, Settings, Trophy, Truck, type LucideIcon } from 'lucide-react';
+import { Activity, ListChecks, Sparkles, BarChart3, BookOpenCheck, Users, HandCoins, Building2, FolderKanban, ReceiptText, KeyRound, LayoutDashboard, Palette, PlusCircle, Settings, Trophy, Truck, type LucideIcon } from 'lucide-react';
 
 export interface NavItem { href: string; label: string; icon: LucideIcon; keywords?: string; editorsOnly?: boolean; adminOnly?: boolean }
 
 export const NAV: NavItem[] = [
   { href: '/', label: 'Command center', icon: LayoutDashboard, keywords: 'dashboard home' },
+  { href: '/copilot', label: 'AI copilot', icon: Sparkles, keywords: 'assistant ai gemini voice ask chat summarise report' },
   { href: '/projects', label: 'Projects', icon: FolderKanban, keywords: 'manage projects list' },
+  { href: '/tasks', label: 'Tasks', icon: ListChecks, keywords: 'to do todo reminders assigned overdue' },
   { href: '/won-bids', label: 'Won bids', icon: Trophy, keywords: 'bidzo awarded setup project' },
   { href: '/projects/new', label: 'Create project', icon: PlusCircle, keywords: 'new project wizard', editorsOnly: true },
   { href: '/monitor', label: 'Fieldwork monitor', icon: Activity, keywords: 'alerts pace autopilot stalled incidence quality' },

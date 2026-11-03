@@ -44,6 +44,8 @@ model Organization {
   accountingConfig       Json?
   /// Direct sync to Zoho Books: { enabled, hourly, since, invoices, bills, payments }. Credentials live in env only.
   zohoBooksConfig        Json?
+  /// AI copilot settings (docs/AI_COPILOT.md): { enabled, voice, documents, actions, roles, perUserDaily, orgDaily }.
+  aiSettings             Json?
   /// Fieldwork alert thresholds (src/monitor/monitor.rules.ts); null = defaults.
   alertSettings          Json?
   /// Optional HTTPS endpoint that receives new alerts, signed with alertWebhookSecret (HMAC-SHA256).
@@ -79,6 +81,11 @@ model Organization {
   accountingExports AccountingExport[]
   zohoBooksLinks    ZohoBooksLink[]
   zohoBooksSyncs    ZohoBooksSync[]
+  tasks             Task[]
+  aiConversations   AiConversation[]
+  aiActions         AiAction[]
+  aiUsage           AiUsage[]
+  aiDocuments       AiDocument[]
 }
 
 enum Role {
@@ -130,6 +137,8 @@ model User {
 
   managedProjects Project[] @relation("ProjectManager")
   salesProjects   Project[] @relation("SalesPerson")
+  tasksAssigned   Task[]    @relation("TaskAssignee")
+  tasksCreated    Task[]    @relation("TaskCreator")
 
   @@unique([organizationId, email])
   @@index([email])
@@ -274,6 +283,7 @@ model Project {
   reconciliations  Reconciliation[]
   alerts           Alert[]
   wonBid           WonBid?
+  tasks            Task[]
 
   @@unique([organizationId, projectCode])
   @@index([organizationId, status])
@@ -1047,4 +1057,141 @@ model ZohoBooksSync {
   finishedAt     DateTime?
 
   @@index([organizationId, startedAt])
+}
+
+// ───────────────────────────── Tasks ─────────────────────────────
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+/// A piece of work for a person, optionally on a project. Created by people or by the AI copilot (after confirmation).
+model Task {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectId      String?
+  project        Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  title          String
+  description    String?
+  status         TaskStatus   @default(OPEN)
+  priority       TaskPriority @default(MEDIUM)
+  assigneeId     String?
+  assignee       User?        @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdById    String?
+  createdBy      User?        @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  dueAt          DateTime?
+  /// When to remind the assignee (shown in their notifications from then on).
+  remindAt       DateTime?
+  /// This task cannot start until that one is done.
+  blockedById    String?
+  blockedBy      Task?        @relation("TaskDependency", fields: [blockedById], references: [id], onDelete: SetNull)
+  blocking       Task[]       @relation("TaskDependency")
+  /// manual | ai
+  source         String       @default("manual")
+  completedAt    DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId, status])
+  @@index([assigneeId, status])
+  @@index([projectId])
+}
+
+// ───────────────────────────── AI copilot ─────────────────────────────
+
+model AiConversation {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  title          String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  messages       AiMessage[]
+
+  @@index([organizationId, userId, updatedAt])
+}
+
+model AiMessage {
+  id             String         @id @default(cuid())
+  conversationId String
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  /// user | assistant | tool
+  role           String
+  /// Provider-neutral parts: [{ text } | { call: { id, name, args } } | { result: { id, name, data } } | { document: { id, name } }]
+  content        Json
+  /// Visual blocks for the screen (tables, charts) built from tool results, and pending action ids.
+  display        Json?
+  /// voice | text
+  channel        String         @default("text")
+  createdAt      DateTime       @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+/// A change the copilot proposed. Nothing happens until the person confirms it.
+model AiAction {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  conversationId String?
+  tool           String
+  args           Json
+  /// What will happen, in words, shown on the confirmation card.
+  summary        String
+  /// pending | done | cancelled | failed | expired
+  status         String       @default("pending")
+  result         Json?
+  error          String?
+  createdAt      DateTime     @default(now())
+  decidedAt      DateTime?
+
+  @@index([organizationId, userId, status])
+}
+
+/// One call to the AI provider, for usage tracking and limits.
+model AiUsage {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String?
+  provider       String
+  model          String
+  /// chat | voice | voice_tool | title
+  kind           String
+  promptTokens   Int          @default(0)
+  outputTokens   Int          @default(0)
+  ok             Boolean      @default(true)
+  error          String?
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([userId, createdAt])
+}
+
+/// A file uploaded to the copilot to read (PDF, text, images). Visible only to the person who uploaded it.
+model AiDocument {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  name           String
+  mimeType       String
+  size           Int
+  data           Bytes
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, userId, createdAt])
 }

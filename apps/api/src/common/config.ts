@@ -85,5 +85,21 @@ export const config = {
   get zohoBooksSchedulerEnabled(): boolean {
     return process.env.ZOHO_BOOKS_SCHEDULER_ENABLED !== 'false';
   },
+  /**
+   * AI copilot and voice (docs/AI_COPILOT.md). Google Gemini through an AI Studio key, kept on the
+   * server. Model names move often, so each is an env setting with a current default.
+   */
+  get ai(): { provider: 'gemini'; apiKey: string; apiUrl: string; model: string; fallbackModel: string | null; liveModel: string } | null {
+    const key = process.env.GEMINI_API_KEY?.trim();
+    if (!key) return null;
+    return {
+      provider: 'gemini',
+      apiKey: key,
+      apiUrl: (process.env.GEMINI_API_URL?.trim() || 'https://generativelanguage.googleapis.com').replace(/\/$/, ''),
+      model: process.env.AI_MODEL?.trim() || 'gemini-3.8-flash',
+      fallbackModel: process.env.AI_FALLBACK_MODEL === '' ? null : process.env.AI_FALLBACK_MODEL?.trim() || 'gemini-3.5-flash-lite',
+      liveModel: process.env.AI_LIVE_MODEL?.trim() || 'gemini-3.8-live',
+    };
+  },
   cookieName: 'projexa_token',
 };

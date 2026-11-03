@@ -12,6 +12,7 @@ import { PayablesService } from '../finance/payables.service';
 import { FinanceService } from '../finance/finance.service';
 import { ReportsModule } from '../reports/reports.controller';
 import { ReportsService, SummaryRow } from '../reports/reports.service';
+import { TasksModule, TasksService } from '../tasks/tasks.service';
 
 const dayStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD');
 const periodSchema = z
@@ -74,6 +75,7 @@ export class DashboardController {
     private readonly reports: ReportsService,
     private readonly finance: FinanceService,
     private readonly payables: PayablesService,
+    private readonly tasks: TasksService,
   ) {}
 
   /** PM dashboard numbers, computed from live (non-test) data only. */
@@ -249,6 +251,8 @@ export class DashboardController {
       const proj = projects.find((x) => x.id === p.projectId);
       if (proj) items.push({ id: `approve-${proj.id}`, severity: 'info', title: `${p._count._all} complete${p._count._all === 1 ? '' : 's'} to review on ${proj.projectCode}`, detail: proj.name, href: `/projects/${proj.id}` });
     }
+    // The person's own task reminders and overdue tasks.
+    for (const t of await this.tasks.reminders(u)) items.push({ id: `task-${t.id}`, severity: t.overdue ? 'bad' : 'warn', title: t.overdue ? `Overdue: ${t.title}` : `Reminder: ${t.title}`, detail: [t.project?.projectCode, t.dueAt ? `due ${t.dueAt.toISOString().slice(0, 10)}` : null].filter(Boolean).join(' · ') || 'Task assigned to you', href: '/tasks' });
     const rank = { bad: 0, warn: 1, info: 2 } as const;
     items.sort((a, b) => rank[a.severity] - rank[b.severity]);
     return {
@@ -307,5 +311,5 @@ function count(rows: { status: string; _count: { _all: number } }[], s: string) 
   return rows.find((r) => r.status === s)?._count._all ?? 0;
 }
 
-@Module({ imports: [ReportsModule, FinanceModule], controllers: [DashboardController] })
+@Module({ imports: [ReportsModule, FinanceModule, TasksModule], controllers: [DashboardController] })
 export class DashboardModule {}

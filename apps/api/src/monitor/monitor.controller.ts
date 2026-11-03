@@ -134,5 +134,5 @@ export class MonitorController {
   }
 }
 
-@Module({ controllers: [MonitorController, ReallocationController], providers: [MonitorService, ReallocationService], exports: [MonitorService] })
+@Module({ controllers: [MonitorController, ReallocationController], providers: [MonitorService, ReallocationService], exports: [MonitorService, ReallocationService] })
 export class MonitorModule {}
