@@ -25,6 +25,7 @@ import { DEFAULT_DESIGN, designOf, END_STATUSES, EndStatus, PageDesign } from '.
 import { evaluate, Question, questionsOf } from './questions';
 import { TorService } from './tor.service';
 import { matchCells, Respondent } from '../quotas/quota.rules';
+import { consentFor } from '../privacy/privacy';
 
 /** Toggles that need the respondent's browser, so they run on the gate page before the survey. */
 const GATE_KEYS = ['gateSurvey', 'captcha', 'browserFingerprinting', 'browserLanguage', 'timezoneTracking', 'cookieValidation'] as const;
@@ -35,6 +36,8 @@ export interface GateSubmission {
   timezone?: unknown;
   fingerprint?: unknown;
   answers?: unknown;
+  /** true when the respondent agreed to the consent notice, false when they declined. */
+  consent?: unknown;
 }
 
 export interface GateView {
@@ -53,6 +56,8 @@ export interface GateView {
   collect: { languages: boolean; timezone: boolean; fingerprint: boolean };
   gateQuestions: Question[];
   prescreen: Question[];
+  /** Consent notice for the market, shown first (null when none applies). */
+  consent: { title: string; body: string; privacyUrl: string | null; version: number } | null;
   design: PageDesign;
   /** Public base URL, for image links. */
   base: string;
@@ -203,7 +208,9 @@ export class SurveyService {
     const surveyUrl = isTest ? country.testSurveyUrl ?? country.liveSurveyUrl : country.liveSurveyUrl;
     if (!initial && !surveyUrl) initial = { status: 'TECHNICAL_ERROR', detail: 'NO_SURVEY_LINK' };
 
-    const gateRequired = !initial && gateNeeded(security);
+    // A consent notice for the market sends the respondent through the gate page to agree first.
+    const consent = initial ? null : await consentFor(this.prisma, project.organizationId, country.countryCode);
+    const gateRequired = !initial && (gateNeeded(security) || !!consent);
     const ttl = country.sessionTtlMinutes ?? Math.max(60, country.loiMinutes * 4);
     const token = randomToken();
     let session: SessionWithContext;
@@ -407,6 +414,7 @@ export class SurveyService {
     if (session.status !== 'STARTED') return { location: await this.redirectFor(session, session.status as OutcomeStatus) };
     if (!session.gateRequired || session.gatePassedAt) return { location: this.surveyLink(session) };
     const security = (session.project.security ?? {}) as Record<string, boolean>;
+    const consent = await consentFor(this.prisma, session.organizationId, session.projectCountry.countryCode);
     return {
       view: {
         token,
@@ -415,6 +423,7 @@ export class SurveyService {
         collect: { languages: !!security.browserLanguage, timezone: !!security.timezoneTracking, fingerprint: !!security.browserFingerprinting },
         gateQuestions: security.gateSurvey ? questionsOf(session.project.gateQuestions) : [],
         prescreen: security.prescreening ? questionsOf(session.project.prescreen) : [],
+        consent: consent ? { title: consent.title, body: consent.body, privacyUrl: consent.privacyUrl, version: consent.version } : null,
         design: designOf(session.project.pageDesign),
         base: appConfig.publicBaseUrl,
       },
@@ -505,6 +514,14 @@ export class SurveyService {
     const browserId = cookies.browserId && cookies.browserId.length <= 100 ? sha256(`${orgId}:${cookies.browserId}`) : null;
     const checks: CheckResult[] = [];
 
+    // Consent comes first: someone who declines leaves before any other check is recorded.
+    const consent = await consentFor(this.prisma, orgId, session.projectCountry.countryCode);
+    if (consent) {
+      if (body.consent === false) checks.push({ check: 'consent', ok: false, reason: 'CONSENT_DECLINED', status: 'PARTIAL', note: `v${consent.version}` });
+      else if (body.consent !== true) checks.push({ check: 'consent', ok: false, reason: 'GATE_INCOMPLETE', status: 'SECURITY_REJECT', note: 'consent not given' });
+      else checks.push({ check: 'consent', ok: true, note: `v${consent.version}` });
+    }
+
     // Order of precedence when several things fail: bot checks, then fraud/duplicate checks,
     // then the answers (a duplicate that would also screen out is reported as a duplicate).
     const style = captchaStyleOf(session);
@@ -551,7 +568,8 @@ export class SurveyService {
 
     const enforced = !session.isTest;
     const answers = gate || pre ? ({ ...(gate ? { gate: gate.answers } : {}), ...(pre ? { prescreen: pre.answers } : {}) } as Prisma.InputJsonValue) : undefined;
-    await this.prisma.respondentSession.update({ where: { id: session.id }, data: { fingerprintHash: fingerprint, browserIdHash: browserId, answers, quotaCellIds: cells.matched.map((c) => c.id) } });
+    const agreed = consent && body.consent === true ? { consentAt: new Date(), consentVersion: consent.version } : {};
+    await this.prisma.respondentSession.update({ where: { id: session.id }, data: { fingerprintHash: fingerprint, browserIdHash: browserId, answers, quotaCellIds: cells.matched.map((c) => c.id), ...agreed } });
     await this.event(session.id, 'SECURITY_CHECK', null, 'ENTRY', `checks:gate:${session.id}:${randomToken(4)}`, { stage: 'gate', enforced, checks });
 
     const failed = checks.find((c) => !c.ok);

@@ -41,6 +41,10 @@ export const config = {
   get redirectSchedulerEnabled(): boolean {
     return process.env.REDIRECT_SCHEDULER_ENABLED !== 'false';
   },
+  /** Data retention (docs/PRIVACY.md): the hourly job that anonymises old respondent data. */
+  get privacySchedulerEnabled(): boolean {
+    return process.env.PRIVACY_SCHEDULER_ENABLED !== 'false';
+  },
   /** Scheduled report emails: the minute-by-minute scheduler. */
   get reportSchedulerEnabled(): boolean {
     return process.env.REPORT_SCHEDULER_ENABLED !== 'false';
