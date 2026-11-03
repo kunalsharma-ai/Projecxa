@@ -1,4 +1,4 @@
-import { Activity, BarChart3, HandCoins, Building2, FolderKanban, ReceiptText, KeyRound, LayoutDashboard, Palette, PlusCircle, Settings, Trophy, Truck, type LucideIcon } from 'lucide-react';
+import { Activity, BarChart3, BookOpenCheck, HandCoins, Building2, FolderKanban, ReceiptText, KeyRound, LayoutDashboard, Palette, PlusCircle, Settings, Trophy, Truck, type LucideIcon } from 'lucide-react';
 
 export interface NavItem { href: string; label: string; icon: LucideIcon; keywords?: string; editorsOnly?: boolean }
 
@@ -11,6 +11,7 @@ export const NAV: NavItem[] = [
   { href: '/reports', label: 'Reports', icon: BarChart3, keywords: 'overall conversion client vendor clicks' },
   { href: '/invoices', label: 'Invoices', icon: ReceiptText, keywords: 'billing reconciliation payment finance' },
   { href: '/payables', label: 'Vendor payables', icon: HandCoins, keywords: 'bills vendor payments owed finance' },
+  { href: '/accounting', label: 'Accounting exports', icon: BookOpenCheck, keywords: 'zoho books tally quickbooks xero export finance ledger', editorsOnly: true },
   { href: '/clients', label: 'Clients', icon: Building2 },
   { href: '/vendors', label: 'Vendors', icon: Truck, keywords: 'panels suppliers' },
   { href: '/portal-access', label: 'Portal access', icon: KeyRound, keywords: 'client vendor logins' },
