@@ -1,0 +1,403 @@
+/**
+ * Redirect health (docs/REDIRECT_HEALTH.md): one place to see whether respondents are being routed
+ * correctly, per project and across the organisation.
+ *
+ * It reads what the redirect engine and the callback outbox already record:
+ * - RedirectExecution: every outcome redirect, its latency, whether it fell back and why;
+ * - RespondentSession: entries, and sessions that never came back from the client survey;
+ * - CallbackDelivery: vendor callbacks by state and by receiving host.
+ * Test traffic is excluded. Nothing is stored; the page is computed on request.
+ *
+ * "Check survey links" makes one GET to each live market's client survey link (with a clearly
+ * marked test token) so a broken or expired client link shows up before respondents hit it.
+ */
+import { Controller, Get, Injectable, Module, NotFoundException, Param, Post, Query } from '@nestjs/common';
+import { lookup } from 'dns/promises';
+import { isIP } from 'net';
+import { Prisma } from '@prisma/client';
+import { AuditService } from '../audit/audit.service';
+import { CurrentUser, EDITORS, Roles } from '../auth/decorators';
+import { AuthUser } from '../auth/auth.types';
+import { config as appConfig } from '../common/config';
+import { PrismaService } from '../prisma/prisma.service';
+import { buildSurveyLink } from '../survey/survey.service';
+
+const HOUR = 3_600_000;
+export const WINDOWS = { '1h': { ms: HOUR, bucket: 5 * 60_000 }, '24h': { ms: 24 * HOUR, bucket: HOUR }, '7d': { ms: 7 * 24 * HOUR, bucket: 6 * HOUR } } as const;
+export type WindowKey = keyof typeof WINDOWS;
+
+/** Thresholds behind the health label. Kept together so the docs and the page can quote them. */
+export const THRESHOLDS = {
+  /** Fallback share of redirects: watch from 5%, failing from 20% (with at least MIN_REDIRECTS). */
+  fallbackWatch: 0.05,
+  fallbackFail: 0.2,
+  minRedirects: 5,
+  /** 95th percentile redirect time. */
+  p95WatchMs: 800,
+  p95FailMs: 2000,
+  /** Expired sessions that never came back from the client survey (share of entries, at least MIN_EXPIRED). */
+  noReturnWatch: 0.5,
+  minExpired: 10,
+} as const;
+
+export type Health = 'healthy' | 'watch' | 'failing' | 'idle';
+
+export interface HealthInput {
+  entries: number;
+  redirects: number;
+  fallbacks: number;
+  p95Ms: number | null;
+  expired: number;
+  callbacksDead: number;
+  callbacksRetrying: number;
+}
+
+/** The health label and the reasons for it, worst first. */
+export function healthOf(x: HealthInput): { health: Health; reasons: string[] } {
+  const fail: string[] = [];
+  const watch: string[] = [];
+  const rate = x.redirects ? x.fallbacks / x.redirects : 0;
+  const pct = (v: number) => `${Math.round(v * 100)}%`;
+  if (x.redirects >= THRESHOLDS.minRedirects && rate >= THRESHOLDS.fallbackFail) fail.push(`${pct(rate)} of redirects fell back`);
+  else if (x.redirects >= THRESHOLDS.minRedirects && rate >= THRESHOLDS.fallbackWatch) watch.push(`${pct(rate)} of redirects fell back`);
+  if (x.p95Ms !== null && x.p95Ms >= THRESHOLDS.p95FailMs) fail.push(`Slow redirects (p95 ${Math.round(x.p95Ms)} ms)`);
+  else if (x.p95Ms !== null && x.p95Ms >= THRESHOLDS.p95WatchMs) watch.push(`Slow redirects (p95 ${Math.round(x.p95Ms)} ms)`);
+  if (x.callbacksDead > 0) fail.push(`${x.callbacksDead} vendor callback${x.callbacksDead === 1 ? '' : 's'} gave up`);
+  if (x.callbacksRetrying > 0) watch.push(`${x.callbacksRetrying} vendor callback${x.callbacksRetrying === 1 ? '' : 's'} retrying`);
+  if (x.expired >= THRESHOLDS.minExpired && x.entries && x.expired / x.entries >= THRESHOLDS.noReturnWatch) watch.push(`${pct(x.expired / x.entries)} of respondents never came back from the survey`);
+  if (fail.length) return { health: 'failing', reasons: [...fail, ...watch] };
+  if (watch.length) return { health: 'watch', reasons: watch };
+  if (!x.entries && !x.redirects && !x.callbacksDead && !x.callbacksRetrying) return { health: 'idle', reasons: [] };
+  return { health: 'healthy', reasons: [] };
+}
+
+/** Group blocked reasons that differ only in details (URLs, hosts, numbers) so the list stays short. */
+export function reasonKey(reason: string): string {
+  return reason
+    .split('; ')[0]
+    .replace(/https?:\/\/\S+/g, '<url>')
+    .replace(/\bDomain \S+ is not/g, 'Domain <host> is not')
+    .replace(/\b\d+(\.\d+)?\b/g, 'N')
+    .slice(0, 160);
+}
+
+/** Private, loopback and link-local addresses: a link check must never reach into the server's own network. */
+export function isPrivateAddress(ip: string): boolean {
+  if (isIP(ip) === 4) {
+    const [a, b] = ip.split('.').map(Number);
+    return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || a >= 224;
+  }
+  const v = ip.toLowerCase();
+  if (v.startsWith('::ffff:')) return isPrivateAddress(v.slice(7));
+  return v === '::1' || v === '::' || v.startsWith('fc') || v.startsWith('fd') || v.startsWith('fe80') || v.startsWith('ff');
+}
+
+export type LinkFetcher = (url: string, signal: AbortSignal) => Promise<{ status: number; location: string | null }>;
+export type Resolver = (host: string) => Promise<string[]>;
+
+export interface LinkCheck {
+  projectCountryId: string;
+  projectId: string;
+  projectCode: string;
+  countryCode: string;
+  language: string;
+  ok: boolean;
+  status: number | null;
+  ms: number;
+  detail: string;
+}
+
+const num = (v: unknown) => Number(v ?? 0);
+
+@Injectable()
+export class RedirectHealthService {
+  fetcher: LinkFetcher = async (url, signal) => {
+    const r = await fetch(url, { method: 'GET', redirect: 'manual', signal, headers: { 'user-agent': 'PROJEXA-LinkCheck/1.0', 'x-projexa-link-check': '1' } });
+    void r.body?.cancel().catch(() => undefined);
+    return { status: r.status, location: r.headers.get('location') };
+  };
+  resolve: Resolver = async (host) => (await lookup(host, { all: true })).map((a) => a.address);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
+
+  async overview(org: string, windowKey: WindowKey, projectId?: string, now = new Date()) {
+    const w = WINDOWS[windowKey];
+    const from = new Date(now.getTime() - w.ms);
+    const prevFrom = new Date(from.getTime() - w.ms);
+    const project = projectId ? Prisma.sql`AND s."projectId" = ${projectId}` : Prisma.empty;
+    const projectCb = projectId ? Prisma.sql`AND s."projectId" = ${projectId}` : Prisma.empty;
+
+    const [perProject, timeline, reasons, prev, statuses, entries, callbacks, hosts, problems] = await Promise.all([
+      // Redirects per project in the window.
+      this.prisma.$queryRaw<{ projectId: string; redirects: number; fallbacks: number; blocked: number; apiFallbacks: number; p50: number | null; p95: number | null; last: Date | null }[]>`
+        SELECT s."projectId",
+               COUNT(*)::int AS redirects,
+               COUNT(*) FILTER (WHERE e."usedFallback")::int AS fallbacks,
+               COUNT(*) FILTER (WHERE e."blockedReason" IS NOT NULL)::int AS blocked,
+               COUNT(*) FILTER (WHERE e."apiFallback")::int AS "apiFallbacks",
+               percentile_cont(0.5) WITHIN GROUP (ORDER BY e."durationMs") AS p50,
+               percentile_cont(0.95) WITHIN GROUP (ORDER BY e."durationMs") AS p95,
+               MAX(e."createdAt") AS last
+        FROM "RedirectExecution" e JOIN "RespondentSession" s ON s.id = e."sessionId"
+        WHERE s."organizationId" = ${org} AND s."isTest" = false AND e."createdAt" >= ${from} AND e."createdAt" <= ${now} ${project}
+        GROUP BY s."projectId"`,
+      // Redirects over time, split into routed and fell back.
+      this.prisma.$queryRaw<{ bucket: number; ok: number; fallback: number }[]>`
+        SELECT FLOOR(EXTRACT(EPOCH FROM (e."createdAt" - ${from}::timestamp)) * 1000 / ${w.bucket})::int AS bucket,
+               COUNT(*) FILTER (WHERE NOT e."usedFallback")::int AS ok,
+               COUNT(*) FILTER (WHERE e."usedFallback")::int AS fallback
+        FROM "RedirectExecution" e JOIN "RespondentSession" s ON s.id = e."sessionId"
+        WHERE s."organizationId" = ${org} AND s."isTest" = false AND e."createdAt" >= ${from} AND e."createdAt" <= ${now} ${project}
+        GROUP BY 1 ORDER BY 1`,
+      // Why redirects fell back.
+      this.prisma.$queryRaw<{ reason: string; n: number; last: Date; projectId: string }[]>`
+        SELECT e."blockedReason" AS reason, COUNT(*)::int AS n, MAX(e."createdAt") AS last, MIN(s."projectId") AS "projectId"
+        FROM "RedirectExecution" e JOIN "RespondentSession" s ON s.id = e."sessionId"
+        WHERE s."organizationId" = ${org} AND s."isTest" = false AND e."blockedReason" IS NOT NULL AND e."createdAt" >= ${from} AND e."createdAt" <= ${now} ${project}
+        GROUP BY e."blockedReason" ORDER BY n DESC LIMIT 200`,
+      // The window before, for comparison.
+      this.prisma.$queryRaw<{ redirects: number; fallbacks: number; p95: number | null }[]>`
+        SELECT COUNT(*)::int AS redirects, COUNT(*) FILTER (WHERE e."usedFallback")::int AS fallbacks,
+               percentile_cont(0.95) WITHIN GROUP (ORDER BY e."durationMs") AS p95
+        FROM "RedirectExecution" e JOIN "RespondentSession" s ON s.id = e."sessionId"
+        WHERE s."organizationId" = ${org} AND s."isTest" = false AND e."createdAt" >= ${prevFrom} AND e."createdAt" < ${from} ${project}`,
+      // Outcomes the engine routed.
+      this.prisma.$queryRaw<{ status: string; n: number }[]>`
+        SELECT e.status::text AS status, COUNT(*)::int AS n
+        FROM "RedirectExecution" e JOIN "RespondentSession" s ON s.id = e."sessionId"
+        WHERE s."organizationId" = ${org} AND s."isTest" = false AND e."createdAt" >= ${from} AND e."createdAt" <= ${now} ${project}
+        GROUP BY 1 ORDER BY 2 DESC`,
+      // Entries, and sessions that expired without an outcome (never came back from the survey).
+      this.prisma.$queryRaw<{ projectId: string; entries: number; expired: number; gateDropped: number }[]>`
+        SELECT s."projectId", COUNT(*)::int AS entries,
+               COUNT(*) FILTER (WHERE s.status = 'STARTED' AND s."expiresAt" < ${now} AND (NOT s."gateRequired" OR s."gatePassedAt" IS NOT NULL))::int AS expired,
+               COUNT(*) FILTER (WHERE s.status = 'STARTED' AND s."expiresAt" < ${now} AND s."gateRequired" AND s."gatePassedAt" IS NULL)::int AS "gateDropped"
+        FROM "RespondentSession" s
+        WHERE s."organizationId" = ${org} AND s."isTest" = false AND s."startedAt" >= ${from} AND s."startedAt" <= ${now} ${project}
+        GROUP BY s."projectId"`,
+      // Vendor callbacks created in the window, by project and state.
+      this.prisma.$queryRaw<{ projectId: string | null; state: string; n: number }[]>`
+        SELECT s."projectId", c.state::text AS state, COUNT(*)::int AS n
+        FROM "CallbackDelivery" c LEFT JOIN "RespondentSession" s ON s.id = c."sessionId"
+        WHERE c."organizationId" = ${org} AND c."createdAt" >= ${from} AND c."createdAt" <= ${now} AND (s.id IS NULL OR s."isTest" = false) ${projectCb}
+        GROUP BY 1, 2`,
+      // Callbacks by receiving host.
+      this.prisma.$queryRaw<{ host: string; delivered: number; failing: number; pending: number; lastError: string | null; lastCode: number | null }[]>`
+        SELECT substring(c.url from '^[a-z]+://([^/:?#]+)') AS host,
+               COUNT(*) FILTER (WHERE c.state = 'DELIVERED')::int AS delivered,
+               COUNT(*) FILTER (WHERE c.state IN ('FAILED', 'DEAD_LETTER'))::int AS failing,
+               COUNT(*) FILTER (WHERE c.state IN ('PENDING', 'QUEUED', 'SENDING', 'RETRY_SCHEDULED'))::int AS pending,
+               (ARRAY_AGG(c."lastError" ORDER BY c."updatedAt" DESC) FILTER (WHERE c."lastError" IS NOT NULL))[1] AS "lastError",
+               (ARRAY_AGG(c."lastStatusCode" ORDER BY c."updatedAt" DESC) FILTER (WHERE c."lastError" IS NOT NULL))[1] AS "lastCode"
+        FROM "CallbackDelivery" c LEFT JOIN "RespondentSession" s ON s.id = c."sessionId"
+        WHERE c."organizationId" = ${org} AND c."createdAt" >= ${from} AND c."createdAt" <= ${now} AND (s.id IS NULL OR s."isTest" = false) ${projectCb}
+        GROUP BY 1 ORDER BY failing DESC, pending DESC, delivered DESC LIMIT 20`,
+      // Callbacks that need a person (any age, so nothing drops off the page while unresolved).
+      this.prisma.$queryRaw<{ id: string; state: string; url: string; attempts: number; lastStatusCode: number | null; lastError: string | null; updatedAt: Date; nextAttemptAt: Date; projectId: string | null; targetType: string }[]>`
+        SELECT c.id, c.state::text AS state, c.url, c.attempts, c."lastStatusCode", c."lastError", c."updatedAt", c."nextAttemptAt", s."projectId", c."targetType"
+        FROM "CallbackDelivery" c LEFT JOIN "RespondentSession" s ON s.id = c."sessionId"
+        WHERE c."organizationId" = ${org} AND c.state IN ('FAILED', 'DEAD_LETTER', 'RETRY_SCHEDULED') AND (s.id IS NULL OR s."isTest" = false) ${projectCb}
+        ORDER BY (c.state = 'RETRY_SCHEDULED'), c."updatedAt" DESC LIMIT 25`,
+    ]);
+
+    // Projects: everything with traffic in the window, plus live projects with none (they show as idle).
+    const ids = new Set<string>([...perProject.map((p) => p.projectId), ...entries.map((p) => p.projectId), ...callbacks.map((c) => c.projectId).filter((x): x is string => !!x), ...problems.map((c) => c.projectId).filter((x): x is string => !!x)]);
+    const projects = await this.prisma.project.findMany({
+      where: { organizationId: org, ...(projectId ? { id: projectId } : { OR: [{ id: { in: [...ids] } }, { status: 'LIVE' }] }) },
+      select: { id: true, projectCode: true, name: true, status: true, redirectMode: true },
+    });
+    if (projectId && !projects.length) throw new NotFoundException('Project not found');
+    const byProject = new Map(projects.map((p) => [p.id, p]));
+
+    const rows = projects.map((p) => {
+      const r = perProject.find((x) => x.projectId === p.id);
+      const e = entries.find((x) => x.projectId === p.id);
+      const cb = callbacks.filter((x) => x.projectId === p.id);
+      const cbN = (states: string[]) => cb.filter((x) => states.includes(x.state)).reduce((a, x) => a + x.n, 0);
+      const stats = {
+        entries: e?.entries ?? 0,
+        redirects: r?.redirects ?? 0,
+        fallbacks: r?.fallbacks ?? 0,
+        blocked: r?.blocked ?? 0,
+        apiFallbacks: r?.apiFallbacks ?? 0,
+        p50Ms: r?.p50 === null || r?.p50 === undefined ? null : Math.round(num(r.p50)),
+        p95Ms: r?.p95 === null || r?.p95 === undefined ? null : Math.round(num(r.p95)),
+        expired: e?.expired ?? 0,
+        gateDropped: e?.gateDropped ?? 0,
+        callbacksDelivered: cbN(['DELIVERED']),
+        callbacksRetrying: cbN(['RETRY_SCHEDULED', 'PENDING', 'QUEUED', 'SENDING']),
+        callbacksDead: cbN(['FAILED', 'DEAD_LETTER']),
+        lastRedirectAt: r?.last ?? null,
+      };
+      const h = healthOf({ ...stats, callbacksRetrying: cbN(['RETRY_SCHEDULED']) });
+      return { project: p, ...stats, ...h };
+    });
+    const rank: Record<Health, number> = { failing: 0, watch: 1, healthy: 2, idle: 3 };
+    rows.sort((a, b) => rank[a.health] - rank[b.health] || b.redirects - a.redirects || a.project.projectCode.localeCompare(b.project.projectCode));
+
+    const sum = (k: keyof (typeof rows)[number]) => rows.reduce((a, r) => a + (typeof r[k] === 'number' ? (r[k] as number) : 0), 0);
+    const p95All = perProject.length ? await this.p95(org, from, now, projectId) : null;
+    const totals = {
+      entries: sum('entries'),
+      redirects: sum('redirects'),
+      fallbacks: sum('fallbacks'),
+      blocked: sum('blocked'),
+      apiFallbacks: sum('apiFallbacks'),
+      expired: sum('expired'),
+      gateDropped: sum('gateDropped'),
+      p95Ms: p95All,
+      callbacksDelivered: sum('callbacksDelivered'),
+      callbacksRetrying: sum('callbacksRetrying'),
+      callbacksDead: sum('callbacksDead'),
+    };
+    const pr = prev[0];
+    const previous = { redirects: num(pr?.redirects), fallbacks: num(pr?.fallbacks), p95Ms: pr?.p95 === null || pr?.p95 === undefined ? null : Math.round(num(pr.p95)) };
+
+    // Group reasons, keeping one example and the projects affected.
+    const grouped = new Map<string, { key: string; example: string; count: number; lastAt: Date; projects: Set<string> }>();
+    for (const r of reasons) {
+      const key = reasonKey(r.reason);
+      const g = grouped.get(key) ?? { key, example: r.reason, count: 0, lastAt: r.last, projects: new Set<string>() };
+      g.count += r.n;
+      if (r.last > g.lastAt) g.lastAt = r.last;
+      g.projects.add(r.projectId);
+      grouped.set(key, g);
+    }
+    const reasonRows = [...grouped.values()]
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 12)
+      .map((g) => ({ reason: g.key, example: g.example.split('; ')[0], count: g.count, lastAt: g.lastAt, projects: [...g.projects].map((id) => byProject.get(id)).filter(Boolean).map((p) => ({ id: p!.id, projectCode: p!.projectCode })) }));
+
+    const buckets = Math.ceil(w.ms / w.bucket);
+    const series = Array.from({ length: buckets }, (_, i) => {
+      const t = timeline.find((x) => x.bucket === i);
+      return { at: new Date(from.getTime() + i * w.bucket), ok: t?.ok ?? 0, fallback: t?.fallback ?? 0 };
+    });
+
+    return {
+      window: { key: windowKey, from, to: now, bucketMinutes: w.bucket / 60_000 },
+      thresholds: THRESHOLDS,
+      // The organisation is as healthy as its worst project, so one broken study is never averaged away.
+      health: rows.length ? rows[0].health : ('idle' as Health),
+      reasons: rows.filter((r) => r.health === 'failing' || r.health === 'watch').flatMap((r) => r.reasons.map((x) => `${r.project.projectCode}: ${x}`)).slice(0, 8),
+      totals,
+      previous,
+      outcomes: statuses.map((s) => ({ status: s.status, count: s.n })),
+      series,
+      fallbackReasons: reasonRows,
+      projects: rows,
+      callbackHosts: hosts.map((h) => ({ host: h.host ?? '(invalid URL)', delivered: h.delivered, failing: h.failing, pending: h.pending, lastError: h.lastError, lastStatusCode: h.lastCode })),
+      callbackProblems: problems.map((c) => ({ ...c, url: redactQuery(c.url), project: c.projectId ? (byProject.get(c.projectId) ? { id: c.projectId, projectCode: byProject.get(c.projectId)!.projectCode } : null) : null })),
+    };
+  }
+
+  private async p95(org: string, from: Date, to: Date, projectId?: string) {
+    const project = projectId ? Prisma.sql`AND s."projectId" = ${projectId}` : Prisma.empty;
+    const [r] = await this.prisma.$queryRaw<{ p95: number | null }[]>`
+      SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY e."durationMs") AS p95
+      FROM "RedirectExecution" e JOIN "RespondentSession" s ON s.id = e."sessionId"
+      WHERE s."organizationId" = ${org} AND s."isTest" = false AND e."createdAt" >= ${from} AND e."createdAt" <= ${to} ${project}`;
+    return r?.p95 === null || r?.p95 === undefined ? null : Math.round(num(r.p95));
+  }
+
+  /** One GET per live market's client survey link. Redirects are not followed; 2xx and 3xx count as up. */
+  async checkLinks(user: AuthUser, projectId?: string): Promise<LinkCheck[]> {
+    const markets = await this.prisma.projectCountry.findMany({
+      where: { project: { organizationId: user.organizationId, ...(projectId ? { id: projectId } : { status: 'LIVE' }) }, status: { in: projectId ? ['LIVE', 'TEST', 'HOLD', 'DRAFT'] : ['LIVE'] }, liveSurveyUrl: { not: null } },
+      select: { id: true, countryCode: true, language: true, liveSurveyUrl: true, project: { select: { id: true, projectCode: true } } },
+      orderBy: [{ project: { projectCode: 'asc' } }, { countryCode: 'asc' }],
+      take: 100,
+    });
+    const results: LinkCheck[] = [];
+    // A few at a time, so a large organisation does not open 100 connections at once.
+    for (let i = 0; i < markets.length; i += 6) {
+      results.push(...(await Promise.all(markets.slice(i, i + 6).map((m) => this.checkOne(m)))));
+    }
+    await this.audit.record({ organizationId: user.organizationId, actorId: user.id, action: 'redirects.links_checked', entityType: projectId ? 'Project' : 'Organization', entityId: projectId ?? user.organizationId, detail: { checked: results.length, failing: results.filter((r) => !r.ok).length } });
+    return results;
+  }
+
+  private async checkOne(m: { id: string; countryCode: string; language: string; liveSurveyUrl: string | null; project: { id: string; projectCode: string } }): Promise<LinkCheck> {
+    const base = { projectCountryId: m.id, projectId: m.project.id, projectCode: m.project.projectCode, countryCode: m.countryCode, language: m.language };
+    const started = Date.now();
+    const done = (ok: boolean, status: number | null, detail: string): LinkCheck => ({ ...base, ok, status, ms: Date.now() - started, detail });
+    let url: URL;
+    try {
+      url = new URL(buildSurveyLink(m.liveSurveyUrl!, { token: 'projexa-link-check', countryCode: m.countryCode, projectCode: m.project.projectCode }));
+    } catch {
+      return done(false, null, 'The survey link is not a valid URL');
+    }
+    if (url.protocol !== 'https:' && !(appConfig.allowHttpRedirects && url.protocol === 'http:')) return done(false, null, `Only https links are checked (${url.protocol})`);
+    if (url.username || url.password) return done(false, null, 'Credentials in the link are not allowed');
+    // Private addresses are refused unless an operator opts in for an on-premises survey host.
+    if (process.env.LINK_CHECK_ALLOW_PRIVATE !== 'true') {
+      try {
+        const host = url.hostname.replace(/^\[|\]$/g, '');
+        const addresses = isIP(host) ? [host] : await this.resolve(host);
+        if (!addresses.length) return done(false, null, 'The host does not resolve');
+        if (addresses.some(isPrivateAddress)) return done(false, null, 'The host points to a private network address');
+      } catch {
+        return done(false, null, `DNS lookup failed for ${url.hostname}`);
+      }
+    }
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    try {
+      const r = await this.fetcher(url.toString(), ctrl.signal);
+      if (r.status >= 200 && r.status < 300) return done(true, r.status, 'Reachable');
+      if (r.status >= 300 && r.status < 400) return done(true, r.status, r.location ? `Redirects to ${hostOf(r.location, url)}` : 'Redirects');
+      return done(false, r.status, r.status === 404 ? 'Not found: the link may have changed or the survey was closed' : r.status >= 500 ? 'The survey platform returned a server error' : `The survey platform answered ${r.status}`);
+    } catch (e) {
+      return done(false, null, ctrl.signal.aborted ? 'No answer within 8 seconds' : `Could not connect (${(e as Error).message.slice(0, 80)})`);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+}
+
+function hostOf(location: string, base: URL) {
+  try {
+    return new URL(location, base).host;
+  } catch {
+    return 'another page';
+  }
+}
+
+/** Callback URLs often carry respondent IDs and secrets in the query: show the path only. */
+export function redactQuery(raw: string) {
+  try {
+    const u = new URL(raw);
+    return `${u.protocol}//${u.host}${u.pathname}${u.search ? '?…' : ''}`;
+  } catch {
+    return '(invalid URL)';
+  }
+}
+
+@Controller('redirect-health')
+export class RedirectHealthController {
+  constructor(private readonly svc: RedirectHealthService) {}
+
+  @Get()
+  overview(@CurrentUser() u: AuthUser, @Query('window') window?: string, @Query('projectId') projectId?: string) {
+    const key = (window && window in WINDOWS ? window : '24h') as WindowKey;
+    return this.svc.overview(u.organizationId, key, projectId || undefined);
+  }
+
+  @Post('check-links')
+  @Roles(...EDITORS)
+  checkAll(@CurrentUser() u: AuthUser) {
+    return this.svc.checkLinks(u);
+  }
+
+  @Post('check-links/:projectId')
+  @Roles(...EDITORS)
+  checkProject(@CurrentUser() u: AuthUser, @Param('projectId') projectId: string) {
+    return this.svc.checkLinks(u, projectId);
+  }
+}
+
+@Module({ controllers: [RedirectHealthController], providers: [RedirectHealthService] })
+export class RedirectHealthModule {}

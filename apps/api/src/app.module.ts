@@ -23,6 +23,7 @@ import { ProjectsModule } from './projects/projects.controller';
 import { RedirectsModule } from './redirects/redirects.controller';
 import { RequestsModule } from './requests/requests.controller';
 import { PrivacyModule } from './privacy/privacy';
+import { RedirectHealthModule } from './redirect-health/redirect-health';
 import { BrandingModule } from './branding/branding';
 import { QuotesModule } from './quotes/quotes';
 import { VendorSignupModule } from './vendor-signup/vendor-signup';
@@ -52,7 +53,7 @@ import { VendorsModule } from './vendors/vendors.controller';
     DashboardModule,
     PortalModule,
     RequestsModule,
-    QuotesModule, PrivacyModule, BrandingModule,
+    QuotesModule, PrivacyModule, BrandingModule, RedirectHealthModule,
     VendorSignupModule,
     ReportsModule,
     WonBidsModule,
