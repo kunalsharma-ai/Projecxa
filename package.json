@@ -12,6 +12,8 @@
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "db:migrate": "pnpm --filter @projexa/api prisma:migrate",
-    "db:seed": "pnpm --filter @projexa/api seed"
+    "db:seed": "pnpm --filter @projexa/api seed",
+    "db:deploy": "pnpm --filter @projexa/api prisma:deploy",
+    "create-admin": "pnpm --filter @projexa/api create-admin"
   }
 }
