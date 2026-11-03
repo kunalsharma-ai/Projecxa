@@ -21,6 +21,8 @@ import { config } from '../common/config';
 import { ZodPipe } from '../common/zod.pipe';
 import { PrismaService } from '../prisma/prisma.service';
 import { emptyStats } from '../projects/projects.service';
+import { FinanceModule } from '../finance/finance.controller';
+import { PayablesService } from '../finance/payables.service';
 
 /** Projects a portal can see: not drafts. */
 const VISIBLE_PROJECT_STATUSES = ['TEST', 'LIVE', 'HOLD', 'CLOSED', 'INVOICED'] as const;
@@ -41,7 +43,18 @@ function statsFrom(rows: { status: keyof ReturnType<typeof emptyStats>; _count: 
 @Controller('portal/vendor')
 @Roles('VENDOR_USER')
 export class VendorPortalController {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly payables: PayablesService) {}
+
+  /** Bills we approved or paid for this vendor (drafts and voided bills stay internal). */
+  @Get('bills')
+  async bills(@CurrentUser() u: AuthUser) {
+    return this.payables.list(u.organizationId, { vendorId: await this.vendorId(u), vendorView: true });
+  }
+
+  @Get('bills/:id')
+  async bill(@CurrentUser() u: AuthUser, @Param('id') id: string) {
+    return this.payables.get(u.organizationId, id, await this.vendorId(u));
+  }
 
   private async vendorId(u: AuthUser): Promise<string> {
     const { vendorId } = await portalUser(this.prisma, u);
@@ -371,5 +384,5 @@ export class PortalUsersController {
   }
 }
 
-@Module({ controllers: [VendorPortalController, ClientPortalController, PortalUsersController] })
+@Module({ imports: [FinanceModule], controllers: [VendorPortalController, ClientPortalController, PortalUsersController] })
 export class PortalModule {}

@@ -1,4 +1,4 @@
-import { Activity, BarChart3, Building2, FolderKanban, ReceiptText, KeyRound, LayoutDashboard, Palette, PlusCircle, Settings, Trophy, Truck, type LucideIcon } from 'lucide-react';
+import { Activity, BarChart3, HandCoins, Building2, FolderKanban, ReceiptText, KeyRound, LayoutDashboard, Palette, PlusCircle, Settings, Trophy, Truck, type LucideIcon } from 'lucide-react';
 
 export interface NavItem { href: string; label: string; icon: LucideIcon; keywords?: string; editorsOnly?: boolean }
 
@@ -10,6 +10,7 @@ export const NAV: NavItem[] = [
   { href: '/monitor', label: 'Fieldwork monitor', icon: Activity, keywords: 'alerts pace autopilot stalled incidence quality' },
   { href: '/reports', label: 'Reports', icon: BarChart3, keywords: 'overall conversion client vendor clicks' },
   { href: '/invoices', label: 'Invoices', icon: ReceiptText, keywords: 'billing reconciliation payment finance' },
+  { href: '/payables', label: 'Vendor payables', icon: HandCoins, keywords: 'bills vendor payments owed finance' },
   { href: '/clients', label: 'Clients', icon: Building2 },
   { href: '/vendors', label: 'Vendors', icon: Truck, keywords: 'panels suppliers' },
   { href: '/portal-access', label: 'Portal access', icon: KeyRound, keywords: 'client vendor logins' },

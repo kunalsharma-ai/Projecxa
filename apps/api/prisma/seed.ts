@@ -8,6 +8,9 @@ import * as bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { questionTemplates } from '../src/survey/questions';
 import { matchCells, Respondent } from '../src/quotas/quota.rules';
+import { PayablesService } from '../src/finance/payables.service';
+import { AuditService } from '../src/audit/audit.service';
+import type { PrismaService } from '../src/prisma/prisma.service';
 
 const prisma = new PrismaClient();
 const token = (n = 12) => randomBytes(n).toString('base64url');
@@ -183,6 +186,7 @@ async function main() {
   await seedHistory(project.id, org.id, v1.id);
   await seedFinance(project.id, org.id, pm.id);
   await seedQuotas(project.id);
+  await seedPayables(org.id, pm.id);
   await seedWonBids(org.id);
 
   console.log(`Seeded organization "demo".
@@ -233,6 +237,21 @@ function demoAnswers(rnd: () => number, screenedOut: boolean) {
     },
     prescreen: { it_role: { value: role, label: label('it_role', role) }, company_size: choice('company_size', ['s2', 's3', 's4', 's4']) },
   };
+}
+
+/** Exchange rates and vendor bills: one paid, one approved, the rest left as drafts. */
+async function seedPayables(organizationId: string, actorId: string) {
+  const db = prisma as unknown as PrismaService;
+  const payables = new PayablesService(db, new AuditService(db));
+  const u = { id: actorId, organizationId, role: 'PROJECT_MANAGER' as const, email: 'pm@projexa.local', name: 'PM' };
+  await payables.saveSettings(u, { baseCurrency: 'USD', rates: [{ currency: 'EUR', rate: 1.08 }, { currency: 'GBP', rate: 1.27 }] });
+  const upTo = new Date(Date.now() - 10 * 86_400_000).toISOString().slice(0, 10);
+  const { bills } = await payables.createBills(u, { upTo, notes: 'Synthetic demo bill' });
+  for (const [i, b] of bills.entries()) {
+    if (i > 1) break;
+    await payables.update(u, b.id, { status: 'APPROVED', dueDays: 30, vendorReference: `VINV-${2201 + i}` });
+    if (i === 0) await payables.update(u, b.id, { status: 'PAID', paymentReference: 'WIRE-77310' });
+  }
 }
 
 /** Company-size and age quota cells for the US market, counted from the synthetic history. */
@@ -357,7 +376,7 @@ async function seedFinance(projectId: string, organizationId: string, actorId: s
     const inv = await prisma.invoice.create({
       data: {
         organizationId, projectId, clientId: project.clientId, number: `INV-${new Date().getUTCFullYear()}-${String(++seq).padStart(5, '0')}`,
-        status: st.status, currency, lines: [...lines.values()], completes: list.length, total: new Prisma.Decimal(total.toFixed(2)),
+        status: st.status, currency, lines: [...lines.values()], completes: list.length, subtotal: new Prisma.Decimal(total.toFixed(2)), total: new Prisma.Decimal(total.toFixed(2)),
         notes: 'PO 4471 (synthetic demo)', issuedAt, dueAt: issuedAt ? new Date(issuedAt.getTime() + 30 * day) : null,
         paidAt: 'paid' in st ? new Date(Date.now() - (st.paid as number) * day) : null, createdById: actorId,
       },

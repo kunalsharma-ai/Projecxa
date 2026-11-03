@@ -2,6 +2,7 @@
 import clsx from 'clsx';
 import { Download } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { VendorBills } from '@/components/finance/vendor-bills';
 import { CopyButton } from '@/components/project/vendors-tab';
 import { Empty, ErrorBox, Loading, OutcomeChip, PageHeader, Progress, Section, StatusChip, money } from '@/components/ui';
 import { get } from '@/lib/api';
@@ -28,7 +29,7 @@ interface SessionRow {
 }
 interface Callback { id: string; url: string; state: string; attempts: number; lastStatusCode: number | null; lastError: string | null; createdAt: string }
 
-const TABS = ['Projects', 'Respondents', 'Callbacks'] as const;
+const TABS = ['Projects', 'Respondents', 'Callbacks', 'Statements'] as const;
 
 export default function VendorPortal() {
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -83,9 +84,9 @@ export default function VendorPortal() {
         {summary.currencyNote} Rejected completes: {summary.payout.rejected.completes}. Payout becomes final when the client approves a complete.
       </p>
 
-      <div className="mb-5 flex gap-1 border-b border-line" role="tablist">
+      <div className="mb-5 flex gap-1 overflow-x-auto border-b border-line" role="tablist">
         {TABS.map((t) => (
-          <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={clsx('-mb-px border-b-2 px-4 py-2.5 text-sm', tab === t ? 'border-brand font-medium text-brand' : 'border-transparent text-muted hover:text-ink')}>
+          <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={clsx('-mb-px whitespace-nowrap border-b-2 px-4 py-2.5 text-sm', tab === t ? 'border-brand font-medium text-brand' : 'border-transparent text-muted hover:text-ink')}>
             {t}
           </button>
         ))}
@@ -202,6 +203,7 @@ export default function VendorPortal() {
           )}
         </Section>
       )}
+      {tab === 'Statements' && <VendorBills />}
     </>
   );
 }

@@ -8,6 +8,7 @@ import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { redirectConfigSchema } from '../redirects/redirect.types';
 import { FinanceModule } from '../finance/finance.controller';
+import { PayablesService } from '../finance/payables.service';
 import { FinanceService } from '../finance/finance.service';
 import { ReportsModule } from '../reports/reports.controller';
 import { ReportsService, SummaryRow } from '../reports/reports.service';
@@ -72,6 +73,7 @@ export class DashboardController {
     private readonly audit: AuditService,
     private readonly reports: ReportsService,
     private readonly finance: FinanceService,
+    private readonly payables: PayablesService,
   ) {}
 
   /** PM dashboard numbers, computed from live (non-test) data only. */
@@ -87,6 +89,7 @@ export class DashboardController {
       this.reports.summary(org, { from: per.from, to: per.to }, 'client'),
       this.finance.financeTiles(org),
     ]);
+    const [toBase, payables] = await Promise.all([this.payables.converter(org), this.payables.summary(org)]);
     const c = kpis(cur[0]);
     const p = kpis(prev[0]);
     const top = (rows: SummaryRow[]) =>
@@ -113,7 +116,8 @@ export class DashboardController {
           completes: trend(c.completes, p.completes),
         },
       },
-      finance,
+      finance: Object.fromEntries(Object.entries(finance).map(([k, t]) => [k, { ...t, base: toBase(t.byCurrency) }])),
+      payables: { unbilled: payables.totals.unbilled, due: payables.totals.due, paid: payables.totals.paid },
       top: { vendors: top(byVendor), projects: top(byProject), clients: top(byClient) },
     };
   }
@@ -168,7 +172,7 @@ export class DashboardController {
       clients: { total: sum(clients), active: count(clients, 'ACTIVE'), inactive: count(clients, 'INACTIVE') },
       vendors: { total: sum(vendors), active: count(vendors, 'ACTIVE'), inactive: count(vendors, 'INACTIVE') },
       projects: { total: sum(projectsByStatus), byStatus: Object.fromEntries(projectsByStatus.map((p) => [p.status, p._count._all])) },
-      financials: { revenue, cost, profit: revenue - cost, currencyNote: 'Sums are in each country’s own currency; FX conversion comes in a later milestone.' },
+      financials: { revenue, cost, profit: revenue - cost, currencyNote: 'Sums are in each country’s own currency. Finance tiles add a total in your reporting currency (Settings → Finance).' },
       clicks,
       completes: money._count._all,
       sessionsByStatus: Object.fromEntries(sessionsByStatus.map((s) => [s.status, s._count._all])),
