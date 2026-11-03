@@ -276,6 +276,10 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - Create project now has fieldwork dates.
 - Details: `docs/PROJECT_FROM_BRIEF.md`.
 
+## Install on a server
+
+See `INSTALL.md`: server settings, database, `pnpm create-admin` for the first admin, build, run and TLS.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).
