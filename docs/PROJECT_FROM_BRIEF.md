@@ -1,4 +1,4 @@
-# Project from a brief (Milestone 35)
+# Project from a brief (Milestone 36)
 
 Set up a project from a client brief or RFQ in one step:
 1. **Projects → From a brief**, or **Create project → Read a brief**.

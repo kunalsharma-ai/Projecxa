@@ -261,7 +261,7 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - "Check survey links" opens every live client survey link once and reports broken, missing or slow links. It never reaches private networks.
 - Details: `docs/REDIRECT_HEALTH.md`.
 
-## Milestone 35: project from a brief
+## Milestone 36: project from a brief
 
 - Projects → From a brief (or Create project → Read a brief). Attach a client brief or RFQ (PDF, image or text) or paste it, and the AI fills the Create project form: name, client, category, markets with completes, LOI, incidence, CPI, currency, fieldwork dates, devices, target group, and quotas and notes in the description.
 - A banner shows what was filled, what the brief leaves out, warnings, and quotes showing where each key value came from. Every value is checked against the form's limits. Nothing is created until you press Create.
