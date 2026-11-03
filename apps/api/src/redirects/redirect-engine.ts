@@ -9,7 +9,7 @@ import {
   resolveParamMappings,
   resolveRule,
 } from './redirect-resolver';
-import { OutcomeStatus, RedirectConfig, RedirectModeT, RuleSource, RuleType } from './redirect.types';
+import { API_TIMEOUT_MS, OutcomeStatus, RedirectConfig, RedirectModeT, RuleSource, RuleType } from './redirect.types';
 
 export interface EngineInput {
   status: OutcomeStatus;
@@ -43,6 +43,22 @@ export interface EngineResult {
   params: Record<string, string>;
   blockedReason?: string;
   steps: EngineStep[];
+  /**
+   * Set for API destinations: ask `endpoint` for the destination with `payload`. `destination` holds the
+   * rule's fallback URL until finishApiRedirect applies the answer.
+   */
+  api?: { endpoint: string; timeoutMs: number; payload: ApiPayload; allowedDomains: string[] };
+  /** True when an API destination failed and the rule's fallback URL was used. */
+  apiFallback?: boolean;
+}
+
+/** What PROJEXA sends to an API destination endpoint. */
+export interface ApiPayload {
+  status: string;
+  respondent_uid: string | null;
+  vendor_id: string;
+  country_code: string;
+  project_code: string;
 }
 
 export function internalEndPage(publicBaseUrl: string, status: OutcomeStatus) {
@@ -87,18 +103,51 @@ export function computeRedirect(input: EngineInput): EngineResult {
   const type = effectiveRuleType(input.mode, resolved.rule);
   steps.push({ step: 'resolve-rule', ok: true, detail: `${resolved.source} → ${type} rule` });
 
+  const values = {
+    respondent_uid: input.vendorRespondentId,
+    vendor_id: input.vendor.code,
+    country_code: input.countryCode,
+    project_code: input.projectCode,
+    status: input.status.toLowerCase(),
+    session_token: input.sessionToken,
+  };
+
+  if (type === 'API') {
+    // The fallback is built and checked now, so a failing endpoint always has a safe place to send people.
+    const maps = resolveParamMappings(input.config.params, { countryCode: input.countryCode, vendorId: input.vendor.id });
+    const fb = buildDestination({ ...resolved.rule, url: resolved.rule.fallbackUrl ?? '' }, 'DYNAMIC', values, maps);
+    if (!fb.ok) {
+      steps.push({ step: 'build-url', ok: false, detail: `Fallback URL: ${fb.reason}` });
+      return fallback(fb.reason, { ruleSource: resolved.source, ruleType: type });
+    }
+    const fbCheck = checkDestination(fb.url, { allowedDomains: allowed, allowHttp: input.allowHttp, selfHost });
+    if (!fbCheck.ok) {
+      steps.push({ step: 'security-policy', ok: false, detail: `Fallback URL: ${fbCheck.reason}` });
+      return fallback(fbCheck.reason, { ruleSource: resolved.source, ruleType: type });
+    }
+    steps.push({ step: 'build-url', ok: true, detail: `Destination is asked from ${new URL(resolved.rule.url).host}; fallback ready` });
+    return {
+      destination: fb.url,
+      usedFallback: false,
+      ruleSource: resolved.source,
+      ruleType: type,
+      callbackRequired: resolved.rule.callbackRequired,
+      params: fb.params,
+      steps,
+      api: {
+        endpoint: resolved.rule.url,
+        timeoutMs: resolved.rule.timeoutMs ?? API_TIMEOUT_MS,
+        payload: { status: input.status, respondent_uid: input.vendorRespondentId ?? null, vendor_id: input.vendor.code, country_code: input.countryCode, project_code: input.projectCode },
+        allowedDomains: allowed,
+      },
+    };
+  }
+
   const mappings = type === 'DYNAMIC' ? resolveParamMappings(input.config.params, { countryCode: input.countryCode, vendorId: input.vendor.id }) : [];
   const built = buildDestination(
     resolved.rule,
     type,
-    {
-      respondent_uid: input.vendorRespondentId,
-      vendor_id: input.vendor.code,
-      country_code: input.countryCode,
-      project_code: input.projectCode,
-      status: input.status.toLowerCase(),
-      session_token: input.sessionToken,
-    },
+    values,
     mappings,
   );
   if (!built.ok) {
@@ -127,4 +176,23 @@ export function computeRedirect(input: EngineInput): EngineResult {
     params: built.params,
     steps,
   };
+}
+
+/**
+ * Applies an API endpoint's answer to an API destination result. The answered URL must pass the same
+ * allowlist and protocol checks as any other destination; otherwise the rule's fallback URL stays.
+ */
+export function finishApiRedirect(result: EngineResult, answer: { url?: string; error?: string; ms: number }, opts: { publicBaseUrl: string; allowHttp: boolean }): EngineResult {
+  if (!result.api) return result;
+  const steps = [...result.steps];
+  const failed = (why: string): EngineResult => {
+    steps.push({ step: 'api', ok: false, detail: `${why}; used the fallback URL` });
+    return { ...result, steps, apiFallback: true, blockedReason: `API destination: ${why}` };
+  };
+  if (!answer.url) return failed(answer.error ?? 'No URL in the answer');
+  const check = checkDestination(answer.url, { allowedDomains: result.api.allowedDomains, allowHttp: opts.allowHttp, selfHost: new URL(opts.publicBaseUrl).host });
+  if (!check.ok) return failed(`answered URL rejected: ${check.reason}`);
+  steps.push({ step: 'api', ok: true, detail: `Endpoint answered in ${answer.ms} ms` });
+  steps.push({ step: 'security-policy', ok: true, detail: 'Answered URL passed the allowlist and protocol checks' });
+  return { ...result, destination: answer.url, params: {}, steps, apiFallback: false };
 }

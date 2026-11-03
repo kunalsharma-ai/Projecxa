@@ -4,7 +4,8 @@ import { config as appConfig } from '../common/config';
 import { hmacSha256, randomToken, safeEqualHex, sha256 } from '../common/crypto';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { computeRedirect, internalEndPage } from '../redirects/redirect-engine';
+import { computeRedirect, finishApiRedirect, internalEndPage } from '../redirects/redirect-engine';
+import { askApiDestination, redirectSigningSecret } from '../redirects/redirect-api';
 import { OutcomeStatus } from '../redirects/redirect.types';
 import { fillCallbackTemplate, parseConfig } from '../redirects/redirects.service';
 import {
@@ -578,7 +579,7 @@ export class SurveyService {
   async redirectFor(session: SessionWithContext, status: OutcomeStatus, extraReason?: string): Promise<string> {
     const started = Date.now();
     const version = session.redirectVersion;
-    const result = computeRedirect({
+    let result = computeRedirect({
       status,
       countryCode: session.projectCountry.countryCode,
       vendor: session.vendorAllocation.vendor,
@@ -594,6 +595,12 @@ export class SurveyService {
       publicBaseUrl: appConfig.publicBaseUrl,
       allowHttp: appConfig.allowHttpRedirects,
     });
+    if (result.api) {
+      // API destination: ask the endpoint, fall back to the rule's fallback URL on any failure.
+      const secret = await redirectSigningSecret(this.prisma, session.organizationId);
+      const answer = await askApiDestination(result.api.endpoint, { ...result.api.payload, ...(session.isTest ? { test: true } : {}) }, secret, result.api.timeoutMs);
+      result = finishApiRedirect(result, answer, { publicBaseUrl: appConfig.publicBaseUrl, allowHttp: appConfig.allowHttpRedirects });
+    }
     await this.prisma.redirectExecution.create({
       data: {
         sessionId: session.id,
@@ -602,6 +609,7 @@ export class SurveyService {
         versionId: version?.id,
         destination: result.destination,
         usedFallback: result.usedFallback,
+        apiFallback: result.apiFallback ?? false,
         blockedReason: [extraReason, result.blockedReason].filter(Boolean).join('; ') || null,
         durationMs: Date.now() - started,
       },

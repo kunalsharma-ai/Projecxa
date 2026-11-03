@@ -54,6 +54,13 @@ export default function ProjectPage() {
     } catch {}
   }, [id]);
 
+  // Links such as ?tab=redirects open a tab directly.
+  useEffect(() => {
+    const want = new URLSearchParams(window.location.search).get('tab');
+    const t = want && TABS.find((x) => x.toLowerCase().startsWith(want.toLowerCase()));
+    if (t) setTab(t);
+  }, []);
+
   const reload = useCallback(() => get<ProjectDetail>(`/projects/${id}`).then(setP).catch(setError), [id]);
   useEffect(() => {
     reload();

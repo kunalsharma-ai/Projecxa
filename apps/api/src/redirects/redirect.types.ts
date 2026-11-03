@@ -16,7 +16,8 @@ export type OutcomeStatus = (typeof OUTCOME_STATUSES)[number];
 export const REDIRECT_MODES = ['STATIC', 'DYNAMIC', 'HYBRID'] as const;
 export type RedirectModeT = (typeof REDIRECT_MODES)[number];
 
-export const RULE_TYPES = ['STATIC', 'DYNAMIC'] as const;
+/** API: the destination is asked from an HTTPS endpoint at outcome time; fallbackUrl is used if it fails. */
+export const RULE_TYPES = ['STATIC', 'DYNAMIC', 'API'] as const;
 export type RuleType = (typeof RULE_TYPES)[number];
 
 /**
@@ -59,8 +60,13 @@ export const redirectRuleSchema = z
     enabled: z.boolean().default(true),
     callbackRequired: z.boolean().default(false),
     scope: scopeSchema.optional(),
+    /** API rules: where to send the respondent when the endpoint fails. May use {macros}. */
+    fallbackUrl: z.string().min(1).max(2048).optional(),
+    /** API rules: how long to wait for the endpoint, in milliseconds. */
+    timeoutMs: z.number().int().min(200).max(5000).optional(),
   })
   .strict();
+export const API_TIMEOUT_MS = 1500;
 export type RedirectRule = z.infer<typeof redirectRuleSchema>;
 
 export const paramMappingSchema = z

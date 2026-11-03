@@ -37,6 +37,10 @@ export const config = {
     const k = process.env.MFA_ENCRYPTION_KEY;
     return k && k.length >= 16 ? k : this.jwtSecret;
   },
+  /** Scheduled redirect version activation (docs/REDIRECT_DESTINATIONS.md). */
+  get redirectSchedulerEnabled(): boolean {
+    return process.env.REDIRECT_SCHEDULER_ENABLED !== 'false';
+  },
   /** Scheduled report emails: the minute-by-minute scheduler. */
   get reportSchedulerEnabled(): boolean {
     return process.env.REPORT_SCHEDULER_ENABLED !== 'false';
