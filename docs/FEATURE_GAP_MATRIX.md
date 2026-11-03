@@ -12,7 +12,7 @@ Classification follows the spec: **EXISTING** (done in this repo and tested), **
 | 1 | Country clone (with vendors and quotas), Excel/CSV paste | EXISTING | |
 | 1 | Project templates, version history of project settings, draft saving | DONE (milestone 23) | Template library with optional quotas, vendors, client and survey links; autosaved Create project drafts; per-project settings versions with before/after and restore |
 | 1 | Quota cells, nested/interlocking quotas | EXISTING | Milestone 10: cells on device and gate/prescreen answers, combined conditions, enforced at entry, after the gate page and at complete (docs/QUOTAS.md) |
-| 1 | AI-assisted and API-driven project creation | PARTIAL | The AI copilot creates projects after confirmation (milestone 20); creating from a brief or document in one step is not built |
+| 1 | AI-assisted and API-driven project creation | DONE (M36) | The AI copilot creates projects after confirmation (M20); a brief or RFQ (PDF, image or text) fills the Create project form in one step, with checked values, gaps, warnings and source quotes, saved as a draft for review (M36). docs/PROJECT_FROM_BRIEF.md |
 | 2 RFQ & feasibility | RFQ extraction, feasibility | PARTIAL / EXTERNAL_DEPENDENCY | RFQs and feasibility stay in Bidzo. PROJEXA consumes the signed `bid.won` event into Won bids and prefills the project (milestone 5); Bidzo still has to send it |
 | 3 Vendors | Vendor records, per-country allocation with CPI and target, pause/resume | EXISTING | |
 | 3 | Vendor scoring, capacity, AI matching | DONE (milestone 24) | Scores from delivery history, capacity per market against what live projects owe, ranked suggestions per market with reasons, copilot tool. Matching is rule based and explained, not a trained model |

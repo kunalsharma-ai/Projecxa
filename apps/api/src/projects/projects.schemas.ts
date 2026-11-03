@@ -76,7 +76,9 @@ export const createProjectSchema = z.object({
   redirectConfig: redirectConfigSchema.optional(),
   defaults: countrySettingsSchema.default({}),
   countries: z.array(countryInputSchema).min(1, 'Add at least one country').max(100),
-});
+  fieldStartAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').optional(),
+  fieldEndAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').optional(),
+}).refine((b) => !b.fieldStartAt || !b.fieldEndAt || b.fieldStartAt <= b.fieldEndAt, { message: 'The field end date must be on or after the start date', path: ['fieldEndAt'] });
 export type CreateProjectInput = z.infer<typeof createProjectSchema>;
 
 export const updateProjectSchema = z.object({

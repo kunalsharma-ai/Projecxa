@@ -1,9 +1,11 @@
 'use client';
 import clsx from 'clsx';
-import { ClipboardPaste, Copy, FileStack, LayoutTemplate, Monitor, Smartphone, Tablet, Trash2, Trophy } from 'lucide-react';
+import { ClipboardPaste, Copy, FileStack, LayoutTemplate, Monitor, Smartphone, Sparkles, Tablet, Trash2, Trophy } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { DateRangePicker } from '@/components/form/date';
+import { BriefBanner, BriefReader, useBriefAvailability, type BriefInfo } from '@/components/project/brief-reader';
 import { ErrorBox, Field, Loading, PageHeader, Section, Toggle } from '@/components/ui';
 import { api, get, post } from '@/lib/api';
 import { describeTemplate, type ProjectTemplate, type TemplateForm } from '@/lib/templates';
@@ -37,8 +39,8 @@ const num = (v: string): Num => (v === '' ? '' : Number(v));
 const opt = (v: number | string | undefined | null): Num => (v === undefined || v === null || v === '' ? '' : Number(v));
 
 interface DraftRow { id: string; title: string; updatedAt: string }
-interface DraftData { info: typeof EMPTY_INFO; devices: Record<'desktop' | 'mobile' | 'tablet', boolean>; security: Record<string, boolean>; mode: RedirectMode; shared: typeof SHARED_DEFAULTS; rows: CountryRow[]; templateId: string | null; wonBidId: string | null }
-const EMPTY_INFO = { name: '', workOrderNo: '', generateWorkOrder: true, type: 'AD_HOC', category: '', clientId: '', clientContactId: '', salesPersonId: '', projectManagerId: '', description: '', bidReference: '' };
+interface DraftData { info: typeof EMPTY_INFO; devices: Record<'desktop' | 'mobile' | 'tablet', boolean>; security: Record<string, boolean>; mode: RedirectMode; shared: typeof SHARED_DEFAULTS; rows: CountryRow[]; templateId: string | null; wonBidId: string | null; brief?: BriefInfo | null }
+const EMPTY_INFO = { name: '', workOrderNo: '', generateWorkOrder: true, type: 'AD_HOC', category: '', clientId: '', clientContactId: '', salesPersonId: '', projectManagerId: '', description: '', bidReference: '', fieldStartAt: '', fieldEndAt: '' };
 const time = (d: string | Date) => new Date(d).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 export default function Page() {
@@ -86,6 +88,9 @@ function CreateProjectPage() {
   const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
   const [template, setTemplate] = useState<ProjectTemplate | null>(null);
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
+  const briefAvailable = useBriefAvailability();
+  const [reading, setReading] = useState(params.get('brief') === '1');
+  const [brief, setBrief] = useState<BriefInfo | null>(null);
   const [draftId, setDraftId] = useState<string | null>(params.get('draft'));
   const [draftState, setDraftState] = useState<{ status: 'idle' | 'saving' | 'saved' | 'error'; at?: string }>({ status: 'idle' });
   const lastSaved = useRef<string>('');
@@ -166,6 +171,7 @@ function CreateProjectPage() {
       setShared({ ...SHARED_DEFAULTS, ...x.shared });
       setRows(x.rows ?? []);
       setWonBidId(x.wonBidId ?? null);
+      setBrief(x.brief ?? null);
       setTemplate(x.templateId ? templates.find((t) => t.id === x.templateId) ?? (await get<ProjectTemplate>(`/project-templates/${x.templateId}`).catch(() => null)) : null);
       setDraftId(d.id);
       setDraftState({ status: 'saved', at: d.updatedAt });
@@ -193,7 +199,7 @@ function CreateProjectPage() {
   }
 
   // Save the form as a draft a moment after each change, once it has a name or a market.
-  const draftData: DraftData = { info, devices, security, mode, shared, rows, templateId: template?.id ?? null, wonBidId: wonBid?.status === 'NEW' ? wonBid.id : null };
+  const draftData: DraftData = { info, devices, security, mode, shared, rows, templateId: template?.id ?? null, wonBidId: wonBid?.status === 'NEW' ? wonBid.id : null, brief };
   const draftJson = JSON.stringify(draftData);
   useEffect(() => {
     if (!ready.current || busy) return;
@@ -241,13 +247,16 @@ function CreateProjectPage() {
   }, [wonBidId]);
 
   async function addBidClient() {
-    if (!wonBid) return;
+    if (wonBid) await addClientNamed(wonBid.clientName);
+  }
+
+  async function addClientNamed(clientName: string) {
     setAddingClient(true);
     setError(null);
     try {
-      const base = wonBid.clientName.toUpperCase().replace(/[^A-Z0-9]+/g, '').slice(0, 14) || 'CLIENT';
+      const base = clientName.toUpperCase().replace(/[^A-Z0-9]+/g, '').slice(0, 14) || 'CLIENT';
       const code = `${base.length < 2 ? `${base}X` : base}${Math.floor(Math.random() * 900 + 100)}`;
-      const c = await post<ClientOpt>('/clients', { name: wonBid.clientName, code });
+      const c = await post<ClientOpt>('/clients', { name: clientName, code });
       setClients(await get<ClientOpt[]>('/clients'));
       setInfo((i) => ({ ...i, clientId: c.id, clientContactId: '' }));
     } catch (e) {
@@ -333,6 +342,9 @@ function CreateProjectPage() {
             {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
         </label>
+        {briefAvailable && !reading && (
+          <button type="button" className="btn-ghost h-8 px-2.5 text-xs" onClick={() => setReading(true)}><Sparkles className="h-3.5 w-3.5 text-brand" /> Read a brief</button>
+        )}
         <span className="text-xs text-muted" role="status" aria-live="polite">
           {draftState.status === 'saving' && 'Saving draft…'}
           {draftState.status === 'saved' && draftState.at && `Draft saved ${time(draftState.at)}`}
@@ -341,6 +353,24 @@ function CreateProjectPage() {
         </span>
         {draftId && <button className="btn-ghost h-8 px-2.5 text-xs" onClick={() => discardDraft(draftId)}><Trash2 className="h-3.5 w-3.5" /> Discard draft</button>}
       </div>
+      {reading && briefAvailable && (
+        <BriefReader
+          files={briefAvailable.files}
+          onClose={() => { setReading(false); setUrl({ brief: null }); }}
+          onRead={async (id) => {
+            if (draftId && draftId !== id) {
+              // The form had its own draft; it stays in "Continue where you left off".
+              draftRef.current = null;
+            }
+            setReading(false);
+            setUrl({ brief: null });
+            await loadDraft(id);
+            get<DraftRow[]>('/project-drafts').then(setDrafts).catch(() => undefined);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
+      )}
+      {brief && <BriefBanner brief={brief} clientChosen={!!info.clientId} onAddClient={addClientNamed} addingClient={addingClient} onDismiss={() => setBrief(null)} />}
       {template && (
         <div className="mb-5 flex items-start gap-3 rounded-lg border border-brand/30 bg-brand/5 p-4 text-sm" role="status">
           <LayoutTemplate className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
@@ -431,6 +461,9 @@ function CreateProjectPage() {
                 </select>
               </Field>
               <Field label="Bid reference (Bidzo)"><input className="input" value={info.bidReference} onChange={(e) => setInfo({ ...info, bidReference: e.target.value })} /></Field>
+              <Field label="Fieldwork dates" hint="Used for pacing on the fieldwork monitor">
+                <DateRangePicker value={{ from: info.fieldStartAt || null, to: info.fieldEndAt || null }} onChange={(v) => setInfo({ ...info, fieldStartAt: v.from ?? '', fieldEndAt: v.to ?? '' })} placeholder="Start and end" />
+              </Field>
               <div className="sm:col-span-2">
                 <Field label="Description"><textarea className="input min-h-[96px]" value={info.description} onChange={(e) => setInfo({ ...info, description: e.target.value })} /></Field>
               </div>

@@ -3,7 +3,7 @@ import { Body, Controller, Delete, Get, HttpCode, Module, Param, Post, Put, Uplo
 import { FileInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
 import { AuthUser } from '../auth/auth.types';
-import { CurrentUser, Roles } from '../auth/decorators';
+import { CurrentUser, EDITORS, Roles } from '../auth/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import { FinanceModule } from '../finance/finance.controller';
 import { MonitorModule } from '../monitor/monitor.controller';
@@ -76,6 +76,14 @@ export class AiController {
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_DOC_BYTES + 1, files: 1 } }))
   upload(@CurrentUser() u: AuthUser, @UploadedFile() file?: { originalname: string; mimetype: string; size: number; buffer: Buffer }) {
     return this.ai.upload(u, file);
+  }
+
+  /** Read a brief (file or pasted text) into a Create project draft. */
+  @Post('brief')
+  @Roles(...EDITORS)
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_DOC_BYTES + 1, files: 1, fieldSize: 200_000 } }))
+  brief(@CurrentUser() u: AuthUser, @UploadedFile() file?: { originalname: string; mimetype: string; size: number; buffer: Buffer }, @Body() body?: { text?: unknown }) {
+    return this.ai.brief(u, { file, text: typeof body?.text === 'string' ? body.text : undefined });
   }
 
   @Delete('documents/:id')

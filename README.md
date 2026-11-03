@@ -269,6 +269,13 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - Secrets are encrypted at rest, never shown again and never written to the audit log. Old environment variables still work as a fallback, so existing servers keep running.
 - Only five values stay on the server (database, session key, master encryption key, the two addresses). Details: `docs/INTEGRATIONS.md`.
 
+## Milestone 36: project from a brief
+
+- Projects → From a brief (or Create project → Read a brief). Attach a client brief or RFQ (PDF, image or text) or paste it, and the AI fills the Create project form: name, client, category, markets with completes, LOI, incidence, CPI, currency, fieldwork dates, devices, target group, and quotas and notes in the description.
+- A banner shows what was filled, what the brief leaves out, warnings, and quotes showing where each key value came from. Every value is checked against the form's limits. Nothing is created until you press Create.
+- Create project now has fieldwork dates.
+- Details: `docs/PROJECT_FROM_BRIEF.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).
