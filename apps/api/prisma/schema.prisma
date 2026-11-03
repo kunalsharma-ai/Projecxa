@@ -64,6 +64,9 @@ model Organization {
   alerts      Alert[]
   vendorBills VendorBill[]
   exchangeRates ExchangeRate[]
+  apiKeys     ApiKey[]
+  webhookEndpoints WebhookEndpoint[]
+  webhookDeliveries WebhookDelivery[]
 }
 
 enum Role {
@@ -792,4 +795,67 @@ model ExchangeRate {
   updatedAt      DateTime @updatedAt
 
   @@unique([organizationId, currency])
+}
+
+/// Key for the public API (docs/PUBLIC_API.md). Only a SHA-256 hash is stored; the key is shown once.
+model ApiKey {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  /// First characters of the key (pjx_xxxxxxxx), shown in lists so people can tell keys apart.
+  prefix         String
+  keyHash        String   @unique
+  /// e.g. projects:read, projects:write, sessions:read, quotas:read, finance:read
+  scopes         String[]
+  /// The admin who created it. Writes through the key are recorded as this person.
+  createdById    String
+  lastUsedAt     DateTime?
+  expiresAt      DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId])
+}
+
+/// An HTTPS endpoint that receives signed event webhooks.
+model WebhookEndpoint {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  url            String
+  description    String?
+  secret         String
+  /// Event names this endpoint receives (see src/webhooks/webhook.events.ts).
+  events         String[]
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deliveries     WebhookDelivery[]
+
+  @@index([organizationId])
+}
+
+/// One event sent (or to be sent) to one endpoint, with retries.
+model WebhookDelivery {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  endpointId     String
+  endpoint       WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  event          String
+  /// Same for every endpoint that receives this event, so receivers can de-duplicate.
+  eventId        String
+  payload        Json
+  state          CallbackState @default(PENDING)
+  attempts       Int      @default(0)
+  maxAttempts    Int      @default(8)
+  nextAttemptAt  DateTime @default(now())
+  lastStatusCode Int?
+  lastError      String?
+  deliveredAt    DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([state, nextAttemptAt])
+  @@index([endpointId, createdAt])
 }

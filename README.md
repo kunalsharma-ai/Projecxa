@@ -97,6 +97,13 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - **Reporting currency and exchange rates** (Settings → Finance, entered by hand; no paid FX feed). The command center's finance and payables tiles add a total in the reporting currency and say which currencies have no rate.
 - Details: `docs/PAYABLES.md`.
 
+## Milestone 12: public API and webhooks
+
+- **API keys** (Settings → API and webhooks, admins only): named keys with permissions (projects read/write, sessions, quotas, finance), optional expiry, revoke, last used. The key is shown once; only a hash is stored. 120 requests a minute per key.
+- **Public REST API** at `/api/v1/public`: projects with markets, vendor links and session counts, sessions with outcomes, quota cells, client invoices and vendor bills, all paged. Writes: project status and field dates, market status and target, pause or close a vendor link. Writes are recorded as the admin who made the key. OpenAPI description at `/api/v1/public/openapi.json`.
+- **Event webhooks**: `session.completed`, `project.status_changed`, `alert.opened`, `invoice.status_changed`, `bill.status_changed`, signed with HMAC-SHA256, retried with backoff, with a delivery log, test ping, secret rotation and "send again".
+- Details: `docs/PUBLIC_API.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).

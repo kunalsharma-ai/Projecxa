@@ -45,6 +45,7 @@ export function api(app: INestApplication, token: string) {
     get: (p: string) => auth(s().get(`/api/v1${p}`)),
     post: (p: string, body?: object) => auth(s().post(`/api/v1${p}`)).send(body ?? {}),
     patch: (p: string, body?: object) => auth(s().patch(`/api/v1${p}`)).send(body ?? {}),
+    delete: (p: string) => auth(s().delete(`/api/v1${p}`)),
     put: (p: string, body?: object) => (body ? auth(s().put(`/api/v1${p}`)).send(body) : auth(s().put(`/api/v1${p}`))),
   };
 }
