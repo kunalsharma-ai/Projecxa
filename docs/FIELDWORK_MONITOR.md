@@ -40,6 +40,7 @@ An alert can be **acknowledged** (someone is on it) or **resolved** by hand. If 
 | loi_long | warning | Median complete LOI over `loiLongPct` (150%) of planned |
 | quota_near | info | Market at `quotaNearPct` (90%) of target |
 | target_reached | info | Market or vendor link reached its target |
+| cell_full | info | An open quota cell reached its target (docs/QUOTAS.md) |
 | quality_spike | critical | A vendor link has `qualityPct` (25%) of its last-24h entries rejected for quality, duplicates or security |
 | drop_off | warning | A vendor link has `dropOffPct` (30%) of its last-24h entries dropping out |
 | callbacks_failed | warning | Outbound vendor callbacks have failed |

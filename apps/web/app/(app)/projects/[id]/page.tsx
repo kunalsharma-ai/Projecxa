@@ -7,6 +7,7 @@ import { useTheme } from '@/components/theme';
 import { CountriesTab } from '@/components/project/countries-tab';
 import { FinanceTab } from '@/components/project/finance-tab';
 import { MonitorTab } from '@/components/project/monitor-tab';
+import { QuotasTab } from '@/components/project/quotas-tab';
 import { QaStudio } from '@/components/project/qa-studio';
 import { RedirectsTab } from '@/components/project/redirects-tab';
 import { RespondentPagesTab } from '@/components/project/respondent-pages-tab';
@@ -20,7 +21,7 @@ import { get, patch } from '@/lib/api';
 import { flag } from '@/lib/countries';
 import { SECURITY_LABELS } from '@/lib/types';
 
-const TABS = ['Overview', 'Vendors & links', 'Monitor', 'Gate & security', 'Respondent pages', 'Redirects', 'QA studio', 'Respondents', 'Answers', 'Reconcile & invoice'] as const;
+const TABS = ['Overview', 'Vendors & links', 'Quotas', 'Monitor', 'Gate & security', 'Respondent pages', 'Redirects', 'QA studio', 'Respondents', 'Answers', 'Reconcile & invoice'] as const;
 const NEXT_STATUS: Record<string, string[]> = {
   DRAFT: ['TEST', 'LIVE'],
   TEST: ['LIVE', 'HOLD'],
@@ -119,6 +120,7 @@ export default function ProjectPage() {
 
       {tab === 'Overview' && <CountriesTab project={p} editable={editable} reload={reload} security={security} />}
       {tab === 'Vendors & links' && <VendorsTab project={p} editable={editable} reload={reload} />}
+      {tab === 'Quotas' && <QuotasTab key={p.id} project={p} editable={editable} />}
       {tab === 'Monitor' && <MonitorTab key={p.id} project={p} editable={editable} reload={reload} />}
       {tab === 'Redirects' && <RedirectsTab project={p} editable={editable} reload={reload} />}
       {tab === 'QA studio' && <QaStudio project={p} />}

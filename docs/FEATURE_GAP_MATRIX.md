@@ -11,7 +11,7 @@ Classification follows the spec: **EXISTING** (done in this repo and tested), **
 | 1 Project factory | Master project with many countries, shared settings plus overrides | EXISTING | |
 | 1 | Country clone (with vendors and quotas), Excel/CSV paste | EXISTING | |
 | 1 | Project templates, version history of project settings, draft saving | PARTIAL | Projects start as Draft; settings changes are in the audit log, no template library yet |
-| 1 | Quota cells, nested/interlocking quotas | PARTIAL | Country and vendor targets are enforced atomically; quota cells can be stored but are not enforced at entry |
+| 1 | Quota cells, nested/interlocking quotas | EXISTING | Milestone 10: cells on device and gate/prescreen answers, combined conditions, enforced at entry, after the gate page and at complete (docs/QUOTAS.md) |
 | 1 | AI-assisted and API-driven project creation | MISSING | Phase 2/6 |
 | 2 RFQ & feasibility | RFQ extraction, feasibility | PARTIAL / EXTERNAL_DEPENDENCY | RFQs and feasibility stay in Bidzo. PROJEXA consumes the signed `bid.won` event into Won bids and prefills the project (milestone 5); Bidzo still has to send it |
 | 3 Vendors | Vendor records, per-country allocation with CPI and target, pause/resume | EXISTING | |
@@ -30,7 +30,7 @@ Classification follows the spec: **EXISTING** (done in this repo and tested), **
 | 5.1 | API-resolved dynamic destinations, scheduled activation, version diff view | MISSING | |
 | 5.1 | Redirect health dashboard | PARTIAL | 24h counts on the dashboard; outcome mix and event log in Reports |
 | 6 Quotas | Atomic over-quota protection for country and vendor targets | EXISTING | Concurrency handled by conditional SQL updates |
-| 6 | Quota cells, reallocation suggestions | MISSING | |
+| 6 | Quota cells, reallocation suggestions | PARTIAL | Cells, open/close, live progress and full-cell alerts done (milestone 10); reallocation suggestions not yet |
 | 7 Quality | Duplicate detection (same UID; optional same device) | EXISTING | |
 | 7 | Gate survey, captcha, geolocation, fingerprinting, TOR, cookies, language, timezone | EXISTING | All enforced since milestone 6, plus gate survey and prescreener question builder and per-project captcha style (see `docs/RESPONDENT_SECURITY.md`). Geolocation needs a CDN country header |
 | 8 Client portal | Own projects (non-draft), progress by market, spend, approve/reject completes, CSV | EXISTING | Milestone 2. Never shows vendors, vendor UIDs or payouts |

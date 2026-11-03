@@ -278,12 +278,23 @@ model QuotaCell {
   id               String  @id @default(cuid())
   projectCountryId String
   projectCountry   ProjectCountry @relation(fields: [projectCountryId], references: [id], onDelete: Cascade)
+  /// Display group, e.g. "Gender" or "Age x Region". Cells in a group usually do not overlap.
+  group            String  @default("")
   name             String
-  /// Free-form criteria description for now; structured targeting comes with Module 6.
+  /// Legacy free-form description from milestone 1. Superseded by `conditions`.
   criteria         Json?
+  /// All must match: [{ source: device|gate|prescreen, questionId?, values?, min?, max? }]. See docs/QUOTAS.md.
+  conditions       Json    @default("[]")
   target           Int
+  /// Completes counted against this cell (updated atomically with the country count).
   completes        Int     @default(0)
+  /// Closed cells send matching respondents to quota full even below target.
+  isOpen           Boolean @default(true)
+  sortOrder        Int     @default(0)
   createdAt        DateTime @default(now())
+  updatedAt        DateTime @default(now()) @updatedAt
+
+  @@index([projectCountryId])
 }
 
 enum AllocationStatus {
@@ -417,6 +428,8 @@ model RespondentSession {
   humanPassedAt    DateTime?
   /// Answers given on the gate page: { gate: {...}, prescreen: {...} }, each { questionId: { value, label } }.
   answers          Json?
+  /// Quota cells this respondent qualified for (set at entry or after the gate page).
+  quotaCellIds     String[] @default([])
   /// Tenant-scoped hashes of the browser fingerprint and the long-lived browser cookie.
   fingerprintHash  String?
   browserIdHash    String?

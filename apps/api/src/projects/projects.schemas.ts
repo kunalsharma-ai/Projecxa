@@ -121,11 +121,6 @@ export const updateAllocationSchema = z.object({
   callbackUrlTemplate: z.string().url().nullable().optional(),
 });
 
-export const quotaSchema = z.object({
-  name: z.string().min(1).max(200),
-  target: z.number().int().min(1),
-  criteria: z.record(z.string(), z.unknown()).optional(),
-});
 
 export const listQuerySchema = z.object({
   status: z.enum(['DRAFT', 'TEST', 'LIVE', 'HOLD', 'CLOSED', 'INVOICED']).optional(),

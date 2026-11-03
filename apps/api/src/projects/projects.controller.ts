@@ -10,7 +10,6 @@ import {
   createProjectSchema,
   CreateProjectInput,
   listQuerySchema,
-  quotaSchema,
   updateAllocationSchema,
   updateCountrySchema,
   updateProjectSchema,
@@ -89,16 +88,6 @@ export class ProjectsController {
     return this.projects.updateAllocation(u, id, countryId, allocationId, body);
   }
 
-  @Post(':id/countries/:countryId/quotas')
-  @Roles(...EDITORS)
-  addQuota(
-    @CurrentUser() u: AuthUser,
-    @Param('id') id: string,
-    @Param('countryId') countryId: string,
-    @Body(new ZodPipe(quotaSchema)) body: z.infer<typeof quotaSchema>,
-  ) {
-    return this.projects.addQuota(u, id, countryId, body);
-  }
 
   @Get(':id/sessions')
   sessions(@CurrentUser() u: AuthUser, @Param('id') id: string, @Query('includeTest') includeTest?: string) {

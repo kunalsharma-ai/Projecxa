@@ -45,7 +45,7 @@ export const autopilotOf = (json: unknown): Autopilot => {
   return r.success ? r.data : { pauseOnQuality: false, closeOnTarget: false };
 };
 
-export const RULES = ['stalled', 'behind_pace', 'low_ir', 'loi_short', 'loi_long', 'quality_spike', 'drop_off', 'quota_near', 'target_reached', 'callbacks_failed'] as const;
+export const RULES = ['stalled', 'behind_pace', 'low_ir', 'loi_short', 'loi_long', 'quality_spike', 'drop_off', 'quota_near', 'target_reached', 'cell_full', 'callbacks_failed'] as const;
 export type Rule = (typeof RULES)[number];
 export type Severity = 'info' | 'warn' | 'bad';
 
