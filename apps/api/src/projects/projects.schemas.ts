@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { redirectConfigSchema, REDIRECT_MODES } from '../redirects/redirect.types';
+import { CAPTCHA_STYLES } from '../survey/captcha';
+import { questionListSchema } from '../survey/questions';
 
 export const SECURITY_KEYS = [
   'gateSurvey',
@@ -81,6 +83,9 @@ export const updateProjectSchema = z.object({
   projectManagerId: z.string().optional(),
   devices: devicesSchema.optional(),
   security: securitySchema.optional(),
+  gateQuestions: questionListSchema.nullable().optional(),
+  captchaStyle: z.enum(CAPTCHA_STYLES).optional(),
+  prescreen: questionListSchema.nullable().optional(),
   status: z.enum(['DRAFT', 'TEST', 'LIVE', 'HOLD', 'CLOSED', 'INVOICED']).optional(),
 });
 

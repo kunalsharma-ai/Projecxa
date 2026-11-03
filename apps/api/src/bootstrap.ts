@@ -10,6 +10,10 @@ export function configureApp(app: INestApplication) {
       { path: 's/:code', method: RequestMethod.GET },
       { path: 'r/:status', method: RequestMethod.GET },
       { path: 'end/:status', method: RequestMethod.GET },
+      { path: 'g/:token', method: RequestMethod.GET },
+      { path: 'g/:token', method: RequestMethod.POST },
+      { path: 'g/:token/human', method: RequestMethod.POST },
+      { path: 'g/:token/captcha.svg', method: RequestMethod.GET },
     ],
   });
   app.enableCors({ origin: config.webOrigins, credentials: true });

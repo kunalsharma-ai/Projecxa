@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Empty, ErrorBox, Loading, OutcomeChip, Section, money } from '@/components/ui';
 import { get, post } from '@/lib/api';
 import { flag } from '@/lib/countries';
+import { REASON_LABELS } from '@/lib/types';
 import type { ProjectDetail } from './types';
 
 interface SessionRow {
@@ -88,7 +89,7 @@ export function SessionsTab({ project, editable }: { project: ProjectDetail; edi
                     <td className="td">{r.vendorAllocation.vendor.name}</td>
                     <td className="td">
                       <OutcomeChip status={r.status} />
-                      {r.statusDetail && <span className="ml-1.5 text-xs text-muted">{r.statusDetail.toLowerCase().replace('_', ' ')}</span>}
+                      {r.statusDetail && <span className="ml-1.5 text-xs text-muted">{REASON_LABELS[r.statusDetail] ?? r.statusDetail.toLowerCase().replaceAll('_', ' ')}</span>}
                       {r.outcomeVerified && <span title="Confirmed server to server"><ShieldCheck className="ml-1 inline h-3.5 w-3.5 text-ok" /></span>}
                     </td>
                     <td className="td text-xs">{r.approval === 'NOT_APPLICABLE' ? '–' : r.approval.toLowerCase()}</td>

@@ -7,6 +7,8 @@ import { useTheme } from '@/components/theme';
 import { CountriesTab } from '@/components/project/countries-tab';
 import { QaStudio } from '@/components/project/qa-studio';
 import { RedirectsTab } from '@/components/project/redirects-tab';
+import { AnswersView } from '@/components/project/answers-view';
+import { SecurityTab } from '@/components/project/security-tab';
 import { SessionsTab } from '@/components/project/sessions-tab';
 import { VendorsTab } from '@/components/project/vendors-tab';
 import type { ProjectDetail } from '@/components/project/types';
@@ -15,7 +17,7 @@ import { get, patch } from '@/lib/api';
 import { flag } from '@/lib/countries';
 import { SECURITY_LABELS } from '@/lib/types';
 
-const TABS = ['Overview', 'Vendors & links', 'Redirects', 'QA studio', 'Respondents'] as const;
+const TABS = ['Overview', 'Vendors & links', 'Gate & security', 'Redirects', 'QA studio', 'Respondents', 'Answers'] as const;
 const NEXT_STATUS: Record<string, string[]> = {
   DRAFT: ['TEST', 'LIVE'],
   TEST: ['LIVE', 'HOLD'],
@@ -117,6 +119,8 @@ export default function ProjectPage() {
       {tab === 'Redirects' && <RedirectsTab project={p} editable={editable} reload={reload} />}
       {tab === 'QA studio' && <QaStudio project={p} />}
       {tab === 'Respondents' && <SessionsTab project={p} editable={editable} />}
+      {tab === 'Gate & security' && <SecurityTab key={p.id} project={p} editable={editable} reload={reload} />}
+      {tab === 'Answers' && <AnswersView projectId={p.id} projectCode={p.projectCode} />}
     </>
   );
 }

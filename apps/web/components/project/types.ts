@@ -48,6 +48,9 @@ export interface ProjectDetail {
   salesPerson: { name: string } | null;
   devices: Record<string, boolean>;
   security: Record<string, boolean>;
+  captchaStyle: import('@/lib/types').CaptchaStyle;
+  gateQuestions: import('@/lib/types').Question[] | null;
+  prescreen: import('@/lib/types').Question[] | null;
   activeRedirectVersion: { id: string; version: number; mode: string } | null;
   countries: Country[];
   stats: Stats;

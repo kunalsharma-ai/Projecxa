@@ -260,6 +260,7 @@ export class ProjectsService {
       allocStats.set(g.vendorAllocationId, s);
     }
     const base = config.publicBaseUrl;
+    const signed = !!(p.security as Record<string, boolean> | null)?.urlProtection;
     return {
       ...p,
       stats,
@@ -267,8 +268,9 @@ export class ProjectsService {
         ...c,
         allocations: c.allocations.map((a) => ({
           ...a,
-          entryLink: `${base}/s/${a.entryCode}?${encodeURIComponent(a.uidParam)}=[UID]`,
-          testEntryLink: `${base}/s/${a.testEntryCode}?${encodeURIComponent(a.uidParam)}=[UID]`,
+          // With URL protection on, vendors append sig = hex HMAC-SHA256(their signing secret, UID).
+          entryLink: `${base}/s/${a.entryCode}?${encodeURIComponent(a.uidParam)}=[UID]${signed ? '&sig=[SIG]' : ''}`,
+          testEntryLink: `${base}/s/${a.testEntryCode}?${encodeURIComponent(a.uidParam)}=[UID]${signed ? '&sig=[SIG]' : ''}`,
           stats: allocStats.get(a.id) ?? emptyStats(),
         })),
       })),
@@ -280,6 +282,10 @@ export class ProjectsService {
     const p = await this.mustOwn(u, id);
     const data: Prisma.ProjectUncheckedUpdateInput = { ...body } as Prisma.ProjectUncheckedUpdateInput;
     if (body.security) data.security = normalizeSecurity(body.security);
+    for (const k of ['gateQuestions', 'prescreen'] as const) {
+      const v = body[k];
+      if (v !== undefined) data[k] = v === null || v.length === 0 ? Prisma.DbNull : (v as Prisma.InputJsonValue);
+    }
     if (body.status === 'LIVE') await this.assertLaunchable(p.id);
     await this.prisma.project.update({ where: { id }, data });
     await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'project.update', entityType: 'Project', entityId: id, detail: body });

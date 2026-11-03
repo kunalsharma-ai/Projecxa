@@ -30,6 +30,8 @@ model Organization {
   workOrderPrefix     String @default("WO")
   /// Shared secret Bidzo signs "bid won" webhooks with (HMAC-SHA256). Null = intake disabled.
   bidzoWebhookSecret  String?
+  /// Free third-party captcha keys set by an admin: { turnstile?: { siteKey, secret }, hcaptcha?: { siteKey, secret } }.
+  captchaProviders    Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -188,6 +190,13 @@ model Project {
   devices        Json
   /// Security & respondent quality policy (gate survey, captcha, duplicate detection, ...).
   security       Json
+  /// Gate survey questions (asked after the human check when security.gateSurvey is on).
+  /// Same question model as the prescreener; see src/survey/questions.ts.
+  gateQuestions  Json?
+  /// Prescreener questions (asked after the gate survey when security.prescreening is on).
+  prescreen      Json?
+  /// Human check style on the gate page: math | logic | text_image | invisible | turnstile | hcaptcha.
+  captchaStyle   String @default("math")
   redirectMode   RedirectMode @default(HYBRID)
   activeRedirectVersionId String? @unique
   activeRedirectVersion   RedirectPolicyVersion? @relation("ActiveRedirectVersion", fields: [activeRedirectVersionId], references: [id])
@@ -369,6 +378,21 @@ model RespondentSession {
   payout           Decimal? @db.Decimal(12, 2)
   ipHash           String?
   userAgent        String?
+  /// desktop | mobile | tablet, from the user agent at entry.
+  deviceType       String?
+  /// Country reported by the edge (GEO_COUNTRY_HEADER), when configured.
+  geoCountry       String?
+  /// True when the respondent must pass the gate page before the client survey link is released.
+  gateRequired     Boolean @default(false)
+  gatePassedAt     DateTime?
+  /// Visible human check on the gate page (max 3 attempts).
+  humanAttempts    Int @default(0)
+  humanPassedAt    DateTime?
+  /// Answers given on the gate page: { gate: {...}, prescreen: {...} }, each { questionId: { value, label } }.
+  answers          Json?
+  /// Tenant-scoped hashes of the browser fingerprint and the long-lived browser cookie.
+  fingerprintHash  String?
+  browserIdHash    String?
   startedAt        DateTime @default(now())
   outcomeAt        DateTime?
   expiresAt        DateTime
@@ -378,6 +402,9 @@ model RespondentSession {
 
   @@unique([vendorAllocationId, vendorRespondentId, isTest])
   @@index([projectId, status])
+  @@index([projectId, fingerprintHash])
+  @@index([projectId, browserIdHash])
+  @@index([projectId, ipHash])
   @@index([organizationId, startedAt])
 }
 
@@ -520,4 +547,10 @@ model WonBid {
 
   @@unique([organizationId, source, externalId])
   @@index([organizationId, status])
+}
+
+/// Current TOR exit node addresses (refreshed from the TOR Project bulk exit list).
+model TorExitNode {
+  ip        String   @id
+  updatedAt DateTime @updatedAt
 }

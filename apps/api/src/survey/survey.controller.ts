@@ -1,9 +1,16 @@
 import { Body, Controller, Get, Header, Module, Param, Post, Query, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { z } from 'zod';
+import { randomBytes } from 'crypto';
 import { Public } from '../auth/decorators';
+import { config as appConfig } from '../common/config';
+import { PROVIDERS } from './captcha';
+import { renderGatePage } from './gate-page';
 import { ZodPipe } from '../common/zod.pipe';
 import { SurveyService } from './survey.service';
+import { AnswersController } from './answers.controller';
+import { SecurityController } from './security.controller';
+import { TorService } from './tor.service';
 
 const s2sSchema = z.object({
   token: z.string().min(10).max(200),
@@ -11,6 +18,9 @@ const s2sSchema = z.object({
   timestamp: z.number().int(),
   signature: z.string().regex(/^[a-f0-9]{64}$/),
 });
+
+const GATE_COOKIE = 'pxg';
+const BROWSER_COOKIE = 'pxb';
 
 const END_MESSAGES: Record<string, string> = {
   complete: 'Thank you for completing the survey.',
@@ -31,7 +41,8 @@ export class SurveyPublicController {
 
   @Get('s/:code')
   async enter(@Param('code') code: string, @Query() query: Record<string, string>, @Req() req: Request, @Res() res: Response) {
-    const r = await this.survey.enter({ code, query, ip: req.ip, userAgent: req.headers['user-agent'] });
+    const geoHeader = appConfig.geoCountryHeader ? req.headers[appConfig.geoCountryHeader] : undefined;
+    const r = await this.survey.enter({ code, query, ip: req.ip, userAgent: req.headers['user-agent'], geoCountry: Array.isArray(geoHeader) ? geoHeader[0] : geoHeader });
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Referrer-Policy', 'no-referrer');
     return res.redirect(302, r.location);
@@ -43,6 +54,51 @@ export class SurveyPublicController {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Referrer-Policy', 'no-referrer');
     return res.redirect(302, r.location);
+  }
+
+  /** Respondent gate: browser checks, prescreener and start button before the client survey. */
+  @Get('g/:token')
+  async gate(@Param('token') token: string, @Req() req: Request, @Res() res: Response) {
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    const r = await this.survey.gateView(token);
+    if ('location' in r) return res.redirect(302, r.location);
+    const secure = appConfig.publicBaseUrl.startsWith('https://');
+    res.cookie(GATE_COOKIE, this.survey.gateCookieValue(token), { httpOnly: true, sameSite: 'lax', secure, path: '/g' });
+    if (!req.cookies?.[BROWSER_COOKIE]) {
+      res.cookie(BROWSER_COOKIE, randomBytes(18).toString('base64url'), { httpOnly: true, sameSite: 'lax', secure, path: '/', maxAge: 365 * 86_400_000 });
+    }
+    const nonce = randomBytes(16).toString('base64');
+    const p = r.view.human?.kind === 'widget' ? PROVIDERS[r.view.human.style as 'turnstile' | 'hcaptcha'].csp : { script: [], frame: [], connect: [], style: [] };
+    const list = (xs: string[]) => (xs.length ? ' ' + xs.join(' ') : '');
+    res.setHeader(
+      'Content-Security-Policy',
+      `default-src 'none'; script-src 'nonce-${nonce}'${list(p.script)}; style-src 'nonce-${nonce}'${list(p.style)}; connect-src 'self'${list(p.connect)}; frame-src${p.frame.length ? list(p.frame) : " 'none'"}; img-src 'self' data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`,
+    );
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.type('html').send(renderGatePage(r.view, nonce));
+  }
+
+  @Post('g/:token/human')
+  async human(@Param('token') token: string, @Body() body: { answer?: unknown } | undefined, @Req() req: Request, @Res() res: Response) {
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(200).json(await this.survey.humanCheck(token, body?.answer, req.ip));
+  }
+
+  @Get('g/:token/captcha.svg')
+  async captcha(@Param('token') token: string, @Res() res: Response) {
+    const svg = await this.survey.captchaImage(token);
+    res.setHeader('Cache-Control', 'no-store');
+    if (!svg) return res.status(404).end();
+    res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'");
+    res.type('image/svg+xml').send(svg);
+  }
+
+  @Post('g/:token')
+  async gateSubmit(@Param('token') token: string, @Body() body: unknown, @Req() req: Request, @Res() res: Response) {
+    res.setHeader('Cache-Control', 'no-store');
+    const r = await this.survey.gateSubmit(token, body && typeof body === 'object' ? body : {}, { gate: req.cookies?.[GATE_COOKIE], browserId: req.cookies?.[BROWSER_COOKIE] });
+    res.status(200).json(r);
   }
 
   @Get('end/:status')
@@ -69,5 +125,5 @@ export class SurveyS2SController {
   }
 }
 
-@Module({ controllers: [SurveyPublicController, SurveyS2SController], providers: [SurveyService], exports: [SurveyService] })
+@Module({ controllers: [SurveyPublicController, SurveyS2SController, SecurityController, AnswersController], providers: [SurveyService, TorService], exports: [SurveyService, TorService] })
 export class SurveyModule {}
