@@ -7,8 +7,9 @@
  * - "Clicks" are respondent sessions (one per vendor UID entry).
  * - Revenue and payout count completes that are not rejected; rejected completes are
  *   reported separately so reconciliation is visible.
- * - Money is summed in each market's own currency. Rows list the currencies they contain
- *   so the screen can flag mixed sums until FX conversion exists.
+ * - Money is summed in each market's own currency (`money`), and also converted into the
+ *   organisation's reporting currency with the manual exchange rates (`reporting`). Amounts in
+ *   a currency without a rate are left out of the converted figures and listed in `missing`.
  * - Dates are UTC calendar days; `to` is inclusive.
  */
 import { Injectable } from '@nestjs/common';
@@ -70,6 +71,46 @@ export interface SummaryRow {
   currencies: string[];
   /** Revenue, payout and profit per currency (the honest view while sums mix currencies). */
   money: { currency: string; revenue: number; payout: number; profit: number }[];
+  /** The same money converted into the reporting currency with today's manual rates. */
+  reporting: ReportingMoney;
+}
+
+export interface ReportingMoney {
+  currency: string;
+  revenue: number;
+  payout: number;
+  profit: number;
+  /** Profit as a share of converted revenue, in percent; null without converted revenue. */
+  margin: number | null;
+  /** Currencies in this row that have money but no exchange rate (left out of the figures above). */
+  missing: string[];
+}
+
+/** Rates into the reporting currency: 1 unit of `currency` = `rate` units of `base`. */
+export interface RateTable {
+  base: string;
+  rates: Map<string, number>;
+  /** When the newest rate was saved; null when only the reporting currency is used. */
+  updatedAt: Date | null;
+}
+
+/** Converts per-currency money into the reporting currency. Pure, so it is easy to test. */
+export function convertMoney(money: SummaryRow['money'], t: RateTable): ReportingMoney {
+  let revenue = 0;
+  let payout = 0;
+  const missing = new Set<string>();
+  for (const m of money) {
+    const rate = m.currency === t.base ? 1 : t.rates.get(m.currency);
+    if (rate == null) {
+      if (m.revenue || m.payout) missing.add(m.currency);
+      continue;
+    }
+    revenue += m.revenue * rate;
+    payout += m.payout * rate;
+  }
+  revenue = round(revenue, 2);
+  payout = round(payout, 2);
+  return { currency: t.base, revenue, payout, profit: round(revenue - payout, 2), margin: revenue > 0 ? pct(revenue - payout, revenue) : null, missing: [...missing].sort() };
 }
 
 const KEY: Record<GroupBy, { key: Prisma.Sql; label: Prisma.Sql; sublabel: Prisma.Sql }> = {
@@ -131,6 +172,22 @@ export class ReportsService {
     return Prisma.join(parts, ' AND ');
   }
 
+  /** The organisation's reporting currency and manual exchange rates. */
+  async rateTable(org: string): Promise<RateTable> {
+    const [o, rates] = await Promise.all([
+      this.prisma.organization.findUniqueOrThrow({ where: { id: org }, select: { baseCurrency: true } }),
+      this.prisma.exchangeRate.findMany({ where: { organizationId: org } }),
+    ]);
+    const updated = rates.reduce<Date | null>((d, r) => (!d || r.updatedAt > d ? r.updatedAt : d), null);
+    return { base: o.baseCurrency, rates: new Map(rates.map((r) => [r.currency, Number(r.rate)])), updatedAt: updated };
+  }
+
+  /** What the screen needs to explain converted figures. */
+  async fxInfo(org: string) {
+    const t = await this.rateTable(org);
+    return { currency: t.base, rates: [...t.rates].map(([currency, rate]) => ({ currency, rate })).sort((a, b) => a.currency.localeCompare(b.currency)), updatedAt: t.updatedAt };
+  }
+
   /** Aggregated metrics, grouped by one dimension, or a single total row when groupBy is null. */
   async summary(org: string, f: ReportFilter, groupBy: GroupBy | null): Promise<SummaryRow[]> {
     const g = groupBy ? KEY[groupBy] : { key: Prisma.sql`'total'`, label: Prisma.sql`'Total'`, sublabel: Prisma.sql`NULL::text` };
@@ -173,6 +230,7 @@ export class ReportsService {
       WHERE ${this.where(org, f)} AND ${billable}
       GROUP BY 1, 2
       ORDER BY 2`;
+    const fx = await this.rateTable(org);
     const money = new Map<string, SummaryRow['money']>();
     for (const m of moneyRows) {
       const revenue = round(Number(m.revenue), 2);
@@ -209,28 +267,31 @@ export class ReportsService {
         medianLoiMinutes: r.loiSeconds == null ? null : round(Number(r.loiSeconds) / 60),
         currencies: ((r.currencies as string[] | null) ?? []).filter(Boolean).sort(),
         money: money.get(String(r.key)) ?? [],
+        reporting: convertMoney(money.get(String(r.key)) ?? [], fx),
       };
     });
   }
 
   /** Overall report: totals, outcome mix, a daily trend and the top five clients, vendors and projects. */
   async overall(org: string, f: ReportFilter) {
-    const [total, byDay, clients, vendors, projects] = await Promise.all([
+    const [total, byDay, clients, vendors, projects, fx] = await Promise.all([
       this.summary(org, f, null),
       this.summary(org, f, 'day'),
       this.summary(org, f, 'client'),
       this.summary(org, f, 'vendor'),
       this.summary(org, f, 'project'),
+      this.fxInfo(org),
     ]);
     const top = (rows: SummaryRow[]) => [...rows].sort((a, b) => b.completes - a.completes || b.clicks - a.clicks).slice(0, 5);
     return {
-      totals: total[0] ?? emptyRow(),
-      byDay: fillDays(byDay, f),
+      totals: total[0] ?? emptyRow(fx.currency),
+      byDay: fillDays(byDay, f, fx.currency),
       topClients: top(clients),
       topVendors: top(vendors),
       topProjects: top(projects),
       counts: { clients: clients.length, vendors: vendors.length, projects: projects.length },
       currencyNote: CURRENCY_NOTE,
+      fx,
     };
   }
 
@@ -378,17 +439,18 @@ export class ReportsService {
   }
 }
 
-export const CURRENCY_NOTE = 'Money is summed in each market’s own currency. Finance totals in your reporting currency use the exchange rates in Settings.';
+export const CURRENCY_NOTE = 'Converted figures use today’s exchange rates from Settings → Finance; market-currency figures are never mixed.';
 
-function emptyRow(): SummaryRow {
+function emptyRow(currency = ''): SummaryRow {
   return {
     key: 'total', label: 'Total', sublabel: null, clicks: 0, completes: 0, terminates: 0, quotaFull: 0, qualityFail: 0, partial: 0, inProgress: 0,
     approved: 0, pending: 0, rejected: 0, revenue: 0, payout: 0, profit: 0, margin: null, conversion: 0, medianLoiMinutes: null, currencies: [], money: [],
+    reporting: { currency, revenue: 0, payout: 0, profit: 0, margin: null, missing: [] },
   };
 }
 
 /** Adds zero rows for days without traffic, when the range is bounded and at most a year long. */
-export function fillDays(rows: SummaryRow[], f: Pick<ReportFilter, 'from' | 'to'>): SummaryRow[] {
+export function fillDays(rows: SummaryRow[], f: Pick<ReportFilter, 'from' | 'to'>, currency = ''): SummaryRow[] {
   if (!f.from || !f.to) return rows;
   const start = Date.parse(`${f.from}T00:00:00Z`);
   const end = Date.parse(`${f.to}T00:00:00Z`);
@@ -397,7 +459,7 @@ export function fillDays(rows: SummaryRow[], f: Pick<ReportFilter, 'from' | 'to'
   const out: SummaryRow[] = [];
   for (let t = start; t <= end; t += 86_400_000) {
     const k = new Date(t).toISOString().slice(0, 10);
-    out.push(byKey.get(k) ?? { ...emptyRow(), key: k, label: k });
+    out.push(byKey.get(k) ?? { ...emptyRow(currency), key: k, label: k });
   }
   return out;
 }

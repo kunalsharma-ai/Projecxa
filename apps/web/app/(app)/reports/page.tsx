@@ -9,7 +9,8 @@ import { AnswersView } from '@/components/project/answers-view';
 import { CsvButton, SummaryTable, summaryCsv } from '@/components/reports/summary-table';
 import { TrendChart } from '@/components/reports/trend-chart';
 import { ViewsBar, viewFilters, type SavedView } from '@/components/reports/views-bar';
-import { filterQuery, moneyLines, type Filters, type Options, type SummaryRow } from '@/components/reports/types';
+import { MoneyModeBar, useMoneyMode } from '@/components/reports/money-mode';
+import { filterQuery, marginFor, moneyLines, type Filters, type FxInfo, type MoneyMode, type Options, type SummaryRow } from '@/components/reports/types';
 import { Empty, ErrorBox, Loading, OutcomeChip, PageHeader, Section } from '@/components/ui';
 import { get } from '@/lib/api';
 import { flag } from '@/lib/countries';
@@ -21,9 +22,9 @@ type Tab = (typeof TABS)[number];
 
 interface Overall {
   totals: SummaryRow; byDay: SummaryRow[]; topClients: SummaryRow[]; topVendors: SummaryRow[]; topProjects: SummaryRow[];
-  counts: { clients: number; vendors: number; projects: number }; currencyNote: string;
+  counts: { clients: number; vendors: number; projects: number }; currencyNote: string; fx: FxInfo;
 }
-interface Summary { rows: SummaryRow[]; totals: SummaryRow | null; currencyNote: string }
+interface Summary { rows: SummaryRow[]; totals: SummaryRow | null; currencyNote: string; fx: FxInfo }
 interface Page<T> { total: number; page: number; pageSize: number; truncated: boolean; rows: T[]; byType?: Record<string, number> }
 interface ConversionRow {
   id: string; projectId: string; projectCode: string; workOrderNo: string | null; projectName: string; client: string; countryCode: string; currency: string;
@@ -53,6 +54,7 @@ function ReportsPage() {
   const [options, setOptions] = useState<Options | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [view, setView] = useState<string | null>(null);
+  const [money, setMoney] = useMoneyMode();
   const apply = (v: SavedView | null) => {
     setView(v?.id ?? null);
     if (!v) return;
@@ -75,7 +77,7 @@ function ReportsPage() {
   return (
     <>
       <PageHeader title="Reports" subtitle="Fieldwork performance across clients, vendors and markets. Test traffic is never counted." actions={<Link href="/reports/schedules" className="btn-ghost"><CalendarClock className="h-4 w-4" /> Scheduled reports</Link>} />
-      <ViewsBar tab={tab} filters={filters} preset={preset} current={view} onApply={apply} />
+      <ViewsBar tab={tab} filters={filters} preset={preset} current={view} onApply={apply} money={money} />
       <FilterBar value={filters} onChange={(f) => { setFilters(f); setView(null); }} options={options} preset={preset} onPreset={(p) => { setPreset(p); setView(null); }} />
       <div className="mb-5 flex gap-1 overflow-x-auto border-b border-line" role="tablist">
         {TABS.map((t) => (
@@ -86,10 +88,10 @@ function ReportsPage() {
       </div>
       {error ? <ErrorBox error={error} /> : (
         <>
-          {tab === 'Overall' && <OverallTab filters={filters} />}
+          {tab === 'Overall' && <OverallTab filters={filters} money={money} onMoney={setMoney} />}
           {tab === 'Conversion' && <ConversionTab filters={filters} />}
-          {tab === 'Clients' && <GroupedTab filters={filters} kind="client" />}
-          {tab === 'Vendors' && <GroupedTab filters={filters} kind="vendor" />}
+          {tab === 'Clients' && <GroupedTab filters={filters} kind="client" money={money} onMoney={setMoney} />}
+          {tab === 'Vendors' && <GroupedTab filters={filters} kind="vendor" money={money} onMoney={setMoney} />}
           {tab === 'Clicks' && <ClicksTab filters={filters} />}
           {tab === 'Answers' && <AnswersTab projectId={filters.projectId} options={options} onPick={(projectId) => setFilters({ ...filters, projectId })} />}
         </>
@@ -127,7 +129,7 @@ function Tile({ label, value, sub }: { label: string; value: string | number | s
   );
 }
 
-function OverallTab({ filters }: { filters: Filters }) {
+function OverallTab({ filters, money, onMoney }: { filters: Filters; money: MoneyMode; onMoney: (m: MoneyMode) => void }) {
   const { data: d, error } = useLatest<Overall>(`/reports/overall${filterQuery(filters)}`);
   if (error) return <ErrorBox error={error} />;
   if (!d) return <Loading />;
@@ -155,16 +157,18 @@ function OverallTab({ filters }: { filters: Filters }) {
       )}
     </Section>
   );
+  const margin = marginFor(t, money);
   return (
     <>
+      <MoneyModeBar mode={money} onMode={onMoney} fx={d.fx} rows={[t]} />
       <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:grid-cols-4">
         <Tile label="Clicks" value={t.clicks.toLocaleString()} />
         <Tile label="Completes" value={t.completes.toLocaleString()} sub={`${t.pending} pending · ${t.rejected} rejected`} />
         <Tile label="Conversion" value={`${t.conversion}%`} />
         <Tile label="Median LOI" value={t.medianLoiMinutes == null ? '–' : `${t.medianLoiMinutes} min`} />
-        <Tile label="Revenue" value={moneyLines(t, 'revenue')} />
-        <Tile label="Payout" value={moneyLines(t, 'payout')} />
-        <Tile label="Profit" value={moneyLines(t, 'profit')} sub={t.margin == null ? undefined : `${t.margin}% margin`} />
+        <Tile label="Revenue" value={moneyLines(t, 'revenue', money)} />
+        <Tile label="Payout" value={moneyLines(t, 'payout', money)} />
+        <Tile label="Profit" value={moneyLines(t, 'profit', money)} sub={margin == null ? undefined : `${margin}% margin`} />
         <Tile label="Projects with traffic" value={d.counts.projects} sub={`${plural(d.counts.clients, 'client')} · ${plural(d.counts.vendors, 'vendor')}`} />
       </div>
       <p className="mb-6 mt-2 text-xs text-muted">{d.currencyNote} Revenue and payout leave out rejected completes.</p>
@@ -192,7 +196,7 @@ function OverallTab({ filters }: { filters: Filters }) {
   );
 }
 
-function GroupedTab({ filters, kind }: { filters: Filters; kind: 'client' | 'vendor' }) {
+function GroupedTab({ filters, kind, money, onMoney }: { filters: Filters; kind: 'client' | 'vendor'; money: MoneyMode; onMoney: (m: MoneyMode) => void }) {
   const [byMarket, setByMarket] = useState(false);
   const groupBy = kind === 'client' ? (byMarket ? 'country' : 'client') : byMarket ? 'vendor_country' : 'vendor';
   const { data, error } = useLatest<Summary>(`/reports/summary${filterQuery(filters, { groupBy })}`);
@@ -200,25 +204,28 @@ function GroupedTab({ filters, kind }: { filters: Filters; kind: 'client' | 'ven
   const sub = kind === 'vendor' && byMarket ? 'Market' : undefined;
   const rows = data?.rows.map((r) => (groupBy === 'country' ? { ...r, label: `${flag(r.label)} ${r.label}` } : r)) ?? [];
   return (
-    <Section
-      title={kind === 'client' ? 'Client report' : 'Vendor report'}
-      actions={
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-2 text-xs text-muted">
-            <input type="checkbox" checked={byMarket} onChange={(e) => setByMarket(e.target.checked)} />
-            {kind === 'client' ? 'By market instead' : 'Split by market'}
-          </label>
-          <CsvButton disabled={!rows.length} onClick={() => summaryCsv(`${groupBy}-report.csv`, name, rows, sub ?? (byMarket ? null : 'Code'))} />
-        </div>
-      }
-    >
-      {error ? <ErrorBox error={error} /> : !data ? <Loading /> : (
-        <>
-          <SummaryTable rows={rows} totals={data.totals} nameHeader={name} subHeader={sub} />
-          <p className="-mb-2 mt-7 text-xs text-muted">{data.currencyNote}</p>
-        </>
-      )}
-    </Section>
+    <>
+      {data && <MoneyModeBar mode={money} onMode={onMoney} fx={data.fx} rows={[data.totals, ...rows]} />}
+      <Section
+        title={kind === 'client' ? 'Client report' : 'Vendor report'}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2 text-xs text-muted">
+              <input type="checkbox" checked={byMarket} onChange={(e) => setByMarket(e.target.checked)} />
+              {kind === 'client' ? 'By market instead' : 'Split by market'}
+            </label>
+            <CsvButton disabled={!rows.length} onClick={() => summaryCsv(`${groupBy}-report.csv`, name, rows, sub ?? (byMarket ? null : 'Code'))} />
+          </div>
+        }
+      >
+        {error ? <ErrorBox error={error} /> : !data ? <Loading /> : (
+          <>
+            <SummaryTable rows={rows} totals={data.totals} nameHeader={name} subHeader={sub} mode={money} />
+            <p className="-mb-2 mt-7 text-xs text-muted">{data.currencyNote}</p>
+          </>
+        )}
+      </Section>
+    </>
   );
 }
 

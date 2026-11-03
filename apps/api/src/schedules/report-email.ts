@@ -4,6 +4,11 @@ const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '
 const num = (n: number) => n.toLocaleString('en-US');
 const money = (r: SummaryRow, k: 'revenue' | 'payout' | 'profit') => r.money.map((m) => `${m.currency} ${m[k].toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).join(' + ') || '–';
 
+/** True when converting adds information: several currencies, or one that is not the reporting currency. */
+const converts = (r: SummaryRow) => !!r.reporting?.currency && r.money.length > 0 && (r.money.length > 1 || r.money[0].currency !== r.reporting.currency);
+const convertedLine = (r: SummaryRow) =>
+  `${r.reporting.currency} ${r.reporting.profit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${r.reporting.margin == null ? '' : ` (${r.reporting.margin}%)`}${r.reporting.missing.length ? `, without ${r.reporting.missing.join(', ')}` : ''}`;
+
 export const CSV_COLUMNS = ['Name', 'Detail', 'Clicks', 'Completes', 'Terminates', 'Quota full', 'Quality fail', 'Partial', 'In progress', 'Conversion %', 'Approved', 'Pending', 'Rejected', 'Median LOI (min)', 'Currency', 'Revenue', 'Payout', 'Profit'];
 
 const csvCell = (v: unknown) => {
@@ -46,7 +51,7 @@ export function renderEmail(e: EmailInput): { subject: string; html: string; tex
   const subject = `${e.name}: ${range}`;
   const t = e.totals;
   const tiles: [string, string][] = t
-    ? [['Clicks', num(t.clicks)], ['Completes', num(t.completes)], ['Conversion', `${t.conversion}%`], ['Revenue', money(t, 'revenue')], ['Profit', money(t, 'profit')]]
+    ? [['Clicks', num(t.clicks)], ['Completes', num(t.completes)], ['Conversion', `${t.conversion}%`], ['Revenue', money(t, 'revenue')], ['Profit', money(t, 'profit')], ...(converts(t) ? ([["Profit converted", convertedLine(t)]] as [string, string][]) : [])]
     : [];
   const shown = e.rows.slice(0, MAX_ROWS);
   const td = 'padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:13px;';
@@ -65,13 +70,13 @@ ${shown.map((r) => `<tr><td style="${td}">${esc(r.label)}${r.sublabel ? ` <span 
 ${e.rows.length > MAX_ROWS ? `<p style="font-size:12px;color:#6b7280">Showing ${MAX_ROWS} of ${e.rows.length} rows. All rows are in the attached CSV.</p>` : ''}`
       : '<p style="font-size:14px;color:#6b7280">No respondent traffic in this period.</p>'
   }</td></tr>
-<tr><td style="padding:12px 24px 20px;font-size:12px;color:#6b7280">Amounts are in each market&#39;s currency and are not converted. Full detail is in the attached CSV and in <a href="${esc(e.appUrl)}/reports" style="color:#2563eb">PROJEXA Reports</a>.<br>${esc(e.schedule)}. Manage it in <a href="${esc(e.appUrl)}/reports/schedules" style="color:#2563eb">Scheduled reports</a>.</td></tr>
+<tr><td style="padding:12px 24px 20px;font-size:12px;color:#6b7280">Amounts are in each market&#39;s currency; converted totals use the exchange rates in Settings. Full detail is in the attached CSV and in <a href="${esc(e.appUrl)}/reports" style="color:#2563eb">PROJEXA Reports</a>.<br>${esc(e.schedule)}. Manage it in <a href="${esc(e.appUrl)}/reports/schedules" style="color:#2563eb">Scheduled reports</a>.</td></tr>
 </table></td></tr></table></body></html>`;
   const text = [
     `${e.name} (${e.org})`,
     `${e.reportLabel}, ${range}${e.filters.length ? `, ${e.filters.join(', ')}` : ''}`,
     '',
-    ...(t ? [`Clicks ${num(t.clicks)} · Completes ${num(t.completes)} · Conversion ${t.conversion}% · Revenue ${money(t, 'revenue')} · Profit ${money(t, 'profit')}`, ''] : []),
+    ...(t ? [`Clicks ${num(t.clicks)} · Completes ${num(t.completes)} · Conversion ${t.conversion}% · Revenue ${money(t, 'revenue')} · Profit ${money(t, 'profit')}${converts(t) ? ` · Profit converted ${convertedLine(t)}` : ''}`, ''] : []),
     ...(shown.length ? shown.map((r) => `${r.label}${r.sublabel ? ` (${r.sublabel})` : ''}: ${num(r.clicks)} clicks, ${num(r.completes)} completes, ${r.conversion}%, ${money(r, 'revenue')}`) : ['No respondent traffic in this period.']),
     '',
     `Full detail: attached CSV and ${e.appUrl}/reports`,

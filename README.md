@@ -211,6 +211,12 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - **Quote requests**: ask several vendors for CPI and feasibility per market; vendors answer in their portal; staff compare quotes with margin and accept one to create the allocation at the quoted CPI.
 - Details: `docs/VENDOR_SIGNUP_QUOTES.md`.
 
+## Milestone 28: converted totals in reports
+
+- Reports show money in the reporting currency by default, converted with the exchange rates in Settings → Finance, or per market currency with one switch. Converted margins work across currencies.
+- Currencies without a rate are left out and named. CSV, PDF and scheduled emails carry the converted figures too.
+- Details: `docs/REPORT_CURRENCY.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).

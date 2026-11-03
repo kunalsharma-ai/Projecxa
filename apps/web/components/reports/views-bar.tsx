@@ -5,7 +5,7 @@ import { ErrorBox } from '@/components/ui';
 import { api, get, post } from '@/lib/api';
 import { downloadFile } from '@/lib/download';
 import { presetRange, PRESETS } from './filter-bar';
-import { filterQuery, type Filters } from './types';
+import { filterQuery, type Filters, type MoneyMode } from './types';
 
 export interface SavedView { id: string; name: string; tab: string; period: string; filters: Partial<Filters>; shared: boolean; owner: string; mine: boolean; canEdit: boolean }
 
@@ -19,8 +19,8 @@ export function viewFilters(v: SavedView): Filters {
   return { clientId: v.filters.clientId ?? '', vendorId: v.filters.vendorId ?? '', projectId: v.filters.projectId ?? '', countryCode: v.filters.countryCode ?? '', ...range };
 }
 
-export function ViewsBar({ tab, filters, preset, current, onApply }: {
-  tab: string; filters: Filters; preset: string; current: string | null; onApply: (v: SavedView | null) => void;
+export function ViewsBar({ tab, filters, preset, current, onApply, money = 'market' }: {
+  tab: string; filters: Filters; preset: string; current: string | null; onApply: (v: SavedView | null) => void; money?: MoneyMode;
 }) {
   const [views, setViews] = useState<SavedView[] | null>(null);
   const [saving, setSaving] = useState(false);
@@ -65,7 +65,7 @@ export function ViewsBar({ tab, filters, preset, current, onApply }: {
     setError(null);
     try {
       const title = view?.name ?? `${tab === 'Overall' ? 'Overall' : tab === 'Clients' ? 'Client' : 'Vendor'} report`;
-      await downloadFile(`/reports/pdf${filterQuery(filters, { report: PDF_REPORT[tab], title, tz: Intl.DateTimeFormat().resolvedOptions().timeZone })}`, 'report.pdf');
+      await downloadFile(`/reports/pdf${filterQuery(filters, { report: PDF_REPORT[tab], title, tz: Intl.DateTimeFormat().resolvedOptions().timeZone, money })}`, 'report.pdf');
     } catch (e) {
       setError(e);
     } finally {

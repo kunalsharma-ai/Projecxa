@@ -12,12 +12,18 @@ export interface ReportPdfInput {
   rows: SummaryRow[];
   rowLabel: string;
   generated: string;
+  /** 'reporting' shows money converted into the reporting currency; 'market' keeps each currency. */
+  moneyMode?: 'market' | 'reporting';
+  fx?: { currency: string; rates: { currency: string; rate: number }[]; updatedAt: Date | null };
 }
 
-const money = (r: SummaryRow, k: 'revenue' | 'payout' | 'profit') => (r.money.length ? r.money.map((m) => `${m.currency} ${amount(m[k])}`) : ['–']);
+const marketMoney = (r: SummaryRow, k: 'revenue' | 'payout' | 'profit') => (r.money.length ? r.money.map((m) => `${m.currency} ${amount(m[k])}`) : ['–']);
+const reportingMoney = (r: SummaryRow, k: 'revenue' | 'payout' | 'profit') => [`${r.reporting.currency} ${amount(r.reporting[k])}${r.reporting.missing.length ? ' *' : ''}`];
 
-/** A landscape A4 report: title, filters, total tiles and the grouped table. Money stays per currency. */
+/** A landscape A4 report: title, filters, total tiles and the grouped table. Money per currency, or converted. */
 export async function renderReportPdf(e: ReportPdfInput): Promise<Buffer> {
+  const converted = e.moneyMode === 'reporting';
+  const money = converted ? reportingMoney : marketMoney;
   const doc = newDoc({ landscape: true, title: e.title, author: e.org });
   const range = !e.from && !e.to ? 'All time' : e.from === e.to ? e.from! : `${e.from ?? 'start'} to ${e.to ?? 'today'}`;
   doc.font('bold').fontSize(8).fillColor(MUTED).text(`${e.org.toUpperCase()} · PROJEXA`, { characterSpacing: 0.5 });
@@ -30,8 +36,9 @@ export async function renderReportPdf(e: ReportPdfInput): Promise<Buffer> {
     const tiles: [string, string[]][] = [
       ['Clicks', [count(t.clicks)]], ['Completes', [count(t.completes)]], ['Conversion', [`${t.conversion}%`]], ['Median LOI', [t.medianLoiMinutes == null ? '–' : `${t.medianLoiMinutes} min`]],
       ['Revenue', money(t, 'revenue')], ['Payout', money(t, 'payout')], ['Profit', money(t, 'profit')],
+      ...(converted ? ([['Margin', [t.reporting.margin == null ? '–' : `${t.reporting.margin}%`]]] as [string, string[]][]) : []),
     ];
-    const w = widths(doc, tiles.map((x) => (x[1].some((l) => l.length > 12) ? 1.6 : 1)));
+    const w = widths(doc, tiles.map((x) => (x[1].some((l) => l.length > 12) ? 1.6 : x[1].some((l) => l.length > 9) ? 1.35 : 1)));
     const top = doc.y;
     const h = 30 + Math.max(...tiles.map((x) => x[1].length)) * 13;
     let x = doc.page.margins.left;
@@ -65,7 +72,13 @@ export async function renderReportPdf(e: ReportPdfInput): Promise<Buffer> {
     ];
     table(doc, cols, e.rows, { zebra: true, total: t ? { ...t, label: 'Total', sublabel: null } : undefined });
   }
-  doc.moveDown(0.8).font('body').fontSize(7.5).fillColor(MUTED).text('Money is summed in each market’s own currency and never mixed across currencies. Test traffic is not counted.', doc.page.margins.left);
+  let note = 'Money is summed in each market’s own currency and never mixed across currencies. Test traffic is not counted.';
+  if (converted && e.fx) {
+    const rates = e.fx.rates.map((r) => `1 ${r.currency} = ${r.rate} ${e.fx!.currency}`).join(', ');
+    const missing = [...new Set([...(t?.reporting.missing ?? []), ...e.rows.flatMap((r) => r.reporting.missing)])];
+    note = `Money converted into ${e.fx.currency} with the exchange rates in Settings${e.fx.updatedAt ? ` (last changed ${e.fx.updatedAt.toISOString().slice(0, 10)})` : ''}${rates ? `: ${rates}` : ''}.${missing.length ? ` * ${missing.join(', ')} ${missing.length === 1 ? 'has' : 'have'} no rate and ${missing.length === 1 ? 'is' : 'are'} left out.` : ''} Test traffic is not counted.`;
+  }
+  doc.moveDown(0.8).font('body').fontSize(7.5).fillColor(MUTED).text(note, doc.page.margins.left);
   footer(doc, `${e.title} · generated ${e.generated}`);
   return toBuffer(doc);
 }
