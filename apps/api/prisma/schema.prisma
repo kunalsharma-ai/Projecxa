@@ -141,6 +141,8 @@ model User {
   /// Wrong codes in a row; 10 locks the second step for 15 minutes.
   mfaFailures        Int             @default(0)
   mfaLockedUntil     DateTime?
+  /// Command center widgets: order, size and visibility (null = the default layout).
+  dashboardLayout    Json?
   ssoIdentities      SsoIdentity[]
   /// When the person last chose a password. Null for someone invited who has not set one yet.
   passwordSetAt      DateTime?

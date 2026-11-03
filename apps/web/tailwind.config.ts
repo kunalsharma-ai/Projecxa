@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import containerQueries from '@tailwindcss/container-queries';
 
 const v = (name: string) => `rgb(var(--${name}) / <alpha-value>)`;
 
@@ -33,5 +34,5 @@ export default {
       fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
     },
   },
-  plugins: [],
+  plugins: [containerQueries],
 } satisfies Config;
