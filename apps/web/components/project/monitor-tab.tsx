@@ -2,6 +2,7 @@
 import { Bot, Save } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { AlertsList, MarketsTable, type MonitorData } from '@/components/monitor/monitor-view';
+import { Reallocation } from '@/components/monitor/reallocation';
 import type { ProjectDetail } from '@/components/project/types';
 import { ErrorBox, Field, Loading, Section, Toggle } from '@/components/ui';
 import { get, patch } from '@/lib/api';
@@ -80,6 +81,7 @@ export function MonitorTab({ project, editable, reload }: { project: ProjectDeta
           <Section title={`Active alerts (${data.alerts.length})`}>
             <AlertsList alerts={data.alerts} editable={editable} onChange={load} showProject={false} />
           </Section>
+          <Reallocation projectId={project.id} editable={editable} onApplied={() => { load(); reload(); }} />
           <Section title="Live markets">
             <MarketsTable markets={data.markets} editable={editable} onChange={load} showProject={false} settings={data.settings} />
           </Section>

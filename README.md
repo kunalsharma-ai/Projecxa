@@ -131,6 +131,12 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - Documents are marked exported; "only not exported yet" stops double imports. Every file stays in the export history to download again.
 - Account names, Xero codes and tax rates, and Tally voucher types and groups are set once by an admin. Tally amounts use the reporting currency and your manual exchange rates. Details: `docs/ACCOUNTING_EXPORTS.md`.
 
+## Milestone 17: quota reallocation suggestions
+
+- **Fieldwork monitor** and the project's **Monitor** tab suggest moving completes away from vendor links that are paused, closed, stalled, behind pace or failing on quality (and any unassigned part of the market target) to live links that can deliver them by the field end date.
+- Each move shows why, the receiving link's pace and the CPI change. Untick or reduce moves, then **Apply** changes the vendor targets in one guarded step (never below completes already delivered). Completes nobody can take are shown as still at risk.
+- Details: `docs/FIELDWORK_MONITOR.md`.
+
 ## Run it locally
 
 Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).

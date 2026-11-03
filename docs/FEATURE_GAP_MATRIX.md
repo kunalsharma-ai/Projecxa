@@ -30,7 +30,7 @@ Classification follows the spec: **EXISTING** (done in this repo and tested), **
 | 5.1 | API-resolved dynamic destinations, scheduled activation, version diff view | MISSING | |
 | 5.1 | Redirect health dashboard | PARTIAL | 24h counts on the dashboard; outcome mix and event log in Reports |
 | 6 Quotas | Atomic over-quota protection for country and vendor targets | EXISTING | Concurrency handled by conditional SQL updates |
-| 6 | Quota cells, reallocation suggestions | PARTIAL | Cells, open/close, live progress and full-cell alerts done (milestone 10); reallocation suggestions not yet |
+| 6 | Quota cells, reallocation suggestions | DONE | Cells, open/close, live progress and full-cell alerts (milestone 10); vendor reallocation suggestions with one-click apply (milestone 17). Per-cell vendor targets not modelled |
 | 7 Quality | Duplicate detection (same UID; optional same device) | EXISTING | |
 | 7 | Gate survey, captcha, geolocation, fingerprinting, TOR, cookies, language, timezone | EXISTING | All enforced since milestone 6, plus gate survey and prescreener question builder and per-project captcha style (see `docs/RESPONDENT_SECURITY.md`). Geolocation needs a CDN country header |
 | 8 Client portal | Own projects (non-draft), progress by market, spend, approve/reject completes, CSV | EXISTING | Milestone 2. Never shows vendors, vendor UIDs or payouts |
