@@ -5,7 +5,9 @@ import { ScoreBadge, type Grade } from '@/components/vendors/score';
 import { flag } from '@/lib/countries';
 import { useEffect, useState } from 'react';
 import { canEdit, useMe } from '@/components/me';
-import { Empty, ErrorBox, Field, Loading, PageHeader, Section, StatusChip } from '@/components/ui';
+import { SmartForm, type FormSchema, type Values } from '@/components/form/smart-form';
+import { Empty, ErrorBox, Loading, PageHeader, Section, StatusChip } from '@/components/ui';
+import { hostOf, suggestCode } from '@/lib/suggest';
 import { get, post } from '@/lib/api';
 
 interface ScoreRow { id: string; score: number | null; grade: Grade; markets: string[]; committed: number; stats: { clicks: number; completes: number; qualityRate: number } }
@@ -14,7 +16,6 @@ interface VendorRow { id: string; name: string; code: string; status: string; re
 export default function VendorsPage() {
   const me = useMe();
   const [rows, setRows] = useState<VendorRow[] | null>(null);
-  const [form, setForm] = useState({ name: '', code: '', domains: '', callback: '' });
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [scores, setScores] = useState<Map<string, ScoreRow>>(new Map());
@@ -26,16 +27,37 @@ export default function VendorsPage() {
     load();
   }, []);
 
-  async function create() {
+  const taken = rows?.map((v) => v.code) ?? [];
+  const DOMAIN = /^(\*\.)?[a-z0-9.-]+\.[a-z]{2,}$|^localhost$/i;
+  const schema: FormSchema = {
+    sections: [
+      {
+        fields: [
+          { name: 'name', type: 'text', label: 'Name', required: true, maxLength: 200, placeholder: 'e.g. Nordic Panels' },
+          {
+            name: 'code', type: 'text', label: 'Code', required: true, pattern: [/^[A-Za-z0-9_-]{2,20}$/, 'Use 2–20 letters, digits, - or _.'],
+            validate: (v) => (taken.includes(String(v).trim().toUpperCase()) ? 'Another vendor already uses this code.' : null),
+            suggest: (v) => { const c = suggestCode(String(v.name ?? ''), taken); return c ? { value: c, reason: 'from the name, not used yet' } : null; },
+          },
+          {
+            name: 'callback', type: 'url', label: 'Callback URL template', span: 'full', placeholder: 'https://panel.example.com/cb?uid={uid}&status={status}',
+            hint: 'Optional. Macros: {uid} {status} {vendor_id} {country_code} {project_code}',
+            help: 'PROJEXA calls this address when a respondent finishes, so the vendor learns the outcome server to server.',
+          },
+          {
+            name: 'domains', type: 'tags', label: 'Redirect domains', span: 'full', placeholder: 'panel.example.com, then Enter',
+            hint: 'Hostnames this vendor\u2019s redirect URLs may use. Paste a list or press Enter after each.',
+            props: { normalise: (s: string) => s.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, ''), validateTag: (t: string) => (DOMAIN.test(t) ? null : 'use a hostname like example.com or *.example.com') },
+            suggest: (v) => { const h = hostOf(String(v.callback ?? '')); return h && !(v.domains as string[]).includes(h) ? { value: [...(v.domains as string[]), h], label: h, reason: 'the callback URL\u2019s host' } : null; },
+          },
+        ],
+      },
+    ],
+  };
+  async function create(v: Values) {
     setError(null);
     try {
-      await post('/vendors', {
-        name: form.name,
-        code: form.code,
-        redirectAllowedDomains: form.domains.split(/[\s,]+/).filter(Boolean),
-        ...(form.callback ? { callbackUrlTemplate: form.callback } : {}),
-      });
-      setForm({ name: '', code: '', domains: '', callback: '' });
+      await post('/vendors', { name: v.name, code: v.code, redirectAllowedDomains: v.domains, ...(v.callback ? { callbackUrlTemplate: v.callback } : {}) });
       setOpen(false);
       load();
     } catch (e) {
@@ -49,13 +71,7 @@ export default function VendorsPage() {
       <div className="mb-4"><ErrorBox error={error} /></div>
       {open && (
         <Section title="New vendor" className="mb-6">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="Name"><input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-            <Field label="Code"><input className="input" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} /></Field>
-            <Field label="Redirect domains" hint="Hostnames this vendor's redirect URLs may use, e.g. panel.example.com or *.example.com"><input className="input" value={form.domains} onChange={(e) => setForm({ ...form, domains: e.target.value })} /></Field>
-            <Field label="Callback URL template" hint="Optional. Macros: {uid} {status} {vendor_id} {country_code} {project_code}"><input className="input font-mono text-xs" value={form.callback} onChange={(e) => setForm({ ...form, callback: e.target.value })} /></Field>
-          </div>
-          <button className="btn-primary mt-4" onClick={create} disabled={!form.name || !form.code}>Save vendor</button>
+          <SmartForm schema={schema} onSubmit={create} submitLabel="Save vendor" onCancel={() => setOpen(false)} draftKey="vendor-new" />
         </Section>
       )}
       {!rows ? <Loading /> : rows.length === 0 ? <Empty>No vendors yet.</Empty> : (

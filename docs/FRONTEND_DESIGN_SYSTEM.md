@@ -112,7 +112,7 @@ Tailwind exposes the colour tokens as utilities (`bg-panel`, `text-muted`, `bg-c
 | `PageHeader`, `Section`, `Progress` (animated, ARIA progressbar), skeleton `Loading`, `Empty`, `ErrorBox`, `Toggle` | Built |
 | `Popover`, `CommandPalette`, `Sidebar`, `InsightsPanel`, `ThemeMenu`, segmented control, slider, colour field | Built in milestone 4 |
 | `TrendChart` (hover tooltip, keyboard focus, chart palette) | Built |
-| Searchable select, multi-select chips, date-range picker, radio cards, drag-and-drop upload, inline edit | Phase 5 (Smart Form system) |
+| Searchable select, multi-select chips, country and currency pickers, date and date-range pickers, radio cards, checkbox groups, tags, inline edit, rich text, drag-and-drop upload, help tips, schema-driven SmartForm | Built in milestone 32 (`docs/SMART_FORMS.md`) |
 | Data grid (TanStack Table): column resize, pin, reorder, multi-sort, saved views, virtualisation | Phase 5 |
 
 ## 7. Dashboard ("Command center")

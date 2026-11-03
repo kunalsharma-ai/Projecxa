@@ -1,4 +1,4 @@
-import { Activity, MessagesSquare, ListChecks, Sparkles, BarChart3, BookOpenCheck, Users, HandCoins, Building2, FolderKanban, ReceiptText, KeyRound, LayoutDashboard, Palette, PlusCircle, Settings, ShieldCheck, Trophy, Truck, type LucideIcon } from 'lucide-react';
+import { Activity, MessagesSquare, ListChecks, Sparkles, BarChart3, BookOpenCheck, Users, HandCoins, Building2, FolderKanban, FormInput, ReceiptText, KeyRound, LayoutDashboard, Palette, PlusCircle, Settings, ShieldCheck, Trophy, Truck, type LucideIcon } from 'lucide-react';
 
 export interface NavItem { href: string; label: string; icon: LucideIcon; keywords?: string; editorsOnly?: boolean; adminOnly?: boolean }
 
@@ -22,6 +22,7 @@ export const NAV: NavItem[] = [
   { href: '/settings/privacy', label: 'Privacy', icon: ShieldCheck, keywords: 'gdpr retention consent erase delete anonymise personal data', adminOnly: true },
   { href: '/settings', label: 'Settings', icon: Settings, keywords: 'organization redirects domains' },
   { href: '/settings/appearance', label: 'Theme Studio', icon: Palette, keywords: 'appearance theme colours dark light density motion' },
+  { href: '/settings/forms', label: 'Form gallery', icon: FormInput, keywords: 'smart forms controls components date picker select design system' },
 ];
 
 export function isActive(pathname: string, href: string) {
