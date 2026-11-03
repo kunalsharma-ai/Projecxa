@@ -1,4 +1,4 @@
-import { Activity, MessagesSquare, ListChecks, Sparkles, BarChart3, BookOpenCheck, Users, HandCoins, Building2, FolderKanban, FormInput, ReceiptText, KeyRound, LayoutDashboard, Palette, PlugZap, PlusCircle, Settings, ShieldCheck, Stamp, Trophy, Truck, type LucideIcon } from 'lucide-react';
+import { Activity, Route, MessagesSquare, ListChecks, Sparkles, BarChart3, BookOpenCheck, Users, HandCoins, Building2, FolderKanban, FormInput, ReceiptText, KeyRound, LayoutDashboard, Palette, PlugZap, PlusCircle, Settings, ShieldCheck, Stamp, Trophy, Truck, type LucideIcon } from 'lucide-react';
 
 export interface NavItem { href: string; label: string; icon: LucideIcon; keywords?: string; editorsOnly?: boolean; adminOnly?: boolean }
 
@@ -11,6 +11,7 @@ export const NAV: NavItem[] = [
   { href: '/won-bids', label: 'Won bids', icon: Trophy, keywords: 'bidzo awarded setup project' },
   { href: '/projects/new', label: 'Create project', icon: PlusCircle, keywords: 'new project wizard', editorsOnly: true },
   { href: '/monitor', label: 'Fieldwork monitor', icon: Activity, keywords: 'alerts pace autopilot stalled incidence quality' },
+  { href: '/redirect-health', label: 'Redirect health', icon: Route, keywords: 'redirects fallback callbacks survey links broken latency errors health' },
   { href: '/reports', label: 'Reports', icon: BarChart3, keywords: 'overall conversion client vendor clicks' },
   { href: '/invoices', label: 'Invoices', icon: ReceiptText, keywords: 'billing reconciliation payment finance' },
   { href: '/payables', label: 'Vendor payables', icon: HandCoins, keywords: 'bills vendor payments owed finance' },

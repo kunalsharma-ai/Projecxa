@@ -28,7 +28,7 @@ Classification follows the spec: **EXISTING** (done in this repo and tested), **
 | 5.1 | QA studio (all 8 statuses, no billable records), effective routing view | EXISTING | |
 | 5.1 | Vendor callbacks via outbox: retries, backoff with jitter, dead letter, replay, signatures | EXISTING | Worker runs in the API process; Redis/BullMQ later if volume requires |
 | 5.1 | API-resolved dynamic destinations, scheduled activation, version diff view | DONE (M25) | Signed POST to an allowlisted endpoint with timeout and required fallback URL; one scheduled version per project, re-validated when due; rule-by-rule compare. docs/REDIRECT_DESTINATIONS.md |
-| 5.1 | Redirect health dashboard | PARTIAL | 24h counts on the dashboard; outcome mix and event log in Reports |
+| 5.1 | Redirect health dashboard | DONE (M34) | /redirect-health: per-project health labels with reasons, fallback timeline and grouped reasons, p95 redirect time, sessions that never came back, vendor callbacks by host with resend, and an on-demand client survey link check. docs/REDIRECT_HEALTH.md |
 | 6 Quotas | Atomic over-quota protection for country and vendor targets | EXISTING | Concurrency handled by conditional SQL updates |
 | 6 | Quota cells, reallocation suggestions | DONE | Cells, open/close, live progress and full-cell alerts (milestone 10); vendor reallocation suggestions with one-click apply (milestone 17). Per-cell vendor targets not modelled |
 | 7 Quality | Duplicate detection (same UID; optional same device) | EXISTING | |

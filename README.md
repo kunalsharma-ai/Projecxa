@@ -250,6 +250,17 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - Custom domain checked by DNS (CNAME plus a TXT token). After the check, emails link there and sign-in pages on that address show your brand. Operations add TLS and build the web app with `NEXT_PUBLIC_CUSTOM_DOMAINS=true`.
 - There are no paid plans or billing. Details: `docs/WHITE_LABEL.md`.
 
+## Milestone 34: redirect health
+
+- A Redirect health page (`/redirect-health`) for all projects or one, over the last hour, 24 hours or 7 days:
+  - each project labelled healthy, watch or failing, with the reasons;
+  - redirects over time, and the share that fell back and why;
+  - redirect times;
+  - respondents who never came back from the survey;
+  - vendor callbacks by host, with "Send again" for ones that gave up.
+- "Check survey links" opens every live client survey link once and reports broken, missing or slow links. It never reaches private networks.
+- Details: `docs/REDIRECT_HEALTH.md`.
+
 ## Milestone 35: every integration set up in the app
 
 - **Settings → Integrations** (`/settings/integrations`, admins): email sending (Zoho Mail SMTP), sign in with Google, Microsoft and Zoho, the Gemini AI copilot, Zoho Books, Xero, QuickBooks Online, Tally Prime and the Bidzo link, all set up on screen. No server files to edit.
