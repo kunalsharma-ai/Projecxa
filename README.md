@@ -276,6 +276,13 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - Create project now has fieldwork dates.
 - Details: `docs/PROJECT_FROM_BRIEF.md`.
 
+## Product tour
+
+- After signing in, staff get a short guided tour that highlights each main feature on the real screen: command center, search, projects, create project, won bids, fieldwork monitor, redirect health, reports, invoices and payables, clients and vendors, portals, tasks, AI copilot, alerts, settings and Theme Studio.
+- **Start tour**, **Remind me later** (shows again at the next sign-in) or **Skip tour**. Skip, Esc and Finish are remembered per person on the server, so it does not come back on another device.
+- Replay it any time from the account menu (Take the product tour) or Ctrl K → "tour". Steps follow the person's role, and on phones the menu opens for sidebar steps.
+- Details: `docs/PRODUCT_TOUR.md`.
+
 ## Install on a server
 
 See `INSTALL.md`: server settings, database, `pnpm create-admin` for the first admin, build, run and TLS.
