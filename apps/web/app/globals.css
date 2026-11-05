@@ -185,10 +185,12 @@ body {
 [data-theme='neon'] body {
   background-color: rgb(var(--bg));
   background-image:
-    radial-gradient(900px 520px at 88% -8%, rgb(var(--brand) / 0.20), transparent 62%),
-    radial-gradient(760px 480px at 30% 0%, rgb(var(--accent2) / 0.14), transparent 60%),
-    radial-gradient(900px 600px at 105% 105%, rgb(var(--accent2) / 0.14), transparent 60%),
-    radial-gradient(700px 520px at -5% 80%, rgb(var(--brand) / 0.12), transparent 60%);
+    radial-gradient(700px 460px at 92% -6%, rgb(var(--brand) / 0.30), transparent 62%),
+    radial-gradient(620px 420px at 38% -4%, rgb(var(--accent2) / 0.22), transparent 60%),
+    radial-gradient(520px 420px at 70% 45%, rgb(236 72 153 / 0.10), transparent 65%),
+    radial-gradient(800px 560px at 104% 104%, rgb(34 211 238 / 0.20), transparent 60%),
+    radial-gradient(700px 520px at -6% 82%, rgb(var(--brand) / 0.20), transparent 60%),
+    linear-gradient(160deg, rgb(255 255 255 / 0.6), transparent 40%);
 }
 [data-theme='neon'][data-mode='dark'] body {
   background-image:

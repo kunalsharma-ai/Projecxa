@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { Empty, ErrorBox, Loading, OutcomeChip, PageHeader, Progress, Section } from '@/components/ui';
 import { canEdit, useMe } from '@/components/me';
 import { CommandHero } from '@/components/dashboard/hero';
+import { BudgetDonut, CoverageGlobe, GanttTimeline, HealthRadar, KanbanBoard, QuickActions, RecentActivity, SupplierBars, type Board } from '@/components/dashboard/board';
 import { api, get } from '@/lib/api';
 import { TrafficHeatmap, type Heat } from '@/components/dashboard/heatmap';
 import { WidgetGrid, type WidgetPlace } from '@/components/dashboard/layout';
@@ -125,6 +126,7 @@ export default function DashboardPage() {
   const [markets, setMarkets] = useState<{ currency: string; markets: Market[] } | null>(null);
   const [heat, setHeat] = useState<Heat | null>(null);
   const [fall, setFall] = useState<Waterfall | null>(null);
+  const [board, setBoard] = useState<Board | null>(null);
   const editing = draft !== null;
   const shown = new Set((draft ?? layout?.widgets ?? []).filter((w) => !w.hidden).map((w) => w.id));
 
@@ -151,6 +153,13 @@ export default function DashboardPage() {
     setFall(null);
     get<Waterfall>(`/dashboard/waterfall?from=${range.from}&to=${range.to}`).then(setFall).catch(setError);
   }, [range, wantFall]);
+
+  // Timeline, Kanban, radar, activity, suppliers and coverage share one request.
+  const wantBoard = ['timeline', 'kanban', 'radar', 'activity', 'suppliers', 'coverage'].some((w) => shown.has(w));
+  useEffect(() => {
+    if (!wantBoard) return;
+    get<Board>('/dashboard/board').then(setBoard).catch(setError);
+  }, [wantBoard]);
 
   async function saveLayout() {
     if (!draft) return;
@@ -226,6 +235,22 @@ export default function DashboardPage() {
             ))}
           </div>
         );
+      case 'timeline':
+        return board ? <GanttTimeline items={board.timeline} /> : <div className="skeleton h-64" />;
+      case 'kanban':
+        return board ? <KanbanBoard columns={board.kanban} /> : <div className="skeleton h-64" />;
+      case 'radar':
+        return board ? <HealthRadar health={board.health} /> : <div className="skeleton h-64" />;
+      case 'activity':
+        return board ? <RecentActivity items={board.activity} /> : <div className="skeleton h-64" />;
+      case 'coverage':
+        return board ? <CoverageGlobe coverage={board.coverage} /> : <div className="skeleton h-56" />;
+      case 'suppliers':
+        return board ? <SupplierBars suppliers={board.suppliers} /> : <div className="skeleton h-56" />;
+      case 'budget':
+        return <BudgetDonut revenue={cv.current.revenue} cost={cv.current.cost} currency={cv.currency} missing={cv.current.missing} />;
+      case 'quick-actions':
+        return <QuickActions canEdit={canEdit(me)} />;
       case 'trend':
         return (
           <Section title="Revenue, payout and profit" actions={

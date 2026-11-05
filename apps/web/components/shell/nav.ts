@@ -1,4 +1,4 @@
-import { Activity, Route, MessagesSquare, ListChecks, Sparkles, BarChart3, BookOpenCheck, Users, HandCoins, Building2, FolderKanban, FormInput, ReceiptText, KeyRound, LayoutDashboard, Palette, PlugZap, PlusCircle, Settings, ShieldCheck, Stamp, Trophy, Truck, type LucideIcon } from 'lucide-react';
+import { Columns3, Activity, Route, MessagesSquare, ListChecks, Sparkles, BarChart3, BookOpenCheck, Users, HandCoins, Building2, FolderKanban, FormInput, ReceiptText, KeyRound, LayoutDashboard, Palette, PlugZap, PlusCircle, Settings, ShieldCheck, Stamp, Trophy, Truck, type LucideIcon } from 'lucide-react';
 
 export type NavGroup = 'Workspace' | 'Fieldwork' | 'Finance' | 'Network' | 'Admin';
 export interface NavItem { href: string; label: string; icon: LucideIcon; group: NavGroup; keywords?: string; editorsOnly?: boolean; adminOnly?: boolean }
@@ -10,6 +10,7 @@ export const NAV: NavItem[] = [
   { href: '/', label: 'Command center', icon: LayoutDashboard, group: 'Workspace', keywords: 'dashboard home' },
   { href: '/copilot', label: 'AI copilot', icon: Sparkles, group: 'Workspace', keywords: 'assistant ai gemini voice ask chat summarise report' },
   { href: '/projects', label: 'Projects', icon: FolderKanban, group: 'Workspace', keywords: 'manage projects list' },
+  { href: '/projects/board', label: 'Project board', icon: Columns3, group: 'Workspace', keywords: 'kanban gantt timeline stages pipeline board' },
   { href: '/tasks', label: 'Tasks', icon: ListChecks, group: 'Workspace', keywords: 'to do todo reminders assigned overdue' },
   { href: '/requests', label: 'Requests', icon: MessagesSquare, group: 'Workspace', keywords: 'tickets support client vendor portal disputes questions issues' },
   { href: '/won-bids', label: 'Won bids', icon: Trophy, group: 'Workspace', keywords: 'bidzo awarded setup project' },
@@ -34,7 +35,7 @@ export const NAV: NavItem[] = [
 
 export function isActive(pathname: string, href: string) {
   if (href === '/') return pathname === '/';
-  if (href === '/projects') return pathname === '/projects' || (pathname.startsWith('/projects/') && !pathname.startsWith('/projects/new'));
+  if (href === '/projects') return pathname === '/projects' || (pathname.startsWith('/projects/') && !pathname.startsWith('/projects/new') && !pathname.startsWith('/projects/board'));
   if (href === '/settings') return pathname === '/settings';
   return pathname === href || pathname.startsWith(`${href}/`);
 }

@@ -8,6 +8,14 @@ export interface WidgetPlace { id: string; size: WidgetSize; hidden: boolean }
 
 export const WIDGET_NAMES: Record<string, string> = {
   kpis: 'Key numbers',
+  timeline: 'Project timeline (Gantt)',
+  kanban: 'Kanban: project stages',
+  radar: 'Project health radar',
+  activity: 'Recent activity',
+  coverage: 'Global coverage',
+  budget: 'Revenue vs cost',
+  suppliers: 'Supplier performance',
+  'quick-actions': 'Quick actions',
   trend: 'Revenue, payout and profit',
   waterfall: 'Revenue to profit',
   map: 'Markets map',
