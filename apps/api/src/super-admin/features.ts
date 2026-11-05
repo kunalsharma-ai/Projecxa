@@ -68,6 +68,8 @@ export const isFeature = (k: string) => BY_KEY.has(k);
  */
 const ROUTES: [RegExp, string | null, string?][] = [
   [/^auth(\/|$)/, null],
+  // The phone registers itself for push; what it is told about follows the person's role (push/push.ts).
+  [/^push(\/|$)/, null],
   [/^super-admin(\/|$)/, 'super-admin'],
   // The organisation's own plan and payments: admins, also after the subscription ended (auth.guard.ts).
   [/^billing(\/|$)/, 'billing'],

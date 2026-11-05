@@ -101,6 +101,8 @@ The sign-in page shows the reason when single sign-on fails:
 | --- | --- | --- |
 | `GET /api/v1/auth/sso/providers` | anyone | Providers set up on the server (the buttons). |
 | `GET /api/v1/auth/sso/:provider/start?org=slug` | anyone | Redirects to the provider. |
-| `GET /api/v1/auth/sso/:provider/callback` | provider | Finishes sign-in and redirects to the web app. |
+| `GET /api/v1/auth/sso/:provider/callback` | provider | Finishes sign-in and redirects to the web app (or back to the phone app). |
+| `GET /api/v1/auth/sso/:provider/start?client=mobile&redirect=projexa://sso&challenge=…` | phone app | Same sign-in, started from the app. See docs/MOBILE_APP.md → Single sign-on. |
+| `POST /api/v1/auth/sso/mobile/exchange` | phone app | `{ code, verifier }` → session, or `{ mfaRequired, mfaToken }`. |
 | `GET` / `PUT /api/v1/organization/sso` | admin | Settings, redirect URIs and linked accounts. |
 | `DELETE /api/v1/sso-identities/:id` | admin | Unlink an account. |

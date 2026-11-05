@@ -73,6 +73,8 @@ The microphone button starts a spoken conversation.
 
 If Live cannot start (no AudioWorklet, network, or Gemini refuses), PROJEXA falls back to the browser's speech recognition and speech synthesis with normal text chat, where the browser supports it (Chrome and Edge do; Firefox has no speech recognition).
 
+The phone app uses the same Live session and tools. Its fallback is **tap to talk**: the phone records one question, `POST /api/v1/ai/voice/transcribe` (multipart field `audio`, WAV/MP3/M4A/AAC/OGG/WebM, up to 4 MB) writes it down with the main model, the normal chat answers, and the phone reads the answer aloud. See docs/MOBILE_APP.md → Copilot voice.
+
 ## API
 
 All under `/api/v1/ai`, signed-in staff only:
@@ -87,6 +89,7 @@ All under `/api/v1/ai`, signed-in staff only:
 | POST | `/actions/:id/confirm`, `/actions/:id/cancel` | Decide a proposed change |
 | GET/POST/DELETE | `/documents`, `/documents/:id` | Upload is multipart field `file` |
 | POST | `/voice/session`, `/voice/tool`, `/voice/turn` | Voice, see above |
+| POST | `/voice/transcribe` | Phone app tap to talk: multipart `audio` → `{ text }` |
 
 Tasks: `GET/POST /api/v1/tasks`, `GET/PATCH /api/v1/tasks/:id`.
 

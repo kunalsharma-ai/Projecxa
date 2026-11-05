@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { createHash, randomBytes } from 'crypto';
 import { concat, floatToInt16, fromBase64, resampleInt16, toBase64, toBase64Url, utf8, wav } from '../src/lib/pcm';
 import { makePkce, parseReturn, startUrl } from '../src/lib/sso';
