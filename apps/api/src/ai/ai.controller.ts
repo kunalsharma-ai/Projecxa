@@ -10,7 +10,7 @@ import { MonitorModule } from '../monitor/monitor.controller';
 import { ProjectsModule } from '../projects/projects.controller';
 import { ReportsModule } from '../reports/reports.controller';
 import { TasksModule } from '../tasks/tasks.service';
-import { aiSettingsSchema, AiService, chatSchema, MAX_DOC_BYTES, voiceSessionSchema, voiceToolSchema, voiceTurnSchema } from './ai.service';
+import { aiSettingsSchema, AiService, chatSchema, MAX_DOC_BYTES, MAX_VOICE_BYTES, voiceSessionSchema, voiceToolSchema, voiceTurnSchema } from './ai.service';
 
 /** AI copilot and voice (docs/AI_COPILOT.md). Staff only; the organisation's AI settings decide who. */
 @Controller('ai')
@@ -101,6 +101,14 @@ export class AiController {
   @HttpCode(200)
   voiceTool(@CurrentUser() u: AuthUser, @Body(new ZodPipe(voiceToolSchema)) b: z.infer<typeof voiceToolSchema>) {
     return this.ai.voiceTool(u, b);
+  }
+
+  /** Phone app tap to talk: one recorded question → text. */
+  @Post('voice/transcribe')
+  @HttpCode(200)
+  @UseInterceptors(FileInterceptor('audio', { limits: { fileSize: MAX_VOICE_BYTES + 1, files: 1 } }))
+  transcribe(@CurrentUser() u: AuthUser, @UploadedFile() file?: { mimetype: string; size: number; buffer: Buffer }) {
+    return this.ai.transcribe(u, file);
   }
 
   @Post('voice/turn')

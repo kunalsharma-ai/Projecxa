@@ -249,6 +249,26 @@ describe('AI copilot (e2e)', () => {
     await viewer.post('/ai/voice/tool', { conversationId: v.conversationId, name: 'list_projects', args: {} }).expect(404);
   });
 
+  it('writes down a tap-to-talk question from the phone app', async () => {
+    const token = await login(app, users.PROJECT_MANAGER.email);
+    const send = (body: Buffer, type: string) => request(app.getHttpServer()).post('/api/v1/ai/voice/transcribe').set('Authorization', `Bearer ${token}`).attach('audio', body, { filename: 'q.wav', contentType: type });
+    const wav = Buffer.concat([Buffer.from('RIFF....WAVEfmt '), Buffer.alloc(64)]);
+    g.queue.push(g.text('"Which projects are behind pace?"'));
+    expect((await send(wav, 'audio/wav').expect(200)).body).toEqual({ text: 'Which projects are behind pace?' });
+    const req = g.calls[0].body;
+    expect(req.tools).toBeUndefined();
+    expect(req.systemInstruction.parts[0].text).toMatch(/write down speech/i);
+    expect(req.contents[0].parts.find((p: { inlineData?: unknown }) => p.inlineData)).toEqual({ inlineData: { mimeType: 'audio/wav', data: wav.toString('base64') } });
+    expect(await prisma.aiUsage.count({ where: { userId: users.PROJECT_MANAGER.id, kind: 'voice', ok: true } })).toBeGreaterThan(0);
+    await send(Buffer.from('hello'), 'text/plain').expect(400);
+    await request(app.getHttpServer()).post('/api/v1/ai/voice/transcribe').set('Authorization', `Bearer ${token}`).expect(400);
+    // Off when the organisation turned voice off.
+    const s = (await admin.get('/ai/status').expect(200)).body.settings;
+    await admin.put('/ai/settings', { ...s, voice: false }).expect(200);
+    await send(wav, 'audio/wav').expect(403);
+    await admin.put('/ai/settings', { ...s, voice: true }).expect(200);
+  });
+
   it('is not available to client or vendor portal users', async () => {
     const c = await prisma.client.findFirstOrThrow({ where: { organizationId: org } });
     await admin.post('/portal-users', { kind: 'client', partyId: c.id, email: 'portal@acme.test', name: 'Portal', password: 'a-long-portal-pass' }).expect(201);

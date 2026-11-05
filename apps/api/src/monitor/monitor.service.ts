@@ -4,6 +4,7 @@ import { AllocationStatus, Prisma } from '@prisma/client';
 import { createHmac, randomBytes } from 'crypto';
 import { AuditService } from '../audit/audit.service';
 import { config } from '../common/config';
+import { PushService } from '../push/push';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { allocationRules, autopilotOf, Candidate, marketRules, Metrics, pace, Pace, settingsOf } from './monitor.rules';
@@ -35,6 +36,7 @@ export class MonitorService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly webhooks: WebhooksService,
+    private readonly push: PushService,
   ) {}
 
   /** Every five minutes: evaluate every organisation that has live fieldwork or open alerts. */
@@ -192,6 +194,7 @@ export class MonitorService {
     for (const c of created) {
       const a = await this.prisma.alert.findUniqueOrThrow({ where: { id: c.id }, include: { project: { select: { id: true, projectCode: true, name: true } } } });
       await this.webhooks.emit(org, 'alert.opened', { alert: { id: a.id, rule: a.rule, severity: a.severity, title: a.title, detail: a.detail, autoAction: a.autoAction, firstSeenAt: a.firstSeenAt, project: a.project } });
+      await this.push.alertOpened(org, a);
     }
     if (orgRow.alertWebhookUrl && orgRow.alertWebhookSecret) {
       for (const c of created) await this.notify(c.id, orgRow.alertWebhookUrl, orgRow.alertWebhookSecret);

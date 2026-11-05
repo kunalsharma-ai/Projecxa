@@ -23,6 +23,7 @@ import { MailModule } from './mail/mail.service';
 import { SchedulesModule } from './schedules/schedules.service';
 import { IntegrationsModule } from './integrations/integrations.service';
 import { PrismaModule } from './prisma/prisma.service';
+import { PushModule } from './push/push';
 import { ProjectsModule } from './projects/projects.controller';
 import { RedirectsModule } from './redirects/redirects.controller';
 import { RequestsModule } from './requests/requests.controller';
@@ -45,6 +46,7 @@ import { VendorsModule } from './vendors/vendors.controller';
     IntegrationsModule,
     SuperAdminModule,
     BillingModule,
+    PushModule,
     AuthModule,
     UsersModule,
     ClientsModule,

@@ -400,6 +400,8 @@ model User {
   projectTemplates ProjectTemplate[]
   projectDrafts    ProjectDraft[]
   projectVersions  ProjectSettingsVersion[]
+  pushDevices      PushDevice[]
+  mobileSsoCodes   MobileSsoCode[]
 
   @@unique([organizationId, email])
   @@index([email])
@@ -1534,6 +1536,8 @@ model Task {
   dueAt          DateTime?
   /// When to remind the assignee (shown in their notifications from then on).
   remindAt       DateTime?
+  /// When the reminder went to the assignee's phone (so it is pushed once).
+  remindPushedAt DateTime?
   /// This task cannot start until that one is done.
   blockedById    String?
   blockedBy      Task?        @relation("TaskDependency", fields: [blockedById], references: [id], onDelete: SetNull)
@@ -1934,4 +1938,41 @@ model BrandAsset {
   updatedAt      DateTime     @updatedAt
 
   @@unique([organizationId, kind])
+}
+
+/// A phone that gets push notifications for one person (docs/MOBILE_APP.md → Push notifications).
+model PushDevice {
+  id             String    @id @default(cuid())
+  organizationId String
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Expo push token, ExponentPushToken[...]
+  token          String    @unique
+  /// ios | android
+  platform       String
+  name           String?
+  /// What the person wants to hear about: alerts | requests | tasks | won_bids
+  categories     String[]  @default([])
+  lastSeenAt     DateTime  @default(now())
+  lastSentAt     DateTime?
+  lastError      String?
+  createdAt      DateTime  @default(now())
+
+  @@index([userId])
+  @@index([organizationId])
+}
+
+/// One-time code that hands a Google, Microsoft or Zoho sign-in from the phone's browser to the app.
+/// Only works with the PKCE verifier the app made for that sign-in; 2 minutes, once.
+model MobileSsoCode {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String    @unique
+  challenge String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }

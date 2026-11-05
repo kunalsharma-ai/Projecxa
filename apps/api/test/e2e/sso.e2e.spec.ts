@@ -209,4 +209,60 @@ describe('Single sign-on (e2e)', () => {
     await admin.delete(`/sso-identities/${target.id}`).expect(200);
     expect(await prisma.ssoIdentity.findUnique({ where: { id: target.id } })).toBeNull();
   });
+  describe('phone app', () => {
+    const verifier = 'v'.repeat(20) + 'erifier-for-the-phone-app-1234';
+    const challenge = createHash('sha256').update(verifier).digest('base64url');
+    async function phone(p: P, claims: Record<string, unknown>, o: { redirect?: string; challenge?: string } = {}) {
+      const q = new URLSearchParams({ client: 'mobile', redirect: o.redirect ?? 'projexa://sso', challenge: o.challenge ?? challenge });
+      const start = await http().get(`/api/v1/auth/sso/${p}/start?${q}`).expect(302);
+      const to = new URL(start.headers.location);
+      expect(to.searchParams.get('redirect_uri')).toBe(`http://api.projexa.test/api/v1/auth/sso/${p}/callback`);
+      seen = { nonce: to.searchParams.get('nonce')!, challenge: to.searchParams.get('code_challenge')! };
+      next = claims;
+      const cookie = (start.headers['set-cookie'] as unknown as string[]).find((c) => c.startsWith('projexa_sso='))!.split(';')[0];
+      const back = await http().get(`/api/v1/auth/sso/${p}/callback?${new URLSearchParams({ code: 'c', state: to.searchParams.get('state')! })}`).set('Cookie', cookie).expect(200);
+      expect(back.headers['content-type']).toMatch(/html/);
+      expect(back.headers['set-cookie']?.toString() ?? '').not.toMatch(/projexa_token=[^;]/);
+      const url = /location\.replace\("([^"]+)"\)/.exec(back.text)![1];
+      return new URL(url.replace(/\\u003c/g, '<'));
+    }
+
+    it('only sends the browser back to the app with a PKCE challenge', async () => {
+      await settings({}).expect(200);
+      await http().get(`/api/v1/auth/sso/google/start?client=mobile&redirect=${encodeURIComponent('https://evil.test/x')}&challenge=${challenge}`).expect(400);
+      await http().get(`/api/v1/auth/sso/google/start?client=mobile&redirect=${encodeURIComponent('projexa://sso')}&challenge=short`).expect(400);
+      await http().get(`/api/v1/auth/sso/google/start?client=mobile&redirect=${encodeURIComponent('projexa://sso?x=1')}&challenge=${challenge}`).expect(400);
+    });
+
+    it('hands a one-time code to the app that only works with the verifier', async () => {
+      const back = await phone('google', { sub: 'g-pm', email: 'pm@acme.com', email_verified: true });
+      expect(back.protocol).toBe('projexa:');
+      const code = back.searchParams.get('code')!;
+      expect(code.length).toBeGreaterThan(30);
+      await http().post('/api/v1/auth/sso/mobile/exchange').send({ code, verifier: 'w'.repeat(43) }).expect(401);
+      const ok = await http().post('/api/v1/auth/sso/mobile/exchange').send({ code, verifier }).expect(200);
+      expect(ok.body.user.id).toBe(users.PROJECT_MANAGER.id);
+      await http().get('/api/v1/auth/me').set('Authorization', `Bearer ${ok.body.token}`).expect(200);
+      // Once only.
+      await http().post('/api/v1/auth/sso/mobile/exchange').send({ code, verifier }).expect(401);
+      // Expired codes do not work either.
+      const late = (await phone('google', { sub: 'g-pm', email: 'pm@acme.com', email_verified: true })).searchParams.get('code')!;
+      await prisma.mobileSsoCode.updateMany({ where: { usedAt: null }, data: { expiresAt: new Date(Date.now() - 1000) } });
+      await http().post('/api/v1/auth/sso/mobile/exchange').send({ code: late, verifier }).expect(401);
+    });
+
+    it('returns errors to the app, accepts Expo Go outside production, and asks for the code with two-step sign-in', async () => {
+      const err = await phone('google', { sub: 'nobody', email: 'nobody@acme.com', email_verified: true });
+      expect(err.searchParams.get('error')).toMatch(/No PROJEXA account/);
+      expect(err.searchParams.get('code')).toBeNull();
+      const dev = await phone('google', { sub: 'g-pm', email: 'pm@acme.com', email_verified: true }, { redirect: 'exp://192.168.1.5:8081/--/sso' });
+      expect(dev.host).toBe('192.168.1.5:8081');
+      // The viewer turned on two-step sign-in in an earlier test.
+      const v = await phone('google', { sub: 'g-viewer', email: 'viewer@acme.com', email_verified: true });
+      const out = await http().post('/api/v1/auth/sso/mobile/exchange').send({ code: v.searchParams.get('code'), verifier }).expect(200);
+      expect(out.body).toMatchObject({ mfaRequired: true });
+      expect(out.body.token).toBeUndefined();
+      expect(out.body.mfaToken).toBeTruthy();
+    });
+  });
 });

@@ -1,6 +1,6 @@
 'use client';
 import clsx from 'clsx';
-import { Bot, BookOpenCheck, CreditCard, Check, ChevronDown, Copy, ExternalLink, KeyRound, Link2, Loader2, Mail, PlugZap, Server, Trash2 } from 'lucide-react';
+import { Bot, BookOpenCheck, CreditCard, Check, ChevronDown, Copy, ExternalLink, KeyRound, Link2, Loader2, Mail, PlugZap, Server, Smartphone, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useMe } from '@/components/me';
@@ -24,6 +24,7 @@ const GROUPS: { id: string; title: string; icon: typeof Mail; blurb: string }[] 
   { id: 'Accounting', title: 'Accounting', icon: BookOpenCheck, blurb: 'Direct sync of invoices, bills and payments.' },
   { id: 'Payments', title: 'Payments', icon: CreditCard, blurb: 'Online payment gateways organisations pay their plan through (Super Admin → Billing).' },
   { id: 'Bidzo', title: 'Bidzo', icon: Link2, blurb: 'Bids live in Bidzo; PROJEXA links there.' },
+  { id: 'Mobile', title: 'Mobile app', icon: Smartphone, blurb: 'Push notifications to the Android and iOS app.' },
 ];
 
 const when = (d: string | null) => (d ? new Date(d).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');

@@ -130,7 +130,7 @@ export class TasksService {
         ...(b.assigneeId !== undefined ? { assigneeId: b.assigneeId || null } : {}),
         ...(b.priority ? { priority: b.priority } : {}),
         ...(b.dueAt !== undefined ? { dueAt: when(b.dueAt, true) } : {}),
-        ...(b.remindAt !== undefined ? { remindAt: when(b.remindAt, false) } : {}),
+        ...(b.remindAt !== undefined ? { remindAt: when(b.remindAt, false), remindPushedAt: null } : {}),
         ...(b.blockedById !== undefined ? { blockedById: b.blockedById || null } : {}),
         ...(b.status ? { status: b.status, completedAt: done ? new Date() : null } : {}),
       },
