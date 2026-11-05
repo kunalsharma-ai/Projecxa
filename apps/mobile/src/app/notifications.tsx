@@ -3,18 +3,11 @@ import { FeatureGate } from '@/components/gate';
 import { Card, LoadState, Muted, Pill, Row, Screen, SectionTitle, statusTone } from '@/components/ui';
 import { ago } from '@/lib/format';
 import { featureForRoute } from '@/lib/features';
+import { appRoute } from '@/lib/push';
 import { useSession } from '@/lib/session';
 import { useLoad } from '@/lib/use-load';
 import type { Insights } from './(tabs)/home';
 
-/** Web links in insights ("/projects/abc?tab=x") mapped to app screens when the app has one. */
-function appRoute(href: string) {
-  const path = href.split('?')[0];
-  const m = path.match(/^\/projects\/([^/]+)$/);
-  if (m && m[1] !== 'new') return `/project/${m[1]}`;
-  if (path === '/requests') return '/requests';
-  return path;
-}
 
 export default function NotificationsScreen() {
   return (

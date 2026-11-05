@@ -1,5 +1,6 @@
 import { Alert, Text, View } from 'react-native';
 import { useOpenWeb } from '@/components/gate';
+import { PushSettings } from '@/components/push-settings';
 import { Card, GhostButton, GradientButton, KV, Muted, Screen, SectionTitle, Segmented } from '@/components/ui';
 import { FEATURES } from '@/lib/features';
 import { label } from '@/lib/format';
@@ -26,6 +27,7 @@ export default function Account() {
         <SectionTitle>Appearance</SectionTitle>
         <Segmented<ThemeChoice> value={choice} onChange={setChoice} options={[{ value: 'system', label: 'Automatic' }, { value: 'neon', label: 'Neon (dark)' }, { value: 'aurora', label: 'Aurora (light)' }]} />
       </Card>
+      <PushSettings />
       <Card style={{ gap: 6 }}>
         <SectionTitle action="Check now" onAction={refreshAccess}>
           Your access
@@ -38,7 +40,7 @@ export default function Account() {
         title="Sign out"
         icon="log-out"
         onPress={() =>
-          Alert.alert('Sign out?', 'You will need your password to sign in again.', [
+          Alert.alert('Sign out?', 'You will need to sign in again, and this phone stops getting notifications.', [
             { text: 'Cancel', style: 'cancel' },
             { text: 'Sign out', style: 'destructive', onPress: logout },
           ])

@@ -1,8 +1,13 @@
 import Constants from 'expo-constants';
+import * as Crypto from 'expo-crypto';
+import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AppState } from 'react-native';
 import { ApiError, apiRoot, createApi, type Api } from './api';
 import { BLOCK_CODES, computeAccess, parseSwitches, type Access, type Block, type FeatureSwitches, type Role } from './features';
+import { unregisterDevice } from './push';
+import { makePkce, parseReturn, startUrl, type SsoProviderId } from './sso';
 import { KEYS, storage } from './storage';
 
 export interface Me {
@@ -28,6 +33,8 @@ interface SessionValue {
   setServer: (server: string, webUrl?: string) => Promise<void>;
   login: (email: string, password: string, organization?: string) => Promise<LoginResult>;
   loginMfa: (code: string) => Promise<void>;
+  /** Google, Microsoft or Zoho in the phone's secure browser. Resolves { cancelled } when the person closes it. */
+  loginSso: (provider: SsoProviderId, organization?: string) => Promise<LoginResult | { cancelled: true }>;
   logout: () => Promise<void>;
 }
 
@@ -202,7 +209,31 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       mfaToken.current = null;
       await finish(res.token);
     },
+    loginSso: async (provider, organization) => {
+      const root = apiRoot(server);
+      if (!root) throw new ApiError('Set the server address first', 0);
+      const pkce = await makePkce(
+        (n) => Crypto.getRandomBytes(n),
+        (v) => Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, v, { encoding: Crypto.CryptoEncoding.BASE64 }),
+      );
+      // projexa://sso in installed builds; exp://…/--/sso inside Expo Go while developing.
+      const redirect = Linking.createURL('sso');
+      const result = await WebBrowser.openAuthSessionAsync(startUrl(root, provider, redirect, pkce.challenge, organization), redirect);
+      if (result.type !== 'success') return { cancelled: true };
+      const back = parseReturn(result.url);
+      if ('error' in back) throw new ApiError(back.error, 400);
+      if ('cancelled' in back) return { cancelled: true };
+      const res = await createApi({ baseUrl: root, token: null }).post<{ token?: string; mfaRequired?: boolean; mfaToken?: string }>('/auth/sso/mobile/exchange', { code: back.code, verifier: pkce.verifier });
+      if (res.mfaRequired && res.mfaToken) {
+        mfaToken.current = res.mfaToken;
+        return { mfa: true };
+      }
+      if (!res.token) throw new ApiError('Sign-in did not return a session', 500);
+      await finish(res.token);
+      return { ok: true };
+    },
     logout: async () => {
+      await unregisterDevice(api);
       try {
         await api.post('/auth/logout');
       } catch {

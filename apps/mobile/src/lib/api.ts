@@ -55,12 +55,14 @@ export function createApi(cfg: ApiConfig) {
 
   async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
     if (!cfg.baseUrl) throw new ApiError('Set the server address first', 0);
+    const form = typeof FormData !== 'undefined' && body instanceof FormData;
     const headers: Record<string, string> = { Accept: 'application/json', 'X-Client': 'mobile' };
-    if (body !== undefined) headers['Content-Type'] = 'application/json';
+    // Multipart: the platform sets the boundary itself.
+    if (body !== undefined && !form) headers['Content-Type'] = 'application/json';
     if (cfg.token) headers.Authorization = `Bearer ${cfg.token}`;
     let res: Response;
     try {
-      res = await doFetch(`${cfg.baseUrl}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+      res = await doFetch(`${cfg.baseUrl}${path}`, { method, headers, body: body === undefined ? undefined : form ? (body as FormData) : JSON.stringify(body) });
     } catch {
       throw new ApiError('Cannot reach the server. Check your connection.', 0);
     }
@@ -88,6 +90,8 @@ export function createApi(cfg: ApiConfig) {
     post: <T>(path: string, body?: unknown) => request<T>('POST', path, body ?? {}),
     patch: <T>(path: string, body: unknown) => request<T>('PATCH', path, body),
     put: <T>(path: string, body: unknown) => request<T>('PUT', path, body),
+    /** multipart/form-data, e.g. a recorded question. */
+    upload: <T>(path: string, form: FormData) => request<T>('POST', path, form),
   };
 }
 

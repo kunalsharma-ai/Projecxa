@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { BrandMark } from '@/components/gate';
+import { PushBridge } from '@/components/push-bridge';
 import { SessionProvider, useSession } from '@/lib/session';
 import { ThemeProvider, useTheme } from '@/lib/theme';
 
@@ -46,6 +47,7 @@ function Root() {
     <>
       <StatusBar style={c.dark ? 'light' : 'dark'} />
       {redirect ? <Redirect href={redirect as never} /> : null}
+      {me && !access.block ? <PushBridge /> : null}
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: c.bg[0] }, animation: 'slide_from_right' }} />
     </>
   );
