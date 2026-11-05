@@ -58,6 +58,22 @@ describe('computeAccess', () => {
   });
 });
 
+describe('web-only pages', () => {
+  it('follow the web switch, since they open on the web', () => {
+    const s = on(['dashboard']);
+    s.web.team = true;
+    s.web.accounting = false;
+    const a = computeAccess('ADMIN', s);
+    expect(a.allowed.has('team')).toBe(true);
+    expect(a.allowed.has('accounting')).toBe(false);
+  });
+  it('the server block field blocks everything', () => {
+    const a = computeAccess('ADMIN', parseSwitches({ version: '1', block: 'ORG_PENDING', web: {}, mobile: { enabled: true, features: { dashboard: true } } }));
+    expect(a.block).toBe('ORG_PENDING');
+    expect(a.allowed.size).toBe(0);
+  });
+});
+
 describe('parseSwitches', () => {
   it('accepts the documented shape and drops non-boolean values', () => {
     const s = parseSwitches({ version: '7', plan: null, web: { a: true, b: 'yes' }, mobile: { enabled: true, features: { projects: true, x: 1 } } });

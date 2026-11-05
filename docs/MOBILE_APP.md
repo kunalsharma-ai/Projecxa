@@ -42,6 +42,8 @@ The app and the web read the same switches. The server side is built in the Supe
 3. A switched-off feature's API answers `403 { "code": "FEATURE_DISABLED", "feature": "<key>" }`; a suspended organisation `ORG_SUSPENDED`; a lapsed subscription `SUBSCRIPTION_INACTIVE`; mobile switched off for the person `MOBILE_DISABLED`. The app sends `X-Client: mobile` on every call so the server applies the mobile switches.
 4. Keys: `dashboard, copilot, projects, projects.create, tasks, requests, won_bids, notifications, monitor, redirect_health, reports, invoices, payables, accounting, clients, vendors, portal_access, integrations, team, privacy, branding, settings, portal.client, portal.vendor` (`apps/mobile/src/lib/features.ts`).
 
+Screens that live in the app follow `mobile.features`; pages that open on the web (accounting, integrations, team, privacy, branding, settings, portal access, create project) follow `web`, the same switch the web app uses. A `block` in the answer (`ORG_SUSPENDED`, `ORG_PENDING`, `SUBSCRIPTION_INACTIVE`) shows the blocked screen. Server side: PR #42, docs/SUPER_ADMIN.md.
+
 How fast a change shows: on the next API call (header), when More is opened, when the app comes back to the front, and at most every 30 seconds while open. A tab disappears; an open screen of a switched-off feature is replaced by a locked screen without loading its data. Role rules still apply on top (a viewer never gets "Create project", only admins get admin screens).
 
 Servers without the switches endpoint (404) fall back to role rules, so the app works against today's API too.

@@ -65,10 +65,12 @@ export interface FeatureSwitches {
   plan: string | null;
   web: Record<string, boolean>;
   mobile: { enabled: boolean; features: Record<string, boolean> };
+  /** Set by the server when the whole account has no access. */
+  block?: Block;
 }
 
 /** Why the app shows nothing: the whole account or the mobile app is switched off. */
-export type Block = null | 'MOBILE_DISABLED' | 'ORG_SUSPENDED' | 'SUBSCRIPTION_INACTIVE';
+export type Block = null | 'MOBILE_DISABLED' | 'ORG_SUSPENDED' | 'ORG_PENDING' | 'SUBSCRIPTION_INACTIVE';
 
 export interface Access {
   /** Feature keys this person can open in the app. */
@@ -89,10 +91,12 @@ export function roleAllows(role: Role | undefined, f: Feature) {
  */
 export function computeAccess(role: Role | undefined, switches: FeatureSwitches | null, block: Block = null): Access {
   const allowed = new Set<string>();
+  block = block ?? switches?.block ?? null;
   if (!block && !(switches && !switches.mobile?.enabled)) {
     for (const f of FEATURES) {
       if (!roleAllows(role, f)) continue;
-      if (switches && switches.mobile.features[f.key] !== true) continue;
+      // In-app screens follow the mobile switches; web-only pages (opened from More) follow the web switches.
+      if (switches && (f.route ? switches.mobile.features[f.key] : switches.web[f.key]) !== true) continue;
       allowed.add(f.key);
     }
   }
@@ -110,7 +114,8 @@ export function parseSwitches(body: unknown): FeatureSwitches | null {
   const b = body as Partial<FeatureSwitches>;
   if (typeof b.version !== 'string' || !b.mobile || typeof b.mobile !== 'object') return null;
   const bools = (o: unknown) => Object.fromEntries(Object.entries((o && typeof o === 'object' ? o : {}) as Record<string, unknown>).filter(([, v]) => typeof v === 'boolean')) as Record<string, boolean>;
-  return { version: b.version, plan: typeof b.plan === 'string' ? b.plan : null, web: bools(b.web), mobile: { enabled: b.mobile.enabled === true, features: bools(b.mobile.features) } };
+  const block = typeof b.block === 'string' && (BLOCK_CODES as readonly string[]).includes(b.block) ? (b.block as Block) : null;
+  return { version: b.version, plan: typeof b.plan === 'string' ? b.plan : null, web: bools(b.web), mobile: { enabled: b.mobile.enabled === true, features: bools(b.mobile.features) }, ...(block ? { block } : {}) };
 }
 
 /** The feature that owns an in-app route, for guarding deep links. */
@@ -131,4 +136,4 @@ export function homeRoute(role: Role | undefined, access: Access): string {
 }
 
 /** Error codes the API uses when Super Admin has switched something off. */
-export const BLOCK_CODES = ['MOBILE_DISABLED', 'ORG_SUSPENDED', 'SUBSCRIPTION_INACTIVE'] as const;
+export const BLOCK_CODES = ['MOBILE_DISABLED', 'ORG_SUSPENDED', 'ORG_PENDING', 'SUBSCRIPTION_INACTIVE'] as const;
