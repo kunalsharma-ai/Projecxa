@@ -28,6 +28,7 @@ export function Sidebar({ mobileOpen, onClose, badges = {} }: { mobileOpen: bool
       <div className="group/item relative">
         <Link
           href={n.href}
+          data-tour={fav ? undefined : `nav:${n.href}`}
           aria-current={active ? 'page' : undefined}
           title={compact ? n.label : undefined}
           className={clsx(
