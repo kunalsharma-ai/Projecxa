@@ -30,7 +30,8 @@ describe('Interface preferences (e2e)', () => {
   });
 
   it('rejects unknown keys and bad values', async () => {
-    await pm.patch('/auth/me/preferences', { theme: 'neon' }).expect(400);
+    await pm.patch('/auth/me/preferences', { theme: 'neon' }).expect(200);
+    await pm.patch('/auth/me/preferences', { theme: 'vaporwave' }).expect(400);
     await pm.patch('/auth/me/preferences', { accent: 'red' }).expect(400);
     await pm.patch('/auth/me/preferences', { radius: 99 }).expect(400);
     await pm.patch('/auth/me/preferences', { favorites: ['javascript:alert(1)'] }).expect(400);

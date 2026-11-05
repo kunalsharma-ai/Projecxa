@@ -10,7 +10,8 @@
  *   token the client survey received.
  * - Portal users never pass the staff endpoints (the global guard defaults to staff roles).
  */
-import { BadRequestException, Body, Controller, ForbiddenException, Get, Module, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, ForbiddenException, Get, Module, NotFoundException, Param, Patch, Post, Query, Res } from '@nestjs/common';
+import { Response } from 'express';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { z } from 'zod';
@@ -23,6 +24,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { emptyStats } from '../projects/projects.service';
 import { FinanceModule } from '../finance/finance.controller';
 import { PayablesService } from '../finance/payables.service';
+import { UniqueLinksModule, UniqueLinksService } from '../unique-links/unique-links';
 
 /** Projects a portal can see: not drafts. */
 const VISIBLE_PROJECT_STATUSES = ['TEST', 'LIVE', 'HOLD', 'CLOSED', 'INVOICED'] as const;
@@ -43,7 +45,22 @@ function statsFrom(rows: { status: keyof ReturnType<typeof emptyStats>; _count: 
 @Controller('portal/vendor')
 @Roles('VENDOR_USER')
 export class VendorPortalController {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly payables: PayablesService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly payables: PayablesService, private readonly uniqueLinks: UniqueLinksService) {}
+
+  /**
+   * The one-time unique links staff generated for one of this vendor's markets, as CSV, so the
+   * vendor can send one link to each respondent (docs/UNIQUE_LINKS.md). Unused links only by default.
+   */
+  @Get('allocations/:id/unique-links.csv')
+  async uniqueLinksCsv(@CurrentUser() u: AuthUser, @Param('id') id: string, @Query('all') all: string | undefined, @Res() res: Response) {
+    const vendorId = await this.vendorId(u);
+    const a = await this.prisma.vendorAllocation.findFirst({
+      where: { id, vendorId, projectCountry: { project: { organizationId: u.organizationId, status: { in: [...VISIBLE_PROJECT_STATUSES] } } } },
+      select: { id: true, projectCountry: { select: { projectId: true } } },
+    });
+    if (!a) throw new NotFoundException('Allocation not found');
+    await this.uniqueLinks.exportCsv(u.organizationId, a.projectCountry.projectId, { allocationId: a.id, ...(all === 'true' ? {} : { status: 'UNUSED' as const }) }, res);
+  }
 
   /** Bills we approved or paid for this vendor (drafts and voided bills stay internal). */
   @Get('bills')
@@ -110,6 +127,15 @@ export class VendorPortalController {
       where: { vendorAllocationId: { in: rows.map((r) => r.id) }, isTest: false },
       _count: { _all: true },
     });
+    const ids = rows.map((r) => r.id);
+    const [linkTotals, linkUnused] = await Promise.all([
+      this.prisma.uniqueLink.groupBy({ by: ['vendorAllocationId'], where: { vendorAllocationId: { in: ids } }, _count: { _all: true } }),
+      this.prisma.uniqueLink.groupBy({
+        by: ['vendorAllocationId'],
+        where: { vendorAllocationId: { in: ids }, status: 'UNUSED', batch: { OR: [{ expiresAt: null }, { expiresAt: { gte: new Date() } }] } },
+        _count: { _all: true },
+      }),
+    ]);
     const base = config.publicBaseUrl;
     return rows.map((a) => {
       const stats = statsFrom(grouped.filter((g) => g.vendorAllocationId === a.id));
@@ -131,6 +157,11 @@ export class VendorPortalController {
         uidParam: a.uidParam,
         entryLink: `${base}/s/${a.entryCode}?${encodeURIComponent(a.uidParam)}=[UID]`,
         testEntryLink: `${base}/s/${a.testEntryCode}?${encodeURIComponent(a.uidParam)}=[UID]`,
+        uniqueLinksOnly: a.uniqueLinksOnly,
+        uniqueLinks: {
+          total: linkTotals.find((l) => l.vendorAllocationId === a.id)?._count._all ?? 0,
+          unused: linkUnused.find((l) => l.vendorAllocationId === a.id)?._count._all ?? 0,
+        },
         stats,
       };
     });
@@ -384,5 +415,5 @@ export class PortalUsersController {
   }
 }
 
-@Module({ imports: [FinanceModule], controllers: [VendorPortalController, ClientPortalController, PortalUsersController] })
+@Module({ imports: [FinanceModule, UniqueLinksModule], controllers: [VendorPortalController, ClientPortalController, PortalUsersController] })
 export class PortalModule {}

@@ -14,6 +14,8 @@ import { ReportsModule } from '../reports/reports.controller';
 import { ReportsService, SummaryRow } from '../reports/reports.service';
 import { TasksModule, TasksService } from '../tasks/tasks.service';
 import { DashboardWidgetsController } from './dashboard-widgets';
+import { DashboardBoardController } from './dashboard-board';
+import { VendorsModule } from '../vendors/vendors.controller';
 import { DAY, iso, periods, periodSchema, seriesSchema } from './period';
 
 function kpis(r: SummaryRow | undefined) {
@@ -340,5 +342,5 @@ function count(rows: { status: string; _count: { _all: number } }[], s: string) 
   return rows.find((r) => r.status === s)?._count._all ?? 0;
 }
 
-@Module({ imports: [ReportsModule, FinanceModule, TasksModule], controllers: [DashboardWidgetsController, DashboardController] })
+@Module({ imports: [ReportsModule, FinanceModule, TasksModule, VendorsModule], controllers: [DashboardWidgetsController, DashboardBoardController, DashboardController] })
 export class DashboardModule {}

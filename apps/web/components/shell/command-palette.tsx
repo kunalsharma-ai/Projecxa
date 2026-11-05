@@ -1,6 +1,6 @@
 'use client';
 import clsx from 'clsx';
-import { Building2, CornerDownLeft, FolderKanban, Moon, Palette, PanelLeft, PanelRight, Search, Sun, Truck, Zap } from 'lucide-react';
+import { Building2, Compass, CornerDownLeft, FolderKanban, Moon, Palette, PanelLeft, PanelRight, Search, Sun, Truck, Zap } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { canEdit, useMe } from '@/components/me';
@@ -21,7 +21,7 @@ function score(q: string, text: string) {
 }
 
 /** Ctrl/Cmd+K: jump to any page, project, client or vendor, or run a workspace action. */
-export function CommandPalette({ open, onClose, onToggleInsights }: { open: boolean; onClose: () => void; onToggleInsights: () => void }) {
+export function CommandPalette({ open, onClose, onToggleInsights, onStartTour }: { open: boolean; onClose: () => void; onToggleInsights: () => void; onStartTour?: () => void }) {
   const router = useRouter();
   const me = useMe();
   const { prefs, update } = useTheme();
@@ -71,6 +71,7 @@ export function CommandPalette({ open, onClose, onToggleInsights }: { open: bool
       { id: 'mode', group: 'Actions', label: dark ? 'Switch to light mode' : 'Switch to dark mode', icon: dark ? Sun : Moon, run: () => { update({ mode: dark ? 'light' : 'dark' }); onClose(); }, keywords: 'theme appearance' },
       { id: 'sidebar', group: 'Actions', label: prefs.sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar', hint: '[', icon: PanelLeft, run: () => { update({ sidebarCollapsed: !prefs.sidebarCollapsed }); onClose(); } },
       { id: 'insights', group: 'Actions', label: prefs.insightsOpen ? 'Hide insights panel' : 'Show insights panel', hint: ']', icon: PanelRight, run: () => { onToggleInsights(); onClose(); } },
+      ...(onStartTour ? [{ id: 'tour', group: 'Actions', label: 'Take the product tour', icon: Compass, run: () => { onClose(); onStartTour(); }, keywords: 'tour help guide walkthrough onboarding features introduction' }] : []),
       ...THEMES.map((t) => ({ id: `theme-${t.id}`, group: 'Themes', label: `Theme: ${t.name}`, hint: t.mood, icon: Palette, run: () => { update({ theme: t.id }); onClose(); }, keywords: 'appearance colour color' })),
     ];
     for (const p of projects) cmds.push({ id: `p-${p.id}`, group: 'Projects', label: `${p.projectCode} · ${p.name}`, icon: FolderKanban, run: go(`/projects/${p.id}`) });

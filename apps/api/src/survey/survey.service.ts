@@ -106,6 +106,16 @@ const SESSION_INCLUDE = {
   redirectVersion: true,
 } as const;
 
+const ALLOCATION_INCLUDE = {
+  vendor: true,
+  projectCountry: { include: { project: { include: { organization: true, client: true } }, quotas: true } },
+} as const;
+
+type AllocationWithContext = Prisma.VendorAllocationGetPayload<{ include: typeof ALLOCATION_INCLUDE }>;
+
+/** Unique link keys are 22+ url-safe characters (128 bits of randomness). */
+export const UNIQUE_KEY_RE = /^[A-Za-z0-9_-]{16,64}$/;
+
 export interface EntryRequest {
   code: string;
   query: Record<string, string | undefined>;
@@ -132,21 +142,74 @@ export class SurveyService {
   async enter(req: EntryRequest): Promise<{ location: string; httpStatus?: number }> {
     const allocation = await this.prisma.vendorAllocation.findFirst({
       where: { OR: [{ entryCode: req.code }, { testEntryCode: req.code }] },
-      include: {
-        vendor: true,
-        projectCountry: { include: { project: { include: { organization: true, client: true } }, quotas: true } },
-      },
+      include: ALLOCATION_INCLUDE,
     });
     if (!allocation) return { location: internalEndPage(appConfig.publicBaseUrl, 'SECURITY_REJECT') };
 
     const isTest = allocation.testEntryCode === req.code;
-    const country = allocation.projectCountry;
-    const project = country.project;
     const uid = (req.query[allocation.uidParam] ?? '').trim();
     if (!uid || uid.length > 200 || uid === '[UID]') {
       // Without a respondent ID there is nothing to attribute; do not create a session.
       return { location: internalEndPage(appConfig.publicBaseUrl, 'SECURITY_REJECT') };
     }
+    // This vendor's market only accepts one-time unique links; the shared live link is closed.
+    if (!isTest && allocation.uniqueLinksOnly) {
+      await this.prisma.auditEvent.create({
+        data: { organizationId: allocation.projectCountry.project.organizationId, action: 'respondent.shared-link-blocked', entityType: 'Project', entityId: allocation.projectCountry.project.id, detail: { vendor: allocation.vendor.code, country: allocation.projectCountry.countryCode } },
+      });
+      return { location: internalEndPage(appConfig.publicBaseUrl, 'SECURITY_REJECT') };
+    }
+    return this.admit(allocation, { isTest, uid, req });
+  }
+
+  /**
+   * One-time unique link: /u/{key}. The first request claims the key atomically (a guarded
+   * UNUSED → USED update), so two respondents, two tabs or a double click can never both enter.
+   * Any later visit is sent to the Duplicate page. Links opened while the project, market or
+   * vendor is not live are not used up. See docs/UNIQUE_LINKS.md.
+   */
+  async enterUnique(req: { key: string; query: Record<string, string | undefined>; ip?: string; userAgent?: string; geoCountry?: string }): Promise<{ location: string }> {
+    const base = appConfig.publicBaseUrl;
+    if (!UNIQUE_KEY_RE.test(req.key)) return { location: internalEndPage(base, 'SECURITY_REJECT') };
+    const link = await this.prisma.uniqueLink.findUnique({
+      where: { key: req.key },
+      include: { batch: { select: { expiresAt: true } }, vendorAllocation: { include: ALLOCATION_INCLUDE } },
+    });
+    if (!link) return { location: internalEndPage(base, 'SECURITY_REJECT') };
+
+    const blocked = async (status: 'DUPLICATE' | 'SECURITY_REJECT') => {
+      await this.prisma.uniqueLink.update({ where: { id: link.id }, data: { blockedAttempts: { increment: 1 }, lastBlockedAt: new Date() } });
+      const used = await this.prisma.respondentSession.findUnique({ where: { uniqueLinkId: link.id }, include: SESSION_INCLUDE });
+      return { location: used ? await this.redirectFor(used, 'DUPLICATE') : internalEndPage(base, status) };
+    };
+    if (link.status === 'USED') return blocked('DUPLICATE');
+    if (link.status === 'REVOKED' || (link.batch.expiresAt && link.batch.expiresAt < new Date())) return blocked('SECURITY_REJECT');
+
+    const allocation = link.vendorAllocation;
+    const country = allocation.projectCountry;
+    const project = country.project;
+    if (!(project.status === 'LIVE' && country.status === 'LIVE' && allocation.status === 'ACTIVE')) {
+      // Not open yet (or paused): keep the link so the respondent can come back later.
+      return { location: internalEndPage(base, 'QUOTA_FULL') };
+    }
+    const vendorUid = (req.query[allocation.uidParam] ?? '').trim();
+    if (vendorUid.length > 200) return { location: internalEndPage(base, 'SECURITY_REJECT') };
+
+    const claimed = await this.prisma.uniqueLink.updateMany({ where: { id: link.id, status: 'UNUSED' }, data: { status: 'USED', usedAt: new Date() } });
+    if (claimed.count === 0) return blocked('DUPLICATE');
+    // The vendor may still pass its own respondent ID; otherwise the key identifies the respondent.
+    const uid = vendorUid && vendorUid !== '[UID]' ? vendorUid : link.key;
+    return this.admit(allocation, { isTest: false, uid, req, uniqueLinkId: link.id });
+  }
+
+  /** Shared entry logic for vendor links and unique links: checks, session creation, first redirect. */
+  private async admit(
+    allocation: AllocationWithContext,
+    opts: { isTest: boolean; uid: string; req: { ip?: string; userAgent?: string; geoCountry?: string; query: Record<string, string | undefined> }; uniqueLinkId?: string },
+  ): Promise<{ location: string; httpStatus?: number }> {
+    const { isTest, uid, req } = opts;
+    const country = allocation.projectCountry;
+    const project = country.project;
 
     const ipHash = req.ip ? sha256(`${project.organizationId}:${req.ip}`) : null;
     const security = (project.security ?? {}) as Record<string, boolean>;
@@ -154,7 +217,8 @@ export class SurveyService {
 
     // URL protection runs before anything is stored: an unsigned link must not be able to claim
     // (and so block) a real respondent's ID.
-    if (security.urlProtection) {
+    // Unique links skip it: the unguessable single-use key is the protection.
+    if (security.urlProtection && !opts.uniqueLinkId) {
       const r = checkEntrySignature(allocation.vendor.callbackSecret, uid, req.query.sig);
       checks.push(r);
       if (!r.ok && !isTest) {
@@ -233,6 +297,7 @@ export class SurveyService {
           deviceType: device.note,
           geoCountry: appConfig.geoCountryHeader && /^[A-Z]{2}$/i.test(req.geoCountry ?? '') ? req.geoCountry!.toUpperCase() : null,
           gateRequired,
+          uniqueLinkId: opts.uniqueLinkId,
           quotaCellIds: cells.matched.map((c) => c.id),
           expiresAt: new Date(Date.now() + ttl * 60_000),
           events: {

@@ -48,7 +48,7 @@ function ColourField({ label, value, fallback, onChange }: { label: string; valu
 export default function ThemeStudio() {
   const { prefs, update, reset, adjusted, saving } = useTheme();
   const [confirmReset, setConfirmReset] = useState(false);
-  const theme = THEMES.find((t) => t.id === prefs.theme) ?? THEMES[1];
+  const theme = THEMES.find((t) => t.id === prefs.theme) ?? THEMES[0];
   const dark = prefs.mode === 'dark' || (prefs.mode === 'system' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   const pal = dark ? theme.dark : theme.light;
   const set = <K extends keyof Preferences>(k: K) => (v: Preferences[K]) => update({ [k]: v } as Partial<Preferences>);

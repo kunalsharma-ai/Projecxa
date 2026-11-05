@@ -70,7 +70,7 @@ export function VendorsTab({ project, editable, reload }: { project: ProjectDeta
     <div className="space-y-6">
       <ErrorBox error={error} />
       <p className="text-sm text-muted">
-        Each vendor gets its own entry link per country. Replace <code className="rounded bg-sunken px-1">[UID]</code> with the vendor&apos;s respondent ID macro. Test links create test sessions that are never billed.
+        Each vendor gets its own entry link per country. Replace <code className="rounded bg-sunken px-1">[UID]</code> with the vendor&apos;s respondent ID macro. Test links create test sessions that are never billed. To give every respondent their own one-time link, use the Unique links tab.
       </p>
       {project.countries.map((c) => (
         <Section
@@ -127,7 +127,7 @@ export function VendorsTab({ project, editable, reload }: { project: ProjectDeta
                       <td className="td tabular-nums">{money(a.cpi, c.currency)}</td>
                       <td className="td">
                         <div className="flex gap-1.5">
-                          <CopyButton text={a.entryLink} label="Live link" />
+                          {a.uniqueLinksOnly ? <span className="chip bg-sunken text-muted" title="This market only accepts one-time unique links. Generate them on the Unique links tab.">Unique links only</span> : <CopyButton text={a.entryLink} label="Live link" />}
                           <CopyButton text={a.testEntryLink} label="Test link" />
                         </div>
                       </td>

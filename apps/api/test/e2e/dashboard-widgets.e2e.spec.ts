@@ -89,6 +89,23 @@ describe('Dashboard widgets (e2e)', () => {
     expect((await viewer.delete('/dashboard/layout').expect(200)).body.custom).toBe(false);
   });
 
+  it('board: Gantt timeline, Kanban by stage, health radar, activity and coverage from real data', async () => {
+    const b = (await viewer.get('/dashboard/board').expect(200)).body;
+    expect(b.timeline).toEqual([expect.objectContaining({ name: 'Widget study', status: 'LIVE', completes: 3, target: 100, percent: 3 })]);
+    expect(b.kanban.map((c: { id: string }) => c.id)).toEqual(['setup', 'testing', 'fieldwork', 'done']);
+    expect(b.kanban.find((c: { id: string }) => c.id === 'fieldwork')).toMatchObject({ count: 1, projects: [expect.objectContaining({ name: 'Widget study' })] });
+    expect(b.health.axes).toHaveLength(6);
+    // 3 completes, 1 terminate in the last 30 days: incidence 75.
+    expect(b.health.axes.find((a: { id: string }) => a.id === 'incidence').value).toBe(75);
+    expect(b.health.score).toEqual(expect.any(Number));
+    expect(b.activity[0]).toEqual(expect.objectContaining({ title: expect.any(String), at: expect.any(String) }));
+    expect(b.coverage).toMatchObject({ markets: 2, liveMarkets: 2, countryCodes: ['DE', 'US'], vendors: 1, clients: 1 });
+    // Another organisation sees none of it.
+    const o = (await other.get('/dashboard/board').expect(200)).body;
+    expect(o.timeline).toEqual([]);
+    expect(o.coverage).toMatchObject({ markets: 0, vendors: 0, clients: 0 });
+  });
+
   it('markets: per-country traffic and converted money, with live markets', async () => {
     const range = '?from=2026-10-20&to=2026-10-31';
     let m = (await pm.get(`/dashboard/markets${range}`).expect(200)).body;

@@ -1,10 +1,12 @@
 'use client';
 import clsx from 'clsx';
-import { Activity, ArrowDownRight, Banknote, Check, HandCoins, LayoutDashboard, Receipt, RotateCcw, ArrowUpRight, BadgeCheck, Building2, CircleDollarSign, Clock3, FileText, FolderKanban, Hourglass, Minus, Truck, X } from 'lucide-react';
+import { MousePointerClick, TrendingUp, Activity, ArrowDownRight, Banknote, Check, HandCoins, LayoutDashboard, Receipt, RotateCcw, ArrowUpRight, BadgeCheck, Building2, CircleDollarSign, Clock3, FileText, FolderKanban, Hourglass, Minus, Truck, X } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Empty, ErrorBox, Loading, OutcomeChip, PageHeader, Progress, Section } from '@/components/ui';
-import { useMe } from '@/components/me';
+import { canEdit, useMe } from '@/components/me';
+import { CommandHero } from '@/components/dashboard/hero';
+import { BudgetDonut, CoverageGlobe, GanttTimeline, HealthRadar, KanbanBoard, QuickActions, RecentActivity, SupplierBars, type Board } from '@/components/dashboard/board';
 import { api, get } from '@/lib/api';
 import { TrafficHeatmap, type Heat } from '@/components/dashboard/heatmap';
 import { WidgetGrid, type WidgetPlace } from '@/components/dashboard/layout';
@@ -124,6 +126,7 @@ export default function DashboardPage() {
   const [markets, setMarkets] = useState<{ currency: string; markets: Market[] } | null>(null);
   const [heat, setHeat] = useState<Heat | null>(null);
   const [fall, setFall] = useState<Waterfall | null>(null);
+  const [board, setBoard] = useState<Board | null>(null);
   const editing = draft !== null;
   const shown = new Set((draft ?? layout?.widgets ?? []).filter((w) => !w.hidden).map((w) => w.id));
 
@@ -150,6 +153,13 @@ export default function DashboardPage() {
     setFall(null);
     get<Waterfall>(`/dashboard/waterfall?from=${range.from}&to=${range.to}`).then(setFall).catch(setError);
   }, [range, wantFall]);
+
+  // Timeline, Kanban, radar, activity, suppliers and coverage share one request.
+  const wantBoard = ['timeline', 'kanban', 'radar', 'activity', 'suppliers', 'coverage'].some((w) => shown.has(w));
+  useEffect(() => {
+    if (!wantBoard) return;
+    get<Board>('/dashboard/board').then(setBoard).catch(setError);
+  }, [wantBoard]);
 
   async function saveLayout() {
     if (!draft) return;
@@ -190,11 +200,11 @@ export default function DashboardPage() {
   const cv = d.period.converted;
   const missing = cv.current.missing.length ? `${cv.current.missing.join(', ')} left out: no exchange rate` : undefined;
   const kpis = [
-    { key: 'revenue' as const, label: `Revenue · ${cv.currency}`, value: amt.format(cv.current.revenue), trend: cv.trend.revenue, warn: missing },
-    { key: 'cost' as const, label: `Cost · ${cv.currency}`, value: amt.format(cv.current.cost), neutral: true, trend: cv.trend.cost, warn: missing },
-    { key: 'profit' as const, label: `Profit · ${cv.currency}`, value: amt.format(cv.current.profit), bad: cv.current.profit < 0, trend: cv.trend.profit, warn: missing },
-    { key: 'clicks' as const, label: 'Clicks', value: num.format(c.clicks), trend: d.period.trend.clicks },
-    { key: 'completes' as const, label: 'Completes', value: num.format(c.completes), trend: d.period.trend.completes },
+    { key: 'revenue' as const, label: `Revenue · ${cv.currency}`, icon: CircleDollarSign, tone: 'tone-violet', value: amt.format(cv.current.revenue), trend: cv.trend.revenue, warn: missing },
+    { key: 'cost' as const, label: `Cost · ${cv.currency}`, icon: HandCoins, tone: 'tone-amber', value: amt.format(cv.current.cost), neutral: true, trend: cv.trend.cost, warn: missing },
+    { key: 'profit' as const, label: `Profit · ${cv.currency}`, icon: TrendingUp, tone: 'tone-green', value: amt.format(cv.current.profit), bad: cv.current.profit < 0, trend: cv.trend.profit, warn: missing },
+    { key: 'clicks' as const, label: 'Clicks', icon: MousePointerClick, tone: 'tone-blue', value: num.format(c.clicks), trend: d.period.trend.clicks },
+    { key: 'completes' as const, label: 'Completes', icon: BadgeCheck, tone: 'tone-pink', value: num.format(c.completes), trend: d.period.trend.completes },
   ];
   const fin = [
     { key: 'reconciled' as const, label: 'Reconciled', icon: BadgeCheck, sub: 'approved completes', href: '/reports' },
@@ -214,14 +224,33 @@ export default function DashboardPage() {
         return (
           <div className="grid grid-cols-2 gap-3 @xl:grid-cols-3 @4xl:grid-cols-5">
             {kpis.map((k) => (
-              <div key={k.key} className="card accent-edge anim-in min-w-0 p-4">
-                <div className="truncate text-xs font-medium uppercase tracking-wide text-muted">{k.label}</div>
-                <div className={clsx('mt-1 truncate text-2xl font-semibold tabular-nums', k.bad && 'text-bad')}>{k.value}{k.warn && <span className="ml-1 align-top text-xs text-warn" title={k.warn}>*</span>}</div>
-                <div className="mt-1"><Trend value={k.trend} neutral={k.neutral} /></div>
+              <div key={k.key} className="card anim-in flex min-w-0 items-center gap-3 p-4">
+                <span className={clsx('icon-tile hidden @md:grid', k.tone)}><k.icon className="h-5 w-5" aria-hidden /></span>
+                <div className="min-w-0">
+                  <div className={clsx('truncate text-2xl font-bold tabular-nums', k.bad && 'text-bad')}>{k.value}{k.warn && <span className="ml-1 align-top text-xs text-warn" title={k.warn}>*</span>}</div>
+                  <div className="truncate text-xs font-medium text-muted">{k.label}</div>
+                  <div className="mt-0.5"><Trend value={k.trend} neutral={k.neutral} /></div>
+                </div>
               </div>
             ))}
           </div>
         );
+      case 'timeline':
+        return board ? <GanttTimeline items={board.timeline} /> : <div className="skeleton h-64" />;
+      case 'kanban':
+        return board ? <KanbanBoard columns={board.kanban} /> : <div className="skeleton h-64" />;
+      case 'radar':
+        return board ? <HealthRadar health={board.health} /> : <div className="skeleton h-64" />;
+      case 'activity':
+        return board ? <RecentActivity items={board.activity} /> : <div className="skeleton h-64" />;
+      case 'coverage':
+        return board ? <CoverageGlobe coverage={board.coverage} /> : <div className="skeleton h-56" />;
+      case 'suppliers':
+        return board ? <SupplierBars suppliers={board.suppliers} /> : <div className="skeleton h-56" />;
+      case 'budget':
+        return <BudgetDonut revenue={cv.current.revenue} cost={cv.current.cost} currency={cv.currency} missing={cv.current.missing} />;
+      case 'quick-actions':
+        return <QuickActions canEdit={canEdit(me)} />;
       case 'trend':
         return (
           <Section title="Revenue, payout and profit" actions={
@@ -258,7 +287,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 gap-3 @xl:grid-cols-2 @3xl:grid-cols-3 @6xl:grid-cols-5">
               {fin.map(({ key, label, icon: Icon, sub, href }) => (
                 <Link key={key} href={href} className="card group min-w-0 p-4 hover:border-brand/40">
-                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted"><Icon className="h-4 w-4 text-brand" aria-hidden />{label}</div>
+                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted"><span className="icon-tile tone-brand h-7 w-7 rounded-lg"><Icon className="h-3.5 w-3.5" aria-hidden /></span>{label}</div>
                   <div className="mt-1.5 text-base font-semibold tabular-nums"><Money list={d.finance[key].byCurrency} /></div>
                   <div className="mt-0.5 text-xs text-muted">{num.format(d.finance[key].count)} {sub}</div>
                   <BaseLine base={d.finance[key].base} list={d.finance[key].byCurrency} />
@@ -279,7 +308,7 @@ export default function DashboardPage() {
                 ['paid', 'Paid to vendors', Banknote, 'completes paid', '/payables?status=PAID'],
               ] as const).map(([key, label, Icon, sub, href]) => (
                 <Link key={key} href={href} className="card group min-w-0 p-4 hover:border-brand/40">
-                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted"><Icon className="h-4 w-4 text-brand" aria-hidden />{label}</div>
+                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted"><span className="icon-tile tone-brand h-7 w-7 rounded-lg"><Icon className="h-3.5 w-3.5" aria-hidden /></span>{label}</div>
                   <div className="mt-1.5 text-base font-semibold tabular-nums"><Money list={d.payables![key].byCurrency} /></div>
                   <div className="mt-0.5 text-xs text-muted">{num.format(d.payables![key].completes)} {sub}</div>
                   <BaseLine base={d.payables![key].base} list={d.payables![key].byCurrency} />
@@ -350,7 +379,7 @@ export default function DashboardPage() {
     <>
       <PageHeader
         title="Command center"
-        subtitle={`Welcome back, ${me?.user.name.split(' ')[0] ?? ''}. Live numbers from your projects; test traffic is excluded.`}
+        subtitle="Live numbers from your projects; test traffic is excluded."
         actions={
           editing ? (
             <div className="flex flex-wrap gap-2">
@@ -367,10 +396,16 @@ export default function DashboardPage() {
         }
       />
 
+      <CommandHero
+        firstName={me?.user.name.split(' ')[0] ?? ''}
+        canCreate={canEdit(me)}
+        counts={{ live: d.projects.byStatus.LIVE ?? 0, draft: d.projects.byStatus.DRAFT ?? 0, test: d.projects.byStatus.TEST ?? 0, closed: d.projects.byStatus.CLOSED ?? 0, invoiced: d.projects.byStatus.INVOICED ?? 0, total: d.projects.total }}
+      />
+
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="flex flex-wrap rounded-lg border border-line bg-panel p-0.5" role="group" aria-label="Period">
+        <div className="flex flex-wrap rounded-full border border-line bg-panel p-0.5" role="group" aria-label="Period">
           {PRESETS.map((p) => (
-            <button key={p.id} type="button" aria-pressed={preset === p.id} onClick={() => { setPreset(p.id); setRange(p.range()); }} className={clsx('rounded-md px-3 py-1.5 text-sm', preset === p.id ? 'bg-brand text-brand-ink' : 'text-muted hover:bg-sunken')}>
+            <button key={p.id} type="button" aria-pressed={preset === p.id} onClick={() => { setPreset(p.id); setRange(p.range()); }} className={clsx('rounded-full px-3 py-1.5 text-sm', preset === p.id ? 'bg-neon shadow-sm' : 'text-muted hover:bg-sunken')}>
               {p.label}
             </button>
           ))}
