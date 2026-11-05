@@ -1,6 +1,6 @@
 'use client';
 import clsx from 'clsx';
-import { Bot, BookOpenCheck, Check, ChevronDown, Copy, ExternalLink, KeyRound, Link2, Loader2, Mail, PlugZap, Server, Trash2 } from 'lucide-react';
+import { Bot, BookOpenCheck, CreditCard, Check, ChevronDown, Copy, ExternalLink, KeyRound, Link2, Loader2, Mail, PlugZap, Server, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useMe } from '@/components/me';
@@ -22,6 +22,7 @@ const GROUPS: { id: string; title: string; icon: typeof Mail; blurb: string }[] 
   { id: 'Sign-in', title: 'Single sign-on apps', icon: KeyRound, blurb: 'The Google, Microsoft and Zoho apps staff sign in through.' },
   { id: 'AI', title: 'AI', icon: Bot, blurb: 'The copilot chat and voice assistant.' },
   { id: 'Accounting', title: 'Accounting', icon: BookOpenCheck, blurb: 'Direct sync of invoices, bills and payments.' },
+  { id: 'Payments', title: 'Payments', icon: CreditCard, blurb: 'Online payment gateways organisations pay their plan through (Super Admin → Billing).' },
   { id: 'Bidzo', title: 'Bidzo', icon: Link2, blurb: 'Bids live in Bidzo; PROJEXA links there.' },
 ];
 

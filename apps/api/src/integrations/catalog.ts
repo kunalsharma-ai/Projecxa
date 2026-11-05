@@ -4,7 +4,10 @@
  * feed the same config builders (common/config.ts), and env still works as a fallback.
  */
 
-export const INTEGRATION_KINDS = ['smtp', 'sso_google', 'sso_microsoft', 'sso_zoho', 'gemini', 'zoho_books', 'xero', 'quickbooks', 'tally', 'bidzo'] as const;
+export const INTEGRATION_KINDS = ['smtp', 'sso_google', 'sso_microsoft', 'sso_zoho', 'gemini', 'zoho_books', 'xero', 'quickbooks', 'tally', 'bidzo', 'razorpay', 'stripe'] as const;
+/** Payment gateways the server owner uses to collect subscription payments (docs/SUBSCRIPTION_PAYMENTS.md). Never shown to other organisations. */
+export const PAYMENT_KINDS = ['razorpay', 'stripe'] as const;
+export const isPaymentKind = (k: string) => (PAYMENT_KINDS as readonly string[]).includes(k);
 export type IntegrationKind = (typeof INTEGRATION_KINDS)[number];
 export const isKind = (k: string): k is IntegrationKind => (INTEGRATION_KINDS as readonly string[]).includes(k);
 
@@ -23,7 +26,7 @@ export interface FieldDef {
 }
 export interface KindDef {
   kind: IntegrationKind;
-  group: 'Email' | 'Sign-in' | 'AI' | 'Accounting' | 'Bidzo';
+  group: 'Email' | 'Sign-in' | 'AI' | 'Accounting' | 'Bidzo' | 'Payments';
   label: string;
   summary: string;
   /** platform = one per PROJEXA server, set by the organisation that runs it (sign-in and accounting apps). */
@@ -283,6 +286,49 @@ export const CATALOG: KindDef[] = [
     links: [],
     testable: false,
     next: { label: 'Bidzo connection', href: '/settings#bidzo' },
+  },
+  {
+    kind: 'razorpay',
+    group: 'Payments',
+    label: 'Razorpay',
+    summary: 'Organisations pay for their plan by UPI, card, netbanking or wallet (India, and international cards when your account allows).',
+    scope: 'platform',
+    ownerOnly: true,
+    fields: [
+      { key: 'RAZORPAY_KEY_ID', label: 'Key ID', type: 'text', required: true, placeholder: 'rzp_live_…' },
+      { key: 'RAZORPAY_KEY_SECRET', label: 'Key secret', type: 'secret', required: true },
+      { key: 'RAZORPAY_WEBHOOK_SECRET', label: 'Webhook secret', type: 'secret', hint: 'Recommended: payments are confirmed even if the person closes the page.' },
+    ],
+    steps: [
+      'Sign in to the Razorpay Dashboard. Use Test mode first (keys start with rzp_test_).',
+      'Account & Settings → API Keys → Generate Key. Copy the Key ID and Key secret here.',
+      'Account & Settings → Webhooks → Add New Webhook. URL: {apiOrigin}/api/v1/public/billing/razorpay/webhook. Choose a secret, tick the events payment.captured and order.paid, and paste the same secret here.',
+      'Save and test. Then open Super Admin → Billing to set prices and turn online payment on.',
+    ],
+    links: [{ label: 'Razorpay API keys', href: 'https://dashboard.razorpay.com/app/website-app-settings/api-keys' }, { label: 'Razorpay webhooks', href: 'https://dashboard.razorpay.com/app/webhooks' }],
+    testable: true,
+    next: { label: 'Super Admin → Billing', href: '/super-admin/billing' },
+  },
+  {
+    kind: 'stripe',
+    group: 'Payments',
+    label: 'Stripe',
+    summary: 'Organisations pay for their plan by card on a Stripe checkout page (international).',
+    scope: 'platform',
+    ownerOnly: true,
+    fields: [
+      { key: 'STRIPE_SECRET_KEY', label: 'Secret key', type: 'secret', required: true, placeholder: 'sk_live_…' },
+      { key: 'STRIPE_WEBHOOK_SECRET', label: 'Webhook signing secret', type: 'secret', hint: 'Recommended: payments are confirmed even if the person closes the page.', placeholder: 'whsec_…' },
+    ],
+    steps: [
+      'Sign in to the Stripe Dashboard. Use test mode first (keys start with sk_test_).',
+      'Developers → API keys: reveal the Secret key (or create a restricted key with write access to Checkout Sessions) and paste it here.',
+      'Developers → Webhooks → Add endpoint. URL: {apiOrigin}/api/v1/public/billing/stripe/webhook, event checkout.session.completed. Copy its Signing secret here.',
+      'Save and test. Then open Super Admin → Billing to set prices and turn online payment on.',
+    ],
+    links: [{ label: 'Stripe API keys', href: 'https://dashboard.stripe.com/apikeys' }, { label: 'Stripe webhooks', href: 'https://dashboard.stripe.com/webhooks' }],
+    testable: true,
+    next: { label: 'Super Admin → Billing', href: '/super-admin/billing' },
   },
 ];
 

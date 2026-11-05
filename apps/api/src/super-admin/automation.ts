@@ -14,7 +14,8 @@ import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ORG_FEATURES_INCLUDE, orgFeatures } from './entitlements';
 import { featureDef } from './features';
-import { esc, SuperAdminService } from './super-admin.service';
+import { esc, OrgEvent, SuperAdminService } from './super-admin.service';
+import { webBaseOf } from '../branding/branding';
 
 const DAY = 86_400_000;
 const STATUSES = ['TRIAL', 'ACTIVE', 'PAST_DUE', 'EXPIRED', 'CANCELLED'] as const;
@@ -28,8 +29,11 @@ export const TRIGGERS = [
   { type: 'org.inactive', label: 'Nobody in an organisation signs in', detail: 'For this many days.', kind: 'time', days: { label: 'Days without activity', default: 30 } },
   { type: 'seats.exceeded', label: 'An organisation has more users than its plan', detail: 'Active staff above the plan’s user limit.', kind: 'time', days: null },
   { type: 'integration.failing', label: 'An integration test fails', detail: 'The last test in Settings → Integrations failed.', kind: 'time', days: null },
+  { type: 'payment.received', label: 'A payment is received', detail: 'Paid online, or an offline payment you confirmed or recorded.', kind: 'event', days: null },
+  { type: 'payment.submitted', label: 'An offline payment needs checking', detail: 'An organisation says it paid by bank transfer, UPI, cheque or cash.', kind: 'event', days: null },
 ] as const;
 export type TriggerType = (typeof TRIGGERS)[number]['type'];
+const EVENT_TRIGGERS: string[] = TRIGGERS.filter((t) => t.kind === 'event').map((t) => t.type);
 
 export const ACTIONS = [
   { type: 'email_org_admins', label: 'Email the organisation’s admins', fields: ['subject', 'message'] },
@@ -85,21 +89,21 @@ export const RECIPES: (RuleInput & { id: string; summary: string })[] = [
   { id: 'welcome', summary: 'Welcome email to the new organisation’s admin.', name: 'Welcome new organisations', enabled: true, trigger: 'org.created', triggerConfig: {}, conditions: {},
     actions: [{ type: 'email_org_admins', subject: 'Welcome to PROJEXA, {{org}}', message: 'Your workspace is ready on the {{plan}} plan. Sign in, invite your team in Team and set up email in Settings → Integrations.' }] },
   { id: 'trial-ending', summary: '3 days before a trial ends, remind the organisation.', name: 'Trial ending reminder', enabled: true, trigger: 'trial.ending', triggerConfig: { days: 3 }, conditions: {},
-    actions: [{ type: 'email_org_admins', subject: 'Your PROJEXA trial ends on {{date}}', message: 'Your trial of the {{plan}} plan ends on {{date}} ({{days}} days). Contact us to continue without interruption.' }] },
+    actions: [{ type: 'email_org_admins', subject: 'Your PROJEXA trial ends on {{date}}', message: 'Your trial of the {{plan}} plan ends on {{date}} ({{days}} days). Renew or upgrade here to continue without interruption: {{payLink}}' }] },
   { id: 'renewal-reminder', summary: '7 days before renewal, remind the organisation and you.', name: 'Renewal reminder', enabled: true, trigger: 'subscription.expiring', triggerConfig: { days: 7 }, conditions: {},
     actions: [
-      { type: 'email_org_admins', subject: 'Your PROJEXA subscription renews on {{date}}', message: 'Your {{plan}} subscription ends on {{date}}. Please renew so your team keeps access.' },
+      { type: 'email_org_admins', subject: 'Your PROJEXA subscription renews on {{date}}', message: 'Your {{plan}} subscription ends on {{date}}. Please renew so your team keeps access: {{payLink}}' },
       { type: 'email_super_admins', subject: '{{org}} renews on {{date}}', message: '{{org}} ({{plan}}) ends on {{date}}.' },
     ] },
   { id: 'grace', summary: 'When a subscription ends, keep it working 7 more days as past due.', name: 'Grace period when a subscription ends', enabled: true, trigger: 'subscription.ended', triggerConfig: { days: 0 }, conditions: { statuses: ['ACTIVE'] },
     actions: [
       { type: 'set_subscription_status', status: 'PAST_DUE' },
-      { type: 'email_org_admins', subject: 'Your PROJEXA subscription has ended', message: 'Your {{plan}} subscription ended on {{date}}. Access continues for 7 days; please renew.' },
+      { type: 'email_org_admins', subject: 'Your PROJEXA subscription has ended', message: 'Your {{plan}} subscription ended on {{date}}. Access continues for 7 days; please renew: {{payLink}}' },
     ] },
   { id: 'expire', summary: '7 days after the end date, stop access and tell them.', name: 'Expire after the grace period', enabled: true, trigger: 'subscription.ended', triggerConfig: { days: 7 }, conditions: { statuses: ['PAST_DUE', 'TRIAL'] },
     actions: [
       { type: 'set_subscription_status', status: 'EXPIRED' },
-      { type: 'email_org_admins', subject: 'Your PROJEXA access has stopped', message: 'Your {{plan}} subscription ended on {{date}}. Contact us to renew and get access back.' },
+      { type: 'email_org_admins', subject: 'Your PROJEXA access has stopped', message: 'Your {{plan}} subscription ended on {{date}}. Renew to get access back (admins can still sign in and pay): {{payLink}}' },
     ] },
   { id: 'inactive', summary: 'Tell you when an organisation has not signed in for 30 days.', name: 'Inactive organisations', enabled: true, trigger: 'org.inactive', triggerConfig: { days: 30 }, conditions: {},
     actions: [{ type: 'email_super_admins', subject: '{{org}} has not used PROJEXA for {{days}} days', message: 'Nobody at {{org}} has signed in for {{days}} days.' }] },
@@ -107,6 +111,13 @@ export const RECIPES: (RuleInput & { id: string; summary: string })[] = [
     actions: [{ type: 'email_super_admins', subject: '{{org}} is over its user limit', message: '{{org}} has {{detail}} on the {{plan}} plan.' }] },
   { id: 'integration-failing', summary: 'Tell the organisation when an integration test fails.', name: 'Integration problems', enabled: true, trigger: 'integration.failing', triggerConfig: {}, conditions: {},
     actions: [{ type: 'email_org_admins', subject: 'An integration needs attention', message: 'The last test of {{detail}} failed. Open Settings → Integrations to fix it.' }] },
+  { id: 'payment-review', summary: 'When an organisation pays offline, email you and add a task to check it.', name: 'Check offline payments', enabled: true, trigger: 'payment.submitted', triggerConfig: {}, conditions: {},
+    actions: [
+      { type: 'email_super_admins', subject: '{{org}} paid {{amount}} offline', message: '{{org}} says it paid {{amount}} for {{plan}} ({{detail}}). Check your bank and confirm it in Super Admin → Billing.' },
+      { type: 'create_task', title: 'Check the offline payment of {{org}} ({{amount}})' },
+    ] },
+  { id: 'payment-received', summary: 'Tell you about every payment received.', name: 'Payments received', enabled: true, trigger: 'payment.received', triggerConfig: {}, conditions: {},
+    actions: [{ type: 'email_super_admins', subject: '{{org}} paid {{amount}}', message: '{{org}} paid {{amount}} for {{plan}} ({{detail}}). Paid until {{date}}.' }] },
 ];
 
 interface Match { organizationId: string; dedupeKey: string; vars: Record<string, string> }
@@ -125,7 +136,7 @@ export class AutomationService implements OnModuleInit {
   ) {}
 
   onModuleInit() {
-    this.superAdmin.onEvent = (event, orgId) => this.fire(event, orgId);
+    this.superAdmin.onEvent = (event, orgId, vars, key) => this.fire(event, orgId, vars, key);
   }
 
   // ───────────── Rules ─────────────
@@ -253,9 +264,9 @@ export class AutomationService implements OnModuleInit {
   // ───────────── Running ─────────────
 
   /** Event rules (registration, new organisation). */
-  async fire(event: 'org.registered' | 'org.created', orgId: string) {
+  async fire(event: OrgEvent, orgId: string, vars: Record<string, string> = {}, key: string = event) {
     const rules = await this.prisma.automationRule.findMany({ where: { enabled: true, trigger: event } });
-    for (const r of rules) await this.execute(r, { organizationId: orgId, dedupeKey: event, vars: {} });
+    for (const r of rules) await this.execute(r, { organizationId: orgId, dedupeKey: key, vars });
   }
 
   /** Time rules: hourly (AUTOMATION_SCHEDULER_ENABLED=false turns it off). */
@@ -273,7 +284,7 @@ export class AutomationService implements OnModuleInit {
   }
 
   async runAll(now = new Date()) {
-    const rules = await this.prisma.automationRule.findMany({ where: { enabled: true, trigger: { notIn: ['org.registered', 'org.created'] } } });
+    const rules = await this.prisma.automationRule.findMany({ where: { enabled: true, trigger: { notIn: EVENT_TRIGGERS } } });
     let acted = 0;
     for (const r of rules) acted += await this.runRule(r, now);
     return { rules: rules.length, acted };
@@ -291,14 +302,14 @@ export class AutomationService implements OnModuleInit {
   async runNow(id: string) {
     const rule = await this.prisma.automationRule.findUnique({ where: { id } });
     if (!rule) throw new NotFoundException('Rule not found');
-    if (rule.trigger === 'org.registered' || rule.trigger === 'org.created') throw new BadRequestException('This rule runs by itself when the event happens');
+    if (EVENT_TRIGGERS.includes(rule.trigger)) throw new BadRequestException('This rule runs by itself when the event happens');
     return { acted: await this.runRule(rule) };
   }
 
   /** Which organisations the rule would act on now, without acting. */
   async preview(body: RuleInput) {
     const fake = { ...body, id: 'preview', triggerConfig: body.triggerConfig, conditions: body.conditions } as unknown as AutomationRule;
-    if (body.trigger === 'org.registered' || body.trigger === 'org.created') return { event: true, organizations: [] };
+    if (EVENT_TRIGGERS.includes(body.trigger)) return { event: true, organizations: [] };
     const ms = await this.matches(fake, new Date());
     const out = [];
     for (const m of ms) {
@@ -339,7 +350,7 @@ export class AutomationService implements OnModuleInit {
 
   private async vars(m: Match) {
     const o = await this.prisma.organization.findUnique({ where: { id: m.organizationId }, include: { subscription: { include: { plan: true } } } });
-    return { org: o?.name ?? '', plan: o?.subscription?.plan.name ?? 'no', ...m.vars };
+    return { org: o?.name ?? '', plan: o?.subscription?.plan.name ?? 'no', payLink: o ? `${webBaseOf(o)}/settings/subscription` : '', ...m.vars };
   }
 
   private async emailTo(to: string[], subject: string, message: string, vars: Record<string, string>) {

@@ -3,7 +3,7 @@
  * belong to it. The same keys are used by the web app, the Android/iOS app and GET /auth/me/features.
  */
 import { Role } from '@prisma/client';
-import { INTEGRATION_KINDS } from '../integrations/catalog';
+import { INTEGRATION_KINDS, isPaymentKind } from '../integrations/catalog';
 
 const STAFF: Role[] = ['ADMIN', 'PROJECT_MANAGER', 'SALES', 'VIEWER'];
 const EDITORS: Role[] = ['ADMIN', 'PROJECT_MANAGER'];
@@ -52,7 +52,7 @@ export const FEATURES: FeatureDef[] = [
   { key: 'settings', label: 'Settings', group: 'Administration', summary: 'Organisation settings, security, sign-in', roles: STAFF, mobile: true },
   { key: 'portal.client', label: 'Client portal', group: 'Portals', summary: 'Clients see their projects, invoices and files', roles: ['CLIENT_USER'], mobile: true },
   { key: 'portal.vendor', label: 'Vendor portal', group: 'Portals', summary: 'Vendors see links, respondents, bills and quotes', roles: ['VENDOR_USER'], mobile: true },
-  ...INTEGRATION_KINDS.map((k): FeatureDef => ({ key: `integration.${k}`, label: INTEGRATION_LABEL[k] ?? k, group: 'Integrations', summary: `May use ${INTEGRATION_LABEL[k] ?? k}`, roles: ADMIN, mobile: false })),
+  ...INTEGRATION_KINDS.filter((k) => !isPaymentKind(k)).map((k): FeatureDef => ({ key: `integration.${k}`, label: INTEGRATION_LABEL[k] ?? k, group: 'Integrations', summary: `May use ${INTEGRATION_LABEL[k] ?? k}`, roles: ADMIN, mobile: false })),
 ];
 
 export const FEATURE_KEYS = FEATURES.map((f) => f.key);
@@ -69,6 +69,8 @@ export const isFeature = (k: string) => BY_KEY.has(k);
 const ROUTES: [RegExp, string | null, string?][] = [
   [/^auth(\/|$)/, null],
   [/^super-admin(\/|$)/, 'super-admin'],
+  // The organisation's own plan and payments: admins, also after the subscription ended (auth.guard.ts).
+  [/^billing(\/|$)/, 'billing'],
   [/^users\/:id\/mfa\/reset$/, 'team'],
   [/^users$/, null, 'GET'],
   [/^users$/, 'team'],

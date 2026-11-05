@@ -118,7 +118,7 @@ function SubscriptionTab({ org, run }: { org: OrgDetail; run: Run }) {
             {plan.priceLabel && <p className="font-medium">{plan.priceLabel}</p>}
             <p><b className="tabular-nums">{plan.features.length}</b> web features · <b className="tabular-nums">{plan.mobileEnabled ? plan.mobileFeatures.length : 0}</b> in the app</p>
             <p className="text-xs text-muted">Users: {plan.maxUsers ?? 'no limit'} · Projects: {plan.maxProjects ?? 'no limit'}. Turn single features on or off for this organisation in the Features tab.</p>
-            <p className="text-xs text-muted">No payment is taken in PROJEXA: record renewals here, or let Automation remind and expire them.</p>
+            <p className="text-xs text-muted">Payments online or offline renew this by themselves (Billing). You can also change it here, or let Automation remind and expire it.</p>
           </div>
         ) : <Loading />}
       </Section>

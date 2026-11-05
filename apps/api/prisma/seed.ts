@@ -496,4 +496,21 @@ async function seedSuperAdmin(hash: string) {
     data: { name: 'Orbit Analytics', slug: 'orbit', status: 'PENDING', registration: { contactName: 'Ivy Chen', phone: '+44 20 7946 0000', website: 'https://orbit.example.com', message: 'We run 40 B2B projects a month.', requestedPlan: 'professional', at: new Date().toISOString() } },
   });
   await prisma.user.create({ data: { organizationId: orbit.id, email: 'ivy@orbit.example.com', name: 'Ivy Chen', passwordHash: hash, role: 'ADMIN', active: false } });
+
+  // Subscription payments (docs/SUBSCRIPTION_PAYMENTS.md): prices, billing settings, a paid and a waiting invoice.
+  const prices: Record<string, [number, number]> = { starter: [4999, 49990], professional: [12999, 129990], enterprise: [29999, 299990] };
+  for (const [code, [m, y]] of Object.entries(prices)) await prisma.plan.update({ where: { code }, data: { priceMonthly: m, priceYearly: y, currency: 'INR' } });
+  const owner = await prisma.organization.findFirstOrThrow({ where: { platformOwner: true } });
+  await prisma.organization.update({ where: { id: owner.id }, data: { platformSettings: { ...((owner.platformSettings ?? {}) as object), billing: {
+    onlineEnabled: true, offlineEnabled: true, offlineMethods: ['bank_transfer', 'upi', 'cheque'], taxName: 'GST', taxPercent: 18,
+    bankDetails: 'Account name: Sampledge Pvt Ltd\nAccount: 50200012345678\nIFSC: HDFC0001234 (HDFC Bank, Andheri East)', upiId: 'sampledge@hdfcbank',
+    offlineInstructions: 'Write your organisation name in the payment remarks.', sellerName: 'Sampledge Pvt Ltd', sellerAddress: 'Andheri East, Mumbai 400069, India',
+    sellerTaxId: '27AABCS1234F1Z5', sellerEmail: 'billing@sampledge.com', invoiceFooter: 'Thank you for choosing PROJEXA.',
+  } } } });
+  const nw = await prisma.organization.findUniqueOrThrow({ where: { slug: 'northwind' } });
+  const starter = await prisma.plan.findUniqueOrThrow({ where: { code: 'starter' } });
+  const inv = (n: number, data: object) => prisma.billingInvoice.create({ data: { number: `SUB-${new Date().getUTCFullYear()}-${String(n).padStart(5, '0')}`, organizationId: nw.id, planId: starter.id, interval: 'MONTHLY', currency: 'INR', amount: 4999, taxName: 'GST', taxPercent: 18, taxAmount: 899.82, total: 5898.82, ...data } });
+  await inv(1, { status: 'PAID', method: 'razorpay', reference: 'pay_PxD4mK2ZtYv9Lq', providerOrderId: 'order_demo_1', paidAt: new Date(Date.now() - 25 * day), paidOn: new Date(Date.now() - 25 * day), periodStart: new Date(Date.now() - 25 * day), periodEnd: new Date(Date.now() + 5 * day) });
+  await inv(2, { status: 'PENDING_REVIEW', method: 'upi', reference: '431298765432', paidOn: new Date(Date.now() - day), note: 'Paid from our HDFC current account.' });
+  await prisma.$executeRawUnsafe(`SELECT setval('billing_invoice_seq', 2)`);
 }
