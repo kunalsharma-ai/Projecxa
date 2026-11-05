@@ -1,5 +1,5 @@
 import { hasFeature, type Features } from '@/lib/types';
-import { CreditCard, Crown, Columns3, Activity, Route, MessagesSquare, ListChecks, Sparkles, BarChart3, BookOpenCheck, Users, HandCoins, Building2, FolderKanban, FormInput, ReceiptText, KeyRound, LayoutDashboard, Palette, PlugZap, PlusCircle, Settings, ShieldCheck, Stamp, Trophy, Truck, type LucideIcon } from 'lucide-react';
+import { CreditCard, Database, PieChart, Crown, Columns3, Activity, Route, MessagesSquare, ListChecks, Sparkles, BarChart3, BookOpenCheck, Users, HandCoins, Building2, FolderKanban, FormInput, ReceiptText, KeyRound, LayoutDashboard, Palette, PlugZap, PlusCircle, Settings, ShieldCheck, Stamp, Trophy, Truck, type LucideIcon } from 'lucide-react';
 
 export type NavGroup = 'Workspace' | 'Fieldwork' | 'Finance' | 'Network' | 'Admin';
 export interface NavItem { href: string; label: string; icon: LucideIcon; group: NavGroup; keywords?: string; editorsOnly?: boolean; adminOnly?: boolean; feature?: string; superAdminOnly?: boolean }
@@ -19,6 +19,8 @@ export const NAV: NavItem[] = [
   { href: '/monitor', label: 'Fieldwork monitor', icon: Activity, group: 'Fieldwork', keywords: 'alerts pace autopilot stalled incidence quality', feature: 'monitor' },
   { href: '/redirect-health', label: 'Redirect health', icon: Route, group: 'Fieldwork', keywords: 'redirects fallback callbacks survey links broken latency errors health', feature: 'redirect_health' },
   { href: '/reports', label: 'Reports', icon: BarChart3, group: 'Fieldwork', keywords: 'overall conversion client vendor clicks', feature: 'reports' },
+  { href: '/data-processing', label: 'Data processing', icon: Database, group: 'Fieldwork', keywords: 'data quality cleaning validation pipeline speeders duplicates clean data export reconciliation quota balance', feature: 'data_processing' },
+  { href: '/analytics', label: 'Analytics', icon: PieChart, group: 'Fieldwork', keywords: 'crosstab cross tab charts insights results answers analysis deliverables dashboard', feature: 'analytics' },
   { href: '/invoices', label: 'Invoices', icon: ReceiptText, group: 'Finance', keywords: 'billing reconciliation payment finance', feature: 'invoices' },
   { href: '/payables', label: 'Vendor payables', icon: HandCoins, group: 'Finance', keywords: 'bills vendor payments owed finance', feature: 'payables' },
   { href: '/accounting', label: 'Accounting exports', icon: BookOpenCheck, group: 'Finance', keywords: 'zoho books tally quickbooks xero export finance ledger', editorsOnly: true, feature: 'accounting' },
