@@ -4,7 +4,7 @@
  * feed the same config builders (common/config.ts), and env still works as a fallback.
  */
 
-export const INTEGRATION_KINDS = ['smtp', 'sso_google', 'sso_microsoft', 'sso_zoho', 'gemini', 'zoho_books', 'xero', 'quickbooks', 'tally', 'bidzo', 'razorpay', 'stripe'] as const;
+export const INTEGRATION_KINDS = ['smtp', 'sso_google', 'sso_microsoft', 'sso_zoho', 'gemini', 'zoho_books', 'xero', 'quickbooks', 'tally', 'bidzo', 'razorpay', 'stripe', 'push'] as const;
 /** Payment gateways the server owner uses to collect subscription payments (docs/SUBSCRIPTION_PAYMENTS.md). Never shown to other organisations. */
 export const PAYMENT_KINDS = ['razorpay', 'stripe'] as const;
 export const isPaymentKind = (k: string) => (PAYMENT_KINDS as readonly string[]).includes(k);
@@ -26,7 +26,7 @@ export interface FieldDef {
 }
 export interface KindDef {
   kind: IntegrationKind;
-  group: 'Email' | 'Sign-in' | 'AI' | 'Accounting' | 'Bidzo' | 'Payments';
+  group: 'Email' | 'Sign-in' | 'AI' | 'Accounting' | 'Bidzo' | 'Payments' | 'Mobile';
   label: string;
   summary: string;
   /** platform = one per PROJEXA server, set by the organisation that runs it (sign-in and accounting apps). */
@@ -329,6 +329,27 @@ export const CATALOG: KindDef[] = [
     links: [{ label: 'Stripe API keys', href: 'https://dashboard.stripe.com/apikeys' }, { label: 'Stripe webhooks', href: 'https://dashboard.stripe.com/webhooks' }],
     testable: true,
     next: { label: 'Super Admin → Billing', href: '/super-admin/billing' },
+  },
+  {
+    kind: 'push',
+    group: 'Mobile',
+    label: 'Push notifications',
+    summary: 'Alerts, request replies, task reminders and won bids on the PROJEXA phone app, sent through Expo’s free push service.',
+    scope: 'platform',
+    fields: [
+      { key: 'EXPO_PUSH', label: 'Push notifications', type: 'select', required: true, default: 'on', options: [{ value: 'on', label: 'On' }, { value: 'off', label: 'Off' }] },
+      { key: 'EXPO_ACCESS_TOKEN', label: 'Expo access token (optional)', type: 'secret', hint: 'Only if you turned on “Enhanced security for push notifications” in your Expo account. Expo → Account settings → Access tokens.' },
+    ],
+    steps: [
+      'Build the app with your Expo account (docs/MOBILE_APP.md → Android test build). Expo gives the app a project ID that push tokens belong to.',
+      'Android: in the Firebase console create a project, add an Android app with package com.sampledge.projexa, then upload its service account key in expo.dev → your project → Credentials → Android → FCM V1. iOS needs an Apple developer account; EAS sets up the push key when you build.',
+      'Save here with Push notifications On, then press Test. People choose what they get in the app under Account → Push notifications.',
+    ],
+    links: [
+      { label: 'Expo push notifications', href: 'https://docs.expo.dev/push-notifications/overview/' },
+      { label: 'FCM credentials for Expo', href: 'https://docs.expo.dev/push-notifications/fcm-credentials/' },
+    ],
+    testable: true,
   },
 ];
 

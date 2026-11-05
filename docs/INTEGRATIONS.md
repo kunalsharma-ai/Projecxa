@@ -11,6 +11,7 @@ Every integration is set up by an admin in the app at **Settings → Integration
 | Xero, QuickBooks Online | Admins of the organisation that runs the server (the app); each organisation then presses Connect on the Accounting page for its own company | Asks Xero/Intuit whether they accept the client ID and secret |
 | Tally Prime | Admins of the organisation that runs the server only | Lists the companies open in Tally |
 | Bidzo link | Each organisation's admin | – |
+| Push notifications (phone app, Expo) | Admins of the organisation that runs the server | Sends a test push to your own phones that are signed in to the app |
 
 Captcha keys, the Bidzo webhook secret, alert webhooks and API keys were already set in the app (Settings, and Settings → API and webhooks).
 

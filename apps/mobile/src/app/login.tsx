@@ -1,10 +1,11 @@
 import { Feather } from '@expo/vector-icons';
-import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BrandMark } from '@/components/gate';
 import { Backdrop, Card, Field, GradientButton, Muted } from '@/components/ui';
-import { apiRoot } from '@/lib/api';
+import { apiRoot, createApi } from '@/lib/api';
+import type { SsoProviderId, SsoProviderInfo } from '@/lib/sso';
 import { useSession } from '@/lib/session';
 import { useTheme } from '@/lib/theme';
 
@@ -22,6 +23,39 @@ export default function Login() {
   const [showServer, setShowServer] = useState(!s.server);
   const [server, setServer] = useState(s.server);
   const [web, setWeb] = useState(s.webUrl);
+  const [providers, setProviders] = useState<SsoProviderInfo[]>([]);
+  const [ssoBusy, setSsoBusy] = useState<SsoProviderId | null>(null);
+
+  // The sign-in buttons the server has set up in Settings → Integrations and Single sign-on.
+  useEffect(() => {
+    const root = apiRoot(server);
+    if (!root) return setProviders([]);
+    let live = true;
+    const t = setTimeout(() => {
+      createApi({ baseUrl: root, token: null })
+        .get<SsoProviderInfo[]>('/auth/sso/providers')
+        .then((p) => live && setProviders(Array.isArray(p) ? p : []))
+        .catch(() => live && setProviders([]));
+    }, 400);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+  }, [server]);
+
+  const sso = async (p: SsoProviderId) => {
+    setError(null);
+    setSsoBusy(p);
+    try {
+      if (server !== s.server || web !== s.webUrl) await s.setServer(server, web);
+      const r = await s.loginSso(p, org.trim() || undefined);
+      if ('mfa' in r) setStep('mfa');
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSsoBusy(null);
+    }
+  };
 
   const submit = async () => {
     setError(null);
@@ -70,6 +104,28 @@ export default function Login() {
               </View>
             )}
             <GradientButton title={step === 'password' ? 'Sign in' : 'Verify'} icon="log-in" onPress={submit} busy={busy} disabled={step === 'password' ? !email || !password : !code} />
+            {step === 'password' && providers.length > 0 && (
+              <View style={{ gap: 10 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={{ flex: 1, height: 1, backgroundColor: c.border }} />
+                  <Text style={{ color: c.muted, fontSize: 12 }}>or continue with</Text>
+                  <View style={{ flex: 1, height: 1, backgroundColor: c.border }} />
+                </View>
+                {providers.map((p) => (
+                  <Pressable
+                    key={p.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Sign in with ${p.label}`}
+                    disabled={!!ssoBusy || busy}
+                    onPress={() => sso(p.id)}
+                    style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, minHeight: 48, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.card, opacity: pressed ? 0.7 : 1 })}
+                  >
+                    {ssoBusy === p.id ? <ActivityIndicator color={c.primary} /> : <ProviderMark id={p.id} />}
+                    <Text style={{ color: c.text, fontWeight: '700', fontSize: 15 }}>Sign in with {p.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
             {step === 'mfa' && (
               <Pressable onPress={() => setStep('password')} accessibilityRole="button">
                 <Text style={{ color: c.primary, textAlign: 'center', fontWeight: '600' }}>Use a different account</Text>
@@ -92,5 +148,15 @@ export default function Login() {
         </ScrollView>
       </KeyboardAvoidingView>
     </Backdrop>
+  );
+}
+
+/** Simple coloured letter marks, so no provider logos are bundled. */
+function ProviderMark({ id }: { id: SsoProviderId }) {
+  const bg = id === 'google' ? '#4285F4' : id === 'microsoft' ? '#00A4EF' : '#E42527';
+  return (
+    <View style={{ width: 24, height: 24, borderRadius: 6, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ color: '#fff', fontWeight: '900', fontSize: 13 }}>{id === 'google' ? 'G' : id === 'microsoft' ? 'M' : 'Z'}</Text>
+    </View>
   );
 }

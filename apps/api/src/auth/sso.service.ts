@@ -1,11 +1,12 @@
-import { BadRequestException, Body, Controller, Delete, Get, Injectable, Logger, NotFoundException, Param, Put, Query, Req, Res } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Injectable, Logger, NotFoundException, Param, Post, Put, Query, Req, Res, UnauthorizedException } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { JwtService } from '@nestjs/jwt';
 import { Organization, Prisma, User } from '@prisma/client';
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { AuditService } from '../audit/audit.service';
 import { config } from '../common/config';
-import { randomToken } from '../common/crypto';
+import { randomToken, sha256 } from '../common/crypto';
 import { ZodPipe } from '../common/zod.pipe';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from './auth.types';
@@ -42,6 +43,27 @@ const redirectUri = (p: SsoProvider) => `${config.publicBaseUrl}/api/v1/auth/sso
 const web = () => config.webOrigins[0] ?? '';
 
 class SsoFailure extends Error {}
+
+/**
+ * Sign-in started by the phone app (docs/MOBILE_APP.md → Single sign-on). The browser comes back to
+ * the app's own link with a one-time code; only `projexa://` is accepted, plus Expo Go's `exp://`
+ * outside production so the app can be tried while developing.
+ */
+export interface MobileStart { redirect: string; challenge: string }
+export function mobileRedirectAllowed(uri: string) {
+  if (uri.length > 300 || /[\s"'<>]/.test(uri)) return false;
+  if (/^projexa:\/\/[^?#]*$/i.test(uri)) return true;
+  return process.env.NODE_ENV !== 'production' && /^exps?:\/\/[^?#]+$/i.test(uri);
+}
+const challengeRe = /^[A-Za-z0-9_-]{43}$/;
+const withQuery = (base: string, q: Record<string, string>) => `${base}${base.includes('?') ? '&' : '?'}${new URLSearchParams(q)}`;
+const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+/** The page the phone's browser shows for a moment: it opens the app, with a button if the phone asks first. */
+export function returnToAppPage(url: string, ok: boolean) {
+  const u = esc(url);
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="0;url=${u}"><title>Back to PROJEXA</title><style>body{font-family:system-ui,sans-serif;background:#0b0820;color:#f4f2ff;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;padding:16px;text-align:center}a{display:inline-block;margin-top:16px;padding:14px 22px;border-radius:14px;background:linear-gradient(90deg,#6366f1,#a855f7);color:#fff;text-decoration:none;font-weight:700}</style></head><body><main><h1 style="font-size:20px">${ok ? 'Signed in' : 'Sign-in did not finish'}</h1><p>Going back to the PROJEXA app…</p><a href="${u}">Open the PROJEXA app</a></main><script>location.replace(${JSON.stringify(url).replace(/</g, '\\u003c')})</script></body></html>`;
+}
 
 @Injectable()
 export class SsoService {
@@ -92,30 +114,32 @@ export class SsoService {
   }
 
   /** Step 1: send the browser to the provider, with state, nonce and PKCE kept in a short-lived signed cookie. */
-  async start(p: SsoProvider, org: string | undefined, res: Response) {
+  async start(p: SsoProvider, org: string | undefined, res: Response, mobile?: MobileStart) {
     const s = await this.settings(p);
     if (!s) throw new SsoFailure(`${PROVIDER_LABEL[p]} sign-in is not set up yet`);
     const d = await this.discovery(s.discoveryUrl);
     const state = randomToken(16);
     const nonce = randomToken(16);
     const { verifier, challenge } = pkce();
-    const cookie = await this.jwt.signAsync({ p, state, nonce, verifier, org: org ?? null }, { secret: `${config.jwtSecret}:sso-state`, expiresIn: '10m' });
+    const cookie = await this.jwt.signAsync({ p, state, nonce, verifier, org: org ?? null, ...(mobile ? { m: { r: mobile.redirect, c: mobile.challenge } } : {}) }, { secret: `${config.jwtSecret}:sso-state`, expiresIn: '10m' });
     res.cookie(STATE_COOKIE, cookie, { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 10 * 60 * 1000, path: '/api/v1/auth/sso' });
     const q = new URLSearchParams({ client_id: s.clientId, response_type: 'code', redirect_uri: redirectUri(p), scope: s.scope, state, nonce, code_challenge: challenge, code_challenge_method: 'S256', ...s.extraAuthParams });
     return `${d.authorization_endpoint}?${q}`;
   }
 
-  /** Step 2: back from the provider. Returns where to send the browser. */
-  async callback(p: SsoProvider, q: Record<string, string | undefined>, req: Request, res: Response): Promise<string> {
+  /** Step 2: back from the provider. Returns where to send the browser (and whether that is the phone app). */
+  async callback(p: SsoProvider, q: Record<string, string | undefined>, req: Request, res: Response): Promise<{ url: string; mobile: boolean }> {
     res.clearCookie(STATE_COOKIE, { path: '/api/v1/auth/sso' });
+    let mobile: { r: string; c: string } | undefined;
     try {
       const raw = (req as Request & { cookies?: Record<string, string> }).cookies?.[STATE_COOKIE];
-      let st: { p: string; state: string; nonce: string; verifier: string; org: string | null };
+      let st: { p: string; state: string; nonce: string; verifier: string; org: string | null; m?: { r: string; c: string } };
       try {
         st = await this.jwt.verifyAsync(raw ?? '', { secret: `${config.jwtSecret}:sso-state` });
       } catch {
         throw new SsoFailure('This sign-in took too long or was started in another browser. Try again.');
       }
+      if (st.m && mobileRedirectAllowed(st.m.r) && challengeRe.test(st.m.c)) mobile = st.m;
       if (q.error) throw new SsoFailure(q.error === 'access_denied' ? 'Sign-in was cancelled.' : `${PROVIDER_LABEL[p]} said: ${q.error_description ?? q.error}`);
       if (st.p !== p || !q.state || q.state !== st.state || !q.code) throw new SsoFailure('Sign-in could not be checked. Try again.');
       const s = await this.settings(p);
@@ -150,17 +174,41 @@ export class SsoService {
       }
 
       const user = await this.resolve(p, id, st.org);
+      if (mobile) {
+        // The app swaps this for a session (and asks for the authenticator code if needed).
+        const code = randomToken(32);
+        await this.prisma.mobileSsoCode.create({ data: { userId: user.id, codeHash: sha256(code), challenge: mobile.c, expiresAt: new Date(Date.now() + 2 * 60_000) } });
+        return { url: withQuery(mobile.r, { code }), mobile: true };
+      }
       if (user.mfaEnabledAt) {
         this.session.setMfaCookie(res, await this.session.mfaToken(user.id));
-        return `${web()}/login?step=code`;
+        return { url: `${web()}/login?step=code`, mobile: false };
       }
       const out = await this.session.start(user, res);
-      return `${web()}${out.home}`;
+      return { url: `${web()}${out.home}`, mobile: false };
     } catch (e) {
       const msg = e instanceof SsoFailure ? e.message : e instanceof OidcError ? `Sign-in could not be verified (${e.message}).` : 'Sign-in failed. Try again, or use your email and password.';
       if (!(e instanceof SsoFailure)) this.log.warn(`SSO ${p} failed: ${(e as Error).message}`);
-      return `${web()}/login?sso_error=${encodeURIComponent(msg)}`;
+      if (mobile) return { url: withQuery(mobile.r, { error: msg }), mobile: true };
+      return { url: `${web()}/login?sso_error=${encodeURIComponent(msg)}`, mobile: false };
     }
+  }
+
+  /** The app swaps the one-time code (with its PKCE verifier) for a session. */
+  async exchange(code: string, verifier: string, res: Response) {
+    const bad = () => new UnauthorizedException('This sign-in has expired. Try again.');
+    const row = await this.prisma.mobileSsoCode.findUnique({ where: { codeHash: sha256(code) } });
+    if (!row || row.usedAt || row.expiresAt < new Date()) throw bad();
+    const expected = createHash('sha256').update(verifier).digest('base64url');
+    if (expected !== row.challenge) throw bad();
+    // Once only, also when two requests race.
+    const used = await this.prisma.mobileSsoCode.updateMany({ where: { id: row.id, usedAt: null }, data: { usedAt: new Date() } });
+    if (used.count !== 1) throw bad();
+    await this.prisma.mobileSsoCode.deleteMany({ where: { expiresAt: { lt: new Date(Date.now() - 3600_000) } } });
+    const user = await this.prisma.user.findUnique({ where: { id: row.userId }, include: { organization: true } });
+    if (!user || !user.active) throw new UnauthorizedException('Your PROJEXA account is not active.');
+    if (user.mfaEnabledAt) return { mfaRequired: true, mfaToken: await this.session.mfaToken(user.id) };
+    return this.session.start(user, res);
   }
 
   /** Finds the PROJEXA user: by the linked identity, or the first time by email, then links it. */
@@ -195,6 +243,8 @@ export class SsoService {
   }
 }
 
+const exchangeSchema = z.object({ code: z.string().min(20).max(200), verifier: z.string().regex(/^[A-Za-z0-9._~-]{43,128}$/) }).strict();
+
 /** Public sign-in routes: which buttons to show, start, and the provider callback. */
 @Controller('auth/sso')
 @Public()
@@ -207,21 +257,44 @@ export class SsoController {
     return (await this.sso.configured()).map((id) => ({ id, label: PROVIDER_LABEL[id] }));
   }
 
+  /** Phone app: one-time code + PKCE verifier → session (or the authenticator code step). */
+  @Post('mobile/exchange')
+  @HttpCode(200)
+  exchange(@Body(new ZodPipe(exchangeSchema)) b: z.infer<typeof exchangeSchema>, @Res({ passthrough: true }) res: Response) {
+    return this.sso.exchange(b.code, b.verifier, res);
+  }
+
   @Get(':provider/start')
-  async start(@Param('provider') p: string, @Query('org') org: string | undefined, @Res() res: Response) {
+  async start(
+    @Param('provider') p: string,
+    @Query('org') org: string | undefined,
+    @Query('client') client: string | undefined,
+    @Query('redirect') redirect: string | undefined,
+    @Query('challenge') challenge: string | undefined,
+    @Res() res: Response,
+  ) {
     if (!SSO_PROVIDERS.includes(p as SsoProvider)) throw new NotFoundException();
+    let mobile: MobileStart | undefined;
+    if (client === 'mobile') {
+      if (!redirect || !mobileRedirectAllowed(redirect)) throw new BadRequestException('Unknown app address');
+      if (!challenge || !challengeRe.test(challenge)) throw new BadRequestException('Missing sign-in check');
+      mobile = { redirect, challenge };
+    }
     try {
-      res.redirect(302, await this.sso.start(p as SsoProvider, org?.trim().toLowerCase() || undefined, res));
+      res.redirect(302, await this.sso.start(p as SsoProvider, org?.trim().toLowerCase() || undefined, res, mobile));
     } catch (e) {
       const msg = e instanceof Error && !/fetch|ECONN|timeout/i.test(e.message) ? e.message : 'Could not reach the sign-in provider. Try again.';
-      res.redirect(302, `${web()}/login?sso_error=${encodeURIComponent(msg)}`);
+      if (mobile) res.type('html').send(returnToAppPage(withQuery(mobile.redirect, { error: msg }), false));
+      else res.redirect(302, `${web()}/login?sso_error=${encodeURIComponent(msg)}`);
     }
   }
 
   @Get(':provider/callback')
   async callback(@Param('provider') p: string, @Query() q: Record<string, string>, @Req() req: Request, @Res() res: Response) {
     if (!SSO_PROVIDERS.includes(p as SsoProvider)) throw new NotFoundException();
-    res.redirect(302, await this.sso.callback(p as SsoProvider, q, req, res));
+    const out = await this.sso.callback(p as SsoProvider, q, req, res);
+    if (out.mobile) res.type('html').setHeader('Cache-Control', 'no-store').send(returnToAppPage(out.url, !/[?&]error=/.test(out.url)));
+    else res.redirect(302, out.url);
   }
 }
 

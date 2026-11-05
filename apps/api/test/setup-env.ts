@@ -10,3 +10,4 @@ process.env.REDIRECT_SCHEDULER_ENABLED = 'false';
 process.env.ZOHO_BOOKS_SCHEDULER_ENABLED = 'false';
 process.env.PRIVACY_SCHEDULER_ENABLED = 'false';
 process.env.AUTOMATION_SCHEDULER_ENABLED = 'false';
+process.env.PUSH_SCHEDULER_ENABLED = 'false';

@@ -6,6 +6,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../auth/auth.types';
 import { config } from '../common/config';
 import { MailNotConfigured, MailService } from '../mail/mail.service';
+import { PushService } from '../push/push';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** Who is asking: staff see everything in the organisation; a portal user only their own company's. */
@@ -51,7 +52,7 @@ type TicketWithParties = Prisma.TicketGetPayload<{ include: { client: { select: 
 @Injectable()
 export class RequestsService {
   private readonly log = new Logger(RequestsService.name);
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly mail: MailService, private readonly branding: BrandingService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly mail: MailService, private readonly branding: BrandingService, private readonly push: PushService) {}
 
   /** The company a portal user belongs to. */
   async partyOf(u: AuthUser): Promise<Party> {
@@ -304,7 +305,7 @@ export class RequestsService {
   }
 
   /**
-   * Email the other side when SMTP is set up: a portal message goes to the assignee (or the project
+   * Email (when SMTP is set up) and push to the other side: a portal message goes to the assignee (or the project
    * manager); a staff answer goes to the person who opened the request. Failures never block the request.
    */
   private async notify(ticketId: string, author: AuthUser, what: 'created' | 'reply') {
@@ -315,6 +316,8 @@ export class RequestsService {
       if (!toId || toId === author.id) return;
       const to = await this.prisma.user.findFirst({ where: { id: toId, organizationId: t.organizationId, active: true }, select: { email: true, role: true } });
       if (!to) return;
+      // Their phone too, when they use the app (independent of email being set up).
+      await this.push.request(toId, to.role, { id: t.id, ref: ticketRef(t.number), subject: t.subject }, author.name, what);
       const portal = to.role === 'CLIENT_USER' || to.role === 'VENDOR_USER';
       const brand = await this.branding.brand(t.organizationId);
       const link = `${brand.webBase}${portal ? `/portal/requests/${t.id}` : `/requests/${t.id}`}`;

@@ -16,6 +16,7 @@ import { config } from '../common/config';
 import { hmacSha256, randomToken, safeEqualHex } from '../common/crypto';
 import { ZodPipe } from '../common/zod.pipe';
 import { PrismaService } from '../prisma/prisma.service';
+import { PushService } from '../push/push';
 import { bidzoEventSchema, dismissSchema, listSchema } from './won-bids.schemas';
 
 /** Signed requests older or newer than this are rejected (replay protection). */
@@ -23,7 +24,7 @@ export const SIGNATURE_WINDOW_SECONDS = 300;
 
 @Controller()
 export class WonBidsController {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly push: PushService) {}
 
   // ───────────── Intake from Bidzo (public, HMAC-signed) ─────────────
 
@@ -77,6 +78,7 @@ export class WonBidsController {
       try {
         const created = await this.prisma.wonBid.create({ data: { organizationId: org.id, source: 'BIDZO', externalId: bid.id, ...data } });
         await this.audit.record({ organizationId: org.id, actorId: null, action: 'won-bid.received', entityType: 'WonBid', entityId: created.id, detail: { bidNumber: bid.bidNumber, eventId } });
+        await this.push.wonBidReceived(org.id, { name: bid.projectName, bidNumber: bid.bidNumber });
         return { wonBidId: created.id, status: created.status, duplicate: false };
       } catch (e) {
         // A concurrent delivery of the same bid created it first; fall through to the update path.

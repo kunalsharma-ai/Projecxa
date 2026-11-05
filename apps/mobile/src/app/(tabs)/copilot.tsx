@@ -1,10 +1,12 @@
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View, type ScrollViewInstance } from 'react-native';
 import { FeatureGate } from '@/components/gate';
 import { Bars, Card, GhostButton, IconTile, KV, Muted, Pill, Screen } from '@/components/ui';
 import { useApi } from '@/lib/session';
+import { VoicePanel } from '@/components/voice-panel';
+import { useVoice, voiceSupported } from '@/lib/voice';
 import { useTheme } from '@/lib/theme';
 
 type Display =
@@ -33,6 +35,44 @@ function Copilot() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scroller = useRef<ScrollViewInstance>(null);
+  const [voiceOn, setVoiceOn] = useState(false);
+  const convRef = useRef<string | null>(null);
+  convRef.current = conversationId;
+
+  // Voice is offered when the organisation has it on (Settings → AI copilot) and this is a phone.
+  useEffect(() => {
+    if (!voiceSupported) return;
+    api.get<{ enabled: boolean; features?: { voice?: boolean } }>('/ai/status').then((st) => setVoiceOn(!!st.enabled && !!st.features?.voice)).catch(() => setVoiceOn(false));
+  }, [api]);
+
+  const scrollEnd = () => setTimeout(() => scroller.current?.scrollToEnd({ animated: true }), 50);
+  const voice = useVoice<Display, Action>(api, {
+    onTurn: (id, said) => {
+      setConversationId(id);
+      // Live calls: show what was said. Tap to talk already added the chat answer through ask().
+      if (voice.mode === 'live') {
+        const at = Date.now();
+        setMessages((x) => [
+          ...x,
+          ...(said.user ? [{ id: `voice-u-${at}`, role: 'user' as const, text: `🎙 ${said.user}` }] : []),
+          ...(said.assistant ? [{ id: `voice-a-${at}`, role: 'assistant' as const, text: said.assistant }] : []),
+        ]);
+      }
+      scrollEnd();
+    },
+    onTool: (out) => {
+      if (!out.displays.length && !out.action) return;
+      setMessages((x) => [...x, { id: `voice-t-${Date.now()}`, role: 'assistant', text: '', displays: out.displays, actions: out.action ? [out.action] : [] }]);
+      scrollEnd();
+    },
+    ask: async (q, id) => {
+      setMessages((x) => [...x, { id: `local-${Date.now()}`, role: 'user', text: `🎙 ${q}` }]);
+      const r = await api.post<{ conversationId: string; messages: Message[] }>('/ai/chat', { conversationId: id, message: q, path: '/mobile' });
+      setMessages((x) => [...x.filter((y) => !y.id.startsWith('local-')), ...r.messages]);
+      const answer = [...r.messages].reverse().find((m) => m.role === 'assistant' && m.text)?.text ?? 'Done.';
+      return { conversationId: r.conversationId, answer };
+    },
+  });
 
   const send = async (msg = text) => {
     const m = msg.trim();
@@ -67,7 +107,7 @@ function Copilot() {
       title="AI copilot"
       subtitle="Ask about projects, pace, money and vendors"
       scroll={false}
-      right={messages.length ? <GhostButton title="New" icon="plus" onPress={() => { setMessages([]); setConversationId(null); }} /> : undefined}
+      right={messages.length ? <GhostButton title="New" icon="plus" onPress={() => { voice.stop(); setMessages([]); setConversationId(null); }} /> : undefined}
     >
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }} keyboardVerticalOffset={80}>
         <ScrollView ref={scroller} contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 24 }}>
@@ -115,7 +155,15 @@ function Copilot() {
           {busy && <ActivityIndicator color={c.primary} />}
           {!!error && <Text style={{ color: c.bad }}>{error}</Text>}
         </ScrollView>
+        {voice.state !== 'idle' && <VoicePanel voice={voice} />}
         <View style={{ flexDirection: 'row', gap: 8, padding: 12, paddingBottom: 96, alignItems: 'flex-end' }}>
+          {voiceOn && voice.state === 'idle' && (
+            <Pressable accessibilityRole="button" accessibilityLabel="Talk to the copilot" onPress={() => voice.start(convRef.current, '/mobile')}>
+              <View style={{ width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: c.border, backgroundColor: c.card }}>
+                <Feather name="mic" size={18} color={c.primary} />
+              </View>
+            </Pressable>
+          )}
           <TextInput
             value={text}
             onChangeText={setText}

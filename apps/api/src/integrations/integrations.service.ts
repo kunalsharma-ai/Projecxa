@@ -183,6 +183,20 @@ export class IntegrationsService {
     return r.source === 'app' ? r.env.BIDZO_URL?.trim() || null : null;
   }
 
+  /** Push to the phone app: on when saved as On here, or EXPO_PUSH=on in the server env. */
+  async push(): Promise<{ enabled: boolean; accessToken: string | null }> {
+    const r = await this.resolve(null, 'push');
+    return { enabled: (r.env.EXPO_PUSH ?? '').trim() === 'on', accessToken: r.env.EXPO_ACCESS_TOKEN?.trim() || null };
+  }
+
+  /** Sends Expo push messages; swappable in tests. */
+  pushSend: (messages: Record<string, unknown>[], accessToken: string | null) => Promise<HttpReply> = (messages, accessToken) =>
+    this.http('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
+      body: JSON.stringify(messages),
+    });
+
   // ───────────── Settings screen ─────────────
 
   private async canEdit(u: AuthUser, def: KindDef) {
@@ -443,6 +457,19 @@ export class IntegrationsService {
         if (r.status === 200) return { ok: true, message: `Stripe accepted the key (${env.STRIPE_SECRET_KEY!.includes('_test_') ? 'test mode' : 'live mode'}).` };
         return { ok: false, message: r.status === 401 ? 'Stripe did not accept the key.' : `Stripe answered ${r.status}.` };
       }
+      case 'push': {
+        const c = await this.push();
+        if (!c.enabled) return { ok: false, message: 'Push notifications are Off. Choose On and save.' };
+        const phones = await this.prisma.pushDevice.findMany({ where: { userId: u.id }, select: { token: true } });
+        if (!phones.length) return { ok: false, message: 'Push is on. Sign in to the PROJEXA phone app and allow notifications, then test again to get a push on your phone.' };
+        const r = await this.pushSend(phones.map((p) => ({ to: p.token, title: 'PROJEXA', body: 'Push notifications work.', sound: 'default', data: { path: '/' } })), c.accessToken);
+        const j = safeJson(await r.text()) as { data?: { status: string; message?: string }[]; errors?: { message?: string }[] };
+        if (r.status === 401 || r.status === 403) return { ok: false, message: 'Expo did not accept the access token. Create a new one in your Expo account, or leave it empty if enhanced security is off.' };
+        if (r.status !== 200) return { ok: false, message: `Expo answered ${r.status}${j.errors?.[0]?.message ? `: ${j.errors[0].message}` : ''}` };
+        const bad = (j.data ?? []).filter((t) => t.status !== 'ok');
+        if (bad.length === phones.length) return { ok: false, message: `Expo could not send: ${bad[0]?.message ?? 'unknown error'}` };
+        return { ok: true, message: `Sent a test push to ${phones.length - bad.length} of your phone${phones.length === 1 ? '' : 's'}.` };
+      }
     }
   }
 
@@ -530,6 +557,7 @@ export function configuredIn(kind: IntegrationKind, env: EnvMap): boolean {
     case 'bidzo': return !!env.BIDZO_URL?.trim();
     case 'razorpay': return !!env.RAZORPAY_KEY_ID?.trim() && !!env.RAZORPAY_KEY_SECRET?.trim();
     case 'stripe': return !!env.STRIPE_SECRET_KEY?.trim();
+    case 'push': return (env.EXPO_PUSH ?? '').trim() === 'on';
   }
 }
 

@@ -56,6 +56,10 @@ export const voiceSessionSchema = z.object({ conversationId: z.string().max(64).
 export const voiceToolSchema = z.object({ conversationId: z.string().max(64), name: z.string().max(64), args: z.record(z.string(), z.unknown()).default({}) }).strict();
 export const voiceTurnSchema = z.object({ conversationId: z.string().max(64), userText: z.string().max(8000).default(''), assistantText: z.string().max(16000).default('') }).strict();
 
+/** Tap to talk recordings (phone app). */
+export const VOICE_AUDIO_TYPES = ['audio/wav', 'audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/m4a', 'audio/x-m4a', 'audio/aac', 'audio/ogg', 'audio/webm'];
+export const MAX_VOICE_BYTES = 4 * 1024 * 1024;
+
 /** Files the copilot can read. Word files: save as PDF first (Gemini reads PDF with layout and images). */
 export const DOC_TYPES: Record<string, 'inline' | 'text'> = {
   'application/pdf': 'inline',
@@ -495,6 +499,42 @@ export class AiService {
         throw new HttpException({ message: e.message, conversationId: conv.id, fallback: 'browser' }, e.kind === 'rate_limited' ? HttpStatus.TOO_MANY_REQUESTS : HttpStatus.BAD_GATEWAY);
       }
       throw e;
+    }
+  }
+
+  /**
+   * Tap to talk (phone app, when Live voice is not available): writes down one spoken question with
+   * the main model. The answer then comes from the normal chat, so tools and confirmations work as usual.
+   */
+  async transcribe(u: AuthUser, file: { mimetype: string; size: number; buffer: Buffer } | undefined) {
+    const s = await this.gate(u, 'voice');
+    if (!file || !file.size) throw new BadRequestException('No recording received');
+    const mime = file.mimetype === 'audio/x-wav' || file.mimetype === 'audio/wave' ? 'audio/wav' : file.mimetype;
+    if (!VOICE_AUDIO_TYPES.includes(mime)) throw new BadRequestException('Send the recording as WAV, MP3, M4A, AAC, OGG or WebM');
+    if (file.size > MAX_VOICE_BYTES) throw new BadRequestException('Keep a question under about a minute');
+    await this.limit(u, s);
+    const { p, c } = await this.provider(u.organizationId);
+    const req = {
+      system: 'You write down speech. Reply with exactly the words the person said, in the language they spoke, with normal punctuation. No quotes, notes or answers. If nothing can be understood, reply with nothing.',
+      messages: [{ role: 'user' as const, parts: [{ file: { mimeType: mime, data: file.buffer.toString('base64'), name: 'question' } }, { text: 'Write down what I said.' }] as Part[] }],
+      tools: [],
+      temperature: 0,
+    };
+    let model = c.model;
+    for (;;) {
+      try {
+        const out = await p.generate({ ...req, model });
+        await this.usage(u, p.id, model, 'voice', out.usage);
+        return { text: out.text.trim().replace(/^["“]|["”]$/g, '').slice(0, 4000) };
+      } catch (e) {
+        await this.usage(u, p.id, model, 'voice', null, (e as Error).message);
+        if (e instanceof AiProviderError && (e.kind === 'rate_limited' || e.kind === 'unavailable') && c.fallbackModel && model !== c.fallbackModel) {
+          model = c.fallbackModel;
+          continue;
+        }
+        if (e instanceof AiProviderError) throw new HttpException(e.message, e.kind === 'rate_limited' ? HttpStatus.TOO_MANY_REQUESTS : e.kind === 'blocked' ? HttpStatus.UNPROCESSABLE_ENTITY : HttpStatus.SERVICE_UNAVAILABLE);
+        throw e;
+      }
     }
   }
 
