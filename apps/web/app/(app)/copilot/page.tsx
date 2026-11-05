@@ -19,7 +19,7 @@ function CopilotPage() {
   const open = (c: string | null) => { router.replace(c ? `/copilot?c=${c}` : '/copilot'); setShowList(false); };
 
   return (
-    <div className="relative -mx-4 -my-6 flex h-[calc(100dvh-3.5rem)] min-h-0 sm:-mx-6">
+    <div className="relative -mx-4 -my-6 flex h-[calc(100dvh-4rem)] min-h-0 sm:-mx-6">
       <aside className={clsx('w-64 shrink-0 flex-col border-r border-line bg-panel', showList ? 'absolute inset-y-0 left-0 z-20 flex shadow-lg' : 'hidden md:flex')}>
         <div className="flex items-center justify-between border-b border-line px-3 py-3">
           <span className="text-sm font-semibold">Conversations</span>
@@ -49,7 +49,7 @@ function CopilotPage() {
           </div>
         </div>
         <div className="min-h-0 flex-1">
-          <CopilotChat conversationId={id} onConversation={(c) => { open(c); refresh(); }} />
+          <CopilotChat conversationId={id} draft={params.get('ask') ?? undefined} onConversation={(c) => { open(c); refresh(); }} />
         </div>
       </section>
     </div>

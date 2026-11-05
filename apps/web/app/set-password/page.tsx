@@ -1,4 +1,5 @@
 'use client';
+import { AuthShell } from '@/components/auth-shell';
 import Link from 'next/link';
 import { BrandLogo, useBrandedPage } from '@/components/brand-mark';
 import { FormEvent, useEffect, useState } from 'react';
@@ -39,7 +40,7 @@ export default function SetPasswordPage() {
 
   const ok = passwordProblems(password, confirm).every((r) => r.ok);
   return (
-    <main className="grid min-h-screen place-items-center px-4">
+    <AuthShell>
       <form onSubmit={submit} className="card w-full max-w-sm space-y-4 p-7">
         <div>
           {brand && <BrandLogo brand={brand} />}
@@ -66,6 +67,6 @@ export default function SetPasswordPage() {
           </>
         )}
       </form>
-    </main>
+    </AuthShell>
   );
 }

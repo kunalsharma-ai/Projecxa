@@ -53,7 +53,7 @@ describe('White-label branding (e2e)', () => {
     await pm.put('/branding', body).expect(403);
     await admin.put('/branding', { ...body, brandColor: 'teal' }).expect(400);
     await admin.put('/branding', { ...body, appName: '<b>x</b>' }).expect(400);
-    await admin.put('/branding', { ...body, theme: 'neon' }).expect(400);
+    await admin.put('/branding', { ...body, theme: 'vaporwave' }).expect(400);
     const saved = (await admin.put('/branding', body).expect(200)).body;
     expect(saved.brand).toMatchObject({ appName: 'Acme Insight Hub', custom: true, brandColor: '#0f766e', theme: 'emerald', hidePoweredBy: true });
     const me = (await pm.get('/auth/me').expect(200)).body;
