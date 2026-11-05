@@ -1,3 +1,4 @@
+import { EntitlementsService } from '../super-admin/entitlements';
 import { BadRequestException, Body, Controller, ForbiddenException, Get, HttpCode, Injectable, Logger, NotFoundException, Param, Patch, Post, Query, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { Organization, Prisma, Role, User } from '@prisma/client';
@@ -192,6 +193,7 @@ export class TeamController {
     private readonly passwords: PasswordService,
     private readonly mail: MailService,
     private readonly audit: AuditService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   @Get()
@@ -216,6 +218,7 @@ export class TeamController {
   @Post()
   async invite(@CurrentUser() u: AuthUser, @Body(new ZodPipe(inviteSchema)) body: z.infer<typeof inviteSchema>) {
     if (await this.prisma.user.count({ where: { organizationId: u.organizationId, email: body.email } })) throw new BadRequestException('Someone with that email is already in your organization');
+    await this.entitlements.assertSeat(u.organizationId);
     // Nobody can sign in with this password: it is random and never shown.
     const created = await this.prisma.user.create({
       data: { organizationId: u.organizationId, email: body.email, name: body.name, role: body.role, passwordHash: await bcrypt.hash(randomToken(32), 10) },
@@ -238,6 +241,7 @@ export class TeamController {
     const x = await this.member(u, id);
     const losesAdmin = x.role === 'ADMIN' && x.active && ((body.role && body.role !== 'ADMIN') || body.active === false);
     if (x.id === u.id && losesAdmin) throw new ForbiddenException('You cannot remove your own admin access. Ask another admin.');
+    if (body.active === true && !x.active) await this.entitlements.assertSeat(u.organizationId);
     const data: Prisma.UserUpdateInput = { ...body };
     if (body.active === false && x.active) data.sessionsValidAfter = new Date(); // signed out at once
     await this.prisma.$transaction(async (tx) => {

@@ -15,6 +15,8 @@ import { AuthUser } from './auth.types';
 import { Preferences, preferencesSchema, readPreferences } from './preferences';
 import { TOUR_VERSION, TourUpdate, tourState, tourUpdateSchema } from './tour';
 
+import { EntitlementsService } from '../super-admin/entitlements';
+
 const loginSchema = z.object({
   email: z.string().email().transform((s) => s.toLowerCase()),
   password: z.string().min(1),
@@ -38,6 +40,7 @@ export class AuthController {
     private readonly mfa: MfaService,
     private readonly branding: BrandingService,
     private readonly integrations: IntegrationsService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   @Public()
@@ -101,7 +104,19 @@ export class AuthController {
       tour: tourState(links),
       /** Links set in Settings → Integrations (staff only). */
       links: { bidzoUrl: user.role === 'CLIENT_USER' || user.role === 'VENDOR_USER' ? null : await this.integrations.bidzoUrl(org.id) },
+      /** Super Admin switches (docs/SUPER_ADMIN.md); the same as GET /auth/me/features. */
+      features: await this.entitlements.forUser(user.id),
     };
+  }
+
+  /**
+   * What this person may use on the web and in the Android/iOS app. `version` changes whenever the
+   * answer changes and is also sent on every response as X-Features-Version, so apps refetch at once.
+   */
+  @Get('me/features')
+  @Roles('ADMIN', 'PROJECT_MANAGER', 'SALES', 'VIEWER', 'CLIENT_USER', 'VENDOR_USER')
+  features(@CurrentUser() user: AuthUser) {
+    return this.entitlements.forUser(user.id);
   }
 
   /** Merge a partial update into the caller's own interface preferences. */

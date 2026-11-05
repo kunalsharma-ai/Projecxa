@@ -221,7 +221,7 @@ export class DashboardController {
       }),
       this.prisma.callbackDelivery.count({ where: { organizationId: org, state: { in: ['FAILED', 'DEAD_LETTER'] } } }),
       this.prisma.redirectExecution.count({ where: { usedFallback: true, createdAt: { gte: day }, session: { organizationId: org } } }),
-      this.prisma.auditEvent.findMany({ where: { organizationId: org }, orderBy: { createdAt: 'desc' }, take: 8 }),
+      this.prisma.auditEvent.findMany({ where: { organizationId: org, action: { not: 'auth.sign_in' } }, orderBy: { createdAt: 'desc' }, take: 8 }),
       this.prisma.wonBid.count({ where: { organizationId: org, status: 'NEW' } }),
     ]);
     const [failedSchedules, apiFallbacks, openRequests, expiringDocs, applications, quoted] = await Promise.all([

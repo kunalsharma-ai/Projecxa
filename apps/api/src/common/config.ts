@@ -42,6 +42,9 @@ export const config = {
     return process.env.REDIRECT_SCHEDULER_ENABLED !== 'false';
   },
   /** Data retention (docs/PRIVACY.md): the hourly job that anonymises old respondent data. */
+  get automationSchedulerEnabled(): boolean {
+    return process.env.AUTOMATION_SCHEDULER_ENABLED !== 'false';
+  },
   get privacySchedulerEnabled(): boolean {
     return process.env.PRIVACY_SCHEDULER_ENABLED !== 'false';
   },

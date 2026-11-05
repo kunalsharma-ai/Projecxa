@@ -59,7 +59,7 @@ async function password(): Promise<string> {
 async function main() {
   const f = parseFlags(process.argv.slice(2));
   if (f.help) {
-    console.log('Usage: pnpm create-admin --org-name "Company" --email admin@company.com --name "Full Name" [--slug company]');
+    console.log('Usage: pnpm create-admin --org-name "Company" --email admin@company.com --name "Full Name" [--slug company] [--super-admin]');
     return;
   }
   const orgName = (f['org-name'] ?? '').trim();
@@ -87,8 +87,10 @@ async function main() {
       const org = existing ?? (await tx.organization.create({ data: { name: input.orgName, slug: input.slug, platformOwner: firstOnServer } }));
       const clash = await tx.user.findFirst({ where: { organizationId: org.id, email: input.email } });
       if (clash) throw new Error(`${input.email} already has an account in "${org.name}". Use "Forgot password" on the sign-in page instead.`);
+      // Super Admin (docs/SUPER_ADMIN.md): the first admin of the server owner, or anyone added there with --super-admin.
+      const superAdmin = org.platformOwner && (f['super-admin'] === 'true' || (await tx.user.count({ where: { superAdmin: true } })) === 0);
       const user = await tx.user.create({
-        data: { organizationId: org.id, email: input.email, name: input.name, passwordHash: hash, passwordSetAt: new Date(), role: 'ADMIN' },
+        data: { organizationId: org.id, email: input.email, name: input.name, passwordHash: hash, passwordSetAt: new Date(), role: 'ADMIN', superAdmin },
       });
       await tx.auditEvent.create({
         data: { organizationId: org.id, actorId: user.id, action: existing ? 'user.admin_created_cli' : 'organization.created_cli', entityType: 'User', entityId: user.id, detail: { email: input.email, organization: org.slug } },
@@ -97,6 +99,7 @@ async function main() {
     });
     console.log(existing ? `Added admin ${result.user.email} to "${result.org.name}" (${result.org.slug}).` : `Created "${result.org.name}" (${result.org.slug}) with admin ${result.user.email}.`);
     if (!existing && firstOnServer) console.log('This is the server owner organisation: its admins set up sign-in and accounting apps for the server.');
+    if (result.user.superAdmin) console.log('This admin is the Super Admin: open Super Admin in the menu to manage organisations, plans and features.');
     console.log('Sign in on the web app with that email and password. Next: Settings → Integrations, then Settings → Team.');
   } finally {
     await prisma.$disconnect();

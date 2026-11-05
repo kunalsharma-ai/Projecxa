@@ -1,3 +1,4 @@
+import { EntitlementsService } from '../super-admin/entitlements';
 import { CanActivate, ExecutionContext, ForbiddenException, HttpException, HttpStatus, Injectable, SetMetadata, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request, Response } from 'express';
@@ -48,6 +49,7 @@ export class ApiKeyGuard implements CanActivate {
   constructor(
     private readonly prisma: PrismaService,
     private readonly reflector: Reflector,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
@@ -61,6 +63,10 @@ export class ApiKeyGuard implements CanActivate {
     if (!key || key.revokedAt) throw new UnauthorizedException('This API key is not valid or was revoked');
     if (key.expiresAt && key.expiresAt.getTime() <= Date.now()) throw new UnauthorizedException('This API key has expired');
 
+    // Super Admin: a paused organisation, or one whose plan has no API, cannot use its keys.
+    if (!(await this.entitlements.orgAllows(key.organizationId, 'developers'))) {
+      throw new ForbiddenException({ statusCode: 403, code: 'FEATURE_DISABLED', feature: 'developers', message: 'The public API is not part of this organisation’s plan, or its access is paused.' });
+    }
     const rl = ApiKeyGuard.limiter.hit(key.id);
     res.setHeader('X-RateLimit-Limit', String(rl.limit));
     res.setHeader('X-RateLimit-Remaining', String(rl.remaining));

@@ -41,7 +41,21 @@ export interface Me {
   links?: { bidzoUrl: string | null };
   /** Product tour after sign-in (docs/PRODUCT_TOUR.md). */
   tour?: { version: number; show: boolean; outcome: 'completed' | 'skipped' | null; at: string | null };
+
+  /** Super Admin switches (docs/SUPER_ADMIN.md). */
+  features?: Features;
 }
+/** GET /auth/me/features: what this person may use on the web and in the mobile app. */
+export interface Features {
+  version: string;
+  plan: string | null;
+  block: 'ORG_PENDING' | 'ORG_SUSPENDED' | 'SUBSCRIPTION_INACTIVE' | null;
+  superAdmin: boolean;
+  web: Record<string, boolean>;
+  mobile: { enabled: boolean; features: Record<string, boolean> };
+}
+/** Unknown keys (an older server) count as on. */
+export const hasFeature = (me: { features?: Features } | null | undefined, key?: string) => !key || !me?.features || me.features.web[key] !== false;
 export interface MfaStatus { enabled: boolean; enabledAt: string | null; recoveryCodesLeft: number; required: boolean; setupRequired: boolean }
 
 export const isPortalRole = (role: string) => role === 'CLIENT_USER' || role === 'VENDOR_USER';

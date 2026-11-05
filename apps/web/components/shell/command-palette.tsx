@@ -65,7 +65,7 @@ export function CommandPalette({ open, onClose, onToggleInsights, onStartTour }:
   const commands = useMemo<Cmd[]>(() => {
     const dark = prefs.mode === 'dark';
     const cmds: Cmd[] = [
-      ...visibleNav(me?.user.role).map((n) => ({ id: `nav-${n.href}`, group: 'Go to', label: n.label, icon: n.icon, run: go(n.href), keywords: n.keywords })),
+      ...visibleNav(me?.user.role, me?.features).map((n) => ({ id: `nav-${n.href}`, group: 'Go to', label: n.label, icon: n.icon, run: go(n.href), keywords: n.keywords })),
       ...(canEdit(me) ? [{ id: 'new-project', group: 'Actions', label: 'Create project', icon: Zap, run: go('/projects/new') }, { id: 'project-templates', group: 'Actions', label: 'Project templates', icon: Zap, run: go('/projects/templates') }] : []),
       ...(bidzoUrl(me) ? [{ id: 'new-bid', group: 'Actions', label: 'Create bid in Bidzo', icon: Zap, run: () => { onClose(); window.open(`${bidzoUrl(me)}/bids/new`, '_blank', 'noopener'); } }] : []),
       { id: 'mode', group: 'Actions', label: dark ? 'Switch to light mode' : 'Switch to dark mode', icon: dark ? Sun : Moon, run: () => { update({ mode: dark ? 'light' : 'dark' }); onClose(); }, keywords: 'theme appearance' },

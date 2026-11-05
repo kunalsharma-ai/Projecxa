@@ -1,3 +1,4 @@
+import { EntitlementsService } from '../super-admin/entitlements';
 import { BadRequestException, Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
@@ -39,9 +40,11 @@ export class ProjectsService {
     private readonly audit: AuditService,
     private readonly webhooks: WebhooksService,
     private readonly history: ProjectHistoryService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   async create(u: AuthUser, input: CreateProjectInput) {
+    await this.entitlements.assertProjectRoom(u.organizationId);
     const client = await this.prisma.client.findFirst({ where: { id: input.clientId, organizationId: u.organizationId } });
     if (!client) throw new BadRequestException('Client not found');
     if (input.clientContactId) {
