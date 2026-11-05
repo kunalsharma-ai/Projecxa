@@ -283,6 +283,14 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - Replay it any time from the account menu (Take the product tour) or Ctrl K → "tour". Steps follow the person's role, and on phones the menu opens for sidebar steps.
 - Details: `docs/PRODUCT_TOUR.md`.
 
+## Milestone 38: one-time unique links
+
+- Project → **Unique links**: generate any number of respondent links (up to 50,000 at a time) for a vendor in a market. Each link has its own random key: `/u/{key}`.
+- A link works once. The first respondent to open it enters the survey; any later visit, a second tab or simultaneous clicks are turned away as Duplicate. This is enforced by one guarded database update, not by the browser. Links opened while fieldwork is paused are not used up.
+- See every key with its status (Unused, Used, Expired, Revoked) and the respondent's outcome, filter and search, download as CSV, revoke unused links, set an expiry per batch.
+- **Unique links only** per vendor and market closes the shared vendor link. Vendors can download their unused links in the vendor portal.
+- Details: `docs/UNIQUE_LINKS.md`.
+
 ## Install on a server
 
 See `INSTALL.md`: server settings, database, `pnpm create-admin` for the first admin, build, run and TLS.

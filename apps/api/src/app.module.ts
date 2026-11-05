@@ -29,6 +29,7 @@ import { BrandingModule } from './branding/branding';
 import { QuotesModule } from './quotes/quotes';
 import { VendorSignupModule } from './vendor-signup/vendor-signup';
 import { SurveyModule } from './survey/survey.controller';
+import { UniqueLinksModule } from './unique-links/unique-links';
 import { UsersModule } from './users/users.controller';
 import { VendorsModule } from './vendors/vendors.controller';
 
@@ -57,6 +58,7 @@ import { VendorsModule } from './vendors/vendors.controller';
     RequestsModule,
     QuotesModule, PrivacyModule, BrandingModule, RedirectHealthModule,
     VendorSignupModule,
+    UniqueLinksModule,
     ReportsModule,
     WonBidsModule,
     WebhooksModule,
