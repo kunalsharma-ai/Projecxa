@@ -7,6 +7,7 @@ import { AuditModule } from './audit/audit.service';
 import { AuthModule } from './auth/auth.module';
 import { CallbacksModule } from './callbacks/callbacks.service';
 import { ClientsModule } from './clients/clients.controller';
+import { AnalyticsModule } from './analytics/analytics.controller';
 import { DashboardModule } from './dashboard/dashboard.controller';
 import { FinanceModule } from './finance/finance.controller';
 import { AccountingModule } from './accounting/accounting.module';
@@ -61,6 +62,7 @@ import { VendorsModule } from './vendors/vendors.controller';
     AiModule,
     MonitorModule,
     QuotasModule,
+    AnalyticsModule,
     DashboardModule,
     PortalModule,
     RequestsModule,
