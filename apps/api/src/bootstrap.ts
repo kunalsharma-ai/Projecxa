@@ -8,6 +8,7 @@ export function configureApp(app: INestApplication) {
   app.setGlobalPrefix('api/v1', {
     exclude: [
       { path: 's/:code', method: RequestMethod.GET },
+      { path: 'u/:key', method: RequestMethod.GET },
       { path: 'r/:status', method: RequestMethod.GET },
       { path: 'end/:status', method: RequestMethod.GET },
       { path: 'g/:token', method: RequestMethod.GET },

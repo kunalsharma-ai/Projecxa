@@ -9,6 +9,7 @@ import { Empty, ErrorBox, Loading, OutcomeChip, PageHeader, Progress, Section, S
 import { get } from '@/lib/api';
 import { countryName, flag } from '@/lib/countries';
 import { downloadCsv } from '@/lib/csv';
+import { downloadFile } from '@/lib/download';
 
 interface Summary {
   vendor: { name: string; code: string };
@@ -23,6 +24,7 @@ interface Allocation {
   id: string; project: { projectCode: string; name: string; status: string; category: string; devices: Record<string, boolean> };
   countryCode: string; language: string; targetGroup: string | null; loiMinutes: number; irPercent: number; status: string; accepting: boolean;
   cpi: string; currency: string; targetCompletes: number; completes: number; entryLink: string; testEntryLink: string; stats: Record<string, number>;
+  uniqueLinksOnly?: boolean; uniqueLinks?: { total: number; unused: number };
 }
 interface SessionRow {
   id: string; vendorRespondentId: string; status: string; approval: string; isTest: boolean; payout: string | null; startedAt: string;
@@ -136,6 +138,17 @@ export default function VendorPortal() {
                     <span className="self-center text-xs text-muted">Devices: {Object.entries(a.project.devices).filter(([, v]) => v).map(([k]) => k).join(', ')}</span>
                   </div>
                 </div>
+                {!!a.uniqueLinks?.total && (
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line p-3">
+                    <div className="text-sm">
+                      <span className="font-medium">One-time unique links</span>
+                      <span className="ml-2 text-xs text-muted">{a.uniqueLinks.unused.toLocaleString()} unused of {a.uniqueLinks.total.toLocaleString()}. Send one link to each respondent; each works once.{a.uniqueLinksOnly ? ' The shared live link is closed for this market.' : ''}</span>
+                    </div>
+                    <button className="btn-ghost px-2.5 py-1 text-xs" onClick={() => downloadFile(`/portal/vendor/allocations/${a.id}/unique-links.csv`, `${a.project.projectCode}-${a.countryCode}-unique-links.csv`).catch(setError)}>
+                      <Download className="h-3.5 w-3.5" /> Download unused links
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>

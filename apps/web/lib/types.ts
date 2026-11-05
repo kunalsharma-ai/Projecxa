@@ -39,6 +39,8 @@ export interface Me {
   branding?: import('./branding').Brand;
   /** Set in Settings → Integrations. */
   links?: { bidzoUrl: string | null };
+  /** Product tour after sign-in (docs/PRODUCT_TOUR.md). */
+  tour?: { version: number; show: boolean; outcome: 'completed' | 'skipped' | null; at: string | null };
 }
 export interface MfaStatus { enabled: boolean; enabledAt: string | null; recoveryCodesLeft: number; required: boolean; setupRequired: boolean }
 

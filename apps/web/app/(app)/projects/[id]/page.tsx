@@ -19,13 +19,14 @@ import { AnswersView } from '@/components/project/answers-view';
 import { SecurityTab } from '@/components/project/security-tab';
 import { SessionsTab } from '@/components/project/sessions-tab';
 import { VendorsTab } from '@/components/project/vendors-tab';
+import { UniqueLinksTab } from '@/components/project/unique-links-tab';
 import type { ProjectDetail } from '@/components/project/types';
 import { ErrorBox, Loading, PageHeader, StatusChip } from '@/components/ui';
 import { get, patch } from '@/lib/api';
 import { flag } from '@/lib/countries';
 import { SECURITY_LABELS } from '@/lib/types';
 
-const TABS = ['Overview', 'Vendors & links', 'Quotas', 'Monitor', 'Gate & security', 'Respondent pages', 'Redirects', 'QA studio', 'Respondents', 'Answers', 'Reconcile & invoice', 'Files & requests', 'History'] as const;
+const TABS = ['Overview', 'Vendors & links', 'Unique links', 'Quotas', 'Monitor', 'Gate & security', 'Respondent pages', 'Redirects', 'QA studio', 'Respondents', 'Answers', 'Reconcile & invoice', 'Files & requests', 'History'] as const;
 const NEXT_STATUS: Record<string, string[]> = {
   DRAFT: ['TEST', 'LIVE'],
   TEST: ['LIVE', 'HOLD'],
@@ -157,6 +158,7 @@ export default function ProjectPage() {
 
       {tab === 'Overview' && <CountriesTab project={p} editable={editable} reload={reload} security={security} />}
       {tab === 'Vendors & links' && <VendorsTab project={p} editable={editable} reload={reload} />}
+      {tab === 'Unique links' && <UniqueLinksTab key={p.id} project={p} editable={editable} />}
       {tab === 'Quotas' && <QuotasTab key={p.id} project={p} editable={editable} />}
       {tab === 'Monitor' && <MonitorTab key={p.id} project={p} editable={editable} reload={reload} />}
       {tab === 'Redirects' && <RedirectsTab project={p} editable={editable} reload={reload} />}

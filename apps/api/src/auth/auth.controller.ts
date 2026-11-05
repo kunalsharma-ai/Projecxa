@@ -13,6 +13,7 @@ import { MfaService, secondFactorSchema } from './mfa.service';
 import { MFA_COOKIE, SessionService } from './session.service';
 import { AuthUser } from './auth.types';
 import { Preferences, preferencesSchema, readPreferences } from './preferences';
+import { TOUR_VERSION, TourUpdate, tourState, tourUpdateSchema } from './tour';
 
 const loginSchema = z.object({
   email: z.string().email().transform((s) => s.toLowerCase()),
@@ -86,7 +87,7 @@ export class AuthController {
     const org = await this.prisma.organization.findUniqueOrThrow({ where: { id: user.organizationId } });
     const links = await this.prisma.user.findUniqueOrThrow({
       where: { id: user.id },
-      select: { preferences: true, client: { select: { id: true, name: true } }, vendor: { select: { id: true, name: true } } },
+      select: { preferences: true, tourVersion: true, tourOutcome: true, tourAt: true, client: { select: { id: true, name: true } }, vendor: { select: { id: true, name: true } } },
     });
     return {
       user,
@@ -96,6 +97,8 @@ export class AuthController {
       vendor: links.vendor,
       preferences: readPreferences(links.preferences),
       mfa: await this.mfa.status(user.id),
+      /** Product tour after sign-in (docs/PRODUCT_TOUR.md). */
+      tour: tourState(links),
       /** Links set in Settings → Integrations (staff only). */
       links: { bidzoUrl: user.role === 'CLIENT_USER' || user.role === 'VENDOR_USER' ? null : await this.integrations.bidzoUrl(org.id) },
     };
@@ -109,6 +112,19 @@ export class AuthController {
     const next = { ...readPreferences(current.preferences), ...body };
     await this.prisma.user.update({ where: { id: user.id }, data: { preferences: next as Prisma.InputJsonValue } });
     return next;
+  }
+
+  /** Remember that the caller finished or skipped the product tour, or ask to see it again. Kept apart from preferences so resetting the look does not replay it. */
+  @Post('me/tour')
+  @HttpCode(200)
+  @Roles('ADMIN', 'PROJECT_MANAGER', 'SALES', 'VIEWER', 'CLIENT_USER', 'VENDOR_USER')
+  async updateTour(@CurrentUser() user: AuthUser, @Body(new ZodPipe(tourUpdateSchema)) body: TourUpdate) {
+    const data =
+      body.outcome === 'reset'
+        ? { tourVersion: null, tourOutcome: null, tourAt: null }
+        : { tourVersion: TOUR_VERSION, tourOutcome: body.outcome, tourAt: new Date() };
+    const u = await this.prisma.user.update({ where: { id: user.id }, data, select: { tourVersion: true, tourOutcome: true, tourAt: true } });
+    return tourState(u);
   }
 
   /** Back to the defaults. */

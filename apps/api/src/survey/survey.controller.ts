@@ -40,6 +40,16 @@ export class SurveyPublicController {
     return res.redirect(302, r.location);
   }
 
+  /** One-time unique respondent link (docs/UNIQUE_LINKS.md). */
+  @Get('u/:key')
+  async enterUnique(@Param('key') key: string, @Query() query: Record<string, string>, @Req() req: Request, @Res() res: Response) {
+    const geoHeader = appConfig.geoCountryHeader ? req.headers[appConfig.geoCountryHeader] : undefined;
+    const r = await this.survey.enterUnique({ key, query, ip: req.ip, userAgent: req.headers['user-agent'], geoCountry: Array.isArray(geoHeader) ? geoHeader[0] : geoHeader });
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    return res.redirect(302, r.location);
+  }
+
   @Get('r/:status')
   async outcome(@Param('status') status: string, @Query('token') token: string | undefined, @Query('rid') rid: string | undefined, @Res() res: Response) {
     const r = await this.survey.browserOutcome(status, token ?? rid);

@@ -1,6 +1,6 @@
 'use client';
 import clsx from 'clsx';
-import { Bell, LogOut, Maximize2, Menu, Palette, PanelRight, Plus, Search, Settings, ShieldCheck, Sparkles, X } from 'lucide-react';
+import { Bell, Compass, LogOut, Maximize2, Menu, Palette, PanelRight, Plus, Search, Settings, ShieldCheck, Sparkles, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -10,6 +10,7 @@ import { CommandPalette } from '@/components/shell/command-palette';
 import { InsightsPanel, type Insights } from '@/components/shell/insights-panel';
 import { bidzoUrl } from '@/components/shell/nav';
 import { Popover } from '@/components/shell/popover';
+import { ProductTour } from '@/components/shell/product-tour';
 import { Sidebar } from '@/components/shell/sidebar';
 import { ThemeMenu } from '@/components/shell/theme-menu';
 import { useTheme } from '@/components/theme';
@@ -27,6 +28,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [insights, setInsights] = useState<Insights | null>(null);
   const [copilot, setCopilot] = useState(false);
   const [copilotConv, setCopilotConv] = useState<string | null>(null);
+  const [tour, setTour] = useState(false);
   const { prefs, update, hydrate } = useTheme();
   const pathname = usePathname();
   const router = useRouter();
@@ -46,6 +48,30 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (me?.mfa?.setupRequired && pathname !== '/account/security') router.replace('/account/security');
   }, [me, pathname, router]);
   useEffect(() => setMobileNav(false), [pathname]);
+
+  // Product tour: opens by itself after sign-in until the person finishes or skips it (docs/PRODUCT_TOUR.md).
+  // "Remind me later" hides it until the next sign-in, in this browser tab only.
+  const laterKey = me ? `projexa.tour.later.${me.user.id}` : '';
+  useEffect(() => {
+    if (!me?.tour?.show || me.mfa?.setupRequired) return;
+    try { if (sessionStorage.getItem(laterKey)) return; } catch { /* storage blocked: show it */ }
+    setTour(true);
+  }, [me, laterKey]);
+  const finishTour = useCallback((outcome: 'completed' | 'skipped') => {
+    setTour(false);
+    setMobileNav(false);
+    post('/auth/me/tour', { outcome }).then((t) => setMe((m) => (m ? { ...m, tour: t as Me['tour'] } : m))).catch(() => undefined);
+  }, []);
+  const tourLater = useCallback(() => {
+    setTour(false);
+    try { sessionStorage.setItem(laterKey, '1'); } catch { /* ignore */ }
+  }, [laterKey]);
+  const startTour = useCallback(() => { setPalette(false); setCopilot(false); setTour(true); }, []);
+  // On phones the sidebar is a drawer: open it while a step points at a sidebar link.
+  const tourStep = useCallback((target: string | undefined) => {
+    if (window.matchMedia('(min-width: 1024px)').matches) return;
+    setMobileNav(!!target?.startsWith('nav:'));
+  }, []);
 
   // Insights feed the bell count, so they load once and refresh every two minutes.
   const loadInsights = useCallback(() => get<Insights>('/insights').then(setInsights).catch(() => undefined), []);
@@ -94,6 +120,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <Menu className="h-5 w-5" />
             </button>
             <button
+              data-tour="search"
               onClick={() => setPalette(true)}
               className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-full border border-line bg-panel/70 px-4 text-sm text-muted transition-colors duration-[var(--dur)] hover:border-brand/40 sm:max-w-md"
               aria-label="Search and commands"
@@ -107,7 +134,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <Link href="/projects/new" className="btn-primary mr-1 hidden h-9 md:inline-flex"><Plus className="h-4 w-4" /> New project</Link>
               )}
               {pathname !== '/copilot' && (
-                <button onClick={() => setCopilot(!copilot)} aria-pressed={copilot} aria-label="AI copilot" title="AI copilot"
+                <button data-tour="copilot" onClick={() => setCopilot(!copilot)} aria-pressed={copilot} aria-label="AI copilot" title="AI copilot"
                   className={clsx('grid h-9 w-9 place-items-center rounded-lg transition-colors duration-[var(--dur)] hover:bg-sunken', copilot ? 'bg-brand/10 text-brand' : 'text-muted hover:text-ink')}>
                   <Sparkles className="h-[18px] w-[18px]" />
                 </button>
@@ -135,6 +162,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   )}
                 </Popover>
               )}
+              <div data-tour="notifications">
               <Popover label="Notifications" trigger={<Bell className="h-[18px] w-[18px]" />} badge={insights?.alerts} width="w-80">
                 {(close) => (
                   <div className="p-2">
@@ -153,11 +181,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   </div>
                 )}
               </Popover>
+              </div>
               <ThemeMenu />
               <button onClick={toggleInsights} aria-pressed={prefs.insightsOpen} aria-label={prefs.insightsOpen ? 'Hide insights panel' : 'Show insights panel'} title="Insights ( ] )"
                 className={clsx('hidden h-9 w-9 place-items-center rounded-lg transition-colors duration-[var(--dur)] hover:bg-sunken sm:grid', prefs.insightsOpen ? 'bg-brand/10 text-brand' : 'text-muted hover:text-ink')}>
                 <PanelRight className="h-[18px] w-[18px]" />
               </button>
+              <div data-tour="account">
               <Popover label="Account" wide width="w-64" trigger={
                 <span className="flex items-center gap-2">
                   <span className="grid h-8 w-8 place-items-center rounded-full bg-neon text-xs font-bold shadow-sm">{initialsOf(me.user.name)}</span>
@@ -178,10 +208,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     <Link href="/account/security" onClick={close} className="flex items-center gap-2 rounded-md px-3 py-2 hover:bg-sunken"><ShieldCheck className="h-4 w-4 text-muted" /> Account security</Link>
                     <Link href="/settings/appearance" onClick={close} className="flex items-center gap-2 rounded-md px-3 py-2 hover:bg-sunken"><Palette className="h-4 w-4 text-muted" /> Theme Studio</Link>
                     <Link href="/settings" onClick={close} className="flex items-center gap-2 rounded-md px-3 py-2 hover:bg-sunken"><Settings className="h-4 w-4 text-muted" /> Organization settings</Link>
+                    <button onClick={() => { close(); startTour(); }} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-sunken"><Compass className="h-4 w-4 text-muted" /> Take the product tour</button>
                     <button onClick={async () => { await post('/auth/logout'); router.replace('/login'); }} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-sunken"><LogOut className="h-4 w-4 text-muted" /> Sign out</button>
                   </div>
                 )}
               </Popover>
+              </div>
             </div>
           </header>
 
@@ -212,7 +244,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </div>
-      <CommandPalette open={palette} onClose={() => setPalette(false)} onToggleInsights={toggleInsights} />
+      <CommandPalette open={palette} onClose={() => setPalette(false)} onToggleInsights={toggleInsights} onStartTour={startTour} />
+      {tour && (
+        <ProductTour
+          role={me.user.role}
+          appName={me.branding?.appName || 'PROJEXA'}
+          firstName={me.user.name.split(' ')[0] ?? ''}
+          onFinish={finishTour}
+          onLater={tourLater}
+          onStep={tourStep}
+        />
+      )}
     </MeContext.Provider>
   );
 }
