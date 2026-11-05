@@ -15,8 +15,10 @@ Background jobs (callbacks, webhooks, monitor, schedulers) run inside the API pr
 ## 1. Prerequisites
 
 - Linux server (Ubuntu 22.04/24.04 is fine), 2 vCPU, 4 GB RAM minimum.
-- Node.js 20 or newer (22 LTS recommended).
-- pnpm 10: `corepack enable && corepack prepare pnpm@10.28.0 --activate`
+- Node.js 26 (26.13.0 or newer, the current LTS). With nvm: `nvm install 26 && nvm use 26`
+  (the repo's `.nvmrc` says 26). Older Node versions are no longer supported.
+- pnpm 10: `npm install -g pnpm@10.28.0`. Node 26 no longer ships Corepack, so the old
+  `corepack enable` step does not work any more.
 - PostgreSQL 16, either a managed database or `docker compose up -d postgres`.
 - A reverse proxy with TLS (Nginx, Caddy or a load balancer) and two DNS names, for example
   `app.yourcompany.com` (web) and `api.yourcompany.com` (API).
@@ -162,6 +164,20 @@ pnpm --filter @projexa/api prisma:generate
 pnpm --filter @projexa/api prisma:deploy
 pnpm --filter @projexa/api build && pnpm --filter @projexa/web build
 pm2 restart projexa-api projexa-web
+```
+
+**Moving an existing server from Node 22 to Node 26** (one time, with this package or newer):
+
+```bash
+pm2 save                                   # run this first, still on Node 22
+nvm install 26 && nvm alias default 26     # or install Node 26 from nodesource / your OS
+npm install -g pnpm@10.28.0 pm2            # global tools are per Node version
+rm -rf node_modules apps/*/node_modules    # native packages (Prisma) are rebuilt for Node 26
+pnpm install --frozen-lockfile
+pnpm --filter @projexa/api prisma:generate
+pnpm --filter @projexa/api build && pnpm --filter @projexa/web build
+pm2 kill && pm2 resurrect                  # restart pm2 itself so it runs on Node 26
+node -v                                    # should print v26.x
 ```
 
 ## 9. Backups
