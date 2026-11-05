@@ -8,7 +8,7 @@
  * whenever a user-picked colour would fall below it.
  */
 
-export const THEME_IDS = ['midnight', 'arctic', 'emerald', 'obsidian', 'sapphire', 'aurora', 'graphite', 'solar'] as const;
+export const THEME_IDS = ['neon', 'midnight', 'arctic', 'emerald', 'obsidian', 'sapphire', 'aurora', 'graphite', 'solar'] as const;
 export type ThemeId = (typeof THEME_IDS)[number];
 export type Mode = 'light' | 'dark' | 'system';
 
@@ -35,7 +35,7 @@ export interface Preferences {
 }
 
 export const DEFAULTS: Preferences = {
-  theme: 'arctic',
+  theme: 'neon',
   mode: 'system',
   accent: null,
   accent2: null,
@@ -47,7 +47,7 @@ export const DEFAULTS: Preferences = {
   glass: 30,
   fontSize: 'md',
   density: 'comfortable',
-  radius: 12,
+  radius: 16,
   motion: 'refined',
   chartPalette: 'theme',
   sidebarCollapsed: false,
@@ -60,6 +60,12 @@ interface Palette { bg: string; panel: string; sunken: string; ink: string; mute
 interface Theme { id: ThemeId; name: string; mood: string; light: Palette; dark: Palette }
 
 export const THEMES: Theme[] = [
+  {
+    // The default look (2026-11 redesign): violet and electric blue on frosted glass, deep indigo navigation.
+    id: 'neon', name: 'Neon Command', mood: 'Violet, electric blue and glass',
+    light: { bg: '#f1f0fd', panel: '#ffffff', sunken: '#efedfc', ink: '#17133a', muted: '#5d5a80', brand: '#6c3cf0', accent2: '#2f6bff', sidebar: '#120d3d' },
+    dark: { bg: '#080721', panel: '#13113a', sunken: '#1b1848', ink: '#ecebff', muted: '#a4a1cf', brand: '#a98bff', accent2: '#4da3ff', sidebar: '#07061c' },
+  },
   {
     id: 'midnight', name: 'Midnight Intelligence', mood: 'Navy, violet and cyan',
     light: { bg: '#f4f5fb', panel: '#ffffff', sunken: '#eceef8', ink: '#141a33', muted: '#5b6385', brand: '#5b45e0', accent2: '#0e7490', sidebar: '#141a33' },
@@ -152,7 +158,7 @@ export interface Resolved { vars: Record<string, string>; attrs: Record<string, 
 
 /** Resolves preferences into CSS variables for one mode. `adjusted` lists colours changed for readability. */
 export function resolve(p: Preferences, dark: boolean): Resolved {
-  const theme = THEMES.find((t) => t.id === p.theme) ?? THEMES[1];
+  const theme = THEMES.find((t) => t.id === p.theme) ?? THEMES[0];
   const base = dark ? theme.dark : theme.light;
   const status = dark ? STATUS.dark : STATUS.light;
   const adjusted: string[] = [];

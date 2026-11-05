@@ -11,7 +11,7 @@ export interface Market { countryCode: string; clicks: number; completes: number
 type Metric = 'completes' | 'revenue' | 'conversion';
 
 /** ISO 3166 alpha-2 to the numeric ids used by the world map. */
-const NUMERIC: Record<string, string> = {
+export const NUMERIC: Record<string, string> = {
   US: '840', CA: '124', MX: '484', BR: '076', AR: '032', CL: '152', CO: '170', GB: '826', IE: '372', DE: '276', FR: '250', ES: '724', IT: '380', NL: '528',
   BE: '056', CH: '756', AT: '040', SE: '752', NO: '578', DK: '208', FI: '246', PL: '616', PT: '620', TR: '792', AE: '784', SA: '682', ZA: '710', IN: '356',
   CN: '156', JP: '392', KR: '410', MY: '458', ID: '360', PH: '608', TH: '764', VN: '704', AU: '036', NZ: '554',

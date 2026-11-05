@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     // The theme engine sets attributes and CSS variables on <html> before hydration.
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" data-theme="neon" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
       </head>

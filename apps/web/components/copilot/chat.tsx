@@ -82,11 +82,12 @@ function Assistant({ m, onAction }: { m: ChatMessage; onAction: (a: AiAction) =>
 
 const VOICE_LABEL = { idle: '', connecting: 'Connecting…', listening: 'Listening', thinking: 'Looking it up…', speaking: 'Speaking', error: 'Voice stopped' } as const;
 
-export function CopilotChat({ conversationId, onConversation, compact }: { conversationId: string | null; onConversation: (id: string | null, title?: string) => void; compact?: boolean }) {
+export function CopilotChat({ conversationId, onConversation, compact, draft }: { conversationId: string | null; onConversation: (id: string | null, title?: string) => void; compact?: boolean; draft?: string }) {
   const pathname = usePathname();
   const [status, setStatus] = useState<AiStatus | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState('');
+  // A question typed elsewhere (the command center's copilot box) arrives as a draft to review and send.
+  const [input, setInput] = useState(draft ?? '');
   const [docs, setDocs] = useState<AiDoc[]>([]);
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);

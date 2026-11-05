@@ -22,6 +22,7 @@ Vendor or client destination (static or dynamic URL)
 - The UID parameter name is configurable per allocation (`uid` by default).
 - Test links create sessions flagged as test. They never count toward quotas, revenue, payout or callbacks.
 - Re-entering with the same UID results in the **Duplicate** redirect.
+- **One-time unique links** (`/u/{key}`): staff can generate any number of single-use links per vendor and market, each with its own random key, and can close the shared link so only unique links work. See [UNIQUE_LINKS.md](UNIQUE_LINKS.md).
 - Callbacks (optional) are `GET` requests to the vendor's URL template. Macros: `{uid}`, `{status}`, `{vendor_id}`, `{country_code}`, `{project_code}`. Headers:
   - `X-Idempotency-Key`: the same for every retry of one callback
   - `X-Projexa-Timestamp`: unix seconds

@@ -12,6 +12,8 @@ export interface Allocation {
   entryLink: string;
   testEntryLink: string;
   callbackUrlTemplate: string | null;
+  /** Shared live link closed; respondents enter only with one-time unique links. */
+  uniqueLinksOnly?: boolean;
   stats: Stats;
 }
 

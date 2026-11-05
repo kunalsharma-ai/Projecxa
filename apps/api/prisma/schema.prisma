@@ -101,7 +101,7 @@ model Organization {
   vendorApplications     VendorApplication[]
   quoteRequests          QuoteRequest[]
   /// Public vendor sign-up link token; null when sign-up is off.
-  vendorSignupToken      String?             @unique
+  vendorSignupToken      String?              @unique
   /// Retention settings (docs/PRIVACY.md): { respondentDays, eventDays }; null = keep everything.
   retention              Json?
   retentionRunAt         DateTime?
@@ -110,13 +110,13 @@ model Organization {
   branding               Json?
   brandAssets            BrandAsset[]
   /// Custom web domain for this organisation (e.g. research.acme.com), used once verified by DNS.
-  customDomain           String?             @unique
+  customDomain           String?              @unique
   customDomainToken      String?
   customDomainVerifiedAt DateTime?
   /// Integrations set up in Settings → Integrations (docs/INTEGRATIONS.md).
   integrations           IntegrationSetting[]
   /// The organisation that runs this PROJEXA server. Its admins set the server-wide sign-in and accounting apps. Null on every org = the oldest one.
-  platformOwner          Boolean             @default(false)
+  platformOwner          Boolean              @default(false)
 }
 
 /// One integration's settings for an organisation (docs/INTEGRATIONS.md). Secrets are AES-256-GCM encrypted JSON.
@@ -177,6 +177,10 @@ model User {
   mfaLockedUntil     DateTime?
   /// Command center widgets: order, size and visibility (null = the default layout).
   dashboardLayout    Json?
+  /// Product tour (docs/PRODUCT_TOUR.md): the tour version this person finished or skipped, how, and when. Null = not seen yet.
+  tourVersion        Int?
+  tourOutcome        String?
+  tourAt             DateTime?
   ssoIdentities      SsoIdentity[]
   /// When the person last chose a password. Null for someone invited who has not set one yet.
   passwordSetAt      DateTime?
@@ -342,17 +346,19 @@ model Project {
   createdAt               DateTime               @default(now())
   updatedAt               DateTime               @updatedAt
 
-  countries        ProjectCountry[]
-  redirectVersions RedirectPolicyVersion[]  @relation("ProjectRedirectVersions")
-  sessions         RespondentSession[]
-  invoices         Invoice[]
-  reconciliations  Reconciliation[]
-  alerts           Alert[]
-  wonBid           WonBid?
-  tasks            Task[]
-  settingsVersions ProjectSettingsVersion[]
-  tickets          Ticket[]
-  sharedFiles      SharedFile[]
+  countries         ProjectCountry[]
+  redirectVersions  RedirectPolicyVersion[]  @relation("ProjectRedirectVersions")
+  uniqueLinks       UniqueLink[]
+  uniqueLinkBatches UniqueLinkBatch[]
+  sessions          RespondentSession[]
+  invoices          Invoice[]
+  reconciliations   Reconciliation[]
+  alerts            Alert[]
+  wonBid            WonBid?
+  tasks             Task[]
+  settingsVersions  ProjectSettingsVersion[]
+  tickets           Ticket[]
+  sharedFiles       SharedFile[]
 
   @@unique([organizationId, projectCode])
   @@index([organizationId, status])
@@ -447,10 +453,15 @@ model VendorAllocation {
   uidParam            String           @default("uid")
   /// Overrides Vendor.callbackUrlTemplate for this allocation.
   callbackUrlTemplate String?
+  /// When true the shared live entry link is refused and respondents can only enter through
+  /// one-time unique links (docs/UNIQUE_LINKS.md). The test link keeps working.
+  uniqueLinksOnly     Boolean          @default(false)
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
 
-  sessions RespondentSession[]
+  sessions          RespondentSession[]
+  uniqueLinks       UniqueLink[]
+  uniqueLinkBatches UniqueLinkBatch[]
 
   @@unique([projectCountryId, vendorId])
 }
@@ -576,6 +587,9 @@ model RespondentSession {
   consentVersion     Int?
   /// Personal data removed (retention or an erasure request); counts, outcome and money are kept.
   anonymizedAt       DateTime?
+  /// The one-time unique link this respondent entered through (at most one session per link).
+  uniqueLinkId       String?                @unique
+  uniqueLink         UniqueLink?            @relation(fields: [uniqueLinkId], references: [id], onDelete: SetNull)
 
   events     RespondentEvent[]
   executions RedirectExecution[]
@@ -588,6 +602,62 @@ model RespondentSession {
   @@index([organizationId, startedAt])
   @@index([invoiceId])
   @@index([vendorBillId])
+}
+
+// ───────────────────────────── One-time unique links (docs/UNIQUE_LINKS.md) ─────────────────────────────
+
+enum UniqueLinkStatus {
+  UNUSED
+  /// Claimed by the first respondent who opened it; it can never be entered again.
+  USED
+  REVOKED
+}
+
+/// One "Generate N links" run for a vendor in a market.
+model UniqueLinkBatch {
+  id                 String           @id @default(cuid())
+  organizationId     String
+  projectId          String
+  project            Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  vendorAllocationId String
+  vendorAllocation   VendorAllocation @relation(fields: [vendorAllocationId], references: [id], onDelete: Cascade)
+  label              String?
+  count              Int
+  /// Links in the batch stop working after this time (null = no expiry).
+  expiresAt          DateTime?
+  createdById        String?
+  createdAt          DateTime         @default(now())
+
+  links UniqueLink[]
+
+  @@index([projectId, createdAt])
+}
+
+/// A single-use respondent link: /u/{key}. The key is random and unguessable; the first
+/// respondent to open it claims it atomically and nobody can enter with it again.
+model UniqueLink {
+  id                 String           @id @default(cuid())
+  organizationId     String
+  projectId          String
+  project            Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  vendorAllocationId String
+  vendorAllocation   VendorAllocation @relation(fields: [vendorAllocationId], references: [id], onDelete: Cascade)
+  batchId            String
+  batch              UniqueLinkBatch  @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  key                String           @unique
+  status             UniqueLinkStatus @default(UNUSED)
+  usedAt             DateTime?
+  /// Number of times someone tried to open the link after it was used, revoked or expired.
+  blockedAttempts    Int              @default(0)
+  lastBlockedAt      DateTime?
+  revokedAt          DateTime?
+  createdAt          DateTime         @default(now())
+
+  session RespondentSession?
+
+  @@index([projectId, status])
+  @@index([vendorAllocationId, status])
+  @@index([batchId])
 }
 
 enum EventSource {

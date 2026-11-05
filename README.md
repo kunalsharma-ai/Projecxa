@@ -276,6 +276,21 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - Create project now has fieldwork dates.
 - Details: `docs/PROJECT_FROM_BRIEF.md`.
 
+## Product tour
+
+- After signing in, staff get a short guided tour that highlights each main feature on the real screen: command center, search, projects, create project, won bids, fieldwork monitor, redirect health, reports, invoices and payables, clients and vendors, portals, tasks, AI copilot, alerts, settings and Theme Studio.
+- **Start tour**, **Remind me later** (shows again at the next sign-in) or **Skip tour**. Skip, Esc and Finish are remembered per person on the server, so it does not come back on another device.
+- Replay it any time from the account menu (Take the product tour) or Ctrl K → "tour". Steps follow the person's role, and on phones the menu opens for sidebar steps.
+- Details: `docs/PRODUCT_TOUR.md`.
+
+## Milestone 38: one-time unique links
+
+- Project → **Unique links**: generate any number of respondent links (up to 50,000 at a time) for a vendor in a market. Each link has its own random key: `/u/{key}`.
+- A link works once. The first respondent to open it enters the survey; any later visit, a second tab or simultaneous clicks are turned away as Duplicate. This is enforced by one guarded database update, not by the browser. Links opened while fieldwork is paused are not used up.
+- See every key with its status (Unused, Used, Expired, Revoked) and the respondent's outcome, filter and search, download as CSV, revoke unused links, set an expiry per batch.
+- **Unique links only** per vendor and market closes the shared vendor link. Vendors can download their unused links in the vendor portal.
+- Details: `docs/UNIQUE_LINKS.md`.
+
 ## Mobile app for Android and iOS
 
 `apps/mobile` is one Expo (React Native) app for Android and iOS in the Neon (dark) and Aurora (light) looks from the design mockups. Staff get the command center, projects (with markets, vendors, quotas, share links, go live / hold / close, pause vendors), fieldwork monitor and alerts, AI copilot with confirm cards, tasks, requests, won bids, reports, invoices, vendor payables, clients, vendors, redirect health and notifications; client and vendor users get their portal. Settings-heavy screens open the web app. What each person sees follows the Super Admin feature switches for mobile and changes live (next API call, opening More, returning to the app, or within 30 seconds). Contract, store builds with EAS and limits: [docs/MOBILE_APP.md](docs/MOBILE_APP.md).
@@ -316,3 +331,8 @@ apps/web   Next.js web app (App Router, Tailwind)
 apps/mobile Expo app for Android and iOS (npm, outside the pnpm workspace)
 docs/      Phase 0 documents and integration guide
 ```
+
+
+## Neon Command design
+
+The web CRM's default look (violet and blue glass, indigo navigation, lifecycle command center). Other themes remain in Theme Studio. See [docs/NEON_DESIGN.md](docs/NEON_DESIGN.md).
