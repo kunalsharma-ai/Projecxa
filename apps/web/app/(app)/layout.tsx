@@ -1,6 +1,6 @@
 'use client';
 import clsx from 'clsx';
-import { Bell, LogOut, Maximize2, Menu, Palette, PanelRight, Plus, Search, Settings, ShieldCheck, Sparkles, UserRound, X } from 'lucide-react';
+import { Bell, LogOut, Maximize2, Menu, Palette, PanelRight, Plus, Search, Settings, ShieldCheck, Sparkles, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -17,6 +17,8 @@ import { Loading } from '@/components/ui';
 import { get, post } from '@/lib/api';
 import { applyDocumentBrand, orgTheme } from '@/lib/branding';
 import { isPortalRole, portalHome, type Me } from '@/lib/types';
+
+const initialsOf = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') || '?';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
@@ -87,20 +89,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {mobileNav && <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setMobileNav(false)} aria-hidden />}
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="glass sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-line px-3 sm:px-5">
+          <header className="glass sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-line px-3 sm:px-5">
             <button className="grid h-9 w-9 place-items-center rounded-lg text-muted hover:bg-sunken lg:hidden" onClick={() => setMobileNav(true)} aria-label="Open menu">
               <Menu className="h-5 w-5" />
             </button>
             <button
               onClick={() => setPalette(true)}
-              className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-line bg-panel/70 px-3 text-sm text-muted transition-colors duration-[var(--dur)] hover:border-brand/40 sm:max-w-md"
+              className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-full border border-line bg-panel/70 px-4 text-sm text-muted transition-colors duration-[var(--dur)] hover:border-brand/40 sm:max-w-md"
               aria-label="Search and commands"
             >
               <Search className="h-4 w-4 shrink-0" />
-              <span className="truncate">Search projects, clients, vendors…</span>
+              <span className="truncate">Search projects, clients, vendors or surveys…</span>
               <kbd className="ml-auto hidden shrink-0 rounded border border-line px-1.5 text-[10px] sm:block">Ctrl K</kbd>
             </button>
             <div className="ml-auto flex items-center gap-1">
+              {canEdit(me) && (
+                <Link href="/projects/new" className="btn-primary mr-1 hidden h-9 md:inline-flex"><Plus className="h-4 w-4" /> New project</Link>
+              )}
               {pathname !== '/copilot' && (
                 <button onClick={() => setCopilot(!copilot)} aria-pressed={copilot} aria-label="AI copilot" title="AI copilot"
                   className={clsx('grid h-9 w-9 place-items-center rounded-lg transition-colors duration-[var(--dur)] hover:bg-sunken', copilot ? 'bg-brand/10 text-brand' : 'text-muted hover:text-ink')}>
@@ -153,7 +158,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 className={clsx('hidden h-9 w-9 place-items-center rounded-lg transition-colors duration-[var(--dur)] hover:bg-sunken sm:grid', prefs.insightsOpen ? 'bg-brand/10 text-brand' : 'text-muted hover:text-ink')}>
                 <PanelRight className="h-[18px] w-[18px]" />
               </button>
-              <Popover label="Account" trigger={<UserRound className="h-[18px] w-[18px]" />} width="w-64">
+              <Popover label="Account" wide width="w-64" trigger={
+                <span className="flex items-center gap-2">
+                  <span className="grid h-8 w-8 place-items-center rounded-full bg-neon text-xs font-bold shadow-sm">{initialsOf(me.user.name)}</span>
+                  <span className="hidden max-w-[140px] text-left leading-tight xl:block">
+                    <span className="block truncate text-sm font-medium text-ink">{me.user.name}</span>
+                    <span className="block truncate text-[11px] capitalize text-muted">{me.user.role.replace('_', ' ').toLowerCase()}</span>
+                  </span>
+                </span>
+              }>
                 {(close) => (
                   <div className="p-1.5 text-sm">
                     <div className="px-3 py-2">
@@ -175,7 +188,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="flex min-h-0 flex-1">
             <main id="main" key={pathname} className="anim-in mx-auto w-full min-w-0 max-w-[1440px] px-4 py-6 sm:px-6">{children}</main>
             {copilot && pathname !== '/copilot' && (
-              <aside className="fixed bottom-0 right-0 top-14 z-30 flex w-full flex-col border-l border-line bg-panel shadow-2xl sm:w-[440px]" aria-label="AI copilot">
+              <aside className="fixed bottom-0 right-0 top-16 z-30 flex w-full flex-col border-l border-line bg-panel shadow-2xl sm:w-[440px]" aria-label="AI copilot">
                 <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-2.5">
                   <span className="flex items-center gap-2 text-sm font-semibold"><Sparkles className="h-4 w-4 text-brand" />AI copilot</span>
                   <div className="flex gap-1">
@@ -191,7 +204,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <>
                 {/* Pushes content on very wide screens, overlays it otherwise, so it never squeezes tables. */}
                 <div className="fixed inset-0 z-30 bg-black/30 2xl:hidden" onClick={toggleInsights} aria-hidden />
-                <div className="anim-in fixed inset-y-0 right-0 z-40 w-[340px] max-w-[90vw] 2xl:sticky 2xl:top-14 2xl:z-10 2xl:h-[calc(100vh-3.5rem)]">
+                <div className="anim-in fixed inset-y-0 right-0 z-40 w-[340px] max-w-[90vw] 2xl:sticky 2xl:top-16 2xl:z-10 2xl:h-[calc(100vh-4rem)]">
                   <InsightsPanel data={insights} onClose={toggleInsights} />
                 </div>
               </>

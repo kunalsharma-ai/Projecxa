@@ -1,4 +1,5 @@
 'use client';
+import { AuthShell } from '@/components/auth-shell';
 import Link from 'next/link';
 import { BrandLogo, useBrandedPage } from '@/components/brand-mark';
 import { FormEvent, useState } from 'react';
@@ -24,7 +25,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center px-4">
+    <AuthShell>
       <form onSubmit={submit} className="card w-full max-w-sm space-y-4 p-7">
         <div>
           {brand && <BrandLogo brand={brand} />}
@@ -49,6 +50,6 @@ export default function ForgotPasswordPage() {
         )}
         <Link href="/login" className="block text-center text-sm text-brand hover:underline">Back to sign in</Link>
       </form>
-    </main>
+    </AuthShell>
   );
 }

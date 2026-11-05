@@ -311,3 +311,8 @@ apps/api   NestJS API, Prisma schema and migrations, tests
 apps/web   Next.js web app (App Router, Tailwind)
 docs/      Phase 0 documents and integration guide
 ```
+
+
+## Neon Command design
+
+The web CRM's default look (violet and blue glass, indigo navigation, lifecycle command center). Other themes remain in Theme Studio. See [docs/NEON_DESIGN.md](docs/NEON_DESIGN.md).

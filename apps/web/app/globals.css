@@ -8,30 +8,31 @@
  * correct even before JavaScript runs.
  */
 :root {
-  --bg: 245 247 251;
+  /* Neon Command, light (the default theme) */
+  --bg: 241 240 253;
   --panel: 255 255 255;
-  --sunken: 238 241 247;
-  --ink: 15 23 42;
-  --muted: 91 102 120;
-  --line: 222 226 233;
-  --brand: 29 78 216;
+  --sunken: 239 237 252;
+  --ink: 23 19 58;
+  --muted: 93 90 128;
+  --line: 226 223 245;
+  --brand: 108 60 240;
   --brand-ink: 255 255 255;
-  --accent2: 71 85 105;
+  --accent2: 47 107 255;
   --ok: 21 128 61;
   --warn: 180 83 9;
   --bad: 185 28 28;
   --info: 14 116 144;
-  --sidebar: 255 255 255;
-  --sidebar-ink: 11 13 18;
-  --sidebar-muted: 82 88 102;
-  --sidebar-active: 29 78 216;
-  --chart-1: 29 78 216;
-  --chart-2: 71 85 105;
+  --sidebar: 18 13 61;
+  --sidebar-ink: 255 255 255;
+  --sidebar-muted: 178 173 222;
+  --sidebar-active: 169 139 255;
+  --chart-1: 108 60 240;
+  --chart-2: 47 107 255;
   --chart-3: 14 116 144;
   --chart-4: 21 128 61;
   --grad: 0.4;
   --glass: 0.3;
-  --radius: 12px;
+  --radius: 16px;
   --font-scale: 100%;
   /* density */
   --row-y: 0.625rem;
@@ -52,23 +53,23 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-mode]) {
-    --bg: 11 17 32;
-    --panel: 18 26 44;
-    --sunken: 26 35 56;
-    --ink: 229 233 242;
-    --muted: 149 160 181;
-    --line: 45 54 74;
-    --brand: 122 165 255;
+    --bg: 8 7 33;
+    --panel: 19 17 58;
+    --sunken: 27 24 72;
+    --ink: 236 235 255;
+    --muted: 164 161 207;
+    --line: 44 40 96;
+    --brand: 169 139 255;
     --brand-ink: 11 13 18;
-    --accent2: 148 163 184;
+    --accent2: 77 163 255;
     --ok: 74 222 128;
     --warn: 251 191 36;
     --bad: 248 113 113;
     --info: 34 211 238;
-    --sidebar: 11 17 32;
+    --sidebar: 7 6 28;
     --sidebar-ink: 255 255 255;
-    --sidebar-muted: 160 168 186;
-    --sidebar-active: 122 165 255;
+    --sidebar-muted: 164 161 207;
+    --sidebar-active: 169 139 255;
     color-scheme: dark;
   }
 }
@@ -169,3 +170,118 @@ body {
 .dark-show { display: none; }
 [data-mode='dark'] .dark-show { display: inline-block; }
 [data-mode='dark'] .dark-hide { display: none; }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Neon Command (docs/NEON_DESIGN.md). Everything below is scoped to the neon theme and
+ * built from the theme tokens (--brand, --accent2, --panel …), so Theme Studio accents and
+ * white-label brand colours still recolour it. Other themes keep their flat look.
+ * ───────────────────────────────────────────────────────────────────────────── */
+/* The gradient behind white text (buttons, the current page, tabs). In dark mode the light accents are
+   deepened so white text keeps at least 4.5:1 contrast. */
+:root { --neon-a: color-mix(in srgb, rgb(var(--brand)) 94%, #000); --neon-b: color-mix(in srgb, rgb(var(--accent2)) 80%, #000); }
+[data-mode='dark'] { --neon-a: color-mix(in srgb, rgb(var(--brand)) 72%, #000); --neon-b: color-mix(in srgb, rgb(var(--accent2)) 72%, #000); }
+@media (prefers-color-scheme: dark) { :root:not([data-mode]) { --neon-a: color-mix(in srgb, rgb(var(--brand)) 72%, #000); --neon-b: color-mix(in srgb, rgb(var(--accent2)) 72%, #000); } }
+
+[data-theme='neon'] body {
+  background-color: rgb(var(--bg));
+  background-image:
+    radial-gradient(900px 520px at 88% -8%, rgb(var(--brand) / 0.20), transparent 62%),
+    radial-gradient(760px 480px at 30% 0%, rgb(var(--accent2) / 0.14), transparent 60%),
+    radial-gradient(900px 600px at 105% 105%, rgb(var(--accent2) / 0.14), transparent 60%),
+    radial-gradient(700px 520px at -5% 80%, rgb(var(--brand) / 0.12), transparent 60%);
+}
+[data-theme='neon'][data-mode='dark'] body {
+  background-image:
+    radial-gradient(900px 520px at 88% -8%, rgb(var(--brand) / 0.30), transparent 62%),
+    radial-gradient(760px 480px at 30% 0%, rgb(var(--accent2) / 0.16), transparent 60%),
+    radial-gradient(900px 600px at 105% 105%, rgb(var(--accent2) / 0.18), transparent 60%),
+    radial-gradient(700px 520px at -5% 80%, rgb(var(--brand) / 0.20), transparent 60%);
+}
+
+@layer components {
+  /* Frosted glass cards with a soft violet halo. */
+  [data-theme='neon'] .card {
+    background-color: rgb(var(--panel) / 0.78);
+    border-color: rgb(255 255 255 / 0.75);
+    backdrop-filter: blur(18px) saturate(1.4);
+    box-shadow: 0 1px 0 rgb(255 255 255 / 0.9) inset, 0 12px 32px -18px rgb(var(--brand) / 0.45), 0 2px 6px -2px rgb(23 19 58 / 0.06);
+  }
+  [data-theme='neon'][data-mode='dark'] .card {
+    background-color: rgb(var(--panel) / 0.72);
+    border-color: rgb(var(--brand) / 0.22);
+    box-shadow: 0 1px 0 rgb(255 255 255 / 0.06) inset, 0 16px 40px -20px rgb(var(--brand) / 0.55), 0 0 0 1px rgb(var(--accent2) / 0.04);
+  }
+  [data-theme='neon'] a.card:hover { border-color: rgb(var(--brand) / 0.45); box-shadow: 0 1px 0 rgb(255 255 255 / 0.6) inset, 0 16px 36px -16px rgb(var(--brand) / 0.6); }
+
+  /* Gradient pill buttons with a glow. */
+  [data-theme='neon'] .btn { border-radius: 999px; }
+  [data-theme='neon'] .btn-primary {
+    background-image: linear-gradient(100deg, var(--neon-a), var(--neon-b));
+    color: #fff;
+    box-shadow: 0 1px 0 rgb(255 255 255 / 0.25) inset, 0 8px 22px -8px rgb(var(--brand) / 0.75);
+  }
+  [data-theme='neon'] .btn-primary:hover:not(:disabled) { filter: brightness(1.08); box-shadow: 0 1px 0 rgb(255 255 255 / 0.25) inset, 0 10px 28px -8px rgb(var(--brand) / 0.9); }
+  [data-theme='neon'] .btn-ghost { background-color: rgb(var(--panel) / 0.7); border-color: rgb(var(--brand) / 0.22); backdrop-filter: blur(8px); }
+  [data-theme='neon'] .btn-ghost:hover:not(:disabled) { border-color: rgb(var(--brand) / 0.5); background-color: rgb(var(--brand) / 0.08); }
+  [data-theme='neon'] .input { background-color: rgb(var(--panel) / 0.85); border-color: rgb(var(--brand) / 0.2); border-radius: 12px; }
+  [data-theme='neon'] .input:focus { border-color: rgb(var(--brand)); box-shadow: 0 0 0 3px rgb(var(--brand) / 0.18), 0 0 18px -4px rgb(var(--brand) / 0.5); }
+
+  /* Tables: tinted heading row. */
+  [data-theme='neon'] thead { background-image: linear-gradient(90deg, rgb(var(--brand) / 0.07), rgb(var(--accent2) / 0.05)); }
+  [data-theme='neon'] .th { color: rgb(var(--brand)); letter-spacing: 0.04em; }
+  [data-theme='neon'] tbody tr { transition: background-color var(--dur) var(--ease); }
+  [data-theme='neon'] tbody tr:hover { background-color: rgb(var(--brand) / 0.045); }
+
+  [data-theme='neon'] .accent-edge::before { height: 3px; opacity: 1; background: linear-gradient(90deg, rgb(var(--brand)), rgb(var(--accent2)), rgb(var(--brand) / 0.2)); }
+  [data-theme='neon'] .glass { background-color: rgb(var(--panel) / 0.62); backdrop-filter: blur(20px) saturate(1.5); }
+
+  /* Underlined tab bars become a frosted pill track with a glowing gradient pill for the open tab. */
+  [data-theme='neon'] [role='tablist'].border-b {
+    border: 1px solid rgb(var(--brand) / 0.16); border-radius: 999px; padding: 4px; gap: 2px;
+    background-color: rgb(var(--panel) / 0.7); backdrop-filter: blur(12px);
+    scrollbar-width: none;
+  }
+  [data-theme='neon'] [role='tablist'].border-b > [role='tab'] { margin-bottom: 0; border-bottom: 0; border-radius: 999px; padding-block: 0.45rem; }
+  [data-theme='neon'] [role='tablist'].border-b > [role='tab'][aria-selected='true'] {
+    background-image: linear-gradient(100deg, var(--neon-a), var(--neon-b));
+    color: #fff; box-shadow: 0 6px 16px -8px rgb(var(--brand) / 0.9);
+  }
+  [data-theme='neon'] [role='tablist'].border-b > [role='tab'][aria-selected='false']:hover { background-color: rgb(var(--brand) / 0.08); }
+
+  /* Navigation: deep indigo rail, glowing gradient pill for the current page. */
+  [data-theme='neon'] .neon-rail {
+    background-image:
+      radial-gradient(420px 320px at 0% 0%, rgb(var(--brand) / 0.38), transparent 70%),
+      radial-gradient(380px 360px at 100% 100%, rgb(var(--accent2) / 0.30), transparent 70%),
+      linear-gradient(180deg, rgb(var(--sidebar)), rgb(var(--sidebar)));
+    border-color: rgb(255 255 255 / 0.06);
+  }
+  [data-theme='neon'] .nav-item[aria-current='page'] {
+    background-image: linear-gradient(100deg, var(--neon-a), var(--neon-b));
+    color: #fff;
+    box-shadow: 0 8px 22px -8px rgb(var(--brand) / 0.9), 0 0 0 1px rgb(255 255 255 / 0.12) inset;
+  }
+  [data-theme='neon'] .brand-icon { background-image: linear-gradient(135deg, var(--neon-a), var(--neon-b)); border-radius: 12px; color: #fff; box-shadow: 0 0 0 1px rgb(255 255 255 / 0.25) inset, 0 6px 18px -4px rgb(var(--brand) / 0.85), 0 0 22px -6px rgb(var(--accent2) / 0.8); }
+  [data-theme='neon'] .nav-item[aria-current='page'] svg { color: #fff; }
+  [data-theme='neon'] .nav-item[aria-current='page'] .nav-bar { display: none; }
+}
+
+/* Gradient icon tiles (KPI cards, lifecycle stages, quick actions). Used by every theme. */
+@layer components {
+  .icon-tile {
+    @apply grid shrink-0 place-items-center text-white;
+    width: 2.75rem; height: 2.75rem; border-radius: 14px;
+    background-image: linear-gradient(135deg, var(--t1), var(--t2));
+    box-shadow: 0 1px 0 rgb(255 255 255 / 0.35) inset, 0 8px 18px -8px var(--t2);
+  }
+  .tone-violet { --t1: #8b5cf6; --t2: #6d28d9; }
+  .tone-blue { --t1: #60a5fa; --t2: #2563eb; }
+  .tone-amber { --t1: #fbbf24; --t2: #ea580c; }
+  .tone-green { --t1: #4ade80; --t2: #059669; }
+  .tone-pink { --t1: #f472b6; --t2: #c026d3; }
+  .tone-cyan { --t1: #22d3ee; --t2: #0284c7; }
+  .tone-red { --t1: #fb7185; --t2: #dc2626; }
+  .tone-brand { --t1: var(--neon-a); --t2: var(--neon-b); }
+  .bg-neon { background-image: linear-gradient(100deg, var(--neon-a), var(--neon-b)); color: #fff; }
+  .text-gradient { background-image: linear-gradient(95deg, rgb(var(--brand)), rgb(var(--accent2))); -webkit-background-clip: text; background-clip: text; color: transparent; }
+}
