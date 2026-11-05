@@ -51,7 +51,7 @@ describe('Super Admin: subscriptions, feature switches, activity, automation (e2
     const routes = router.stack.filter((l) => l.route).flatMap((l) => Object.keys(l.route!.methods).map((m) => [m.toUpperCase(), l.route!.path] as const));
     expect(routes.length).toBeGreaterThan(100);
     // Public routes are never gated (respondent links, sign-up forms, the public API has its own check).
-    const PUBLIC = /^(\/api\/v1)?\/(public|s|r|g|end|pa|s2s|integrations\/bidzo\/events|auth)(\/|$)/;
+    const PUBLIC = /^(\/api\/v1)?\/(public|s|r|g|u|end|pa|s2s|integrations\/bidzo\/events|auth)(\/|$)/;
     const unmapped = routes.filter(([m, p]) => !PUBLIC.test(p) && featureForRoute(m, p) === undefined);
     expect(unmapped).toEqual([]);
     expect(featureForRoute('POST', '/api/v1/projects')).toBe('projects.create');
