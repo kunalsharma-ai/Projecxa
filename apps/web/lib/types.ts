@@ -39,6 +39,9 @@ export interface Me {
   branding?: import('./branding').Brand;
   /** Set in Settings → Integrations. */
   links?: { bidzoUrl: string | null };
+  /** Product tour after sign-in (docs/PRODUCT_TOUR.md). */
+  tour?: { version: number; show: boolean; outcome: 'completed' | 'skipped' | null; at: string | null };
+
   /** Super Admin switches (docs/SUPER_ADMIN.md). */
   features?: Features;
 }

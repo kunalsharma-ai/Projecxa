@@ -3,8 +3,10 @@ import clsx from 'clsx';
 import { useEffect, useId, useRef, useState } from 'react';
 
 /** Small accessible popover: button toggles, Escape or an outside click closes, focus returns to the button. */
-export function Popover({ label, trigger, children, width = 'w-64', badge }: {
+export function Popover({ label, trigger, children, width = 'w-64', badge, wide }: {
   label: string; trigger: React.ReactNode; children: (close: () => void) => React.ReactNode; width?: string; badge?: number;
+  /** The trigger holds more than an icon (e.g. the account chip). */
+  wide?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -29,7 +31,7 @@ export function Popover({ label, trigger, children, width = 'w-64', badge }: {
   return (
     <div ref={ref} className="relative">
       <button ref={btn} type="button" aria-label={label} title={label} aria-expanded={open} aria-controls={id} onClick={() => setOpen((o) => !o)}
-        className={clsx('relative grid h-9 w-9 place-items-center rounded-lg text-muted transition-colors duration-[var(--dur)] hover:bg-sunken hover:text-ink', open && 'bg-sunken text-ink')}>
+        className={clsx('relative grid h-9 place-items-center rounded-lg text-muted', wide ? 'px-1' : 'w-9', ' transition-colors duration-[var(--dur)] hover:bg-sunken hover:text-ink', open && 'bg-sunken text-ink')}>
         {trigger}
         {!!badge && <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-bad px-1 text-[10px] font-semibold text-panel">{badge > 9 ? '9+' : badge}</span>}
       </button>

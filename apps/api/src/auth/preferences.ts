@@ -4,7 +4,7 @@
  */
 import { z } from 'zod';
 
-export const THEME_IDS = ['midnight', 'arctic', 'emerald', 'obsidian', 'sapphire', 'aurora', 'graphite', 'solar'] as const;
+export const THEME_IDS = ['neon', 'midnight', 'arctic', 'emerald', 'obsidian', 'sapphire', 'aurora', 'graphite', 'solar'] as const;
 
 const hex = z.string().regex(/^#[0-9a-f]{6}$/i, 'Use a #rrggbb colour');
 const pct = z.number().int().min(0).max(100);

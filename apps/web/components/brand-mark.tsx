@@ -8,7 +8,7 @@ import { initials, orgTheme, usePublicBrand, type Brand } from '@/lib/branding';
 export function BrandIcon({ brand, className }: { brand: Pick<Brand, 'appName' | 'iconUrl'>; className?: string }) {
   if (brand.iconUrl) return <img src={brand.iconUrl} alt="" className={clsx('h-8 w-8 shrink-0 rounded-lg object-cover', className)} />; // eslint-disable-line @next/next/no-img-element
   return (
-    <span className={clsx('grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-brand to-accent2 text-[13px] font-bold text-brand-ink shadow-sm', className)} aria-hidden>
+    <span className={clsx('brand-icon grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-brand to-accent2 text-[13px] font-bold text-brand-ink shadow-sm', className)} aria-hidden>
       {initials(brand.appName)}
     </span>
   );

@@ -14,13 +14,21 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RateTable, ReportsService } from '../reports/reports.service';
 import { periods, periodSchema } from './period';
 
-export const WIDGETS = ['kpis', 'trend', 'waterfall', 'map', 'finance', 'payables', 'top-vendors', 'top-projects', 'top-clients', 'live-projects', 'health', 'heatmap', 'workspace'] as const;
+export const WIDGETS = ['kpis', 'timeline', 'kanban', 'radar', 'activity', 'coverage', 'budget', 'suppliers', 'quick-actions', 'trend', 'waterfall', 'map', 'finance', 'payables', 'top-vendors', 'top-projects', 'top-clients', 'live-projects', 'health', 'heatmap', 'workspace'] as const;
 export type WidgetId = (typeof WIDGETS)[number];
 export const SIZES = ['third', 'half', 'two-thirds', 'full'] as const;
 
 /** The layout everyone starts with, and gets back with "Reset". */
 export const DEFAULT_LAYOUT: { id: WidgetId; size: (typeof SIZES)[number]; hidden: boolean }[] = [
   { id: 'kpis', size: 'full', hidden: false },
+  { id: 'timeline', size: 'half', hidden: false },
+  { id: 'kanban', size: 'half', hidden: false },
+  { id: 'radar', size: 'third', hidden: false },
+  { id: 'activity', size: 'third', hidden: false },
+  { id: 'quick-actions', size: 'third', hidden: false },
+  { id: 'coverage', size: 'third', hidden: false },
+  { id: 'budget', size: 'third', hidden: false },
+  { id: 'suppliers', size: 'third', hidden: false },
   { id: 'trend', size: 'full', hidden: false },
   { id: 'map', size: 'two-thirds', hidden: false },
   { id: 'waterfall', size: 'third', hidden: false },

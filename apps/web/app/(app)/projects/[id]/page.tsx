@@ -9,7 +9,7 @@ import { FilesTab } from '@/components/project/files-tab';
 import { FinanceTab } from '@/components/project/finance-tab';
 import { HistoryTab } from '@/components/project/history-tab';
 import { SaveTemplate } from '@/components/project/save-template';
-import { LayoutTemplate } from 'lucide-react';
+import { BadgeCheck, CircleSlash, Gauge, Hourglass, LayoutTemplate, ShieldAlert } from 'lucide-react';
 import { MonitorTab } from '@/components/project/monitor-tab';
 import { QuotasTab } from '@/components/project/quotas-tab';
 import { QaStudio } from '@/components/project/qa-studio';
@@ -19,13 +19,14 @@ import { AnswersView } from '@/components/project/answers-view';
 import { SecurityTab } from '@/components/project/security-tab';
 import { SessionsTab } from '@/components/project/sessions-tab';
 import { VendorsTab } from '@/components/project/vendors-tab';
+import { UniqueLinksTab } from '@/components/project/unique-links-tab';
 import type { ProjectDetail } from '@/components/project/types';
 import { ErrorBox, Loading, PageHeader, StatusChip } from '@/components/ui';
 import { get, patch } from '@/lib/api';
 import { flag } from '@/lib/countries';
 import { SECURITY_LABELS } from '@/lib/types';
 
-const TABS = ['Overview', 'Vendors & links', 'Quotas', 'Monitor', 'Gate & security', 'Respondent pages', 'Redirects', 'QA studio', 'Respondents', 'Answers', 'Reconcile & invoice', 'Files & requests', 'History'] as const;
+const TABS = ['Overview', 'Vendors & links', 'Unique links', 'Quotas', 'Monitor', 'Gate & security', 'Respondent pages', 'Redirects', 'QA studio', 'Respondents', 'Answers', 'Reconcile & invoice', 'Files & requests', 'History'] as const;
 const NEXT_STATUS: Record<string, string[]> = {
   DRAFT: ['TEST', 'LIVE'],
   TEST: ['LIVE', 'HOLD'],
@@ -129,17 +130,20 @@ export default function ProjectPage() {
       )}
       {savingTemplate && <SaveTemplate project={p} onClose={() => setSavingTemplate(false)} />}
 
-      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        {[
-          ['Completes', `${completes} / ${target}`],
-          ['In progress', p.stats.STARTED],
-          ['Terminates', p.stats.TERMINATE],
-          ['Overquota / quota full', p.stats.QUOTA_FULL],
-          ['Quality, duplicate, security', p.stats.QUALITY_FAIL + p.stats.DUPLICATE + p.stats.SECURITY_REJECT],
-        ].map(([l, v]) => (
-          <div key={l} className="card p-4">
-            <div className="text-xs text-muted">{l}</div>
-            <div className="mt-1 text-xl font-semibold tabular-nums">{v}</div>
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
+        {([
+          ['Completes', `${completes} / ${target}`, BadgeCheck, 'tone-violet'],
+          ['In progress', p.stats.STARTED, Hourglass, 'tone-blue'],
+          ['Terminates', p.stats.TERMINATE, CircleSlash, 'tone-amber'],
+          ['Overquota / quota full', p.stats.QUOTA_FULL, Gauge, 'tone-cyan'],
+          ['Quality, duplicate, security', p.stats.QUALITY_FAIL + p.stats.DUPLICATE + p.stats.SECURITY_REJECT, ShieldAlert, 'tone-pink'],
+        ] as const).map(([l, v, Icon, tone], i) => (
+          <div key={l} className={clsx('card flex min-w-0 items-center gap-3 p-4', i === 0 && 'col-span-2 lg:col-span-1')}>
+            <span className={clsx('icon-tile hidden sm:grid', tone)}><Icon className="h-5 w-5" aria-hidden /></span>
+            <div className="min-w-0">
+              <div className="text-xl font-bold tabular-nums">{v}</div>
+              <div className="text-xs text-muted">{l}</div>
+            </div>
           </div>
         ))}
       </div>
@@ -154,6 +158,7 @@ export default function ProjectPage() {
 
       {tab === 'Overview' && <CountriesTab project={p} editable={editable} reload={reload} security={security} />}
       {tab === 'Vendors & links' && <VendorsTab project={p} editable={editable} reload={reload} />}
+      {tab === 'Unique links' && <UniqueLinksTab key={p.id} project={p} editable={editable} />}
       {tab === 'Quotas' && <QuotasTab key={p.id} project={p} editable={editable} />}
       {tab === 'Monitor' && <MonitorTab key={p.id} project={p} editable={editable} reload={reload} />}
       {tab === 'Redirects' && <RedirectsTab project={p} editable={editable} reload={reload} />}

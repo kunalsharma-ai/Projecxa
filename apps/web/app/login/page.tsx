@@ -1,4 +1,5 @@
 'use client';
+import { AuthShell } from '@/components/auth-shell';
 import Link from 'next/link';
 import { BrandLogo, useBrandedPage } from '@/components/brand-mark';
 import { useRouter } from 'next/navigation';
@@ -75,7 +76,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center px-4">
+    <AuthShell>
       <form onSubmit={submit} className="card w-full max-w-sm space-y-4 p-7">
         <div>
           {brand && <BrandLogo brand={brand} />}
@@ -137,7 +138,7 @@ export default function LoginPage() {
         )}
       </form>
       {registerOpen && !codeStep && <p className="mt-4 text-center text-sm text-muted">New to {appName}? <Link href="/register" className="text-brand hover:underline">Register your company</Link></p>}
-    </main>
+    </AuthShell>
   );
 }
 
