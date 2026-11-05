@@ -1,5 +1,7 @@
 packages:
   - "apps/*"
+  # The mobile app uses npm and its own lockfile (Expo/React Native tooling); see apps/mobile/README.md.
+  - "!apps/mobile"
 onlyBuiltDependencies:
   - "@prisma/client"
   - "@prisma/engines"
