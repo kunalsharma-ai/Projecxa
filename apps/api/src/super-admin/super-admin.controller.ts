@@ -32,6 +32,8 @@ const planBase = {
   name: z.string().trim().min(1).max(80), description: z.string().max(500).nullable().optional(), priceLabel: z.string().max(80).nullable().optional(),
   features: z.array(feature).max(200), mobileFeatures: z.array(feature).max(200), mobileEnabled: z.boolean().optional(),
   maxUsers: limit, maxProjects: limit, sortOrder: z.number().int().min(0).max(1000).optional(),
+  priceMonthly: z.number().min(0).max(100_000_000).nullable().optional(), priceYearly: z.number().min(0).max(100_000_000).nullable().optional(),
+  currency: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/, 'Use a 3-letter currency code').optional(),
 };
 const planCreate = z.object({ code: z.string().trim().toLowerCase().regex(/^[a-z0-9_-]{2,40}$/, 'Use 2–40 lowercase letters, digits, - or _'), ...planBase }).strict();
 const planUpdate = z.object({ ...planBase, active: z.boolean() }).partial().strict();

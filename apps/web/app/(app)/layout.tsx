@@ -125,7 +125,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // The page's feature, from the longest matching menu entry.
   const pageFeature = NAV.filter((n) => n.feature && isActive(pathname, n.href)).sort((a, b) => b.href.length - a.href.length)[0]?.feature
     ?? (pathname.startsWith('/projects/new') ? 'projects.create' : undefined);
-  const blocked = me.features?.block && !pathname.startsWith('/account');
+  const blocked = me.features?.block && !pathname.startsWith('/account') && !(me.features.block === 'SUBSCRIPTION_INACTIVE' && me.user.role === 'ADMIN' && pathname.startsWith('/settings/subscription'));
   const featureOff = !blocked && pageFeature && me.features && me.features.web[pageFeature] === false;
 
   return (
@@ -240,7 +240,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           <div className="flex min-h-0 flex-1">
             <main id="main" key={pathname} className="anim-in mx-auto w-full min-w-0 max-w-[1440px] px-4 py-6 sm:px-6">
-              {blocked ? <PlanBlocked block={me.features!.block!} /> : featureOff ? <FeatureOff feature={pageFeature!} /> : children}
+              {blocked ? <PlanBlocked block={me.features!.block!} admin={me.user.role === 'ADMIN'} /> : featureOff ? <FeatureOff feature={pageFeature!} /> : children}
             </main>
             {copilot && pathname !== '/copilot' && (
               <aside className="fixed bottom-0 right-0 top-16 z-30 flex w-full flex-col border-l border-line bg-panel shadow-2xl sm:w-[440px]" aria-label="AI copilot">

@@ -54,7 +54,7 @@ describe('Settings → Integrations (e2e)', () => {
     await pm.get('/integrations/settings').expect(403);
     const r = (await admin.get('/integrations/settings').expect(200)).body;
     expect(r.owner).toBe(true);
-    expect(r.integrations.map((i: { kind: string }) => i.kind)).toEqual(['smtp', 'sso_google', 'sso_microsoft', 'sso_zoho', 'gemini', 'zoho_books', 'xero', 'quickbooks', 'tally', 'bidzo']);
+    expect(r.integrations.map((i: { kind: string }) => i.kind)).toEqual(['smtp', 'sso_google', 'sso_microsoft', 'sso_zoho', 'gemini', 'zoho_books', 'xero', 'quickbooks', 'tally', 'bidzo', 'razorpay', 'stripe']);
     const google = r.integrations.find((i: { kind: string }) => i.kind === 'sso_google');
     expect(google.redirectUri).toBe('http://api.projexa.test/api/v1/auth/sso/google/callback');
     expect(google.steps.join(' ')).toContain('http://api.projexa.test/api/v1/auth/sso/google/callback');

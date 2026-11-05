@@ -1,5 +1,5 @@
 import { hasFeature, type Features } from '@/lib/types';
-import { Crown, Columns3, Activity, Route, MessagesSquare, ListChecks, Sparkles, BarChart3, BookOpenCheck, Users, HandCoins, Building2, FolderKanban, FormInput, ReceiptText, KeyRound, LayoutDashboard, Palette, PlugZap, PlusCircle, Settings, ShieldCheck, Stamp, Trophy, Truck, type LucideIcon } from 'lucide-react';
+import { CreditCard, Crown, Columns3, Activity, Route, MessagesSquare, ListChecks, Sparkles, BarChart3, BookOpenCheck, Users, HandCoins, Building2, FolderKanban, FormInput, ReceiptText, KeyRound, LayoutDashboard, Palette, PlugZap, PlusCircle, Settings, ShieldCheck, Stamp, Trophy, Truck, type LucideIcon } from 'lucide-react';
 
 export type NavGroup = 'Workspace' | 'Fieldwork' | 'Finance' | 'Network' | 'Admin';
 export interface NavItem { href: string; label: string; icon: LucideIcon; group: NavGroup; keywords?: string; editorsOnly?: boolean; adminOnly?: boolean; feature?: string; superAdminOnly?: boolean }
@@ -28,6 +28,7 @@ export const NAV: NavItem[] = [
   { href: '/settings/integrations', label: 'Integrations', icon: PlugZap, group: 'Admin', keywords: 'connect email smtp zoho mail google microsoft sso sign-in gemini ai api key zoho books xero quickbooks tally bidzo setup keys', adminOnly: true, feature: 'integrations' },
   { href: '/settings/team', label: 'Team', icon: Users, group: 'Admin', keywords: 'staff users invite people roles deactivate password', adminOnly: true, feature: 'team' },
   { href: '/settings/privacy', label: 'Privacy', icon: ShieldCheck, group: 'Admin', keywords: 'gdpr retention consent erase delete anonymise personal data', adminOnly: true, feature: 'privacy' },
+  { href: '/settings/subscription', label: 'Subscription', icon: CreditCard, group: 'Admin', keywords: 'plan billing pay payment renew upgrade invoice receipt razorpay stripe bank transfer upi', adminOnly: true },
   { href: '/settings/branding', label: 'Branding', icon: Stamp, group: 'Admin', keywords: 'white label logo colours domain custom brand name email sender', adminOnly: true, feature: 'branding' },
   { href: '/settings', label: 'Settings', icon: Settings, group: 'Admin', keywords: 'organization redirects domains', feature: 'settings' },
   { href: '/super-admin', label: 'Super Admin', icon: Crown, group: 'Admin', keywords: 'super admin organisations tenants subscriptions plans features mobile app activity automation registrations', superAdminOnly: true },

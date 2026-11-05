@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { EntitlementsModule } from './super-admin/entitlements';
 import { SuperAdminModule } from './super-admin/super-admin.module';
+import { BillingModule } from './billing/billing.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AuditModule } from './audit/audit.service';
 import { AuthModule } from './auth/auth.module';
@@ -43,6 +44,7 @@ import { VendorsModule } from './vendors/vendors.controller';
     EntitlementsModule,
     IntegrationsModule,
     SuperAdminModule,
+    BillingModule,
     AuthModule,
     UsersModule,
     ClientsModule,

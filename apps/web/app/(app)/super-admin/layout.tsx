@@ -1,6 +1,6 @@
 'use client';
 import clsx from 'clsx';
-import { Activity, Bot, Building2, Crown, Gauge, Layers, PlugZap, UserPlus } from 'lucide-react';
+import { Activity, Bot, Building2, CreditCard, Crown, Gauge, Layers, PlugZap, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useMe } from '@/components/me';
@@ -11,6 +11,7 @@ const TABS = [
   { href: '/super-admin/organizations', label: 'Organisations', icon: Building2 },
   { href: '/super-admin/registrations', label: 'Registrations', icon: UserPlus },
   { href: '/super-admin/plans', label: 'Plans and features', icon: Layers },
+  { href: '/super-admin/billing', label: 'Billing', icon: CreditCard },
   { href: '/super-admin/activity', label: 'Activity', icon: Activity },
   { href: '/super-admin/integrations', label: 'Integrations', icon: PlugZap },
   { href: '/super-admin/automation', label: 'Automation', icon: Bot },

@@ -1,6 +1,6 @@
 /**
  * Super Admin (docs/SUPER_ADMIN.md): the person who runs this PROJEXA server registers
- * organisations, gives them a plan (a feature package; no payments are taken), switches any feature
+ * organisations, gives them a plan (a feature package they pay for in billing/, docs/SUBSCRIPTION_PAYMENTS.md), switches any feature
  * on or off for an organisation or one person, on the web and in the mobile app, sees what every
  * admin and user does, and controls every organisation's integrations.
  */
@@ -46,7 +46,8 @@ export interface SubscriptionInput {
 export const slugify = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'org';
 
 /** Hooks the automation engine plugs into (set by AutomationService, so there is no import cycle). */
-export type OrgEventHandler = (event: 'org.registered' | 'org.created', orgId: string) => Promise<void>;
+export type OrgEvent = 'org.registered' | 'org.created' | 'payment.received' | 'payment.submitted';
+export type OrgEventHandler = (event: OrgEvent, orgId: string, vars?: Record<string, string>, key?: string) => Promise<void>;
 
 @Injectable()
 export class SuperAdminService {
@@ -114,14 +115,14 @@ export class SuperAdminService {
     };
   }
 
-  async createPlan(u: AuthUser, body: { code: string; name: string; description?: string | null; priceLabel?: string | null; features: string[]; mobileFeatures: string[]; mobileEnabled?: boolean; maxUsers?: number | null; maxProjects?: number | null; sortOrder?: number }) {
+  async createPlan(u: AuthUser, body: { code: string; name: string; description?: string | null; priceLabel?: string | null; features: string[]; mobileFeatures: string[]; mobileEnabled?: boolean; maxUsers?: number | null; maxProjects?: number | null; sortOrder?: number; priceMonthly?: number | null; priceYearly?: number | null; currency?: string }) {
     if (await this.prisma.plan.findUnique({ where: { code: body.code } })) throw new BadRequestException('A plan with that code already exists');
     const p = await this.prisma.plan.create({ data: { ...body, ...this.cleanFeatures(body.features, body.mobileFeatures) } });
     await this.record(u, await this.ownerId(), 'superadmin.plan_create', 'Plan', p.id, { code: p.code });
     return p;
   }
 
-  async updatePlan(u: AuthUser, id: string, body: Partial<{ name: string; description: string | null; priceLabel: string | null; features: string[]; mobileFeatures: string[]; mobileEnabled: boolean; maxUsers: number | null; maxProjects: number | null; active: boolean; sortOrder: number }>) {
+  async updatePlan(u: AuthUser, id: string, body: Partial<{ name: string; description: string | null; priceLabel: string | null; features: string[]; mobileFeatures: string[]; mobileEnabled: boolean; maxUsers: number | null; maxProjects: number | null; active: boolean; sortOrder: number; priceMonthly: number | null; priceYearly: number | null; currency: string }>) {
     const before = await this.prisma.plan.findUnique({ where: { id } });
     if (!before) throw new NotFoundException('Plan not found');
     const p = await this.prisma.plan.update({ where: { id }, data: { ...body, ...this.cleanFeatures(body.features, body.mobileFeatures) } });

@@ -9,7 +9,7 @@ The **Super Admin** runs the whole PROJEXA server. Above every organisation's ow
 - control **every organisation's integrations** (allow, block, remove saved settings);
 - automate all of it with plain **When / Only if / Then** rules and ready-made recipes.
 
-No payment is taken. A plan's price is a label only; renewals are recorded on the subscription by hand or by automation.
+Organisations pay for their plan online (Razorpay or Stripe) or offline (bank transfer, UPI, cheque, cash), and a payment renews the subscription by itself: see [SUBSCRIPTION_PAYMENTS.md](SUBSCRIPTION_PAYMENTS.md). Renewals can also be set on the subscription by hand or by automation.
 
 Open it from **Super Admin** in the menu (only Super Admins see it).
 
@@ -130,6 +130,5 @@ Emails are sent with the platform owner organisation's email settings (Settings 
 
 ## Not included
 
-- **Payments.** Plans have a price label only; there is no checkout, invoice to the tenant or payment gateway. One can be added on top of the same plans later.
 - Org admins cannot restrict features for their own users yet; only the Super Admin can.
 - The AI copilot's read-only tools can still summarise data of a feature that is switched off for the person (the copilot itself is a feature that can be switched off).

@@ -116,9 +116,9 @@ model Organization {
   /// Integrations set up in Settings → Integrations (docs/INTEGRATIONS.md).
   integrations           IntegrationSetting[]
   /// The organisation that runs this PROJEXA server. Its admins set the server-wide sign-in and accounting apps. Null on every org = the oldest one.
-  platformOwner          Boolean             @default(false)
+  platformOwner          Boolean              @default(false)
   /// Super Admin (docs/SUPER_ADMIN.md): PENDING = registered, waiting for approval; SUSPENDED = nobody can use the app.
-  status                 OrgStatus           @default(ACTIVE)
+  status                 OrgStatus            @default(ACTIVE)
   /// Self-registration details: { contactName, phone, website, message, requestedPlan, ip }.
   registration           Json?
   /// Platform settings (platform owner only): { registrationOpen, defaultPlanCode, trialDays }.
@@ -126,6 +126,7 @@ model Organization {
   subscription           Subscription?
   featureOverrides       FeatureOverride[]
   automationRuns         AutomationRun[]
+  billingInvoices        BillingInvoice[]
 }
 
 enum OrgStatus {
@@ -136,26 +137,31 @@ enum OrgStatus {
 
 /// A feature package the Super Admin sells or assigns (docs/SUPER_ADMIN.md). No payments are taken.
 model Plan {
-  id             String         @id @default(cuid())
-  code           String         @unique
+  id             String           @id @default(cuid())
+  code           String           @unique
   name           String
   description    String?
-  /// Shown to people only, e.g. "INR 4,999 a month". Nothing is charged.
+  /// Shown to people, e.g. "INR 4,999 a month". Used when no price is set below.
   priceLabel     String?
+  /// What organisations pay for the plan (docs/SUBSCRIPTION_PAYMENTS.md); null = cannot be bought for that period.
+  priceMonthly   Decimal?         @db.Decimal(12, 2)
+  priceYearly    Decimal?         @db.Decimal(12, 2)
+  currency       String           @default("INR")
   /// Feature keys (src/super-admin/features.ts) included on the web.
-  features       String[]       @default([])
+  features       String[]         @default([])
   /// Feature keys included in the Android and iOS app.
-  mobileFeatures String[]       @default([])
-  mobileEnabled  Boolean        @default(true)
+  mobileFeatures String[]         @default([])
+  mobileEnabled  Boolean          @default(true)
   /// Active staff users allowed; null = no limit.
   maxUsers       Int?
   /// Projects allowed; null = no limit.
   maxProjects    Int?
-  active         Boolean        @default(true)
-  sortOrder      Int            @default(0)
+  active         Boolean          @default(true)
+  sortOrder      Int              @default(0)
   subscriptions  Subscription[]
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  invoices       BillingInvoice[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 }
 
 enum SubscriptionStatus {
@@ -169,25 +175,27 @@ enum SubscriptionStatus {
 
 /// One organisation's subscription. An organisation without one keeps every feature (installs from before Super Admin).
 model Subscription {
-  id             String             @id @default(cuid())
-  organizationId String             @unique
-  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  planId         String
-  plan           Plan               @relation(fields: [planId], references: [id])
-  status         SubscriptionStatus @default(ACTIVE)
-  startsAt       DateTime           @default(now())
+  id              String             @id @default(cuid())
+  organizationId  String             @unique
+  organization    Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  planId          String
+  plan            Plan               @relation(fields: [planId], references: [id])
+  status          SubscriptionStatus @default(ACTIVE)
+  startsAt        DateTime           @default(now())
   /// Renewal or end date; after it the subscription stops working (unless PAST_DUE is set by hand).
-  endsAt         DateTime?
-  trialEndsAt    DateTime?
+  endsAt          DateTime?
+  trialEndsAt     DateTime?
   /// Overrides the plan's limits for this organisation; null = the plan's.
-  maxUsers       Int?
-  maxProjects    Int?
+  maxUsers        Int?
+  maxProjects     Int?
   /// Turns the mobile app off for the whole organisation, whatever the plan says.
-  mobileEnabled  Boolean            @default(true)
-  notes          String?
-  updatedById    String?
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  mobileEnabled   Boolean            @default(true)
+  /// How the organisation last paid for it: MONTHLY or YEARLY (null = set by hand).
+  billingInterval BillingInterval?
+  notes           String?
+  updatedById     String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 }
 
 /// Super Admin switch for one feature of one organisation, on top of its plan.
@@ -208,24 +216,82 @@ model FeatureOverride {
 
 /// Super Admin automation: when <trigger>, if <conditions>, then <actions> (docs/SUPER_ADMIN.md).
 model AutomationRule {
-  id          String          @id @default(cuid())
-  name        String
-  enabled     Boolean         @default(true)
+  id            String          @id @default(cuid())
+  name          String
+  enabled       Boolean         @default(true)
   /// org.registered | org.created | trial.ending | subscription.expiring | subscription.ended | org.inactive | seats.exceeded | integration.failing
-  trigger     String
+  trigger       String
   /// e.g. { days: 7 }
-  triggerConfig Json          @default("{}")
+  triggerConfig Json            @default("{}")
   /// { plans?: string[], statuses?: string[], orgStatuses?: string[] }
-  conditions  Json            @default("{}")
+  conditions    Json            @default("{}")
   /// [{ type, ...params }]
-  actions     Json            @default("[]")
-  recipe      String?
-  lastRunAt   DateTime?
-  runCount    Int             @default(0)
-  createdById String?
-  runs        AutomationRun[]
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  actions       Json            @default("[]")
+  recipe        String?
+  lastRunAt     DateTime?
+  runCount      Int             @default(0)
+  createdById   String?
+  runs          AutomationRun[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+}
+
+enum BillingInvoiceStatus {
+  /// Waiting to be paid (online checkout started, or issued by the Super Admin).
+  OPEN
+  /// Paid offline; the organisation sent the details and the Super Admin must confirm.
+  PENDING_REVIEW
+  PAID
+  /// The Super Admin did not find the offline payment.
+  REJECTED
+  CANCELLED
+}
+
+/// A subscription invoice from the server owner to an organisation (docs/SUBSCRIPTION_PAYMENTS.md).
+model BillingInvoice {
+  id                String               @id @default(cuid())
+  /// SUB-2026-00001
+  number            String               @unique
+  organizationId    String
+  organization      Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  planId            String
+  plan              Plan                 @relation(fields: [planId], references: [id])
+  interval          BillingInterval
+  currency          String
+  amount            Decimal              @db.Decimal(12, 2)
+  taxName           String?
+  taxPercent        Decimal              @default(0) @db.Decimal(5, 2)
+  taxAmount         Decimal              @default(0) @db.Decimal(12, 2)
+  total             Decimal              @db.Decimal(12, 2)
+  status            BillingInvoiceStatus @default(OPEN)
+  /// razorpay | stripe | bank_transfer | upi | cheque | cash | other
+  method            String?
+  /// Razorpay order id or Stripe Checkout Session id.
+  providerOrderId   String?              @unique
+  providerPaymentId String?
+  /// Bank / UPI / cheque reference given for an offline payment, or the gateway payment id.
+  reference         String?
+  paidOn            DateTime?
+  note              String?
+  proofName         String?
+  proofType         String?
+  proofData         Bytes?
+  reviewNote        String?
+  reviewedById      String?
+  periodStart       DateTime?
+  periodEnd         DateTime?
+  paidAt            DateTime?
+  createdById       String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@index([organizationId, createdAt])
+  @@index([status])
 }
 
 model AutomationRun {

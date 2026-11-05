@@ -6,6 +6,7 @@ export interface Plan {
   id: string; code: string; name: string; description: string | null; priceLabel: string | null;
   features: string[]; mobileFeatures: string[]; mobileEnabled: boolean; maxUsers: number | null; maxProjects: number | null;
   active: boolean; sortOrder: number; organizations: number;
+  priceMonthly: number | string | null; priceYearly: number | string | null; currency: string;
 }
 export interface OrgSummary {
   id: string; name: string; slug: string; status: OrgStatus; platformOwner: boolean; createdAt: string; customDomain: string | null;
@@ -76,9 +77,27 @@ const ACTION_LABEL: Record<string, string> = {
   'superadmin.org_suspend': 'Paused the organisation', 'superadmin.org_activate': 'Reactivated the organisation', 'superadmin.org_update': 'Edited the organisation',
   'superadmin.user_update': 'Changed a person’s access', 'superadmin.user_sign_out': 'Signed a person out', 'superadmin.plan_create': 'Created a plan',
   'superadmin.plan_update': 'Edited a plan', 'superadmin.plan_delete': 'Deleted a plan', 'superadmin.settings': 'Changed platform settings',
-  'superadmin.integration_clear': 'Removed integration settings', 'org.registered': 'Registered', 'auth.sign_in': 'Signed in',
+  'superadmin.integration_clear': 'Removed integration settings', 'billing.paid': 'Paid for the plan', 'billing.offline_submitted': 'Sent an offline payment', 'billing.offline_rejected': 'Offline payment turned down', 'billing.cancelled': 'Invoice cancelled', 'superadmin.billing_settings': 'Changed billing settings', 'org.registered': 'Registered', 'auth.sign_in': 'Signed in',
   'user.invite': 'Invited a team member', 'user.deactivate': 'Deactivated a team member', 'user.reactivate': 'Reactivated a team member', 'user.update': 'Changed a team member',
   'integration.saved': 'Saved an integration', 'integration.removed': 'Removed an integration', 'password.invite_accepted': 'Accepted an invitation', 'password.reset': 'Reset a password',
   'project.create': 'Created a project', 'project.update': 'Edited a project',
 };
 export const actionLabel = (a: string) => ACTION_LABEL[a] ?? a.replace(/[._]/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
+
+// ───────────── Billing (docs/SUBSCRIPTION_PAYMENTS.md) ─────────────
+export type InvoiceStatus = 'OPEN' | 'PENDING_REVIEW' | 'PAID' | 'REJECTED' | 'CANCELLED';
+export interface BillingInvoice {
+  id: string; number: string; status: InvoiceStatus; plan: { code: string; name: string }; interval: 'MONTHLY' | 'YEARLY'; currency: string;
+  amount: number; taxName: string | null; taxPercent: number; taxAmount: number; total: number; method: string | null; reference: string | null;
+  paidOn: string | null; paidAt: string | null; note: string | null; reviewNote: string | null; hasProof: boolean; proofName: string | null;
+  periodStart: string | null; periodEnd: string | null; createdAt: string; organization?: { id: string; name: string };
+}
+export const INVOICE_STATUS: Record<InvoiceStatus, [string, string]> = {
+  OPEN: ['Not paid', 'bg-sunken text-muted'], PENDING_REVIEW: ['Being checked', 'bg-warn/15 text-warn'], PAID: ['Paid', 'bg-ok/15 text-ok'],
+  REJECTED: ['Not found', 'bg-bad/15 text-bad'], CANCELLED: ['Cancelled', 'bg-sunken text-muted'],
+};
+export const METHOD_LABEL: Record<string, string> = {
+  razorpay: 'Razorpay', stripe: 'Card (Stripe)', bank_transfer: 'Bank transfer', upi: 'UPI', cheque: 'Cheque', cash: 'Cash', other: 'Other',
+};
+export const fmtMoney = (currency: string, n: number | string | null | undefined) =>
+  n == null || n === '' ? '—' : `${currency} ${Number(n).toLocaleString(undefined, { minimumFractionDigits: Number(n) % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;

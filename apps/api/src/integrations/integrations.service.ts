@@ -19,7 +19,7 @@ import { aiFrom, AiConfig, config, EnvMap, ledgersFrom, smtpFrom, SmtpConfig, zo
 import { ZodPipe } from '../common/zod.pipe';
 import { PrismaService } from '../prisma/prisma.service';
 import { EntitlementsService } from '../super-admin/entitlements';
-import { BOOTSTRAP_ENV, CATALOG, FieldDef, IntegrationKind, isKind, KIND, KindDef } from './catalog';
+import { BOOTSTRAP_ENV, CATALOG, FieldDef, IntegrationKind, isKind, isPaymentKind, KIND, KindDef } from './catalog';
 
 export type Source = 'app' | 'env' | null;
 export interface Resolved { source: Source; env: EnvMap; row: IntegrationSetting | null }
@@ -79,6 +79,7 @@ export class IntegrationsService {
 
   /** The Super Admin can take an integration away from an organisation (docs/SUPER_ADMIN.md). */
   async allowed(org: string, kind: IntegrationKind): Promise<boolean> {
+    if (isPaymentKind(kind)) return true;
     return this.entitlements.orgAllows(org, `integration.${kind}`);
   }
 
@@ -202,6 +203,8 @@ export class IntegrationsService {
     const users = new Map<string, string>();
     const out = [];
     for (const def of CATALOG) {
+      // Payment gateways belong to the server owner only; other organisations never see them.
+      if (isPaymentKind(def.kind) && !owner) continue;
       const r = await this.resolve(u.organizationId, def.kind);
       const configured = configuredIn(def.kind, r.env);
       let detail: string | null = null;
@@ -425,6 +428,21 @@ export class IntegrationsService {
       }
       case 'bidzo':
         return { ok: true, message: 'Nothing to test.' };
+      case 'razorpay': {
+        const env = (await this.resolve(null, 'razorpay')).env;
+        if (!configuredIn('razorpay', env)) return { ok: false, message: 'Enter the Key ID and Key secret first.' };
+        const auth = Buffer.from(`${env.RAZORPAY_KEY_ID!.trim()}:${env.RAZORPAY_KEY_SECRET!.trim()}`).toString('base64');
+        const r = await this.http(`${process.env.RAZORPAY_API_URL ?? 'https://api.razorpay.com'}/v1/payments?count=1`, { headers: { Authorization: `Basic ${auth}` } });
+        if (r.status === 200) return { ok: true, message: `Razorpay accepted the keys (${env.RAZORPAY_KEY_ID!.startsWith('rzp_test_') ? 'test mode' : 'live mode'}).` };
+        return { ok: false, message: r.status === 401 ? 'Razorpay did not accept the Key ID and secret.' : `Razorpay answered ${r.status}.` };
+      }
+      case 'stripe': {
+        const env = (await this.resolve(null, 'stripe')).env;
+        if (!configuredIn('stripe', env)) return { ok: false, message: 'Enter the secret key first.' };
+        const r = await this.http(`${process.env.STRIPE_API_URL ?? 'https://api.stripe.com'}/v1/balance`, { headers: { Authorization: `Bearer ${env.STRIPE_SECRET_KEY!.trim()}` } });
+        if (r.status === 200) return { ok: true, message: `Stripe accepted the key (${env.STRIPE_SECRET_KEY!.includes('_test_') ? 'test mode' : 'live mode'}).` };
+        return { ok: false, message: r.status === 401 ? 'Stripe did not accept the key.' : `Stripe answered ${r.status}.` };
+      }
     }
   }
 
@@ -510,6 +528,8 @@ export function configuredIn(kind: IntegrationKind, env: EnvMap): boolean {
     case 'quickbooks': return !!ledgersFrom(env).quickbooks;
     case 'tally': return !!ledgersFrom(env).tally;
     case 'bidzo': return !!env.BIDZO_URL?.trim();
+    case 'razorpay': return !!env.RAZORPAY_KEY_ID?.trim() && !!env.RAZORPAY_KEY_SECRET?.trim();
+    case 'stripe': return !!env.STRIPE_SECRET_KEY?.trim();
   }
 }
 

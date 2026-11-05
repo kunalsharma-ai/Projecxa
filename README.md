@@ -298,7 +298,7 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 ## Super Admin, subscriptions and feature control
 
 - **Super Admin** (the person who runs the server) above every organisation's admins: register and approve organisations, pause or reactivate them, and see everything at a glance.
-- **Plans**: feature packages for the web and the Android/iOS app, with user and project limits and a price label (no payments taken). Each organisation gets a subscription: trial, active, past due, expired or cancelled, with dates.
+- **Plans**: feature packages for the web and the Android/iOS app, with user and project limits and monthly/yearly prices that organisations pay online (Razorpay, Stripe) or offline (bank, UPI, cheque; Super Admin confirms) in Settings → Subscription (docs/SUBSCRIPTION_PAYMENTS.md). Each organisation gets a subscription: trial, active, past due, expired or cancelled, with dates.
 - **Any feature on or off** for one organisation, or one person, separately on the web and in the mobile app. The API enforces it on every request and sends `X-Features-Version`, so the web app and the mobile app change within seconds. `GET /auth/me/features` is the contract both apps read.
 - **Activity** of every admin and user in every organisation, including sign-ins; **Integrations** of every organisation: allow, block, see test results, remove settings.
 - **Automation**: plain When / Only if / Then rules (registrations, trials and renewals ending, subscriptions ended, inactive organisations, user limits, failing integrations → emails, tasks, approvals, plan and status changes, pause, feature switches) with ten one-click recipes.
