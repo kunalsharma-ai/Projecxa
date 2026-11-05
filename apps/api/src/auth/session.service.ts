@@ -26,7 +26,9 @@ export class SessionService {
     if (!user.organization.platformOwner && user.organization.status !== 'ACTIVE') {
       throw new UnauthorizedException(user.organization.status === 'PENDING' ? BLOCK_MESSAGE.ORG_PENDING : BLOCK_MESSAGE.ORG_SUSPENDED);
     }
-    const token = await this.jwt.signAsync({ sub: user.id, org: user.organizationId }, { secret: config.jwtSecret, expiresIn: '12h' });
+    // `at` is the sign-in time in milliseconds: `iat` only has seconds, so a session started in the
+    // same second as "sign out everywhere" or a suspension would otherwise survive it.
+    const token = await this.jwt.signAsync({ sub: user.id, org: user.organizationId, at: Date.now() }, { secret: config.jwtSecret, expiresIn: '12h' });
     await this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     // Super Admin → Activity shows sign-ins too.
     await this.prisma.auditEvent.create({ data: { organizationId: user.organizationId, actorId: user.id, action: 'auth.sign_in', entityType: 'User', entityId: user.id } });

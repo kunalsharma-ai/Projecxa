@@ -15,7 +15,7 @@ describe('Team and password reset (e2e)', () => {
   const http = () => request(app.getHttpServer());
   const tokenIn = (m: Mail) => new URL(m.text.match(/https?:\/\/\S+set-password\?token=\S+/)![0]).searchParams.get('token')!;
   const signIn = (email: string, password: string) => http().post('/api/v1/auth/login').send({ email, password });
-  const later = () => new Promise((r) => setTimeout(r, 1100)); // sessions are compared to the second
+  const later = () => new Promise((r) => setTimeout(r, 1100)); // older tokens are compared to the second
 
   beforeAll(async () => {
     process.env.WEB_ORIGIN = 'http://web.projexa.test';
@@ -139,6 +139,13 @@ describe('Team and password reset (e2e)', () => {
     await admin.post(`/team/${users.PROJECT_MANAGER.id}/sign-out`).expect(200);
     await api(app, pmToken).get('/auth/me').expect(401);
     await signIn(users.PROJECT_MANAGER.email, PASSWORD).expect(200);
+
+    // A session started a moment before, in the same second, also ends (sessions carry milliseconds).
+    const fresh = (await signIn(users.PROJECT_MANAGER.email, PASSWORD).expect(200)).body.token;
+    await admin.post(`/team/${users.PROJECT_MANAGER.id}/sign-out`).expect(200);
+    await api(app, fresh).get('/auth/me').expect(401);
+    const after = (await signIn(users.PROJECT_MANAGER.email, PASSWORD).expect(200)).body.token;
+    await api(app, after).get('/auth/me').expect(200);
   });
 
   it('changes your own password: checks the current one and keeps you signed in', async () => {
