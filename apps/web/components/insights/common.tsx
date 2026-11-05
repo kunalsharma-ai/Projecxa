@@ -51,11 +51,11 @@ export function Tabs<T extends string>({ tabs, value, onChange, label }: { tabs:
 
 export function Kpi({ icon: Icon, tone, value, label, sub, subTone }: { icon: LucideIcon; tone: string; value: React.ReactNode; label: string; sub?: React.ReactNode; subTone?: 'good' | 'bad' | 'muted' }) {
   return (
-    <div className="card flex items-center gap-3 p-4">
-      <span className={clsx('icon-tile h-11 w-11 shrink-0 rounded-2xl', tone)}><Icon className="h-5 w-5" aria-hidden /></span>
+    <div className="card flex flex-col items-start gap-2 p-4 sm:flex-row sm:items-center sm:gap-3">
+      <span className={clsx('icon-tile h-9 w-9 shrink-0 rounded-xl sm:h-11 sm:w-11 sm:rounded-2xl', tone)}><Icon className="h-5 w-5" aria-hidden /></span>
       <div className="min-w-0">
-        <div className="text-2xl font-bold leading-none tabular-nums">{value}</div>
-        <div className="mt-1 truncate text-sm">{label}</div>
+        <div className="text-xl font-bold leading-none tabular-nums sm:text-2xl">{value}</div>
+        <div className="mt-1 line-clamp-2 text-sm">{label}</div>
         {sub != null && <div className={clsx('line-clamp-2 text-xs', subTone === 'good' ? 'text-ok' : subTone === 'bad' ? 'text-bad' : 'text-muted')}>{sub}</div>}
       </div>
     </div>
@@ -87,10 +87,10 @@ export const SOLID = ['#7c3aed', '#3b82f6', '#14b8a6', '#22c55e', '#f59e0b', '#d
 export function HBar({ label, count, percent, i = 0, max }: { label: string; count: number; percent: number | null; i?: number; max?: number }) {
   const w = max ? (count / max) * 100 : percent ?? 0;
   return (
-    <li className="grid grid-cols-[minmax(0,10rem)_1fr_auto] items-center gap-3 text-sm sm:grid-cols-[minmax(0,14rem)_1fr_auto]">
+    <li className="grid grid-cols-[minmax(0,8rem)_minmax(3rem,1fr)_auto] items-center gap-2 text-sm sm:grid-cols-[minmax(0,14rem)_1fr_auto] sm:gap-3">
       <span className="truncate" title={label}>{label}</span>
       <span className="h-2.5 overflow-hidden rounded-full bg-sunken"><span className={clsx('block h-full rounded-full bg-gradient-to-r', GRADS[i % GRADS.length])} style={{ width: `${Math.max(w, count ? 2 : 0)}%` }} /></span>
-      <span className="w-24 text-right tabular-nums text-muted"><span className="font-medium text-ink">{count.toLocaleString()}</span>{percent != null && ` · ${percent}%`}</span>
+      <span className="text-right tabular-nums text-muted sm:w-24"><span className="font-medium text-ink">{count.toLocaleString()}</span>{percent != null && ` · ${percent}%`}</span>
     </li>
   );
 }

@@ -346,3 +346,7 @@ docs/      Phase 0 documents and integration guide
 ## Neon Command design
 
 The web CRM's default look (violet and blue glass, indigo navigation, lifecycle command center). Other themes remain in Theme Studio. See [docs/NEON_DESIGN.md](docs/NEON_DESIGN.md).
+
+## Data processing and analytics
+
+Two Fieldwork pages from the mockup, per project and from real data: **Data processing** (pipeline from intake to billing, validation, cleaning by vendor, quota balance, clean data CSV) and **Analytics** (KPIs, charts, crosstabs, answer analysis, rule-based insights, deliverables). Super Admin features `data_processing` and `analytics`. See [docs/DATA_PROCESSING_AND_ANALYTICS.md](docs/DATA_PROCESSING_AND_ANALYTICS.md).

@@ -121,4 +121,16 @@ describe('Data processing and analytics (e2e)', () => {
     await other.get(`/data-processing/clean?projectId=${projectId}`).expect(404);
     expect((await other.get('/analytics').expect(200)).body.project).toBeNull();
   });
+
+  it('follows the Super Admin feature switches', async () => {
+    const u = await prisma.user.findFirstOrThrow({ where: { email: 'project_manager@da-a.test' } });
+    await prisma.user.update({ where: { id: u.id }, data: { featuresOff: ['analytics'] } });
+    await pm.get(`/analytics?projectId=${projectId}`).expect(403);
+    await pm.get(`/data-processing?projectId=${projectId}`).expect(200);
+    await prisma.user.update({ where: { id: u.id }, data: { featuresOff: ['data_processing'] } });
+    await pm.get(`/data-processing?projectId=${projectId}`).expect(403);
+    await pm.get(`/data-processing/clean?projectId=${projectId}`).expect(403);
+    await pm.get(`/analytics?projectId=${projectId}`).expect(200);
+    await prisma.user.update({ where: { id: u.id }, data: { featuresOff: [] } });
+  });
 });

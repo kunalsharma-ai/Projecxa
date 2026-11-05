@@ -5,7 +5,7 @@ import { post } from '@/lib/api';
 
 const LABEL: Record<string, string> = {
   dashboard: 'The command center', copilot: 'The AI copilot', projects: 'Projects', 'projects.create': 'Creating projects', tasks: 'Tasks', requests: 'Requests',
-  won_bids: 'Won bids', monitor: 'The fieldwork monitor', redirect_health: 'Redirect health', reports: 'Reports', invoices: 'Invoices', payables: 'Vendor payables',
+  won_bids: 'Won bids', monitor: 'The fieldwork monitor', redirect_health: 'Redirect health', reports: 'Reports', data_processing: 'Data processing', analytics: 'Analytics', invoices: 'Invoices', payables: 'Vendor payables',
   accounting: 'Accounting', clients: 'Clients', vendors: 'Vendors', portal_access: 'Portal access', integrations: 'Integrations', team: 'Team', privacy: 'Privacy',
   branding: 'Branding', settings: 'Settings', developers: 'API and webhooks', portal: 'The portal',
 };

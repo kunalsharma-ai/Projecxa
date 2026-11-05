@@ -48,7 +48,9 @@ project is bigger.
 ## Access
 
 Both pages follow the Super Admin feature switches (docs/SUPER_ADMIN.md): `data_processing` and
-`analytics` (web and mobile). An organisation's plan or a per-user switch can turn them off; the sidebar
-hides them and the API answers 403.
+`analytics` (web; the mobile app does not have these screens yet). They are in every starter plan. Plans
+that were already saved before this change do not have them yet: the Super Admin ticks them in
+Super Admin → Plans. A per-organisation or per-user switch can turn them off; the sidebar hides them,
+the page says it is not part of your access, and the API answers 403.
 
 Tests: `apps/api/test/e2e/data-analytics.e2e.spec.ts`.

@@ -128,7 +128,7 @@ export default function DataProcessingPage() {
                           <span className="text-sm font-bold tabular-nums">{s.percent == null ? '–' : `${s.percent}%`}</span>
                         </div>
                         <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-sunken"><div className={clsx('h-full rounded-full bg-gradient-to-r', tone)} style={{ width: `${s.percent ?? 0}%` }} /></div>
-                        <p className="mt-1 truncate text-xs text-muted">{s.detail}</p>
+                        <p className="mt-1 line-clamp-2 text-xs text-muted sm:truncate">{s.detail}</p>
                       </div>
                     </div>
                   </li>
