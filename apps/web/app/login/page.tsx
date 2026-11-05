@@ -24,6 +24,7 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [providers, setProviders] = useState<Provider[]>([]);
+  const [registerOpen, setRegisterOpen] = useState(false);
   // Back from Google, Microsoft or Zoho, and the person also uses an authenticator app: the in-between token is in a cookie.
   const [ssoStep, setSsoStep] = useState(false);
   const codeStep = !!mfaToken || ssoStep;
@@ -38,6 +39,7 @@ export default function LoginPage() {
     if (q.get('email')) setEmail(q.get('email')!);
     if (q.size) window.history.replaceState(null, '', '/login');
     get<Provider[]>('/auth/sso/providers').then(setProviders).catch(() => setProviders([]));
+    get<{ open: boolean }>('/public/register').then((r) => setRegisterOpen(r.open)).catch(() => undefined);
   }, []);
 
   const back = () => { setMfaToken(null); setSsoStep(false); setPassword(''); setCode(''); setError(null); };
@@ -134,6 +136,7 @@ export default function LoginPage() {
           </>
         )}
       </form>
+      {registerOpen && !codeStep && <p className="mt-4 text-center text-sm text-muted">New to {appName}? <Link href="/register" className="text-brand hover:underline">Register your company</Link></p>}
     </main>
   );
 }

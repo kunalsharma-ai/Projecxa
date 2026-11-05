@@ -18,6 +18,7 @@ import { providerSettings, ProviderSettings, SsoProvider } from '../auth/oidc';
 import { aiFrom, AiConfig, config, EnvMap, ledgersFrom, smtpFrom, SmtpConfig, zohoBooksFrom, ZohoBooksConfig, zohoBooksMissingFrom } from '../common/config';
 import { ZodPipe } from '../common/zod.pipe';
 import { PrismaService } from '../prisma/prisma.service';
+import { EntitlementsService } from '../super-admin/entitlements';
 import { BOOTSTRAP_ENV, CATALOG, FieldDef, IntegrationKind, isKind, KIND, KindDef } from './catalog';
 
 export type Source = 'app' | 'env' | null;
@@ -73,7 +74,13 @@ export class IntegrationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly entitlements: EntitlementsService,
   ) {}
+
+  /** The Super Admin can take an integration away from an organisation (docs/SUPER_ADMIN.md). */
+  async allowed(org: string, kind: IntegrationKind): Promise<boolean> {
+    return this.entitlements.orgAllows(org, `integration.${kind}`);
+  }
 
   // ───────────── Reading settings (used by the rest of the app) ─────────────
 
@@ -104,6 +111,7 @@ export class IntegrationsService {
   /** A saved integration for the organisation (or the server owner for platform ones), else the env. */
   async resolve(org: string | null, kind: IntegrationKind): Promise<Resolved> {
     const def = KIND[kind];
+    if (org && !(await this.allowed(org, kind))) return { source: null, env: {}, row: null };
     const holder = def.scope === 'platform' ? await this.ownerId() : org;
     const row = holder ? await this.prisma.integrationSetting.findUnique({ where: { organizationId_kind: { organizationId: holder, kind } } }) : null;
     if (row) {
@@ -178,6 +186,7 @@ export class IntegrationsService {
 
   private async canEdit(u: AuthUser, def: KindDef) {
     if (u.role !== 'ADMIN') return false;
+    if (!(await this.allowed(u.organizationId, def.kind))) return false;
     if (def.scope === 'platform' || def.ownerOnly) return (await this.ownerId()) === u.organizationId;
     return true;
   }
@@ -212,8 +221,11 @@ export class IntegrationsService {
       const fill = (s: string) => s.replace('{redirectUri}', redirectUri ?? '').replace('{webOrigin}', config.webOrigins[0] ?? '').replace('{apiOrigin}', config.publicBaseUrl);
       const editable = await this.canEdit(u, def);
       const showValues = u.role === 'ADMIN' && (def.scope === 'org' || owner);
+      const allowed = await this.allowed(u.organizationId, def.kind);
+      if (!allowed) { state = 'off'; detail = 'Not part of your plan. Your PROJEXA provider can turn it on.'; }
       out.push({
         ...def,
+        allowed,
         steps: def.steps.map(fill),
         redirectUri,
         editable,

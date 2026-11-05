@@ -117,6 +117,132 @@ model Organization {
   integrations           IntegrationSetting[]
   /// The organisation that runs this PROJEXA server. Its admins set the server-wide sign-in and accounting apps. Null on every org = the oldest one.
   platformOwner          Boolean             @default(false)
+  /// Super Admin (docs/SUPER_ADMIN.md): PENDING = registered, waiting for approval; SUSPENDED = nobody can use the app.
+  status                 OrgStatus           @default(ACTIVE)
+  /// Self-registration details: { contactName, phone, website, message, requestedPlan, ip }.
+  registration           Json?
+  /// Platform settings (platform owner only): { registrationOpen, defaultPlanCode, trialDays }.
+  platformSettings       Json?
+  subscription           Subscription?
+  featureOverrides       FeatureOverride[]
+  automationRuns         AutomationRun[]
+}
+
+enum OrgStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+/// A feature package the Super Admin sells or assigns (docs/SUPER_ADMIN.md). No payments are taken.
+model Plan {
+  id             String         @id @default(cuid())
+  code           String         @unique
+  name           String
+  description    String?
+  /// Shown to people only, e.g. "INR 4,999 a month". Nothing is charged.
+  priceLabel     String?
+  /// Feature keys (src/super-admin/features.ts) included on the web.
+  features       String[]       @default([])
+  /// Feature keys included in the Android and iOS app.
+  mobileFeatures String[]       @default([])
+  mobileEnabled  Boolean        @default(true)
+  /// Active staff users allowed; null = no limit.
+  maxUsers       Int?
+  /// Projects allowed; null = no limit.
+  maxProjects    Int?
+  active         Boolean        @default(true)
+  sortOrder      Int            @default(0)
+  subscriptions  Subscription[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  /// Still works; a reminder that renewal is late.
+  PAST_DUE
+  EXPIRED
+  CANCELLED
+}
+
+/// One organisation's subscription. An organisation without one keeps every feature (installs from before Super Admin).
+model Subscription {
+  id             String             @id @default(cuid())
+  organizationId String             @unique
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  planId         String
+  plan           Plan               @relation(fields: [planId], references: [id])
+  status         SubscriptionStatus @default(ACTIVE)
+  startsAt       DateTime           @default(now())
+  /// Renewal or end date; after it the subscription stops working (unless PAST_DUE is set by hand).
+  endsAt         DateTime?
+  trialEndsAt    DateTime?
+  /// Overrides the plan's limits for this organisation; null = the plan's.
+  maxUsers       Int?
+  maxProjects    Int?
+  /// Turns the mobile app off for the whole organisation, whatever the plan says.
+  mobileEnabled  Boolean            @default(true)
+  notes          String?
+  updatedById    String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+}
+
+/// Super Admin switch for one feature of one organisation, on top of its plan.
+model FeatureOverride {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  feature        String
+  /// web | mobile
+  channel        String
+  enabled        Boolean
+  updatedById    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, feature, channel])
+}
+
+/// Super Admin automation: when <trigger>, if <conditions>, then <actions> (docs/SUPER_ADMIN.md).
+model AutomationRule {
+  id          String          @id @default(cuid())
+  name        String
+  enabled     Boolean         @default(true)
+  /// org.registered | org.created | trial.ending | subscription.expiring | subscription.ended | org.inactive | seats.exceeded | integration.failing
+  trigger     String
+  /// e.g. { days: 7 }
+  triggerConfig Json          @default("{}")
+  /// { plans?: string[], statuses?: string[], orgStatuses?: string[] }
+  conditions  Json            @default("{}")
+  /// [{ type, ...params }]
+  actions     Json            @default("[]")
+  recipe      String?
+  lastRunAt   DateTime?
+  runCount    Int             @default(0)
+  createdById String?
+  runs        AutomationRun[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model AutomationRun {
+  id             String         @id @default(cuid())
+  ruleId         String
+  rule           AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  organizationId String?
+  organization   Organization?  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// The same rule acts once per organisation and key (e.g. the subscription end date).
+  dedupeKey      String
+  /// ok | failed
+  status         String
+  detail         Json?
+  createdAt      DateTime       @default(now())
+
+  @@unique([ruleId, organizationId, dedupeKey])
+  @@index([createdAt])
 }
 
 /// One integration's settings for an organisation (docs/INTEGRATIONS.md). Secrets are AES-256-GCM encrypted JSON.
@@ -183,6 +309,15 @@ model User {
   lastLoginAt        DateTime?
   /// Sessions issued before this time are rejected (password reset, deactivation, sign out everywhere).
   sessionsValidAfter DateTime?
+  /// Runs the whole PROJEXA server (docs/SUPER_ADMIN.md). Honoured only in the platform owner organisation.
+  superAdmin         Boolean         @default(false)
+  /// Super Admin: this person may use the Android and iOS app.
+  mobileAccess       Boolean         @default(true)
+  /// Super Admin: features turned off for this person on the web and in the app / in the app only.
+  featuresOff        String[]        @default([])
+  mobileFeaturesOff  String[]        @default([])
+  /// Last authenticated request (written at most every 5 minutes).
+  lastSeenAt         DateTime?
   passwordTokens     PasswordToken[]
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
@@ -685,6 +820,8 @@ model AuditEvent {
   createdAt      DateTime     @default(now())
 
   @@index([organizationId, entityType, entityId])
+  @@index([organizationId, createdAt])
+  @@index([createdAt])
 }
 
 enum WonBidStatus {

@@ -16,7 +16,7 @@ export function Sidebar({ mobileOpen, onClose, badges = {} }: { mobileOpen: bool
   const brand = me?.branding ?? DEFAULT_BRAND;
   const pathname = usePathname();
   const compact = prefs.sidebarCollapsed;
-  const items = visibleNav(me?.user.role);
+  const items = visibleNav(me?.user.role, me?.features);
   const favorites = prefs.favorites.map((h) => items.find((n) => n.href === h)).filter((n): n is NavItem => !!n);
   const toggleFav = (href: string) =>
     update({ favorites: prefs.favorites.includes(href) ? prefs.favorites.filter((f) => f !== href) : [...prefs.favorites, href].slice(0, 20) });

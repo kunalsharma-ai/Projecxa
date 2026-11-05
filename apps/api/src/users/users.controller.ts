@@ -1,3 +1,4 @@
+import { EntitlementsService } from '../super-admin/entitlements';
 import { Body, Controller, Get, Module, Post } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { z } from 'zod';
@@ -16,7 +17,7 @@ const createSchema = z.object({
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly entitlements: EntitlementsService) {}
 
   @Get()
   list(@CurrentUser() u: AuthUser) {
@@ -30,6 +31,7 @@ export class UsersController {
   @Post()
   @Roles('ADMIN')
   async create(@CurrentUser() u: AuthUser, @Body(new ZodPipe(createSchema)) body: z.infer<typeof createSchema>) {
+    await this.entitlements.assertSeat(u.organizationId);
     const created = await this.prisma.user.create({
       data: { organizationId: u.organizationId, email: body.email, name: body.name, role: body.role, passwordHash: await bcrypt.hash(body.password, 10), passwordSetAt: new Date() },
       select: { id: true, name: true, email: true, role: true },

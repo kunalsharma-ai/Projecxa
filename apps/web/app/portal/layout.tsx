@@ -12,6 +12,7 @@ import { get, post } from '@/lib/api';
 import { applyDocumentBrand, DEFAULT_BRAND, orgTheme } from '@/lib/branding';
 import { BrandIcon } from '@/components/brand-mark';
 import { isPortalRole, type Me } from '@/lib/types';
+import { FeatureOff, PlanBlocked } from '@/components/super-admin/plan-gate';
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
@@ -70,7 +71,11 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           })}
         </nav>
       </header>
-      <main className="anim-in mx-auto max-w-[1200px] px-4 py-6 sm:px-6">{children}</main>
+      <main className="anim-in mx-auto max-w-[1200px] px-4 py-6 sm:px-6">
+        {me.features?.block && !pathname.startsWith('/portal/account') ? <PlanBlocked block={me.features.block} />
+          : me.features && me.features.web[me.user.role === 'VENDOR_USER' ? 'portal.vendor' : 'portal.client'] === false && !pathname.startsWith('/portal/account') ? <FeatureOff feature="portal" />
+          : children}
+      </main>
       <footer className="pb-8 text-center text-xs text-muted">
         Operated by {me.organization.name}{!brand.hidePoweredBy && ' · Powered by Sampledge PROJEXA'}
         {brand.supportEmail && <> · <a className="underline" href={`mailto:${brand.supportEmail}`}>{brand.supportEmail}</a></>}

@@ -14,9 +14,11 @@ import { Sidebar } from '@/components/shell/sidebar';
 import { ThemeMenu } from '@/components/shell/theme-menu';
 import { useTheme } from '@/components/theme';
 import { Loading } from '@/components/ui';
-import { get, post } from '@/lib/api';
+import { FEATURES_EVENT, get, post } from '@/lib/api';
+import { PlanBlocked, FeatureOff } from '@/components/super-admin/plan-gate';
 import { applyDocumentBrand, orgTheme } from '@/lib/branding';
-import { isPortalRole, portalHome, type Me } from '@/lib/types';
+import { isPortalRole, portalHome, type Features, type Me } from '@/lib/types';
+import { NAV, isActive } from '@/components/shell/nav';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
@@ -44,6 +46,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (me?.mfa?.setupRequired && pathname !== '/account/security') router.replace('/account/security');
   }, [me, pathname, router]);
   useEffect(() => setMobileNav(false), [pathname]);
+
+  // Super Admin switches apply at once: reload them when the server says they changed, and every 30 s.
+  useEffect(() => {
+    if (!me) return;
+    let last = me.features?.version;
+    const refresh = () => get<Features>('/auth/me/features').then((f) => {
+      if (f.version !== last) { last = f.version; setMe((m) => (m ? { ...m, features: f } : m)); }
+    }).catch(() => undefined);
+    window.addEventListener(FEATURES_EVENT, refresh);
+    const t = setInterval(refresh, 30_000);
+    const onFocus = () => document.visibilityState === 'visible' && refresh();
+    document.addEventListener('visibilitychange', onFocus);
+    return () => { window.removeEventListener(FEATURES_EVENT, refresh); clearInterval(t); document.removeEventListener('visibilitychange', onFocus); };
+  }, [me?.user.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Insights feed the bell count, so they load once and refresh every two minutes.
   const loadInsights = useCallback(() => get<Insights>('/insights').then(setInsights).catch(() => undefined), []);
@@ -78,6 +94,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [update, prefs.sidebarCollapsed, toggleInsights]);
 
   if (!me) return <Loading label="Checking your session" />;
+  // The page's feature, from the longest matching menu entry.
+  const pageFeature = NAV.filter((n) => n.feature && isActive(pathname, n.href)).sort((a, b) => b.href.length - a.href.length)[0]?.feature
+    ?? (pathname.startsWith('/projects/new') ? 'projects.create' : undefined);
+  const blocked = me.features?.block && !pathname.startsWith('/account');
+  const featureOff = !blocked && pageFeature && me.features && me.features.web[pageFeature] === false;
 
   return (
     <MeContext.Provider value={me}>
@@ -173,7 +194,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </header>
 
           <div className="flex min-h-0 flex-1">
-            <main id="main" key={pathname} className="anim-in mx-auto w-full min-w-0 max-w-[1440px] px-4 py-6 sm:px-6">{children}</main>
+            <main id="main" key={pathname} className="anim-in mx-auto w-full min-w-0 max-w-[1440px] px-4 py-6 sm:px-6">
+              {blocked ? <PlanBlocked block={me.features!.block!} /> : featureOff ? <FeatureOff feature={pageFeature!} /> : children}
+            </main>
             {copilot && pathname !== '/copilot' && (
               <aside className="fixed bottom-0 right-0 top-14 z-30 flex w-full flex-col border-l border-line bg-panel shadow-2xl sm:w-[440px]" aria-label="AI copilot">
                 <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-2.5">

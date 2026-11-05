@@ -248,7 +248,7 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - Settings → Branding: product name, tagline, logo (light and dark), icon, default theme and brand colour, sign-in message, support email, and the option to hide "Powered by". Every page, portal and email follows the brand, including the browser tab and authenticator app entries.
 - Emails use your sender name and reply-to address, and keep the server's own address so they still pass spam checks.
 - Custom domain checked by DNS (CNAME plus a TXT token). After the check, emails link there and sign-in pages on that address show your brand. Operations add TLS and build the web app with `NEXT_PUBLIC_CUSTOM_DOMAINS=true`.
-- There are no paid plans or billing. Details: `docs/WHITE_LABEL.md`.
+- White-labelling itself has no billing; feature plans are managed by the Super Admin (see below). Details: `docs/WHITE_LABEL.md`.
 
 ## Milestone 34: redirect health
 
@@ -275,6 +275,16 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - A banner shows what was filled, what the brief leaves out, warnings, and quotes showing where each key value came from. Every value is checked against the form's limits. Nothing is created until you press Create.
 - Create project now has fieldwork dates.
 - Details: `docs/PROJECT_FROM_BRIEF.md`.
+
+## Super Admin, subscriptions and feature control
+
+- **Super Admin** (the person who runs the server) above every organisation's admins: register and approve organisations, pause or reactivate them, and see everything at a glance.
+- **Plans**: feature packages for the web and the Android/iOS app, with user and project limits and a price label (no payments taken). Each organisation gets a subscription: trial, active, past due, expired or cancelled, with dates.
+- **Any feature on or off** for one organisation, or one person, separately on the web and in the mobile app. The API enforces it on every request and sends `X-Features-Version`, so the web app and the mobile app change within seconds. `GET /auth/me/features` is the contract both apps read.
+- **Activity** of every admin and user in every organisation, including sign-ins; **Integrations** of every organisation: allow, block, see test results, remove settings.
+- **Automation**: plain When / Only if / Then rules (registrations, trials and renewals ending, subscriptions ended, inactive organisations, user limits, failing integrations → emails, tasks, approvals, plan and status changes, pause, feature switches) with ten one-click recipes.
+- Public registration page `/register` (opened by the Super Admin).
+- Details: `docs/SUPER_ADMIN.md`.
 
 ## Install on a server
 

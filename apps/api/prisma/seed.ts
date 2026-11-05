@@ -22,12 +22,14 @@ const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? 'projexa-demo-2026';
 
 async function main() {
   await prisma.project.deleteMany({ where: { organization: { slug: 'demo' } } });
-  await prisma.organization.deleteMany({ where: { slug: 'demo' } });
+  await prisma.organization.deleteMany({ where: { slug: { in: ['demo', 'northwind', 'bluebird', 'orbit'] } } });
 
   const org = await prisma.organization.create({
     data: {
       name: 'Demo Research Co.',
       slug: 'demo',
+      // Runs this server: its admin below is the Super Admin (docs/SUPER_ADMIN.md).
+      platformOwner: true,
       // Local demo pages live on the web app; production tenants list their real client/vendor domains.
       redirectAllowedDomains: ['localhost', '*.example.com'],
       fallbackRedirectUrl: null,
@@ -39,7 +41,7 @@ async function main() {
   });
   const hash = await bcrypt.hash(ADMIN_PASSWORD, 10);
   const admin = await prisma.user.create({
-    data: { organizationId: org.id, email: 'admin@projexa.local', name: 'Administrator', passwordHash: hash, passwordSetAt: new Date(), role: 'ADMIN' },
+    data: { organizationId: org.id, email: 'admin@projexa.local', name: 'Administrator', passwordHash: hash, passwordSetAt: new Date(), role: 'ADMIN', superAdmin: true },
   });
   const pm = await prisma.user.create({
     data: { organizationId: org.id, email: 'pm@projexa.local', name: 'Priya Manager', passwordHash: hash, passwordSetAt: new Date(), role: 'PROJECT_MANAGER' },
@@ -193,6 +195,7 @@ async function main() {
   await seedWonBids(org.id);
   await seedIntegrations(org.id, admin.id);
   await seedSchedules(org.id, pm.id);
+  await seedSuperAdmin(hash);
 
   console.log(`Seeded organization "demo".
   Sign in: admin@projexa.local or pm@projexa.local, password: ${ADMIN_PASSWORD}
@@ -467,4 +470,30 @@ async function seedWonBids(organizationId: string) {
       },
     });
   }
+}
+
+/** Super Admin demo: two customer organisations on plans and one registration waiting for approval. */
+async function seedSuperAdmin(hash: string) {
+  const { STARTER_PLANS } = await import('../src/super-admin/super-admin.service');
+  for (const p of STARTER_PLANS) await prisma.plan.upsert({ where: { code: p.code }, create: p, update: {} });
+  const plan = async (code: string) => (await prisma.plan.findUniqueOrThrow({ where: { code } })).id;
+  const day = 86_400_000;
+  const tenants = [
+    { name: 'Northwind Panels', slug: 'northwind', plan: 'starter', status: 'ACTIVE' as const, endsAt: new Date(Date.now() + 5 * day), trialEndsAt: null, people: ['Nadia Admin', 'Omar PM', 'Lena Sales'] },
+    { name: 'Bluebird Insights', slug: 'bluebird', plan: 'professional', status: 'TRIAL' as const, endsAt: null, trialEndsAt: new Date(Date.now() + 2 * day), people: ['Ben Admin', 'Chloe PM'] },
+  ];
+  for (const t of tenants) {
+    const o = await prisma.organization.create({ data: { name: t.name, slug: t.slug } });
+    await prisma.subscription.create({ data: { organizationId: o.id, planId: await plan(t.plan), status: t.status, endsAt: t.endsAt, trialEndsAt: t.trialEndsAt } });
+    for (const [i, name] of t.people.entries()) {
+      await prisma.user.create({
+        data: { organizationId: o.id, email: `${name.split(' ')[0].toLowerCase()}@${t.slug}.example.com`, name, passwordHash: hash, passwordSetAt: new Date(), role: i === 0 ? 'ADMIN' : i === 1 ? 'PROJECT_MANAGER' : 'SALES', lastSeenAt: new Date(Date.now() - (i + 1) * 3_600_000), lastLoginAt: new Date(Date.now() - (i + 1) * 3_600_000) },
+      });
+    }
+  }
+  await prisma.featureOverride.create({ data: { organizationId: (await prisma.organization.findUniqueOrThrow({ where: { slug: 'northwind' } })).id, feature: 'monitor', channel: 'web', enabled: true } });
+  const orbit = await prisma.organization.create({
+    data: { name: 'Orbit Analytics', slug: 'orbit', status: 'PENDING', registration: { contactName: 'Ivy Chen', phone: '+44 20 7946 0000', website: 'https://orbit.example.com', message: 'We run 40 B2B projects a month.', requestedPlan: 'professional', at: new Date().toISOString() } },
+  });
+  await prisma.user.create({ data: { organizationId: orbit.id, email: 'ivy@orbit.example.com', name: 'Ivy Chen', passwordHash: hash, role: 'ADMIN', active: false } });
 }
