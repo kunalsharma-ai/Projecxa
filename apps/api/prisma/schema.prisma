@@ -177,6 +177,10 @@ model User {
   mfaLockedUntil     DateTime?
   /// Command center widgets: order, size and visibility (null = the default layout).
   dashboardLayout    Json?
+  /// Product tour (docs/PRODUCT_TOUR.md): the tour version this person finished or skipped, how, and when. Null = not seen yet.
+  tourVersion        Int?
+  tourOutcome        String?
+  tourAt             DateTime?
   ssoIdentities      SsoIdentity[]
   /// When the person last chose a password. Null for someone invited who has not set one yet.
   passwordSetAt      DateTime?
