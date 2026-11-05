@@ -276,6 +276,10 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - Create project now has fieldwork dates.
 - Details: `docs/PROJECT_FROM_BRIEF.md`.
 
+## Mobile app for Android and iOS
+
+`apps/mobile` is one Expo (React Native) app for Android and iOS in the Neon (dark) and Aurora (light) looks from the design mockups. Staff get the command center, projects (with markets, vendors, quotas, share links, go live / hold / close, pause vendors), fieldwork monitor and alerts, AI copilot with confirm cards, tasks, requests, won bids, reports, invoices, vendor payables, clients, vendors, redirect health and notifications; client and vendor users get their portal. Settings-heavy screens open the web app. What each person sees follows the Super Admin feature switches for mobile and changes live (next API call, opening More, returning to the app, or within 30 seconds). Contract, store builds with EAS and limits: [docs/MOBILE_APP.md](docs/MOBILE_APP.md).
+
 ## Install on a server
 
 See `INSTALL.md`: server settings, database, `pnpm create-admin` for the first admin, build, run and TLS.
@@ -309,5 +313,6 @@ pnpm --filter @projexa/web typecheck
 ```
 apps/api   NestJS API, Prisma schema and migrations, tests
 apps/web   Next.js web app (App Router, Tailwind)
+apps/mobile Expo app for Android and iOS (npm, outside the pnpm workspace)
 docs/      Phase 0 documents and integration guide
 ```
