@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { passwordProblems, PasswordRules } from '@/components/account/password-rules';
 import { ErrorBox, Loading } from '@/components/ui';
 import { get, post } from '@/lib/api';
+import { Label } from '@/components/help';
 
 interface Info { purpose: 'invite' | 'reset'; name: string; email: string; organization: string; mfa: boolean }
 
@@ -54,11 +55,11 @@ export default function SetPasswordPage() {
           <>
             <input type="email" autoComplete="username" value={info.email} readOnly hidden />
             <label className="block">
-              <span className="label">New password</span>
+              <Label>New password</Label>
               <input className="input" type="password" autoComplete="new-password" autoFocus value={password} onChange={(e) => setPassword(e.target.value)} required />
             </label>
             <label className="block">
-              <span className="label">Type it again</span>
+              <Label>Type it again</Label>
               <input className="input" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
             </label>
             <PasswordRules password={password} confirm={confirm} />

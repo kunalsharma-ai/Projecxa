@@ -310,7 +310,7 @@ export function RedirectsTab({ project, editable, reload }: { project: ProjectDe
 
       <VendorRedirectsSummary vendors={policy.vendors} editable={editable} />
 
-      <Section title={`Country and vendor overrides (${overrides.length})`}>
+      <Section help="project.redirectOverrides" title={`Country and vendor overrides (${overrides.length})`}>
         <p className="mb-4 text-xs text-muted">Priority: vendor + country, then vendor, then country, then the project matrix. The domain allowlist always applies.</p>
         {overrides.length === 0 ? (
           <Empty>No overrides. Every country and vendor uses the project matrix.</Empty>

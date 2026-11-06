@@ -128,7 +128,7 @@ export function SecurityTab({ project, editable, reload }: { project: ProjectDet
   return (
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
       <div className="min-w-0 space-y-6">
-        <Section title={<span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-brand" /> Respondent security</span>}>
+        <Section help="project.security" title={<span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-brand" /> Respondent security</span>}>
           <p className="mb-4 text-sm text-muted">
             Order for every respondent: entry checks → human check → gate survey → prescreener → browser checks → client survey. Set these before launch. Test links run every check but never block, so QA can click through.
           </p>

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
 import { ErrorBox } from '@/components/ui';
 import { API_URL, get, post } from '@/lib/api';
+import { Label } from '@/components/help';
 
 interface Provider { id: string; label: string }
 
@@ -105,7 +106,7 @@ export default function LoginPage() {
         ) : (
           <>
             <label className="block">
-              <span className="label">Email</span>
+              <Label>Email</Label>
               <input className="input" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </label>
             <label className="block">

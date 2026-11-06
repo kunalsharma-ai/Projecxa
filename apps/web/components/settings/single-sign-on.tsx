@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ErrorBox, Loading, Section, Toggle } from '@/components/ui';
 import { api, get } from '@/lib/api';
+import { Label } from '@/components/help';
 
 type P = 'google' | 'microsoft' | 'zoho';
 interface Settings { providers: Record<P, boolean>; domains: string[]; microsoftTenantId: string | null; ssoOnly: boolean }
@@ -61,7 +62,7 @@ export function SingleSignOn() {
               <p className="mt-1 text-xs text-muted">{HELP[a.id]}</p>
               {!a.configured && <p className="mt-2 rounded bg-warn/10 px-2 py-1 text-xs text-warn">Needs its client ID and secret first. <Link href={`/settings/integrations#sso_${a.id}`} className="underline">Set it up in Integrations</Link></p>}
               <div className="mt-3">
-                <span className="label">Redirect URI</span>
+                <Label>Redirect URI</Label>
                 <button type="button" onClick={() => copy(a.redirectUri)} className="flex w-full items-center gap-2 rounded border border-line bg-sunken px-2 py-1 text-left font-mono text-[11px]" title="Copy">
                   <span className="min-w-0 flex-1 truncate">{a.redirectUri}</span>
                   {copied === a.redirectUri ? <Check className="h-3.5 w-3.5 text-ok" /> : <Copy className="h-3.5 w-3.5 text-muted" />}
@@ -72,12 +73,12 @@ export function SingleSignOn() {
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block">
-            <span className="label">Email domains allowed</span>
+            <Label>Email domains allowed</Label>
             <textarea className="input h-20 font-mono text-sm" placeholder={'yourcompany.com'} value={domains} onChange={(e) => { setDomains(e.target.value); setSaved(false); }} />
             <span className="mt-1 block text-xs text-muted">One per line. Sign-ins from other domains are refused.</span>
           </label>
           <label className="block">
-            <span className="label">Microsoft tenant ID</span>
+            <Label>Microsoft tenant ID</Label>
             <input className="input font-mono text-sm" placeholder="00000000-0000-0000-0000-000000000000" value={draft.microsoftTenantId ?? ''} onChange={(e) => set({ microsoftTenantId: e.target.value })} />
             <span className="mt-1 block text-xs text-muted">Directory (tenant) ID from the Microsoft Entra admin centre. Needed for Microsoft sign-in.</span>
           </label>

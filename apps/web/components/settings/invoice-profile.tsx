@@ -25,7 +25,7 @@ export function InvoiceProfileSettings({ isAdmin }: { isAdmin: boolean }) {
     }
   };
   return (
-    <Section title={<span className="inline-flex items-center gap-2"><FileText className="h-4 w-4" />Invoice details</span>} className="mb-6">
+    <Section help="settings.invoiceProfile" title={<span className="inline-flex items-center gap-2"><FileText className="h-4 w-4" />Invoice details</span>} className="mb-6">
       <p className="mb-4 text-sm text-muted">Printed on every invoice PDF. Each client&apos;s billing address and tax ID are set on the Clients page.</p>
       <ErrorBox error={error} />
       {!p ? <Loading /> : (

@@ -53,7 +53,7 @@ export function MonitorTab({ project, editable, reload }: { project: ProjectDeta
             <Field label="Field end"><input type="date" className="input" value={end} min={start || undefined} disabled={!editable} onChange={(e) => setEnd(e.target.value)} /></Field>
           </div>
         </Section>
-        <Section title={<span className="flex items-center gap-2"><Bot className="h-4 w-4 text-brand" /> Autopilot</span>}>
+        <Section help="project.autopilot" title={<span className="flex items-center gap-2"><Bot className="h-4 w-4 text-brand" /> Autopilot</span>}>
           <p className="mb-3 text-sm text-muted">Actions the monitor may take on its own. Each one is logged and raised as an alert.</p>
           <div className="space-y-3">
             {([
@@ -78,7 +78,7 @@ export function MonitorTab({ project, editable, reload }: { project: ProjectDeta
       <ErrorBox error={error} />
       {!data ? <Loading /> : (
         <>
-          <Section title={`Active alerts (${data.alerts.length})`}>
+          <Section help="project.alerts" title={`Active alerts (${data.alerts.length})`}>
             <AlertsList alerts={data.alerts} editable={editable} onChange={load} showProject={false} />
           </Section>
           <Reallocation projectId={project.id} editable={editable} onApplied={() => { load(); reload(); }} />

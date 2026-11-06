@@ -5,6 +5,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { ErrorBox, Loading, PageHeader, Section, Toggle } from '@/components/ui';
 import { api, get, post } from '@/lib/api';
 import { ago, SUB_STATUS, type Action, type AutomationCatalog, type Catalog, type Plan, type Rule, type SubStatus } from '@/lib/super-admin';
+import { Label } from '@/components/help';
 
 interface Run { id: string; createdAt: string; status: string; dedupeKey: string; detail: { results?: { action: string; ok: boolean; message?: string }[] } | null; rule: { id: string; name: string }; organization: { id: string; name: string } | null }
 type Draft = { id?: string; name: string; enabled: boolean; trigger: string; days: number | null; plans: string[]; statuses: SubStatus[]; actions: Action[] };
@@ -75,7 +76,7 @@ export default function AutomationPage() {
       {draft && (
         <form onSubmit={save} className="mb-6">
           <Section title={draft.id ? 'Edit rule' : 'New rule'} actions={<button type="button" className="text-muted hover:text-ink" aria-label="Close" onClick={() => setDraft(null)}><X className="h-4 w-4" /></button>}>
-            <label className="mb-5 block max-w-md"><span className="label">Name</span><input className="input" required value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="e.g. Renewal reminder" /></label>
+            <label className="mb-5 block max-w-md"><Label>Name</Label><input className="input" required value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="e.g. Renewal reminder" /></label>
             <div className="space-y-3">
               <div className="rounded-xl border border-brand/30 bg-brand/5 p-4">
                 <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-brand"><Zap className="h-3.5 w-3.5" />When</div>

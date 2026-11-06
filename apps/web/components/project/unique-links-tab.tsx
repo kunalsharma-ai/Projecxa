@@ -149,7 +149,7 @@ export function UniqueLinksTab({ project, editable }: { project: ProjectDetail; 
       </p>
 
       {editable && (
-        <Section title={<span className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-brand" /> Generate unique links</span>}>
+        <Section help="project.uniqueLinks.generate" title={<span className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-brand" /> Generate unique links</span>}>
           {allocations.length === 0 ? (
             <Empty>Add a vendor on the Vendors &amp; links tab first. Unique links belong to a vendor in a market, so completes, payouts and callbacks are counted correctly.</Empty>
           ) : (
@@ -252,6 +252,7 @@ export function UniqueLinksTab({ project, editable }: { project: ProjectDetail; 
       )}
 
       <Section
+        help="project.uniqueLinks.list"
         title="Links"
         actions={
           <button className="btn-ghost px-2.5 py-1.5 text-xs" disabled={!links?.total} onClick={() => download(filter)}>

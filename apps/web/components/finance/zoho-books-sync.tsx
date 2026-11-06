@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useMe } from '@/components/me';
 import { ErrorBox, Loading, Section, Toggle } from '@/components/ui';
 import { api, get, post } from '@/lib/api';
+import { Label } from '@/components/help';
 
 export interface Settings { hourly: boolean; since: string | null; invoices: boolean; bills: boolean; payments: boolean }
 export interface Counts { customers: number; vendors: number; invoices: number; bills: number; matched: number; paymentsReceived: number; paymentsMade: number; voided: number }
@@ -117,7 +118,7 @@ export function ZohoBooksSync({ onSynced }: { onSynced?: () => void }) {
             )}
             <div className="grid gap-4 sm:grid-cols-[12rem_minmax(0,1fr)]">
               <label className="block">
-                <span className="label">Sync documents from</span>
+                <Label>Sync documents from</Label>
                 <input type="date" className="input" disabled={!admin} value={form.since ?? ''} onChange={(e) => set({ since: e.target.value || null })} />
                 <span className="mt-1 block text-xs text-muted">Invoice or bill date. Older ones are left alone.</span>
               </label>

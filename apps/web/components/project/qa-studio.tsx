@@ -45,7 +45,7 @@ export function QaStudio({ project }: { project: ProjectDetail }) {
 
   return (
     <div className="space-y-6">
-      <Section title={<span className="flex items-center gap-2"><FlaskConical className="h-4 w-4" /> Redirect QA studio</span>}>
+      <Section help="project.qaStudio" title={<span className="flex items-center gap-2"><FlaskConical className="h-4 w-4" /> Redirect QA studio</span>}>
         <p className="mb-4 text-sm text-muted">Simulations use the active configuration and synthetic IDs. They create no sessions, completes or callbacks.</p>
         {vendors.length === 0 && project.countries.length > 0 ? (
           <Empty>Add a vendor to {countryName(countryCode)} first.</Empty>

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { SecretOnce } from '@/components/settings/secret-once';
 import { Empty, ErrorBox, Loading, Section } from '@/components/ui';
 import { api, get, post } from '@/lib/api';
+import { Label } from '@/components/help';
 
 interface Key { id: string; name: string; prefix: string; scopes: string[]; state: 'active' | 'revoked' | 'expired'; lastUsedAt: string | null; expiresAt: string | null; createdAt: string; createdBy: { name: string } | null }
 interface List { scopes: { name: string; description: string }[]; keys: Key[] }
@@ -63,8 +64,8 @@ export function ApiKeys() {
       {adding && list && (
         <div className="mb-5 rounded-lg border border-line p-4">
           <div className="grid gap-4 md:grid-cols-[1fr_180px]">
-            <label><span className="label">Name</span><input className="input" autoFocus maxLength={80} placeholder="Data warehouse sync" value={name} onChange={(e) => setName(e.target.value)} /></label>
-            <label><span className="label">Expires</span>
+            <label><Label>Name</Label><input className="input" autoFocus maxLength={80} placeholder="Data warehouse sync" value={name} onChange={(e) => setName(e.target.value)} /></label>
+            <label><Label>Expires</Label>
               <select className="input" value={expiry} onChange={(e) => setExpiry(e.target.value)}>
                 <option value="">Never</option><option value="30">In 30 days</option><option value="90">In 90 days</option><option value="365">In 1 year</option>
               </select>

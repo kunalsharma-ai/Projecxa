@@ -3,12 +3,17 @@ import clsx from 'clsx';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { ReactNode } from 'react';
 import { STATUS_LABEL } from '@/lib/types';
+import { FieldHelp, PageHelp, SectionHelp } from './help';
 
-export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: ReactNode; actions?: ReactNode }) {
+/** `help` is an id in lib/help.ts; without it the page's entry is found from the URL. */
+export function PageHeader({ title, subtitle, actions, help }: { title: string; subtitle?: ReactNode; actions?: ReactNode; help?: string }) {
   return (
     <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
       <div className="min-w-0">
-        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{title}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="min-w-0 text-xl font-semibold tracking-tight sm:text-2xl">{title}</h1>
+          <PageHelp id={help} />
+        </div>
         {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
@@ -16,11 +21,15 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
   );
 }
 
-export function Section({ title, children, actions, className, id }: { title: ReactNode; children: ReactNode; actions?: ReactNode; className?: string; id?: string }) {
+/** `help` is an id in lib/help.ts; without it a plain-text title is looked up there. */
+export function Section({ title, children, actions, className, id, help }: { title: ReactNode; children: ReactNode; actions?: ReactNode; className?: string; id?: string; help?: string }) {
   return (
     <section id={id} className={clsx('card relative scroll-mt-20 focus-within:z-20', className)}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3">
-        <h2 className="text-sm font-semibold">{title}</h2>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <h2 className="text-sm font-semibold">{title}</h2>
+          <SectionHelp id={help} title={title} />
+        </div>
         {actions}
       </div>
       <div className="p-5">{children}</div>
@@ -115,10 +124,11 @@ export function Empty({ children }: { children: ReactNode }) {
   return <div className="rounded-lg border border-dashed border-line p-8 text-center text-sm text-muted">{children}</div>;
 }
 
-export function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
+/** `help` is an id in lib/help.ts; without it the label is looked up there. */
+export function Field({ label, children, hint, help }: { label: string; children: ReactNode; hint?: string; help?: string }) {
   return (
     <label className="block">
-      <span className="label">{label}</span>
+      <span className="label"><span className="inline-flex items-center gap-1">{label}<FieldHelp id={help} label={label} /></span></span>
       {children}
       {hint && <span className="mt-1 block text-xs text-muted">{hint}</span>}
     </label>

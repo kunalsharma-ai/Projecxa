@@ -2,6 +2,7 @@
 import clsx from 'clsx';
 import { HelpCircle } from 'lucide-react';
 import { createContext, ReactNode, useContext, useEffect, useId, useRef, useState } from 'react';
+import { FieldHelp } from '@/components/help';
 
 /** Ids a control needs to tie itself to its label, help text and error (set by FormField). */
 export interface FieldIds { id: string; describedBy?: string; invalid: boolean }
@@ -35,7 +36,7 @@ export function FormField({ label, hint, error, help, required, optional, floati
             {required && <span className="ml-0.5 text-bad" aria-hidden>*</span>}
             {optional && <span className="ml-1 font-normal opacity-70">(optional)</span>}
           </label>
-          {help && <HelpTip label={typeof label === 'string' ? label : 'Help'}>{help}</HelpTip>}
+          {help ? <HelpTip label={typeof label === 'string' ? label : 'Help'}>{help}</HelpTip> : <FieldHelp label={label} />}
         </div>
       )}
       <FieldCtx.Provider value={ids}>

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ErrorBox, Field, Loading, Section, Toggle } from '@/components/ui';
 import { api, API_URL, ApiError, get, post } from '@/lib/api';
 import type { ProjectDetail } from './types';
+import { Label } from '@/components/help';
 
 type Status = 'complete' | 'terminate' | 'quota_full' | 'quality_fail' | 'duplicate' | 'security_reject' | 'partial' | 'technical_error';
 type Colors = { primary: string; accent: string; background: string; surface: string; text: string };
@@ -248,7 +249,7 @@ export function RespondentPagesTab({ project, editable }: { project: ProjectDeta
   return (
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
       <div className="min-w-0 space-y-6">
-        <Section title={<span className="flex items-center gap-2"><Palette className="h-4 w-4 text-brand" /> Template</span>}>
+        <Section help="project.respondentTemplate" title={<span className="flex items-center gap-2"><Palette className="h-4 w-4 text-brand" /> Template</span>}>
           <p className="mb-3 text-sm text-muted">The look of every page respondents see for this project: the gate page and the complete, terminate, quota full and other end pages.</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {info.templates.map((t) => (
@@ -294,7 +295,7 @@ export function RespondentPagesTab({ project, editable }: { project: ProjectDeta
           )}
         </Section>
 
-        <Section title={<span className="flex items-center gap-2"><Type className="h-4 w-4 text-brand" /> Type and shape</span>}>
+        <Section help="project.respondentType" title={<span className="flex items-center gap-2"><Type className="h-4 w-4 text-brand" /> Type and shape</span>}>
           <div className="mb-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
             {info.fonts.map((f) => (
               <button key={f} type="button" disabled={!editable} onClick={() => set({ font: f })} className={clsx('rounded-lg border p-2 text-center', design.font === f ? 'border-brand bg-brand/10' : 'border-line hover:bg-sunken')}>
@@ -303,7 +304,7 @@ export function RespondentPagesTab({ project, editable }: { project: ProjectDeta
               </button>
             ))}
           </div>
-          <span className="label">Corners</span>
+          <Label>Corners</Label>
           <div className="flex gap-2">
             {(['sharp', 'soft', 'round'] as const).map((r) => (
               <button key={r} type="button" disabled={!editable} onClick={() => set({ radius: r })} className={clsx('flex items-center gap-2 border px-3 py-1.5 text-sm capitalize', r === 'sharp' ? 'rounded-none' : r === 'soft' ? 'rounded-lg' : 'rounded-full', design.radius === r ? 'border-brand bg-brand/10' : 'border-line hover:bg-sunken')}>
@@ -399,6 +400,7 @@ export function RespondentPagesTab({ project, editable }: { project: ProjectDeta
       <div className="min-w-0">
         <div className="xl:sticky xl:top-4">
           <Section
+            help="project.respondentPreview"
             title="Live preview"
             actions={
               <div className="flex rounded-lg border border-line p-0.5">

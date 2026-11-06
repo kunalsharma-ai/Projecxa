@@ -96,7 +96,7 @@ export function RedirectGuide({ outcomeLinks }: { outcomeLinks: { status: string
 export function VendorRedirectsSummary({ vendors, editable }: { vendors: PolicyVendor[]; editable: boolean }) {
   const main = VENDOR_REDIRECTS.filter((r) => r.main);
   return (
-    <Section title={`Vendor redirects saved on each vendor (${vendors.length})`}>
+    <Section help="project.vendorRedirects" title={`Vendor redirects saved on each vendor (${vendors.length})`}>
       <p className="mb-4 text-xs text-muted">
         Rules set to <b>Vendor’s saved redirect</b> use these. Change them once on the vendor and every project picks them up.
         Quality fail and duplicate reuse the security URL, partial and technical error the terminate URL, unless the vendor set its own.

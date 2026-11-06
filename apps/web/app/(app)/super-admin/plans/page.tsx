@@ -5,6 +5,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { ErrorBox, Loading, PageHeader, Section, Toggle } from '@/components/ui';
 import { api, get, post } from '@/lib/api';
 import { fmtMoney, type Catalog, type Plan } from '@/lib/super-admin';
+import { Label } from '@/components/help';
 
 type Draft = Omit<Plan, 'id' | 'organizations'> & { id?: string };
 const blank = (): Draft => ({ code: '', name: '', description: '', priceLabel: '', features: [], mobileFeatures: [], mobileEnabled: true, maxUsers: null, maxProjects: null, active: true, sortOrder: 10, currency: 'INR', priceMonthly: null, priceYearly: null });
@@ -83,15 +84,15 @@ export default function PlansPage() {
         <form onSubmit={save} className="space-y-6">
           <Section title={draft.id ? `Edit ${draft.name}` : 'New plan'}>
             <div className="grid gap-4 md:grid-cols-3">
-              <label className="block"><span className="label">Name</span><input className="input" required value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label>
-              <label className="block"><span className="label">Code</span><input className="input" required disabled={!!draft.id} pattern="[a-z0-9_-]{2,40}" value={draft.code} onChange={(e) => setDraft({ ...draft, code: e.target.value.toLowerCase() })} placeholder="e.g. growth" /></label>
-              <label className="block"><span className="label">Price label (optional)</span><input className="input" value={draft.priceLabel ?? ''} onChange={(e) => setDraft({ ...draft, priceLabel: e.target.value })} placeholder="e.g. Talk to us" /></label>
-              <label className="block"><span className="label">Currency</span><input className="input uppercase" required maxLength={3} pattern="[A-Za-z]{3}" value={draft.currency} onChange={(e) => setDraft({ ...draft, currency: e.target.value.toUpperCase() })} placeholder="INR" /></label>
-              <label className="block"><span className="label">Monthly price (empty = not monthly)</span><input className="input" type="number" min={0} step="0.01" value={draft.priceMonthly ?? ''} onChange={(e) => setDraft({ ...draft, priceMonthly: e.target.value })} placeholder="e.g. 4999" /></label>
-              <label className="block"><span className="label">Yearly price (empty = not yearly)</span><input className="input" type="number" min={0} step="0.01" value={draft.priceYearly ?? ''} onChange={(e) => setDraft({ ...draft, priceYearly: e.target.value })} placeholder="e.g. 49990" /></label>
-              <label className="block md:col-span-3"><span className="label">Description</span><input className="input" value={draft.description ?? ''} onChange={(e) => setDraft({ ...draft, description: e.target.value })} /></label>
-              <label className="block"><span className="label">User limit (empty = none)</span><input className="input" type="number" min={0} value={draft.maxUsers ?? ''} onChange={(e) => setDraft({ ...draft, maxUsers: e.target.value === '' ? null : Number(e.target.value) })} /></label>
-              <label className="block"><span className="label">Project limit (empty = none)</span><input className="input" type="number" min={0} value={draft.maxProjects ?? ''} onChange={(e) => setDraft({ ...draft, maxProjects: e.target.value === '' ? null : Number(e.target.value) })} /></label>
+              <label className="block"><Label>Name</Label><input className="input" required value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label>
+              <label className="block"><Label>Code</Label><input className="input" required disabled={!!draft.id} pattern="[a-z0-9_-]{2,40}" value={draft.code} onChange={(e) => setDraft({ ...draft, code: e.target.value.toLowerCase() })} placeholder="e.g. growth" /></label>
+              <label className="block"><Label>Price label (optional)</Label><input className="input" value={draft.priceLabel ?? ''} onChange={(e) => setDraft({ ...draft, priceLabel: e.target.value })} placeholder="e.g. Talk to us" /></label>
+              <label className="block"><Label>Currency</Label><input className="input uppercase" required maxLength={3} pattern="[A-Za-z]{3}" value={draft.currency} onChange={(e) => setDraft({ ...draft, currency: e.target.value.toUpperCase() })} placeholder="INR" /></label>
+              <label className="block"><Label>Monthly price (empty = not monthly)</Label><input className="input" type="number" min={0} step="0.01" value={draft.priceMonthly ?? ''} onChange={(e) => setDraft({ ...draft, priceMonthly: e.target.value })} placeholder="e.g. 4999" /></label>
+              <label className="block"><Label>Yearly price (empty = not yearly)</Label><input className="input" type="number" min={0} step="0.01" value={draft.priceYearly ?? ''} onChange={(e) => setDraft({ ...draft, priceYearly: e.target.value })} placeholder="e.g. 49990" /></label>
+              <label className="block md:col-span-3"><Label>Description</Label><input className="input" value={draft.description ?? ''} onChange={(e) => setDraft({ ...draft, description: e.target.value })} /></label>
+              <label className="block"><Label>User limit (empty = none)</Label><input className="input" type="number" min={0} value={draft.maxUsers ?? ''} onChange={(e) => setDraft({ ...draft, maxUsers: e.target.value === '' ? null : Number(e.target.value) })} /></label>
+              <label className="block"><Label>Project limit (empty = none)</Label><input className="input" type="number" min={0} value={draft.maxProjects ?? ''} onChange={(e) => setDraft({ ...draft, maxProjects: e.target.value === '' ? null : Number(e.target.value) })} /></label>
               <div className="flex flex-col justify-end gap-2">
                 <label className="flex items-center gap-2 text-sm"><Toggle checked={draft.mobileEnabled} onChange={(v) => setDraft({ ...draft, mobileEnabled: v })} label="Mobile app" />Android and iOS app included</label>
                 {draft.id && <label className="flex items-center gap-2 text-sm"><Toggle checked={draft.active} onChange={(v) => setDraft({ ...draft, active: v })} label="Offered" />Offered for new organisations</label>}

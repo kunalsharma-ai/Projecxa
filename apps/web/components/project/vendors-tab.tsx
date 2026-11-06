@@ -172,7 +172,7 @@ export function VendorsTab({ project, editable, reload }: { project: ProjectDeta
           <Empty>No vendors yet. Switch to “By market” to add them.</Empty>
         ) : (
           byVendor.map(({ vendor, rows }) => (
-            <Section key={vendor.id} title={<span>{vendor.name} <span className="font-normal text-muted">· {vendor.code} · {rows.length} {rows.length === 1 ? 'market' : 'markets'}</span></span>} actions={editable && rows.length > 1 && <PayoutEverywhere currency={rows[0].c.currency} onApply={(cpi) => payoutEverywhere(vendor.id, cpi)} />}>
+            <Section key={vendor.id} help="project.vendorCard" title={<span>{vendor.name} <span className="font-normal text-muted">· {vendor.code} · {rows.length} {rows.length === 1 ? 'market' : 'markets'}</span></span>} actions={editable && rows.length > 1 && <PayoutEverywhere currency={rows[0].c.currency} onApply={(cpi) => payoutEverywhere(vendor.id, cpi)} />}>
               <div className="-m-5 overflow-x-auto">
                 <table className="w-full min-w-[720px]">
                   <thead className="border-b border-line bg-sunken/60"><tr><th className="th">Market</th><th className="th">Status</th><th className="th">Completes</th><th className="th">Client CPI</th><th className="th">Payout</th><th className="th">Links</th></tr></thead>
@@ -200,6 +200,7 @@ export function VendorsTab({ project, editable, reload }: { project: ProjectDeta
           return (
             <Section
               key={c.id}
+              help="project.vendorMarket"
               id={`market-${c.id}`}
               title={
                 <span>

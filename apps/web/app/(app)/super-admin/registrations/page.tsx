@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ErrorBox, Loading, PageHeader, Section, Toggle } from '@/components/ui';
 import { api, get, post } from '@/lib/api';
 import { ago, type OrgSummary, type Plan } from '@/lib/super-admin';
+import { Label } from '@/components/help';
 
 interface Settings { registrationOpen: boolean; defaultPlanCode: string | null; trialDays: number }
 
@@ -48,13 +49,13 @@ export default function RegistrationsPage() {
         {!settings ? <Loading /> : (
           <div className="grid gap-4 md:grid-cols-[auto_1fr_1fr] md:items-end">
             <div className="flex items-center gap-3"><Toggle checked={settings.registrationOpen} onChange={(v) => saveSettings({ registrationOpen: v })} label="Registration open" /><span className="text-sm">{settings.registrationOpen ? 'Open: anyone with the link can register' : 'Closed'}</span></div>
-            <label className="block"><span className="label">Default plan</span>
+            <label className="block"><Label>Default plan</Label>
               <select className="input" value={settings.defaultPlanCode ?? ''} onChange={(e) => saveSettings({ defaultPlanCode: e.target.value || null })}>
                 <option value="">No plan (every feature)</option>
                 {plans.filter((p) => p.active).map((p) => <option key={p.code} value={p.code}>{p.name}</option>)}
               </select>
             </label>
-            <label className="block"><span className="label">Free trial (days)</span><input className="input" type="number" min={0} max={365} value={settings.trialDays} onChange={(e) => setSettings({ ...settings, trialDays: Number(e.target.value) })} onBlur={() => saveSettings({ trialDays: settings.trialDays })} /></label>
+            <label className="block"><Label>Free trial (days)</Label><input className="input" type="number" min={0} max={365} value={settings.trialDays} onChange={(e) => setSettings({ ...settings, trialDays: Number(e.target.value) })} onBlur={() => saveSettings({ trialDays: settings.trialDays })} /></label>
             {settings.registrationOpen && <a href="/register" target="_blank" className="flex items-center gap-1.5 text-sm text-brand hover:underline md:col-span-3"><ExternalLink className="h-4 w-4" />{link}</a>}
           </div>
         )}

@@ -14,6 +14,7 @@ import { ErrorBox, Field, Loading, PageHeader, Section, Toggle } from '@/compone
 import { api, get, post } from '@/lib/api';
 import { describeTemplate, type ProjectTemplate, type TemplateForm } from '@/lib/templates';
 import { COUNTRIES, countryName, flag } from '@/lib/countries';
+import { InfoTip } from '@/components/help';
 import { CATEGORIES, RedirectMode, SECURITY_LABELS, type Option, type Question, type WonBid } from '@/lib/types';
 
 interface ClientOpt { id: string; name: string; contacts: { id: string; name: string }[] }
@@ -556,6 +557,7 @@ function CreateProjectPage() {
           </Section>
 
           <Section
+            help="create.markets"
             title={`Target markets${rows.length ? ` · ${rows.length} ${rows.length === 1 ? 'market' : 'markets'} · ${totalCompletes.toLocaleString()} completes` : ''}`}
             actions={<button className="btn-ghost px-2.5 py-1.5 text-xs" onClick={() => setPaste('')}><ClipboardPaste className="h-3.5 w-3.5" /> Paste from Excel</button>}
           >
@@ -644,7 +646,7 @@ function CreateProjectPage() {
             )}
           </Section>
 
-          <Section title={<span className="flex items-center gap-2"><Users className="h-4 w-4 text-muted" /> Vendors</span>} actions={<button className="btn-ghost px-2.5 py-1.5 text-xs" onClick={() => setVendors([...vendors, { vendorId: '', cpi: '', uidParam: 'vid' }])}><Plus className="h-3.5 w-3.5" /> Add vendor</button>}>
+          <Section help="create.vendors" title={<span className="flex items-center gap-2"><Users className="h-4 w-4 text-muted" /> Vendors</span>} actions={<button className="btn-ghost px-2.5 py-1.5 text-xs" onClick={() => setVendors([...vendors, { vendorId: '', cpi: '', uidParam: 'vid' }])}><Plus className="h-3.5 w-3.5" /> Add vendor</button>}>
             <p className="mb-3 text-sm text-muted">Each vendor is added to every market with its own entry link. You can change vendors per market after creating the project.</p>
             {vendors.length === 0 && <p className="rounded-lg border border-dashed border-line p-4 text-sm text-muted">No vendors yet. Add the vendors you usually use, and tick “Preselect” to have them here on every new project.</p>}
             <div className="space-y-2">
@@ -720,7 +722,7 @@ function CreateProjectPage() {
             <div className="space-y-3">
               {Object.entries(SECURITY_LABELS).map(([k, label]) => (
                 <div key={k} className="flex items-center justify-between text-sm">
-                  <span>{label}</span>
+                  <span className="inline-flex items-center gap-1">{label}<InfoTip id={`check:${k}`} label={label} /></span>
                   <Toggle label={label} checked={!!security[k]} onChange={(v) => setSecurity({ ...security, [k]: v })} />
                 </div>
               ))}
