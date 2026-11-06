@@ -18,6 +18,7 @@ import { QuotasModule } from './quotas/quotas.controller';
 import { PortalModule } from './portal/portal.controller';
 import { ReportsModule } from './reports/reports.controller';
 import { WonBidsModule } from './won-bids/won-bids.controller';
+import { SampleonModule } from './sampleon/sampleon.controller';
 import { PublicApiModule } from './public-api/public-api.controller';
 import { WebhooksModule } from './webhooks/webhooks.service';
 import { MailModule } from './mail/mail.service';
@@ -71,6 +72,7 @@ import { VendorsModule } from './vendors/vendors.controller';
     UniqueLinksModule,
     ReportsModule,
     WonBidsModule,
+    SampleonModule,
     WebhooksModule,
     PublicApiModule,
     MailModule,
