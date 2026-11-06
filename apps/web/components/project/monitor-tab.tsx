@@ -3,7 +3,8 @@ import { Bot, Save } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { AlertsList, MarketsTable, type MonitorData } from '@/components/monitor/monitor-view';
 import { Reallocation } from '@/components/monitor/reallocation';
-import type { ProjectDetail } from '@/components/project/types';
+import type { AutoPause, ProjectDetail } from '@/components/project/types';
+import { AutoPauseControl, DEFAULT_AUTO_PAUSE, autoPauseProblem } from '@/components/project/auto-pause';
 import { ErrorBox, Field, Loading, Section, Toggle } from '@/components/ui';
 import { get, patch } from '@/lib/api';
 
@@ -16,6 +17,8 @@ export function MonitorTab({ project, editable, reload }: { project: ProjectDeta
   const [start, setStart] = useState(day(project.fieldStartAt));
   const [end, setEnd] = useState(day(project.fieldEndAt));
   const [auto, setAuto] = useState({ pauseOnQuality: !!project.autopilot?.pauseOnQuality, closeOnTarget: !!project.autopilot?.closeOnTarget });
+  const savedPause: AutoPause = { ...DEFAULT_AUTO_PAUSE, ...(project.autopilot?.autoPause ?? {}) };
+  const [pause, setPause] = useState<AutoPause>(savedPause);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<unknown>(null);
@@ -25,14 +28,20 @@ export function MonitorTab({ project, editable, reload }: { project: ProjectDeta
     load();
   }, [load]);
 
-  const dirty = start !== day(project.fieldStartAt) || end !== day(project.fieldEndAt) || auto.pauseOnQuality !== !!project.autopilot?.pauseOnQuality || auto.closeOnTarget !== !!project.autopilot?.closeOnTarget;
+  const pauseDirty = JSON.stringify(pause) !== JSON.stringify(savedPause);
+  const dirty = pauseDirty || start !== day(project.fieldStartAt) || end !== day(project.fieldEndAt) || auto.pauseOnQuality !== !!project.autopilot?.pauseOnQuality || auto.closeOnTarget !== !!project.autopilot?.closeOnTarget;
+  // The autopilot can switch the checkpoint off by itself; follow it when nothing is being edited.
+  useEffect(() => {
+    if (!pauseDirty) setPause(savedPause);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(project.autopilot?.autoPause)]);
 
   const save = async () => {
     setSaving(true);
     setSaveError(null);
     setSaved(false);
     try {
-      await patch(`/projects/${project.id}`, { fieldStartAt: start || null, fieldEndAt: end || null, autopilot: auto });
+      await patch(`/projects/${project.id}`, { fieldStartAt: start || null, fieldEndAt: end || null, autopilot: { ...auto, autoPause: pause } });
       setSaved(true);
       reload();
       load();
@@ -66,11 +75,12 @@ export function MonitorTab({ project, editable, reload }: { project: ProjectDeta
               </div>
             ))}
           </div>
+          <AutoPauseControl project={project} value={pause} onChange={setPause} editable={editable} />
         </Section>
       </div>
       {editable && (
         <div className="flex flex-wrap items-center gap-3">
-          <button className="btn-primary" disabled={!dirty || saving} onClick={save}><Save className="h-4 w-4" /> Save</button>
+          <button className="btn-primary" disabled={!dirty || saving || !!autoPauseProblem(pause)} onClick={save}><Save className="h-4 w-4" /> Save</button>
           {saved && !dirty && <span className="text-sm text-ok" role="status">Saved</span>}
           <ErrorBox error={saveError} />
         </div>

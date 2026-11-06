@@ -8,7 +8,7 @@
  *
  * Keys:
  *   page:<route>              a page, by route; ids are written as [id], e.g. page:/projects/[id]
- *   tab:<project tab>         a tab on the project page, e.g. tab:Quotas
+ *   tab:<project tab>         a tab on the project page, e.g. tab:Quotas & monitor
  *   section:<title>           a section (card) by its title, anywhere in the app
  *   section:<route>::<title>  the same title, but only on that page (wins over the general one)
  *   field:<label>             a field by its label; a trailing * and a "(…)" ending are ignored
@@ -293,20 +293,15 @@ export const HELP: Record<string, HelpEntry> = {
     how: 'Pick vendor and market, choose how many links, generate, then download the CSV for the vendor. Revoke or expire links you no longer want.',
     where: 'Each link works once. A second open shows the Duplicate page. Opens while a market is paused do not use up a link.',
   },
-  'tab:Quotas': {
-    what: 'Quota cells that cap completes by device or by answers to the gate and prescreener questions (for example 50% female, 18–34).',
-    how: 'Add a cell or use Quick add to make one cell per answer, then set the limit. Respondents in a full cell get the Over quota page.',
-    where: 'Per market. Cells can interlock (age × gender). Only completes count toward a cell.',
+  'tab:Quotas & monitor': {
+    what: 'Quota cells and live fieldwork health in one place: cell targets, field dates, autopilot (including auto-pause), alerts and each market\'s pace.',
+    how: 'Set up cells at the top, then field dates and autopilot below. Check alerts and the live markets table while fieldwork runs.',
+    where: 'This project. Old links to the Quotas or Monitor tab open this tab. The organisation-wide view is Fieldwork monitor.',
   },
   'tab:SAMPLEON': {
     what: 'Sends this project to the SAMPLEON panel to find respondents.',
     how: 'Describe who should take part, set the reward and quota cells, and request an audience.',
     where: 'Markets where SAMPLEON is offered.',
-  },
-  'tab:Monitor': {
-    what: 'Live fieldwork health for this project: pace against field dates, alerts and autopilot.',
-    how: 'Set field start and end dates, check each market\'s pace, act on alerts, and choose what autopilot may do on its own.',
-    where: 'Live markets of this project. The organisation-wide view is Fieldwork monitor.',
   },
   'tab:Gate & security': {
     what: 'Checks respondents pass before they reach the client\'s survey: duplicate and fraud checks, a human check (captcha), gate and prescreener questions.',
@@ -417,6 +412,33 @@ export const HELP: Record<string, HelpEntry> = {
     how: 'Tick only the actions you are comfortable with. Each one is logged and raised as an alert.',
     where: 'Live markets of this project.',
   },
+  'project.autoPause': {
+    title: 'Auto-pause at a checkpoint',
+    what: 'A soft-launch stop: the autopilot pauses each market (or vendor link) once it reaches a share of its target or a number of completes, so you can check the data.',
+    how: 'Choose market or vendor link, then a % of target or a number of completes. Resume when the data looks right; it will not pause that one again.',
+    where: 'Live markets of this project. Once every market or link was paused or reached its target, the autopilot switches the checkpoint off.',
+  },
+  'project.speederCheck': {
+    title: 'Speeder check',
+    what: 'Catches respondents who rush the survey: a complete faster than the chosen share of the planned LOI (1/4, 1/3, 2/4, 3/4…) becomes a quality fail with the reason Speeder.',
+    how: 'Turn it on and pick the share before launch. The list shows the minimum minutes per market. Speeders are not counted, billed or paid.',
+    where: 'Every market of this project, timed from when the respondent reaches the client survey. Shows as Speeders in the fieldwork status and reports.',
+  },
+  'project.fieldStatus': {
+    title: 'Fieldwork status',
+    what: 'Live counts for this project: completes, in survey, terminates, quota full, speeders and other quality fails, plus Avg LOI and Avg IR.',
+    how: 'Avg LOI is the mean minutes of live completes; Avg IR is completes ÷ (completes + terminates). Planned values from the bid are shown beside them.',
+    where: 'Live traffic only (test links are left out). A live project refreshes every 30 seconds.',
+  },
+  'project.liveMoney': {
+    title: 'Revenue, cost and profit',
+    what: 'Money earned and owed so far: revenue is client CPI × completes, cost is the vendor payout for those completes, profit is the difference.',
+    how: 'Watch profit while fieldwork runs. Expected revenue shows the value at target. Rejected completes drop out after reconciliation.',
+    where: 'This project, per CPI currency. Live projects refresh every 30 seconds.',
+  },
+  'field:Avg LOI': { title: 'Avg LOI', what: 'Average minutes live completes actually took, from reaching the client survey to completing.', how: 'Compare it with the planned LOI; much shorter suggests speeders, much longer means drop-outs.', where: 'Project list and fieldwork status. Reports call it LOI.' },
+  'field:Avg IR': { title: 'Avg IR', what: 'Actual incidence: completes ÷ (completes + terminates).', how: 'Compare it with the planned IR; a big drop raises the real cost per complete.', where: 'Project list and fieldwork status. Reports call it IR.' },
+  'field:Speeders': { what: 'Completes rejected by the speeder check because they were too fast.', how: 'Set the check in Gate & security. A high count points at a vendor or a survey that is easy to rush.', where: 'Fieldwork status, project list and reports.' },
   'project.alerts': { title: 'Active alerts', what: 'Problems the monitor found: low pace, stalls, low incidence, high drop-out or poor quality.', how: 'Open an alert, fix the cause, then dismiss it.', where: 'This project.' },
   'project.security': {
     title: 'Respondent security',
@@ -490,8 +512,9 @@ export const HELP: Record<string, HelpEntry> = {
   'create.vendors': { title: 'Vendors', what: 'Vendors to add to every market when the project is created.', how: 'Pick vendors and set payout CPI and target.', where: 'All markets; adjust later on Vendors & links.' },
 
   // ───────────────────────── Project fields ─────────────────────────
-  'field:LOI': { title: 'LOI', what: 'Length of interview: how many minutes the survey takes.', how: 'Enter the median minutes from the client or your test.', where: 'Per market. Used for pricing, pace and speeder checks.' },
+  'field:LOI': { title: 'LOI', what: 'Length of interview: how many minutes the survey takes. In reports, LOI is the average of live completes.', how: 'Enter the planned minutes from the client or your test.', where: 'Per market. Used for pricing, pace and the speeder check.' },
   'field:IR %': { title: 'IR %', what: 'Incidence rate: the share of people who qualify.', how: 'Enter the expected percentage, for example 30.', where: 'Per market. The monitor warns when the real IR is lower.' },
+  'field:IR': { title: 'IR', what: 'Incidence rate. In reports: completes ÷ (completes + terminates) for the rows shown.', how: 'Compare it with the planned IR of the project.', where: 'Reports and the market table.' },
   'field:Completes': { what: 'How many completed interviews the client wants.', how: 'Enter the target number.', where: 'Per market. When reached, the market closes to new respondents.' },
   'field:Client CPI': { title: 'Client CPI', what: 'Cost per interview: what the client pays you for each complete.', how: 'Enter the price in the project\'s CPI currency.', where: 'Per market. Drives revenue and invoices.' },
   'field:Payout CPI': { title: 'Payout CPI', what: 'What you pay the vendor for each accepted complete.', how: 'Enter the price per complete. It cannot be higher than the client CPI unless allowed.', where: 'Per vendor per market. Drives vendor payables.' },

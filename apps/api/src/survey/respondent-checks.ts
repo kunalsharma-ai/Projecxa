@@ -38,6 +38,7 @@ export const REASON_LABELS: Record<string, string> = {
   HUMAN_CHECK_FAILED: 'Failed the human check',
   GATE_SKIPPED: 'Skipped the entry checks',
   EXPIRED: 'Session expired',
+  SPEEDER: 'Speeder: completed faster than the speeder check allows',
 };
 
 export type DeviceType = 'desktop' | 'mobile' | 'tablet';

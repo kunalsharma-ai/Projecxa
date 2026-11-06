@@ -144,7 +144,7 @@ function OverallTab({ filters, money, onMoney }: { filters: Filters; money: Mone
   if (!d) return <Loading />;
   const t = d.totals;
   const mix: [string, number][] = [
-    ['Complete', t.completes], ['Terminate', t.terminates], ['Quota full', t.quotaFull], ['Quality, duplicate or security', t.qualityFail], ['Partial or error', t.partial], ['Still in survey', t.inProgress],
+    ['Complete', t.completes], ['Terminate', t.terminates], ['Quota full', t.quotaFull], ['Speeders', t.speeders ?? 0], ['Quality, duplicate or security', t.qualityFail], ['Partial or error', t.partial], ['Still in survey', t.inProgress],
   ];
   const Top = ({ title, rows, href }: { title: string; rows: SummaryRow[]; href?: (r: SummaryRow) => string }) => (
     <Section title={title}>
@@ -174,7 +174,7 @@ function OverallTab({ filters, money, onMoney }: { filters: Filters; money: Mone
         <Tile label="Clicks" value={t.clicks.toLocaleString()} />
         <Tile label="Completes" value={t.completes.toLocaleString()} sub={`${t.pending} pending · ${t.rejected} rejected`} />
         <Tile label="Conversion" value={`${t.conversion}%`} />
-        <Tile label="Median LOI" value={t.medianLoiMinutes == null ? '–' : `${t.medianLoiMinutes} min`} />
+        <Tile label="LOI" value={t.loiMinutes == null ? '–' : `${t.loiMinutes} min`} sub={t.ir == null ? undefined : `IR ${t.ir}% · ${(t.speeders ?? 0).toLocaleString()} speeders`} />
         <Tile label="Revenue" value={moneyLines(t, 'revenue', money)} />
         <Tile label="Payout" value={moneyLines(t, 'payout', money)} />
         <Tile label="Profit" value={moneyLines(t, 'profit', money)} sub={margin == null ? undefined : `${margin}% margin`} />

@@ -144,4 +144,5 @@ export const REASON_LABELS: Record<string, string> = {
   PRESCREEN: 'Did not qualify on the prescreener',
   GATE_SKIPPED: 'Skipped the entry checks',
   EXPIRED: 'Session expired',
+  SPEEDER: 'Speeder: faster than the speeder check allows',
 };

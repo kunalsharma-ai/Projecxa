@@ -1,4 +1,11 @@
-export type Stats = Record<'STARTED' | 'COMPLETE' | 'TERMINATE' | 'QUOTA_FULL' | 'QUALITY_FAIL' | 'DUPLICATE' | 'SECURITY_REJECT' | 'PARTIAL' | 'TECHNICAL_ERROR', number>;
+/** SPEEDER counts quality fails from the speeder check; QUALITY_FAIL leaves them out. */
+export type Stats = Record<'STARTED' | 'COMPLETE' | 'TERMINATE' | 'QUOTA_FULL' | 'QUALITY_FAIL' | 'DUPLICATE' | 'SECURITY_REJECT' | 'PARTIAL' | 'TECHNICAL_ERROR' | 'SPEEDER', number>;
+
+/** Actual figures from live sessions (docs/FIELD_METRICS.md). */
+export interface FieldMetrics { avgLoiMinutes: number | null; irPercent: number | null; completes: number; terminates: number; speeders: number }
+
+export interface AutoPause { enabled: boolean; by: 'percent' | 'completes'; value: number; scope: 'market' | 'vendor' }
+export interface AutoPauseState { config: string; done: Record<string, { reason: 'paused' | 'target'; at: string; completes: number; target: number }>; switchedOffAt?: string }
 
 export interface Allocation {
   id: string;
@@ -32,6 +39,7 @@ export interface Country {
   liveSurveyUrl: string | null;
   testSurveyUrl: string | null;
   allocations: Allocation[];
+  metrics?: FieldMetrics;
   quotas: { id: string; group: string; name: string; target: number; completes: number; isOpen: boolean }[];
 }
 
@@ -58,7 +66,11 @@ export interface ProjectDetail {
   activeRedirectVersion: { id: string; version: number; mode: string } | null;
   fieldStartAt: string | null;
   fieldEndAt: string | null;
-  autopilot: { pauseOnQuality?: boolean; closeOnTarget?: boolean } | null;
+  autopilot: { pauseOnQuality?: boolean; closeOnTarget?: boolean; autoPause?: AutoPause } | null;
+  autopilotState?: { autoPause?: AutoPauseState } | null;
+  /** Speeder check: completes faster than fraction × planned LOI become speeders. */
+  speederCheck?: { enabled: boolean; fraction: string } | null;
+  metrics?: FieldMetrics;
   countries: Country[];
   stats: Stats;
   /** Money per CPI currency: client CPI range, value at target, and earned / owed for completes so far. */

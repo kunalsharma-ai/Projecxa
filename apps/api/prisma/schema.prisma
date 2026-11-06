@@ -555,6 +555,10 @@ model Project {
   fieldEndAt              DateTime?
   /// Fieldwork autopilot settings, see src/monitor/monitor.rules.ts.
   autopilot               Json?
+  /// What the autopilot has done and switched off on its own (auto-pause checkpoints); server-owned. See src/monitor/auto-pause.ts.
+  autopilotState          Json?
+  /// Speeder check: { enabled, fraction: "1/3" }. A complete faster than fraction × planned LOI becomes QUALITY_FAIL / SPEEDER.
+  speederCheck            Json?
   redirectMode            RedirectMode           @default(HYBRID)
   activeRedirectVersionId String?                @unique
   activeRedirectVersion   RedirectPolicyVersion? @relation("ActiveRedirectVersion", fields: [activeRedirectVersionId], references: [id])

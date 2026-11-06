@@ -9,7 +9,7 @@ const converts = (r: SummaryRow) => !!r.reporting?.currency && r.money.length > 
 const convertedLine = (r: SummaryRow) =>
   `${r.reporting.currency} ${r.reporting.profit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${r.reporting.margin == null ? '' : ` (${r.reporting.margin}%)`}${r.reporting.missing.length ? `, without ${r.reporting.missing.join(', ')}` : ''}`;
 
-export const CSV_COLUMNS = ['Name', 'Detail', 'Clicks', 'Completes', 'Terminates', 'Quota full', 'Quality fail', 'Partial', 'In progress', 'Conversion %', 'Approved', 'Pending', 'Rejected', 'Median LOI (min)', 'Currency', 'Revenue', 'Payout', 'Profit'];
+export const CSV_COLUMNS = ['Name', 'Detail', 'Clicks', 'Completes', 'Terminates', 'Quota full', 'Quality fail', 'Speeders', 'Partial', 'In progress', 'Conversion %', 'Approved', 'Pending', 'Rejected', 'LOI (min)', 'IR %', 'Currency', 'Revenue', 'Payout', 'Profit'];
 
 const csvCell = (v: unknown) => {
   const s = v == null ? '' : String(v);
@@ -22,7 +22,7 @@ const csvCell = (v: unknown) => {
 export function toCsv(rows: SummaryRow[]): string {
   const lines = [CSV_COLUMNS.map(csvCell).join(',')];
   for (const r of rows) {
-    const base = [r.label, r.sublabel, r.clicks, r.completes, r.terminates, r.quotaFull, r.qualityFail, r.partial, r.inProgress, r.conversion, r.approved, r.pending, r.rejected, r.medianLoiMinutes];
+    const base = [r.label, r.sublabel, r.clicks, r.completes, r.terminates, r.quotaFull, r.qualityFail, r.speeders, r.partial, r.inProgress, r.conversion, r.approved, r.pending, r.rejected, r.loiMinutes, r.ir];
     const per = r.money.length ? r.money : [{ currency: '', revenue: 0, payout: 0, profit: 0 }];
     for (const m of per) lines.push([...base, m.currency, m.revenue.toFixed(2), m.payout.toFixed(2), m.profit.toFixed(2)].map(csvCell).join(','));
   }
