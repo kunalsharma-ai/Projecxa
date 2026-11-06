@@ -8,6 +8,7 @@ import { ZohoBooksSync } from '@/components/finance/zoho-books-sync';
 import { canEdit, useMe } from '@/components/me';
 import { Empty, ErrorBox, Loading, PageHeader, Section, Toggle } from '@/components/ui';
 import { API_URL, ApiError, get, post } from '@/lib/api';
+import { Label } from '@/components/help';
 
 type Kind = 'invoices' | 'bills' | 'both' | 'payments_received' | 'payments_made';
 interface Format { id: string; label: string; kinds: Kind[]; ext: string; note: string }
@@ -122,7 +123,7 @@ export default function AccountingPage() {
           <Section title="What to export">
             <div className="space-y-5">
               <div>
-                <span className="label">Accounting system</span>
+                <Label>Accounting system</Label>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {formats.map((x) => (
                     <button key={x.id} type="button" data-format={x.id} onClick={() => set({ format: x.id })} className={clsx('rounded-lg border p-3 text-left transition', f.format === x.id ? 'border-brand bg-brand/5 ring-1 ring-brand' : 'border-line hover:bg-sunken')}>
@@ -134,7 +135,7 @@ export default function AccountingPage() {
                 {fmt && <p className="mt-2 text-xs text-muted">{fmt.note}</p>}
               </div>
               <div>
-                <span className="label">Documents</span>
+                <Label>Documents</Label>
                 <div className="flex flex-wrap gap-2">
                   {(['invoices', 'bills', 'both', 'payments_received', 'payments_made'] as Kind[]).filter((k) => fmt?.kinds.includes(k)).map((k) => (
                     <button key={k} type="button" onClick={() => set({ kind: k })} className={clsx('chip px-3 py-1.5 text-sm', f.kind === k ? 'bg-brand text-brand-ink' : 'bg-sunken text-ink hover:bg-line')}>{KIND_LABEL[k]}</button>
@@ -142,14 +143,14 @@ export default function AccountingPage() {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <label className="block"><span className="label">From</span><input type="date" className="input" value={f.from} onChange={(e) => set({ from: e.target.value })} /></label>
-                <label className="block"><span className="label">To</span><input type="date" className="input" value={f.to} onChange={(e) => set({ to: e.target.value })} /></label>
+                <label className="block"><Label>From</Label><input type="date" className="input" value={f.from} onChange={(e) => set({ from: e.target.value })} /></label>
+                <label className="block"><Label>To</Label><input type="date" className="input" value={f.to} onChange={(e) => set({ to: e.target.value })} /></label>
               </div>
               <p className="-mt-3 text-xs text-muted">{isPayment(f.kind) ? 'By the date the invoice or bill was marked paid.' : 'By invoice date (when sent) and bill approval date.'}</p>
               {!isPayment(f.kind) && <div className="grid gap-4 sm:grid-cols-2">
                 {f.kind !== 'bills' && (
                   <div>
-                    <span className="label">Invoice status</span>
+                    <Label>Invoice status</Label>
                     {['SENT', 'PAID'].map((s) => (
                       <label key={s} className="mr-4 inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={f.invoiceStatuses.includes(s)} onChange={() => set({ invoiceStatuses: toggleIn(f.invoiceStatuses, s) })} />{s === 'SENT' ? 'Sent' : 'Paid'}</label>
                     ))}
@@ -157,7 +158,7 @@ export default function AccountingPage() {
                 )}
                 {f.kind !== 'invoices' && (
                   <div>
-                    <span className="label">Bill status</span>
+                    <Label>Bill status</Label>
                     {['APPROVED', 'PAID'].map((s) => (
                       <label key={s} className="mr-4 inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={f.billStatuses.includes(s)} onChange={() => set({ billStatuses: toggleIn(f.billStatuses, s) })} />{s === 'APPROVED' ? 'Approved' : 'Paid'}</label>
                     ))}
@@ -165,7 +166,7 @@ export default function AccountingPage() {
                 )}
               </div>}
               <label className="block max-w-[10rem]">
-                <span className="label">Currency</span>
+                <Label>Currency</Label>
                 <input className="input uppercase" maxLength={3} placeholder="All" value={f.currency} onChange={(e) => set({ currency: e.target.value.toUpperCase().replace(/[^A-Z]/g, '') })} />
               </label>
               <div className="flex items-start justify-between gap-4 rounded-lg border border-line p-3">

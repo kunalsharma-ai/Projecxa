@@ -7,6 +7,7 @@ import { FormEvent, Suspense, useCallback, useEffect, useState } from 'react';
 import { ErrorBox, Loading, PageHeader, Section } from '@/components/ui';
 import { get, post } from '@/lib/api';
 import { ago, day, daysUntil, endOf, ORG_STATUS, SUB_STATUS, type OrgStatus, type OrgSummary, type Plan } from '@/lib/super-admin';
+import { Label } from '@/components/help';
 
 function Organizations() {
   const params = useSearchParams();
@@ -52,16 +53,16 @@ function Organizations() {
       {adding && (
         <Section title="Add an organisation" className="mb-6">
           <form onSubmit={create} className="grid gap-4 md:grid-cols-3">
-            <label className="block"><span className="label">Company name</span><input className="input" required minLength={2} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
-            <label className="block"><span className="label">Admin’s name</span><input className="input" required value={form.adminName} onChange={(e) => setForm({ ...form, adminName: e.target.value })} /></label>
-            <label className="block"><span className="label">Admin’s email</span><input className="input" type="email" required value={form.adminEmail} onChange={(e) => setForm({ ...form, adminEmail: e.target.value })} /></label>
-            <label className="block"><span className="label">Plan</span>
+            <label className="block"><Label>Company name</Label><input className="input" required minLength={2} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
+            <label className="block"><Label>Admin’s name</Label><input className="input" required value={form.adminName} onChange={(e) => setForm({ ...form, adminName: e.target.value })} /></label>
+            <label className="block"><Label>Admin’s email</Label><input className="input" type="email" required value={form.adminEmail} onChange={(e) => setForm({ ...form, adminEmail: e.target.value })} /></label>
+            <label className="block"><Label>Plan</Label>
               <select className="input" value={form.planCode} onChange={(e) => setForm({ ...form, planCode: e.target.value })}>
                 <option value="">No plan (every feature)</option>
                 {plans.filter((p) => p.active).map((p) => <option key={p.code} value={p.code}>{p.name}</option>)}
               </select>
             </label>
-            <label className="block"><span className="label">Free trial (days, 0 = none)</span><input className="input" type="number" min={0} max={365} value={form.trialDays} onChange={(e) => setForm({ ...form, trialDays: Number(e.target.value) })} /></label>
+            <label className="block"><Label>Free trial (days, 0 = none)</Label><input className="input" type="number" min={0} max={365} value={form.trialDays} onChange={(e) => setForm({ ...form, trialDays: Number(e.target.value) })} /></label>
             <div className="flex items-end gap-2"><button className="btn-primary">Create and invite admin</button><button type="button" className="btn-ghost" onClick={() => setAdding(false)}>Cancel</button></div>
           </form>
         </Section>

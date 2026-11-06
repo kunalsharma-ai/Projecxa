@@ -6,6 +6,7 @@ import { MODES } from '@/components/shell/theme-menu';
 import { useTheme } from '@/components/theme';
 import { OutcomeChip, PageHeader, Progress, Section } from '@/components/ui';
 import { THEMES, type Preferences } from '@/lib/theme';
+import { Label } from '@/components/help';
 
 function Segmented<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: { id: T; label: string; hint?: string }[]; onChange: (v: T) => void }) {
   return (
@@ -183,7 +184,7 @@ export default function ThemeStudio() {
                 </table>
               </div>
               <label className="block">
-                <span className="label">Sample field</span>
+                <Label>Sample field</Label>
                 <input className="input" placeholder="Type to try the focus ring" />
               </label>
               <div className="flex flex-wrap items-center gap-2">

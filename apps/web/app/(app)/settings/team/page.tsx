@@ -5,6 +5,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useMe } from '@/components/me';
 import { Empty, ErrorBox, Loading, PageHeader, Section } from '@/components/ui';
 import { api, get, post } from '@/lib/api';
+import { Label } from '@/components/help';
 
 type Role = 'ADMIN' | 'PROJECT_MANAGER' | 'SALES' | 'VIEWER';
 interface Member { id: string; name: string; email: string; role: Role; active: boolean; status: 'active' | 'invited' | 'deactivated'; inviteExpiresAt: string | null; lastLoginAt: string | null; mfaEnabled: boolean; sso: string[]; isYou: boolean }
@@ -69,9 +70,9 @@ export default function TeamPage() {
       )}
       <Section title={<span className="flex items-center gap-2"><UserPlus className="h-4 w-4 text-brand" /> Invite someone</span>} className="mb-6">
         <form onSubmit={invite} className="grid gap-4 md:grid-cols-[1fr_1fr_14rem_auto] md:items-end">
-          <label className="block"><span className="label">Name</span><input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></label>
-          <label className="block"><span className="label">Work email</span><input className="input" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></label>
-          <label className="block"><span className="label">Role</span>
+          <label className="block"><Label>Name</Label><input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></label>
+          <label className="block"><Label>Work email</Label><input className="input" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></label>
+          <label className="block"><Label>Role</Label>
             <select className="input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>{ROLES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
           </label>
           <button className="btn-primary" disabled={busy}><Mail className="h-4 w-4" />{busy ? 'Sending…' : 'Send invitation'}</button>

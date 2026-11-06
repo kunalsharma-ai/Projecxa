@@ -7,6 +7,7 @@ import { ErrorBox, Loading, PageHeader, Section, Toggle } from '@/components/ui'
 import { api, get, post } from '@/lib/api';
 import { downloadFile } from '@/lib/download';
 import { BillingInvoice, day, fmtMoney, INVOICE_STATUS, InvoiceStatus, METHOD_LABEL, type OrgSummary, type Plan } from '@/lib/super-admin';
+import { Label } from '@/components/help';
 
 interface Settings {
   onlineEnabled: boolean; offlineEnabled: boolean; offlineMethods: string[]; bankDetails: string | null; upiId: string | null; offlineInstructions: string | null;
@@ -162,24 +163,24 @@ function SettingsForm({ value, onSaved }: { value: Settings; onSaved: (s: Settin
             <fieldset className="flex flex-wrap gap-3 text-sm" disabled={!s.offlineEnabled}><legend className="label">Methods accepted</legend>
               {OFFLINE.map((m) => <label key={m} className="flex items-center gap-1.5"><input type="checkbox" checked={s.offlineMethods.includes(m)} onChange={() => set('offlineMethods', s.offlineMethods.includes(m) ? s.offlineMethods.filter((x) => x !== m) : [...s.offlineMethods, m])} />{METHOD_LABEL[m]}</label>)}
             </fieldset>
-            <label className="block"><span className="label">Bank details shown to organisations</span><textarea className="input min-h-[96px]" {...text('bankDetails')} placeholder={'Account name: Sampledge Pvt Ltd\nAccount: 50200012345678\nIFSC: HDFC0001234 · HDFC Bank, Andheri'} /></label>
-            <label className="block"><span className="label">UPI ID</span><input className="input" {...text('upiId')} placeholder="sampledge@hdfcbank" /></label>
-            <label className="block"><span className="label">Other instructions</span><input className="input" {...text('offlineInstructions')} placeholder="Write the invoice number in the payment remarks." /></label>
+            <label className="block"><Label>Bank details shown to organisations</Label><textarea className="input min-h-[96px]" {...text('bankDetails')} placeholder={'Account name: Sampledge Pvt Ltd\nAccount: 50200012345678\nIFSC: HDFC0001234 · HDFC Bank, Andheri'} /></label>
+            <label className="block"><Label>UPI ID</Label><input className="input" {...text('upiId')} placeholder="sampledge@hdfcbank" /></label>
+            <label className="block"><Label>Other instructions</Label><input className="input" {...text('offlineInstructions')} placeholder="Write the invoice number in the payment remarks." /></label>
           </div>
           <div className="space-y-4">
             <h3 className="text-sm font-semibold">Tax</h3>
             <div className="grid grid-cols-2 gap-3">
-              <label className="block"><span className="label">Tax name</span><input className="input" {...text('taxName')} placeholder="GST" /></label>
-              <label className="block"><span className="label">Tax %</span><input className="input" type="number" min={0} max={100} step="0.01" value={s.taxPercent} onChange={(e) => set('taxPercent', Number(e.target.value) || 0)} /></label>
+              <label className="block"><Label>Tax name</Label><input className="input" {...text('taxName')} placeholder="GST" /></label>
+              <label className="block"><Label>Tax %</Label><input className="input" type="number" min={0} max={100} step="0.01" value={s.taxPercent} onChange={(e) => set('taxPercent', Number(e.target.value) || 0)} /></label>
             </div>
             <h3 className="pt-2 text-sm font-semibold">On invoices and receipts</h3>
-            <label className="block"><span className="label">Seller name</span><input className="input" {...text('sellerName')} placeholder="Sampledge Pvt Ltd" /></label>
-            <label className="block"><span className="label">Address</span><textarea className="input min-h-[72px]" {...text('sellerAddress')} /></label>
+            <label className="block"><Label>Seller name</Label><input className="input" {...text('sellerName')} placeholder="Sampledge Pvt Ltd" /></label>
+            <label className="block"><Label>Address</Label><textarea className="input min-h-[72px]" {...text('sellerAddress')} /></label>
             <div className="grid grid-cols-2 gap-3">
-              <label className="block"><span className="label">Tax ID (GSTIN, VAT…)</span><input className="input" {...text('sellerTaxId')} /></label>
-              <label className="block"><span className="label">Billing email</span><input className="input" type="email" {...text('sellerEmail')} /></label>
+              <label className="block"><Label>Tax ID (GSTIN, VAT…)</Label><input className="input" {...text('sellerTaxId')} /></label>
+              <label className="block"><Label>Billing email</Label><input className="input" type="email" {...text('sellerEmail')} /></label>
             </div>
-            <label className="block"><span className="label">Footer</span><input className="input" {...text('invoiceFooter')} placeholder="Thank you for choosing SampTrek." /></label>
+            <label className="block"><Label>Footer</Label><input className="input" {...text('invoiceFooter')} placeholder="Thank you for choosing SampTrek." /></label>
           </div>
         </div>
         <div className="mt-5"><button className="btn-primary"><Save className="h-4 w-4" />Save billing settings</button></div>
@@ -217,17 +218,17 @@ function RecordForm({ onClose, onDone }: { onClose: () => void; onDone: (i: Bill
         <ErrorBox error={error} />
         {!orgs || !plans ? <Loading /> : (
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block sm:col-span-2"><span className="label">Organisation</span>
+            <label className="block sm:col-span-2"><Label>Organisation</Label>
               <select className="input" required value={f.organizationId} onChange={(e) => { const o = orgs.find((x) => x.id === e.target.value); setF({ ...f, organizationId: e.target.value, planCode: o?.subscription?.plan.code ?? f.planCode }); }}>
                 <option value="">Choose…</option>{orgs.map((o) => <option key={o.id} value={o.id}>{o.name}{o.subscription ? ` (${o.subscription.plan.name})` : ''}</option>)}
               </select></label>
-            <label className="block"><span className="label">Plan</span><select className="input" required value={f.planCode} onChange={(e) => setF({ ...f, planCode: e.target.value })}><option value="">Choose…</option>{plans.map((p) => <option key={p.code} value={p.code}>{p.name}</option>)}</select></label>
-            <label className="block"><span className="label">Period</span><select className="input" value={f.interval} onChange={(e) => setF({ ...f, interval: e.target.value })}><option value="MONTHLY">1 month</option><option value="YEARLY">1 year</option></select></label>
+            <label className="block"><Label>Plan</Label><select className="input" required value={f.planCode} onChange={(e) => setF({ ...f, planCode: e.target.value })}><option value="">Choose…</option>{plans.map((p) => <option key={p.code} value={p.code}>{p.name}</option>)}</select></label>
+            <label className="block"><Label>Period</Label><select className="input" value={f.interval} onChange={(e) => setF({ ...f, interval: e.target.value })}><option value="MONTHLY">1 month</option><option value="YEARLY">1 year</option></select></label>
             <label className="block"><span className="label">Amount before tax {plan && `(${plan.currency})`}</span><input className="input" type="number" min={0} step="0.01" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} placeholder={listPrice != null ? `Plan price: ${listPrice}` : 'Plan price'} required={listPrice == null} /></label>
-            <label className="block"><span className="label">Method</span><select className="input" value={f.method} onChange={(e) => setF({ ...f, method: e.target.value })}>{OFFLINE.map((m) => <option key={m} value={m}>{METHOD_LABEL[m]}</option>)}</select></label>
-            <label className="block"><span className="label">Reference</span><input className="input" maxLength={120} value={f.reference} onChange={(e) => setF({ ...f, reference: e.target.value })} placeholder="UTR, cheque no." /></label>
-            <label className="block"><span className="label">Received on</span><input className="input" type="date" value={f.paidOn} onChange={(e) => setF({ ...f, paidOn: e.target.value })} /></label>
-            <label className="block sm:col-span-2"><span className="label">Note</span><input className="input" maxLength={1000} value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></label>
+            <label className="block"><Label>Method</Label><select className="input" value={f.method} onChange={(e) => setF({ ...f, method: e.target.value })}>{OFFLINE.map((m) => <option key={m} value={m}>{METHOD_LABEL[m]}</option>)}</select></label>
+            <label className="block"><Label>Reference</Label><input className="input" maxLength={120} value={f.reference} onChange={(e) => setF({ ...f, reference: e.target.value })} placeholder="UTR, cheque no." /></label>
+            <label className="block"><Label>Received on</Label><input className="input" type="date" value={f.paidOn} onChange={(e) => setF({ ...f, paidOn: e.target.value })} /></label>
+            <label className="block sm:col-span-2"><Label>Note</Label><input className="input" maxLength={1000} value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></label>
             {org?.subscription && <p className="text-xs text-muted sm:col-span-2">Now: {org.subscription.plan.name}, {org.subscription.status.toLowerCase().replace('_', ' ')}{org.subscription.endsAt ? `, until ${day(org.subscription.endsAt)}` : ''}. A running subscription is extended from its end date.</p>}
             <div className="flex gap-2 sm:col-span-2"><button className="btn-primary"><Check className="h-4 w-4" />Record and renew</button><button type="button" className="btn-ghost" onClick={onClose}>Cancel</button></div>
           </div>

@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { Label } from '@/components/help';
 
 const amt = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 });
 export interface Taxed { currency: string; subtotal: number; taxName: string | null; taxPercent: number; taxAmount: number; total: number }
@@ -41,8 +42,8 @@ export function TaxEditor({ doc, busy, onSave }: { doc: Taxed; busy: boolean; on
   const dirty = name !== (doc.taxName ?? '') || n !== doc.taxPercent;
   return (
     <div className="no-print mt-6 flex flex-wrap items-end gap-2">
-      <label><span className="label">Tax name</span><input className="input w-36" placeholder="GST, VAT…" maxLength={40} value={name} onChange={(e) => setName(e.target.value)} /></label>
-      <label><span className="label">Tax %</span><input className="input w-24 tabular-nums" type="number" min={0} max={100} step="0.01" value={pct} onChange={(e) => setPct(e.target.value)} /></label>
+      <label><Label>Tax name</Label><input className="input w-36" placeholder="GST, VAT…" maxLength={40} value={name} onChange={(e) => setName(e.target.value)} /></label>
+      <label><Label>Tax %</Label><input className="input w-24 tabular-nums" type="number" min={0} max={100} step="0.01" value={pct} onChange={(e) => setPct(e.target.value)} /></label>
       <button className="btn-ghost" disabled={busy || !dirty || !valid} onClick={() => onSave({ taxName: name.trim() || null, taxPercent: n })}>Apply tax</button>
       <span className="pb-2 text-xs text-muted">Set 0 for no tax. Tax can only change while this is a draft.</span>
     </div>

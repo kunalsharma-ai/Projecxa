@@ -5,6 +5,7 @@ import { BrandLogo, useBrandedPage } from '@/components/brand-mark';
 import { FormEvent, useState } from 'react';
 import { ErrorBox } from '@/components/ui';
 import { post } from '@/lib/api';
+import { Label } from '@/components/help';
 
 export default function ForgotPasswordPage() {
   const brand = useBrandedPage();
@@ -38,7 +39,7 @@ export default function ForgotPasswordPage() {
         ) : (
           <>
             <label className="block">
-              <span className="label">Email</span>
+              <Label>Email</Label>
               <input className="input" type="email" autoComplete="username" autoFocus value={email} onChange={(e) => setEmail(e.target.value)} required />
             </label>
             <details className="text-sm text-muted">

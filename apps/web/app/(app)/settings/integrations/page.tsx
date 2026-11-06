@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMe } from '@/components/me';
 import { ErrorBox, Loading, PageHeader, Section } from '@/components/ui';
 import { api, get, post } from '@/lib/api';
+import { Label } from '@/components/help';
 
 type FieldType = 'text' | 'secret' | 'select' | 'url' | 'email';
 interface FieldDef { key: string; label: string; type: FieldType; required?: boolean; options?: { value: string; label: string }[]; placeholder?: string; hint?: string; default?: string; transient?: boolean }
@@ -216,7 +217,7 @@ function Card({ i, open, onToggle, onChange }: { i: Integration; open: boolean; 
             </ol>
             {i.redirectUri && (
               <div className="mt-3">
-                <span className="label">Redirect URI to register</span>
+                <Label>Redirect URI to register</Label>
                 <button type="button" onClick={() => copy(i.redirectUri!)} className="flex w-full items-center gap-2 rounded border border-line bg-panel px-2 py-1.5 text-left font-mono text-[11px]" title="Copy">
                   <span className="min-w-0 flex-1 truncate">{i.redirectUri}</span>
                   {copied ? <Check className="h-3.5 w-3.5 text-ok" /> : <Copy className="h-3.5 w-3.5 text-muted" />}

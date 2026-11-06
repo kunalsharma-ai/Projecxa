@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { canEdit, useMe } from '@/components/me';
 import { Empty, ErrorBox, Loading, PageHeader, Section } from '@/components/ui';
 import { get, patch, post } from '@/lib/api';
+import { Label } from '@/components/help';
 
 type Status = 'OPEN' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED';
 type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
@@ -84,22 +85,22 @@ export default function TasksPage() {
       {adding && (
         <Section title="New task" className="mb-6" actions={<div className="flex gap-2"><button className="btn-ghost" onClick={() => setAdding(false)}>Cancel</button><button className="btn-primary" disabled={!form.title.trim()} onClick={create}>Create task</button></div>}>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <label className="block sm:col-span-2"><span className="label">Title</span><input className="input" value={form.title} maxLength={200} onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>
-            <label className="block"><span className="label">Assignee</span>
+            <label className="block sm:col-span-2"><Label>Title</Label><input className="input" value={form.title} maxLength={200} onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>
+            <label className="block"><Label>Assignee</Label>
               <select className="input" value={form.assigneeId} onChange={(e) => setForm({ ...form, assigneeId: e.target.value })}><option value="">Unassigned</option>{people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
             </label>
-            <label className="block"><span className="label">Priority</span>
+            <label className="block"><Label>Priority</Label>
               <select className="input" value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as Priority })}>{(['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as Priority[]).map((p) => <option key={p} value={p}>{p[0] + p.slice(1).toLowerCase()}</option>)}</select>
             </label>
-            <label className="block sm:col-span-2"><span className="label">Project</span>
+            <label className="block sm:col-span-2"><Label>Project</Label>
               <select className="input" value={form.projectId} onChange={(e) => setForm({ ...form, projectId: e.target.value })}><option value="">No project</option>{projects.map((p) => <option key={p.id} value={p.id}>{p.projectCode} · {p.name}</option>)}</select>
             </label>
-            <label className="block"><span className="label">Due</span><input type="date" className="input" value={form.dueAt} onChange={(e) => setForm({ ...form, dueAt: e.target.value })} /></label>
-            <label className="block"><span className="label">Remind on</span><input type="date" className="input" value={form.remindAt} onChange={(e) => setForm({ ...form, remindAt: e.target.value })} /></label>
-            <label className="block sm:col-span-2"><span className="label">Waits for</span>
+            <label className="block"><Label>Due</Label><input type="date" className="input" value={form.dueAt} onChange={(e) => setForm({ ...form, dueAt: e.target.value })} /></label>
+            <label className="block"><Label>Remind on</Label><input type="date" className="input" value={form.remindAt} onChange={(e) => setForm({ ...form, remindAt: e.target.value })} /></label>
+            <label className="block sm:col-span-2"><Label>Waits for</Label>
               <select className="input" value={form.blockedById} onChange={(e) => setForm({ ...form, blockedById: e.target.value })}><option value="">Nothing</option>{(tasks ?? []).filter((t) => t.status === 'OPEN' || t.status === 'IN_PROGRESS').map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}</select>
             </label>
-            <label className="block sm:col-span-2"><span className="label">Notes</span><input className="input" value={form.description} maxLength={5000} onChange={(e) => setForm({ ...form, description: e.target.value })} /></label>
+            <label className="block sm:col-span-2"><Label>Notes</Label><input className="input" value={form.description} maxLength={5000} onChange={(e) => setForm({ ...form, description: e.target.value })} /></label>
           </div>
         </Section>
       )}

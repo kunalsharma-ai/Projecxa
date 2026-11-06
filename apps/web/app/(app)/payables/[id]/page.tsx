@@ -8,6 +8,7 @@ import { TaxEditor } from '@/components/finance/totals';
 import { canEdit, useMe } from '@/components/me';
 import { ErrorBox, Loading } from '@/components/ui';
 import { api, get } from '@/lib/api';
+import { Label } from '@/components/help';
 
 const amt = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 });
 
@@ -59,8 +60,8 @@ export default function BillPage() {
 
       {editable && bill.status === 'DRAFT' && (
         <div className="no-print card mb-4 flex flex-wrap items-end gap-3 p-4">
-          <label><span className="label">Vendor&apos;s invoice number</span><input className="input w-48" maxLength={80} value={vendorRef} onChange={(e) => setVendorRef(e.target.value)} /></label>
-          <label><span className="label">Pay within (days)</span><input type="number" min={0} max={180} className="input w-24" value={dueDays} onChange={(e) => setDueDays(Math.max(0, Math.min(180, Number(e.target.value) || 0)))} /></label>
+          <label><Label>Vendor&apos;s invoice number</Label><input className="input w-48" maxLength={80} value={vendorRef} onChange={(e) => setVendorRef(e.target.value)} /></label>
+          <label><Label>Pay within (days)</Label><input type="number" min={0} max={180} className="input w-24" value={dueDays} onChange={(e) => setDueDays(Math.max(0, Math.min(180, Number(e.target.value) || 0)))} /></label>
           <button className="btn-primary" disabled={busy || notesDirty} title={notesDirty ? 'Save the notes first' : undefined} onClick={() => change({ status: 'APPROVED', dueDays, ...(vendorRef.trim() ? { vendorReference: vendorRef.trim() } : {}) }, `Approve ${bill.number} for payment to ${bill.vendor.name}? Its lines can no longer change.`)}>
             Approve for payment
           </button>
@@ -68,7 +69,7 @@ export default function BillPage() {
       )}
       {editable && bill.status === 'APPROVED' && (
         <div className="no-print card mb-4 flex flex-wrap items-end gap-3 p-4">
-          <label><span className="label">Payment reference</span><input className="input w-56" placeholder="Bank transfer ID" maxLength={120} value={payRef} onChange={(e) => setPayRef(e.target.value)} /></label>
+          <label><Label>Payment reference</Label><input className="input w-56" placeholder="Bank transfer ID" maxLength={120} value={payRef} onChange={(e) => setPayRef(e.target.value)} /></label>
           <button className="btn-primary" disabled={busy} onClick={() => change({ status: 'PAID', ...(payRef.trim() ? { paymentReference: payRef.trim() } : {}) }, `Record payment of ${bill.currency} ${amt.format(bill.total)} to ${bill.vendor.name}?`)}>Mark as paid</button>
         </div>
       )}

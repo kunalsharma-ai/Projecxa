@@ -5,6 +5,7 @@ import { RecoveryCodes } from '@/components/account/recovery-codes';
 import { ErrorBox, Loading, Section } from '@/components/ui';
 import { get, post } from '@/lib/api';
 import type { MfaStatus } from '@/lib/types';
+import { Label } from '@/components/help';
 
 interface Setup { secret: string; otpauthUrl: string; qrSvg: string }
 const when = (d: string | null) => (d ? new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }) : '');
@@ -79,7 +80,7 @@ export function MfaPanel({ email, onFinished }: { email: string; onFinished?: ()
           {mode && (
             <div className="rounded-lg border border-line p-4">
               <div className="flex flex-wrap items-end gap-3">
-                {mode === 'off' && <label><span className="label">Password</span><input className="input w-56" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} /></label>}
+                {mode === 'off' && <label><Label>Password</Label><input className="input w-56" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} /></label>}
                 <label><span className="label">{mode === 'off' ? 'Code from your app or a recovery code' : 'Code from your app'}</span><input className="input w-56 font-mono" inputMode={mode === 'regen' ? 'numeric' : undefined} autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} /></label>
                 <button className={mode === 'off' ? 'btn-danger' : 'btn-primary'} disabled={busy || !code.trim() || (mode === 'off' && !password)} onClick={mode === 'off' ? turnOff : regen}>{mode === 'off' ? 'Turn off two-step sign-in' : 'Make new codes'}</button>
                 <button className="btn-ghost" onClick={() => { setMode(null); setCode(''); setPassword(''); }}>Cancel</button>
@@ -98,7 +99,7 @@ export function MfaPanel({ email, onFinished }: { email: string; onFinished?: ()
               <li>Type the 6-digit code the app shows.</li>
             </ol>
             <div className="flex flex-wrap items-end gap-3">
-              <label><span className="label">Code</span><input className="input w-36 text-center font-mono text-lg tracking-widest" inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} /></label>
+              <label><Label>Code</Label><input className="input w-36 text-center font-mono text-lg tracking-widest" inputMode="numeric" autoComplete="one-time-code" maxLength={6} autoFocus value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} /></label>
               <button className="btn-primary" disabled={busy || code.length !== 6} onClick={confirm}>Turn on</button>
               <button className="btn-ghost" onClick={() => setSetup(null)}>Cancel</button>
             </div>

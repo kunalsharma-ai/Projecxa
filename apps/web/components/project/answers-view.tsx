@@ -6,6 +6,7 @@ import { get } from '@/lib/api';
 import { flag } from '@/lib/countries';
 import { downloadCsv } from '@/lib/csv';
 import { STATUS_LABEL } from '@/lib/types';
+import { Label } from '@/components/help';
 
 interface Q { section: 'gate' | 'prescreen'; id: string; type: string; text: string; options?: { id: string; label: string }[] }
 interface Ans { value: unknown; label: string }
@@ -69,19 +70,19 @@ export function AnswersView({ projectId, projectCode }: { projectId: string; pro
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end gap-3">
-        <label className="block"><span className="label">Status</span>
+        <label className="block"><Label>Status</Label>
           <select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="">All statuses</option>
             {STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABEL[s] ?? s}</option>)}
           </select>
         </label>
-        <label className="block"><span className="label">Market</span>
+        <label className="block"><Label>Market</Label>
           <select className="input" value={country} onChange={(e) => setCountry(e.target.value)}>
             <option value="">All markets</option>
             {data?.countries.map((c) => <option key={c} value={c}>{flag(c)} {c}</option>)}
           </select>
         </label>
-        <label className="block min-w-0 max-w-full"><span className="label">Answered</span>
+        <label className="block min-w-0 max-w-full"><Label>Answered</Label>
           <select className="input max-w-full" value={filter ? `${filter.section}.${filter.question}.${filter.option}` : ''} onChange={(e) => {
             const [section, question, option] = e.target.value.split('.');
             setFilter(e.target.value ? { section, question, option } : null);

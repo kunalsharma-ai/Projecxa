@@ -30,7 +30,7 @@ export function RedirectSigning() {
   }
 
   return (
-    <Section title={<span className="flex items-center gap-2"><KeyRound className="h-4 w-4" /> API destinations</span>}>
+    <Section help="project.apiDestinations" title={<span className="flex items-center gap-2"><KeyRound className="h-4 w-4" /> API destinations</span>}>
       <div className="space-y-3 text-sm">
         <p className="text-muted">
           In hybrid mode a status can use type <b>API</b>: SampTrek asks your client&apos;s or vendor&apos;s endpoint where to send each respondent. It POSTs

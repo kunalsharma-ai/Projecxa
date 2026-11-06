@@ -25,6 +25,8 @@ import { VendorsTab } from '@/components/project/vendors-tab';
 import { UniqueLinksTab } from '@/components/project/unique-links-tab';
 import type { ProjectDetail } from '@/components/project/types';
 import { ErrorBox, Loading, PageHeader, StatusChip, money } from '@/components/ui';
+import { InfoTip } from '@/components/help';
+import { helpForTab } from '@/lib/help';
 import { get, patch } from '@/lib/api';
 import { flag } from '@/lib/countries';
 import { SECURITY_LABELS } from '@/lib/types';
@@ -200,9 +202,13 @@ export default function ProjectPage() {
 
       <div className="mb-5 flex gap-1 overflow-x-auto border-b border-line" role="tablist">
         {TABS.map((t) => (
-          <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={clsx('-mb-px whitespace-nowrap border-b-2 px-4 py-2.5 text-sm', tab === t ? 'border-brand font-medium text-brand' : 'border-transparent text-muted hover:text-ink')}>
-            {t}
-          </button>
+          <div key={t} className={clsx('-mb-px flex shrink-0 items-center border-b-2', tab === t ? 'border-brand' : 'border-transparent')}>
+            <button role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={clsx('whitespace-nowrap py-2.5 text-sm', tab === t ? 'pl-4 pr-1 font-medium text-brand' : 'px-4 text-muted hover:text-ink')}>
+              {t}
+            </button>
+            {/* The active tab shows its "i"; the words are in lib/help.ts under tab:<name>. */}
+            {tab === t && <span className="pr-2"><InfoTip entry={helpForTab(t)} /></span>}
+          </div>
         ))}
       </div>
 

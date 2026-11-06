@@ -8,6 +8,7 @@ import { ActivityList } from '@/components/super-admin/activity-list';
 import { ErrorBox, Loading, PageHeader, Section, Toggle } from '@/components/ui';
 import { api, get, post } from '@/lib/api';
 import { ago, day, ORG_STATUS, ROLE_LABEL, SUB_STATUS, type ActivityItem, type Catalog, type FeatureRow, type OrgDetail, type OrgUser, type Plan, type SubStatus } from '@/lib/super-admin';
+import { Label } from '@/components/help';
 
 type Tab = 'subscription' | 'features' | 'people' | 'activity' | 'integrations';
 const TABS: [Tab, string][] = [['subscription', 'Subscription'], ['features', 'Features'], ['people', 'People'], ['activity', 'Activity'], ['integrations', 'Integrations']];
@@ -90,21 +91,21 @@ function SubscriptionTab({ org, run }: { org: OrgDetail; run: Run }) {
     <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
       <Section title={org.subscription ? 'Subscription' : 'No subscription yet: this organisation has every feature'}>
         <form onSubmit={save} className="grid gap-4 sm:grid-cols-2">
-          <label className="block"><span className="label">Plan</span>
+          <label className="block"><Label>Plan</Label>
             <select className="input" value={form.planCode} onChange={(e) => setForm({ ...form, planCode: e.target.value })}>{plans.map((p) => <option key={p.code} value={p.code}>{p.name}{p.active ? '' : ' (off)'}</option>)}</select>
           </label>
-          <label className="block"><span className="label">Status</span>
+          <label className="block"><Label>Status</Label>
             <select className="input" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as SubStatus })}>{(Object.keys(SUB_STATUS) as SubStatus[]).map((k) => <option key={k} value={k}>{SUB_STATUS[k][0]}</option>)}</select>
             <span className="mt-1 block text-xs text-muted">{{ TRIAL: 'Works until the trial end date.', ACTIVE: 'Works until the end date (none = no end).', PAST_DUE: 'Still works: a late renewal.', EXPIRED: 'No access until renewed.', CANCELLED: 'No access.' }[form.status]}</span>
           </label>
           {form.status === 'TRIAL'
-            ? <label className="block"><span className="label">Trial ends</span><input className="input" type="date" value={form.trialEndsAt} onChange={(e) => setForm({ ...form, trialEndsAt: e.target.value })} /></label>
-            : <label className="block"><span className="label">Ends or renews on</span><input className="input" type="date" value={form.endsAt} onChange={(e) => setForm({ ...form, endsAt: e.target.value })} /></label>}
+            ? <label className="block"><Label>Trial ends</Label><input className="input" type="date" value={form.trialEndsAt} onChange={(e) => setForm({ ...form, trialEndsAt: e.target.value })} /></label>
+            : <label className="block"><Label>Ends or renews on</Label><input className="input" type="date" value={form.endsAt} onChange={(e) => setForm({ ...form, endsAt: e.target.value })} /></label>}
           <div className="flex items-end gap-2">{[30, 90, 365].map((d) => <button key={d} type="button" className="btn-ghost px-2.5 py-1.5 text-xs" onClick={() => extend(d)}>+{d === 365 ? '1 year' : `${d} days`}</button>)}</div>
-          <label className="block"><span className="label">User limit</span><input className="input" type="number" min={0} placeholder={plan?.maxUsers != null ? `Plan: ${plan.maxUsers}` : 'Plan: no limit'} value={form.maxUsers} onChange={(e) => setForm({ ...form, maxUsers: e.target.value })} /></label>
-          <label className="block"><span className="label">Project limit</span><input className="input" type="number" min={0} placeholder={plan?.maxProjects != null ? `Plan: ${plan.maxProjects}` : 'Plan: no limit'} value={form.maxProjects} onChange={(e) => setForm({ ...form, maxProjects: e.target.value })} /></label>
+          <label className="block"><Label>User limit</Label><input className="input" type="number" min={0} placeholder={plan?.maxUsers != null ? `Plan: ${plan.maxUsers}` : 'Plan: no limit'} value={form.maxUsers} onChange={(e) => setForm({ ...form, maxUsers: e.target.value })} /></label>
+          <label className="block"><Label>Project limit</Label><input className="input" type="number" min={0} placeholder={plan?.maxProjects != null ? `Plan: ${plan.maxProjects}` : 'Plan: no limit'} value={form.maxProjects} onChange={(e) => setForm({ ...form, maxProjects: e.target.value })} /></label>
           <div className="flex items-center gap-3 sm:col-span-2"><Toggle checked={form.mobileEnabled} onChange={(v) => setForm({ ...form, mobileEnabled: v })} label="Mobile app" /><span className="text-sm"><Smartphone className="mr-1 inline h-4 w-4 text-muted" />Android and iOS app {form.mobileEnabled ? 'on' : 'off'} for this organisation{plan && !plan.mobileEnabled ? ' (the plan has no app)' : ''}</span></div>
-          <label className="block sm:col-span-2"><span className="label">Notes (only you see them)</span><textarea className="input min-h-[70px]" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="e.g. Paid by bank transfer until March" /></label>
+          <label className="block sm:col-span-2"><Label>Notes (only you see them)</Label><textarea className="input min-h-[70px]" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="e.g. Paid by bank transfer until March" /></label>
           <div className="flex gap-2 sm:col-span-2">
             <button className="btn-primary">Save subscription</button>
             {org.subscription && <button type="button" className="btn-ghost" onClick={() => confirm('Remove the subscription? The organisation then has every feature with no limits.') && run(() => api(`/super-admin/organizations/${org.id}/subscription`, { method: 'DELETE' }), 'Subscription removed.')}>Remove</button>}

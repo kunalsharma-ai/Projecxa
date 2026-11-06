@@ -8,6 +8,7 @@ import { Empty, ErrorBox, Loading, PageHeader, Section } from '@/components/ui';
 import { api, ApiError, FEATURES_EVENT, get, post } from '@/lib/api';
 import { downloadFile } from '@/lib/download';
 import { BillingInvoice, day, fmtMoney, INVOICE_STATUS, METHOD_LABEL, SUB_STATUS, type SubStatus } from '@/lib/super-admin';
+import { Label } from '@/components/help';
 
 type Interval = 'MONTHLY' | 'YEARLY';
 interface PlanOffer { id: string; code: string; name: string; description: string | null; priceLabel: string | null; currency: string; priceMonthly: number | null; priceYearly: number | null; maxUsers: number | null; maxProjects: number | null; mobileEnabled: boolean; features: number }
@@ -269,13 +270,13 @@ function OfflineForm({ data, plan, interval, total, onClose, onDone }: {
         </div>
         <ErrorBox error={error} />
         <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
-          <label className="block"><span className="label">How you paid</span>
+          <label className="block"><Label>How you paid</Label>
             <select className="input" value={method} onChange={(e) => setMethod(e.target.value)}>{data.methods.map((m) => <option key={m} value={m}>{METHOD_LABEL[m] ?? m}</option>)}</select>
           </label>
-          <label className="block"><span className="label">Paid on</span><input className="input" type="date" required max={new Date().toISOString().slice(0, 10)} value={paidOn} onChange={(e) => setPaidOn(e.target.value)} /></label>
+          <label className="block"><Label>Paid on</Label><input className="input" type="date" required max={new Date().toISOString().slice(0, 10)} value={paidOn} onChange={(e) => setPaidOn(e.target.value)} /></label>
           <label className="block sm:col-span-2"><span className="label">{method === 'upi' ? 'UPI transaction ID (UTR)' : method === 'cheque' ? 'Cheque number and bank' : 'Transaction reference'}</span><input className="input" required minLength={2} maxLength={120} value={reference} onChange={(e) => setReference(e.target.value)} placeholder={method === 'upi' ? 'e.g. 431298765432' : 'e.g. NEFT N123456789'} /></label>
-          <label className="block sm:col-span-2"><span className="label">Note (optional)</span><input className="input" maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} /></label>
-          <label className="block sm:col-span-2"><span className="label">Proof of payment (optional, PDF or image, up to 5 MB)</span>
+          <label className="block sm:col-span-2"><Label>Note (optional)</Label><input className="input" maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} /></label>
+          <label className="block sm:col-span-2"><Label>Proof of payment (optional, PDF or image, up to 5 MB)</Label>
             <span className="flex items-center gap-3 rounded-lg border border-dashed border-line p-3 text-sm">
               <FileUp className="h-4 w-4 text-muted" /><input type="file" accept="application/pdf,image/png,image/jpeg,image/webp" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
             </span>
