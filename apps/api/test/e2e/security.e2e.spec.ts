@@ -115,6 +115,19 @@ describe('Respondent security settings (e2e)', () => {
     await pm.patch(`/projects/${projectId}`, { devices: { desktop: true, mobile: true, tablet: true } }).expect(200);
   });
 
+  it('narrows mobile to Android or iOS', async () => {
+    const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/126.0 Mobile Safari/537.36';
+    await pm.patch(`/projects/${projectId}`, { devices: { desktop: true, mobile: true, tablet: true, android: false, ios: false } }).expect(400);
+    await setSecurity({}, { devices: { desktop: true, mobile: true, tablet: true, android: true, ios: false } });
+    const i = uid();
+    await enter(i, { ua: PHONE });
+    expect(await session(i)).toMatchObject({ status: 'SECURITY_REJECT', statusDetail: 'MOBILE_OS_NOT_ALLOWED', deviceType: 'mobile' });
+    const a = uid();
+    expect((await enter(a, { ua: ANDROID })).headers.location).toMatch(/^https:\/\/client\.example\.com\/s\?rid=/);
+    expect(await session(a)).toMatchObject({ status: 'STARTED', deviceType: 'mobile' });
+    await pm.patch(`/projects/${projectId}`, { devices: { desktop: true, mobile: true, tablet: true } }).expect(200);
+  });
+
   it('URL protection: unsigned or wrongly signed links create no session; signed links work', async () => {
     await setSecurity({ urlProtection: true });
     const p = (await pm.get(`/projects/${projectId}`).expect(200)).body;
@@ -396,7 +409,7 @@ describe('Respondent security settings (e2e)', () => {
   it('summarises what each check caught, per project and tenant', async () => {
     const s = (await pm.get(`/projects/${projectId}/security-summary`).expect(200)).body;
     const by = Object.fromEntries(s.reasons.map((r: { reason: string; count: number }) => [r.reason, r.count]));
-    expect(by).toMatchObject({ DEVICE_NOT_ALLOWED: 1, TOR_EXIT: 1, GEO_MISMATCH: 1, CAPTCHA_FAILED: 2, HUMAN_CHECK_FAILED: 2, COOKIES_BLOCKED: 1, SAME_FINGERPRINT: 1, SAME_BROWSER: 1, GATE_SKIPPED: 1, GATE_SCREENOUT: 1, PRESCREEN: 1, GATE_INCOMPLETE: 7, BAD_SIGNATURE: 2 });
+    expect(by).toMatchObject({ DEVICE_NOT_ALLOWED: 1, MOBILE_OS_NOT_ALLOWED: 1, TOR_EXIT: 1, GEO_MISMATCH: 1, CAPTCHA_FAILED: 2, HUMAN_CHECK_FAILED: 2, COOKIES_BLOCKED: 1, SAME_FINGERPRINT: 1, SAME_BROWSER: 1, GATE_SKIPPED: 1, GATE_SCREENOUT: 1, PRESCREEN: 1, GATE_INCOMPLETE: 7, BAD_SIGNATURE: 2 });
     expect(s.gate.required).toBeGreaterThan(s.gate.passed);
     await other.get(`/projects/${projectId}/security-summary`).expect(404);
     await pm.post('/security/tor/sync').expect(403);

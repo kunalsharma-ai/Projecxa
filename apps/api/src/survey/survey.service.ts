@@ -11,6 +11,7 @@ import { fillCallbackTemplate, parseConfig } from '../redirects/redirects.servic
 import {
   CheckResult,
   checkDevice,
+  deviceOs,
   checkEntrySignature,
   checkGeo,
   checkLanguage,
@@ -267,7 +268,7 @@ export class SurveyService {
     const failed = checks.find((c) => !c.ok);
     if (!initial && !isTest && failed) initial = { status: failed.status!, detail: failed.reason };
     // Quota cells known at entry (device). Answer-based cells are judged after the gate page.
-    const cells = matchCells(country.quotas, { device: device.note ?? null, answers: null });
+    const cells = matchCells(country.quotas, { device: device.note ?? null, os: deviceOs(req.userAgent), answers: null });
     if (!initial && !isTest && cells.full) initial = { status: 'QUOTA_FULL', detail: 'CELL_FULL' };
     const surveyUrl = isTest ? country.testSurveyUrl ?? country.liveSurveyUrl : country.liveSurveyUrl;
     if (!initial && !surveyUrl) initial = { status: 'TECHNICAL_ERROR', detail: 'NO_SURVEY_LINK' };
@@ -626,7 +627,7 @@ export class SurveyService {
     // Quota cells, now that the answers are known. Checked last: a screen-out stays a terminate.
     const cellAnswers = { ...(gate ? { gate: gate.answers } : {}), ...(pre ? { prescreen: pre.answers } : {}) } as Respondent['answers'];
     const quotaCells = await this.prisma.quotaCell.findMany({ where: { projectCountryId: session.projectCountryId } });
-    const cells = matchCells(quotaCells, { device: session.deviceType, answers: cellAnswers });
+    const cells = matchCells(quotaCells, { device: session.deviceType, os: deviceOs(session.userAgent ?? undefined), answers: cellAnswers });
     if (quotaCells.length) {
       checks.push(cells.full ? { check: 'quota', ok: false, reason: 'CELL_FULL', status: 'QUOTA_FULL', note: cells.full.name } : { check: 'quota', ok: true, note: cells.matched.map((c) => c.name).join(', ') || 'no cell' });
     }

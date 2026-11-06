@@ -21,6 +21,7 @@ export interface CheckResult {
 export const REASON_LABELS: Record<string, string> = {
   BAD_SIGNATURE: 'Entry link signature missing or wrong',
   DEVICE_NOT_ALLOWED: 'Device type not allowed',
+  MOBILE_OS_NOT_ALLOWED: 'Phone system (Android / iOS) not allowed',
   TOR_EXIT: 'Connected through TOR',
   GEO_MISMATCH: 'Located outside the survey country',
   CAPTCHA_FAILED: 'Failed the background bot check',
@@ -49,10 +50,31 @@ export function deviceType(ua: string | undefined): DeviceType {
   return 'desktop';
 }
 
-export function checkDevice(devices: { desktop?: boolean; mobile?: boolean; tablet?: boolean } | null | undefined, ua: string | undefined): CheckResult {
+export type DeviceOs = 'android' | 'ios' | 'other';
+
+/** Operating system from the user agent (phones and tablets; desktops report "other"). */
+export function deviceOs(ua: string | undefined): DeviceOs {
+  const u = ua ?? '';
+  if (/Android/i.test(u)) return 'android';
+  if (/iPhone|iPod|iPad/i.test(u)) return 'ios';
+  return 'other';
+}
+
+/**
+ * Device type must be allowed; on a phone, the operating system too when the project allows only
+ * Android or only iOS (a phone on another system is then refused as well).
+ */
+export function checkDevice(devices: { desktop?: boolean; mobile?: boolean; tablet?: boolean; android?: boolean; ios?: boolean } | null | undefined, ua: string | undefined): CheckResult {
   const type = deviceType(ua);
-  const allowed = devices?.[type] !== false;
-  return allowed ? { check: 'device', ok: true, note: type } : { check: 'device', ok: false, reason: 'DEVICE_NOT_ALLOWED', status: 'SECURITY_REJECT', note: type };
+  if (devices?.[type] === false) return { check: 'device', ok: false, reason: 'DEVICE_NOT_ALLOWED', status: 'SECURITY_REJECT', note: type };
+  if (type === 'mobile') {
+    const android = devices?.android !== false;
+    const ios = devices?.ios !== false;
+    const os = deviceOs(ua);
+    const allowed = os === 'android' ? android : os === 'ios' ? ios : android && ios;
+    if (!allowed) return { check: 'device', ok: false, reason: 'MOBILE_OS_NOT_ALLOWED', status: 'SECURITY_REJECT', note: type };
+  }
+  return { check: 'device', ok: true, note: type };
 }
 
 /**
