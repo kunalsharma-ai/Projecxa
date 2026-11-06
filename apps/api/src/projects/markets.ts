@@ -30,9 +30,12 @@ export function sameMarket(a: MarketLike, b: MarketLike) {
 }
 
 /** Why a market cannot take live respondents yet; empty when it can. */
-export function launchProblems(c: MarketLike & { liveSurveyUrl: string | null; vendorCount: number }) {
+export function launchProblems(c: MarketLike & { liveSurveyUrl: string | null; vendorCount: number; useClientLinks?: boolean; unusedClientLinks?: number }) {
   const out: string[] = [];
-  if (!c.liveSurveyUrl) out.push('no live survey link');
+  // With client unique links on, the uploaded links replace the live survey link.
+  if (c.useClientLinks) {
+    if (!c.unusedClientLinks) out.push('no client unique links left');
+  } else if (!c.liveSurveyUrl) out.push('no live survey link');
   if (c.vendorCount === 0) out.push('no vendor');
   return out;
 }

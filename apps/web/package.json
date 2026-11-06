@@ -8,7 +8,7 @@
     "start": "next start -p 3000",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
-    "test": "node --experimental-strip-types --no-warnings scripts/check-themes.ts && node --experimental-strip-types --no-warnings scripts/check-forms.ts && node --experimental-strip-types --no-warnings scripts/check-tour.ts && node --experimental-strip-types --no-warnings scripts/check-help.ts",
+    "test": "node --experimental-strip-types --no-warnings scripts/check-themes.ts && node --experimental-strip-types --no-warnings scripts/check-forms.ts && node --experimental-strip-types --no-warnings scripts/check-tour.ts && node --experimental-strip-types --no-warnings scripts/check-help.ts && node --experimental-strip-types --no-warnings scripts/check-xlsx.ts",
     "check:forms": "node --experimental-strip-types --no-warnings scripts/check-forms.ts && node --experimental-strip-types --no-warnings scripts/check-tour.ts && node --experimental-strip-types --no-warnings scripts/check-help.ts",
     "check:themes": "node --experimental-strip-types --no-warnings scripts/check-themes.ts"
   },

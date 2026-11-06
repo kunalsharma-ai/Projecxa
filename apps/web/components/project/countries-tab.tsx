@@ -4,11 +4,12 @@ import clsx from 'clsx';
 import { AlertTriangle, CopyPlus, Pause, Pencil, Play, Plus, Save, Search, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { CountrySelect } from '@/components/form/combobox';
-import { saveCustomOption, useCustomOptions } from '@/components/form/option-select';
+import { AddableSelect, saveCustomOption, useCustomOptions } from '@/components/form/option-select';
 import { ErrorBox, Field, Progress, Section, StatusChip, money } from '@/components/ui';
 import { patch, post } from '@/lib/api';
 import { COUNTRIES, countryName, flag } from '@/lib/countries';
 import { BulkFill } from './bulk-fill';
+import { ProjectParties } from './project-parties';
 import type { Country, ProjectDetail } from './types';
 
 const marketName = (c: Pick<Country, 'countryCode' | 'targetGroup'>) => `${countryName(c.countryCode)}${c.targetGroup ? ` · ${c.targetGroup}` : ''}`;
@@ -141,8 +142,8 @@ export function CountriesTab({ project, editable, reload, security }: { project:
                 </Field>
               </div>
               <Field label="Language"><input className="input" value={adding.language} onChange={(e) => setAdding({ ...adding, language: e.target.value })} placeholder="en" /></Field>
-              <Field label="Target group" hint="Needed when the country is already a market">
-                <input className="input" list="tab-target-groups" value={adding.targetGroup} onChange={(e) => setAdding({ ...adding, targetGroup: e.target.value })} />
+              <Field label="Target group" hint="Needed when the country is already a market. Type a new one to add it.">
+                <AddableSelect field="targetGroup" base={[]} value={adding.targetGroup} onChange={(v) => setAdding({ ...adding, targetGroup: v })} placeholder="e.g. Gen Z" />
               </Field>
               <Field label="LOI (min)"><input className="input" type="number" min={1} placeholder={String(src?.loiMinutes ?? '')} value={adding.loiMinutes} onChange={(e) => setAdding({ ...adding, loiMinutes: e.target.value })} /></Field>
               <Field label="IR %"><input className="input" type="number" min={1} max={100} placeholder={String(src?.irPercent ?? '')} value={adding.irPercent} onChange={(e) => setAdding({ ...adding, irPercent: e.target.value })} /></Field>
@@ -285,8 +286,8 @@ export function CountriesTab({ project, editable, reload, security }: { project:
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Section title="Project settings">
+          <ProjectParties key={`${project.id}:${project.clientContact?.id ?? ''}:${project.workOrderNo ?? ''}`} project={project} editable={editable} reload={reload} />
           <dl className="grid grid-cols-[140px_1fr] gap-y-2 text-sm">
-            <dt className="text-muted">Client</dt><dd>{project.client.name}</dd>
             <dt className="text-muted">Sales</dt><dd>{project.salesPerson?.name ?? '–'}</dd>
             <dt className="text-muted">Bid reference</dt><dd>{project.bidReference ? <Copyable text={project.bidReference} label="bid reference" /> : '–'}</dd>
             <dt className="text-muted">CPI currency</dt><dd>{currency}</dd>

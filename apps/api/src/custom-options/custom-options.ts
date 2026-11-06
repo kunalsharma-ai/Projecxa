@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, Module, NotFoundException, Param, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, Delete, Get, Module, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
 import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../auth/auth.types';
@@ -14,6 +14,7 @@ export const CUSTOM_OPTION_FIELDS = ['category', 'targetGroup', 'language', 'uid
 
 const fieldSchema = z.enum(CUSTOM_OPTION_FIELDS);
 const addSchema = z.object({ field: fieldSchema, value: z.string().trim().min(1).max(200) });
+const renameSchema = z.object({ value: z.string().trim().min(1).max(200) });
 const replaceSchema = z.object({ field: fieldSchema, values: z.array(z.string().trim().min(1).max(200)).max(100) });
 
 @Controller('custom-options')
@@ -56,6 +57,20 @@ export class CustomOptionsController {
     ]);
     await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'custom-option.replace', entityType: 'CustomOption', entityId: body.field, detail: body });
     return this.list(u, body.field);
+  }
+
+  /** Fixes a typo in an option. Records that already use the old wording keep it. */
+  @Patch(':id')
+  @Roles(...EDITORS)
+  async rename(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body(new ZodPipe(renameSchema)) body: z.infer<typeof renameSchema>) {
+    const row = await this.prisma.customOption.findFirst({ where: { id, organizationId: u.organizationId } });
+    if (!row) throw new NotFoundException('Option not found');
+    if (row.field === 'defaultVendor') throw new BadRequestException('Default vendors are chosen on Create project');
+    const clash = await this.prisma.customOption.findFirst({ where: { organizationId: u.organizationId, field: row.field, value: { equals: body.value, mode: 'insensitive' }, id: { not: id } } });
+    if (clash) throw new ConflictException(`“${body.value}” is already in the list`);
+    const updated = await this.prisma.customOption.update({ where: { id }, data: { value: body.value }, select: { id: true, field: true, value: true, createdAt: true } });
+    await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'custom-option.rename', entityType: 'CustomOption', entityId: id, detail: { field: row.field, from: row.value, to: body.value } });
+    return updated;
   }
 
   @Delete(':id')

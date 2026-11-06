@@ -57,6 +57,10 @@ model Organization {
   alertWebhookSecret     String?
   projectCodePrefix      String      @default("PRX")
   workOrderPrefix        String      @default("WO")
+  /// The last work order number generated automatically (shown on Create project and in Settings → Numbering).
+  lastWorkOrderNo        String?
+  /// Put in front of every respondent UID (session token) we send to client surveys, e.g. "SMP-". Null = none.
+  uidPrefix              String?
   /// Shared secret Bidzo signs "bid won" webhooks with (HMAC-SHA256). Null = intake disabled.
   bidzoWebhookSecret     String?
   /// Free third-party captcha keys set by an admin: { turnstile?: { siteKey, secret }, hcaptcha?: { siteKey, secret } }.
@@ -95,6 +99,8 @@ model Organization {
   aiConversations        AiConversation[]
   aiActions              AiAction[]
   customOptions          CustomOption[]
+  partyLogos             PartyLogo[]
+  clientUniqueLinks      ClientUniqueLink[]
   aiUsage                AiUsage[]
   aiDocuments            AiDocument[]
   tickets                Ticket[]
@@ -434,6 +440,7 @@ model Client {
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
+  logo        PartyLogo?
   contacts    ClientContact[]
   projects    Project[]
   users       User[]
@@ -477,6 +484,7 @@ model Vendor {
   createdAt              DateTime     @default(now())
   updatedAt              DateTime     @updatedAt
 
+  logo          PartyLogo?
   allocations   VendorAllocation[]
   users         User[]
   bills         VendorBill[]
@@ -575,6 +583,7 @@ model Project {
   tickets           Ticket[]
   sharedFiles       SharedFile[]
   sampleonRequests  SampleonAudienceRequest[]
+  clientUniqueLinks ClientUniqueLink[]
   /// How the gate/prescreener questions used by quota cells map onto SUPPLY360 profile attributes, for SAMPLEON.
   /// { "gate:<questionId>": { attribute, values: { <answerId>: value } } }; see src/sampleon/quota-translate.ts.
   sampleonQuotaMap  Json?
@@ -627,6 +636,9 @@ model ProjectCountry {
   testSurveyUrl     String?
   /// Session lifetime; defaults to 4 × LOI, minimum 60 minutes.
   sessionTtlMinutes Int?
+  /// Client unique links (docs/CLIENT_UNIQUE_LINKS.md): each live respondent gets the next unused
+  /// link the client gave us, instead of liveSurveyUrl.
+  useClientLinks    Boolean       @default(false)
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
@@ -634,6 +646,7 @@ model ProjectCountry {
   allocations   VendorAllocation[]
   sessions      RespondentSession[]
   quoteRequests QuoteRequest[]
+  clientLinks   ClientUniqueLink[]
 
   /// The same country may appear more than once (one market per target group); the app keeps
   /// country + language + target group unique within a project.
@@ -825,6 +838,8 @@ model RespondentSession {
   /// The one-time unique link this respondent entered through (at most one session per link).
   uniqueLinkId       String?                @unique
   uniqueLink         UniqueLink?            @relation(fields: [uniqueLinkId], references: [id], onDelete: SetNull)
+  /// The client unique link this respondent was sent to (at most one).
+  clientLink         ClientUniqueLink?
 
   events     RespondentEvent[]
   executions RedirectExecution[]
@@ -849,6 +864,58 @@ enum UniqueLinkStatus {
 }
 
 /// One "Generate N links" run for a vendor in a market.
+enum ClientLinkStatus {
+  UNUSED
+  ASSIGNED
+}
+
+/**
+ * Client unique links: survey links the client made, one per respondent. Uploaded per market;
+ * each live respondent is given the next unused one (atomically). docs/CLIENT_UNIQUE_LINKS.md.
+ */
+model ClientUniqueLink {
+  id               String             @id @default(cuid())
+  organizationId   String
+  organization     Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectId        String
+  project          Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectCountryId String
+  projectCountry   ProjectCountry     @relation(fields: [projectCountryId], references: [id], onDelete: Cascade)
+  url              String
+  /// Upload order; links are handed out lowest first.
+  seq              Int
+  status           ClientLinkStatus   @default(UNUSED)
+  sessionId        String?            @unique
+  session          RespondentSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  assignedAt       DateTime?
+  /// Name of the uploaded file or a label typed by the person.
+  label            String?
+  createdById      String?
+  createdAt        DateTime           @default(now())
+
+  @@unique([projectCountryId, url])
+  @@index([projectCountryId, status, seq])
+  @@index([projectId])
+}
+
+/**
+ * Logo of a client or vendor (small image, any common format). Kept apart so lists stay light.
+ */
+model PartyLogo {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  clientId       String?      @unique
+  client         Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  vendorId       String?      @unique
+  vendor         Vendor?      @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  contentType    String
+  data           Bytes
+  hash           String
+  bytes          Int
+  updatedAt      DateTime     @updatedAt
+}
+
 model UniqueLinkBatch {
   id                 String           @id @default(cuid())
   organizationId     String

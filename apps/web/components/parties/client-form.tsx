@@ -6,7 +6,7 @@ import { suggestCode } from '@/lib/suggest';
 export interface ClientDetail {
   id: string; name: string; code: string; status: string; website: string | null;
   contacts: { id: string; name: string; email: string | null; phone: string | null }[];
-  billingAddress: string | null; taxId: string | null;
+  billingAddress: string | null; taxId: string | null; logoUrl?: string | null;
 }
 
 /** Add or edit a client. The same checks run on the server (contact-fields.ts). */

@@ -4,6 +4,8 @@ import { config as appConfig } from '../common/config';
 import { hmacSha256, randomToken, safeEqualHex, sha256 } from '../common/crypto';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { claimClientLink, peekClientLink } from '../client-links/client-links';
+import { newSessionToken } from '../numbering/numbering';
 import { computeRedirect, finishApiRedirect, internalEndPage } from '../redirects/redirect-engine';
 import { askApiDestination, redirectSigningSecret } from '../redirects/redirect-api';
 import { OutcomeStatus, parseVendorRedirectUrls } from '../redirects/redirect.types';
@@ -270,14 +272,23 @@ export class SurveyService {
     // Quota cells known at entry (device). Answer-based cells are judged after the gate page.
     const cells = matchCells(country.quotas, { device: device.note ?? null, os: deviceOs(req.userAgent), answers: null });
     if (!initial && !isTest && cells.full) initial = { status: 'QUOTA_FULL', detail: 'CELL_FULL' };
-    const surveyUrl = isTest ? country.testSurveyUrl ?? country.liveSurveyUrl : country.liveSurveyUrl;
-    if (!initial && !surveyUrl) initial = { status: 'TECHNICAL_ERROR', detail: 'NO_SURVEY_LINK' };
+    // Client unique links: live respondents get the next unused link (claimed below); tests borrow one.
+    const clientLinks = country.useClientLinks;
+    const surveyUrl = isTest
+      ? country.testSurveyUrl ?? (clientLinks ? await peekClientLink(this.prisma, country.id) : null) ?? country.liveSurveyUrl
+      : clientLinks ? null : country.liveSurveyUrl;
+    if (!initial && !clientLinks && !surveyUrl) initial = { status: 'TECHNICAL_ERROR', detail: 'NO_SURVEY_LINK' };
+    if (!initial && !isTest && clientLinks && !(await this.prisma.clientUniqueLink.count({ where: { projectCountryId: country.id, status: 'UNUSED' } }))) {
+      initial = { status: 'TECHNICAL_ERROR', detail: 'NO_CLIENT_LINK' };
+    }
+    if (!initial && isTest && !surveyUrl) initial = { status: 'TECHNICAL_ERROR', detail: 'NO_SURVEY_LINK' };
 
     // A consent notice for the market sends the respondent through the gate page to agree first.
     const consent = initial ? null : await consentFor(this.prisma, project.organizationId, country.countryCode);
     const gateRequired = !initial && (gateNeeded(security) || !!consent);
     const ttl = country.sessionTtlMinutes ?? Math.max(60, country.loiMinutes * 4);
-    const token = randomToken();
+    // The organisation's UID prefix (Settings → Numbering) brands the ID the client survey sees.
+    const token = newSessionToken(project.organization.uidPrefix);
     let session: SessionWithContext;
     try {
       session = await this.prisma.respondentSession.create({
@@ -332,7 +343,7 @@ export class SurveyService {
 
     if (initial) return { location: await this.redirectFor(session, initial.status as OutcomeStatus) };
     if (gateRequired) return { location: `${appConfig.publicBaseUrl}/g/${encodeURIComponent(token)}` };
-    return { location: buildSurveyLink(surveyUrl!, { token, countryCode: country.countryCode, projectCode: project.projectCode }) };
+    return { location: await this.surveyLink(session) };
   }
 
   /** Browser outcome: /r/{status}?token=... (not authoritative for billing). */
@@ -478,7 +489,7 @@ export class SurveyService {
     const session = await this.prisma.respondentSession.findUnique({ where: { token }, include: SESSION_INCLUDE });
     if (!session) return { location: internalEndPage(appConfig.publicBaseUrl, 'SECURITY_REJECT') };
     if (session.status !== 'STARTED') return { location: await this.redirectFor(session, session.status as OutcomeStatus) };
-    if (!session.gateRequired || session.gatePassedAt) return { location: this.surveyLink(session) };
+    if (!session.gateRequired || session.gatePassedAt) return { location: await this.surveyLink(session) };
     const security = (session.project.security ?? {}) as Record<string, boolean>;
     const consent = await consentFor(this.prisma, session.organizationId, session.projectCountry.countryCode);
     return {
@@ -571,7 +582,7 @@ export class SurveyService {
     const session = await this.prisma.respondentSession.findUnique({ where: { token }, include: SESSION_INCLUDE });
     if (!session) return { location: internalEndPage(appConfig.publicBaseUrl, 'SECURITY_REJECT') };
     if (session.status !== 'STARTED') return { location: await this.redirectFor(session, session.status as OutcomeStatus) };
-    if (!session.gateRequired || session.gatePassedAt) return { location: this.surveyLink(session) };
+    if (!session.gateRequired || session.gatePassedAt) return { location: await this.surveyLink(session) };
     if (session.expiresAt < new Date()) return this.fail(session, 'SECURITY_REJECT', 'EXPIRED');
 
     const security = (session.project.security ?? {}) as Record<string, boolean>;
@@ -643,7 +654,7 @@ export class SurveyService {
 
     // Guarded so two submits cannot both release the link with different results.
     await this.prisma.respondentSession.updateMany({ where: { id: session.id, gatePassedAt: null }, data: { gatePassedAt: new Date() } });
-    return { location: this.surveyLink(session) };
+    return { location: await this.surveyLink(session) };
   }
 
   private async fail(session: SessionWithContext, status: OutcomeStatus, reason: string) {
@@ -652,9 +663,18 @@ export class SurveyService {
     return { location: await this.redirectFor(fresh, r.effectiveStatus) };
   }
 
-  private surveyLink(session: SessionWithContext) {
+  /**
+   * Where the respondent starts the client survey. With client unique links on, a live respondent
+   * gets their own link (the same one again on reload); none left = technical error, recorded.
+   */
+  private async surveyLink(session: SessionWithContext): Promise<string> {
     const c = session.projectCountry;
-    const url = session.isTest ? c.testSurveyUrl ?? c.liveSurveyUrl : c.liveSurveyUrl;
+    let url: string | null;
+    if (session.isTest) url = c.testSurveyUrl ?? (c.useClientLinks ? await peekClientLink(this.prisma, c.id) : null) ?? c.liveSurveyUrl;
+    else if (c.useClientLinks) {
+      url = await claimClientLink(this.prisma, session);
+      if (!url) return (await this.fail(session, 'TECHNICAL_ERROR', 'NO_CLIENT_LINK')).location;
+    } else url = c.liveSurveyUrl;
     if (!url) return internalEndPage(appConfig.publicBaseUrl, 'TECHNICAL_ERROR');
     return buildSurveyLink(url, { token: session.token, countryCode: c.countryCode, projectCode: session.project.projectCode });
   }

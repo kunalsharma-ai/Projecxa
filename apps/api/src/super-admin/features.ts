@@ -84,6 +84,8 @@ const ROUTES: [RegExp, string | null, string?][] = [
   [/^organization\/finance-settings$/, 'payables'],
   [/^organization\/alert-settings/, 'monitor'],
   [/^organization(\/|$)/, 'settings'],
+  // Create project reads the next work order; admins change the numbering in Settings.
+  [/^numbering$/, 'settings'],
   [/^security\/(captcha|tor)/, 'settings'],
   [/^dashboard(\/|$)/, 'dashboard'],
   [/^insights$/, 'notifications'],
