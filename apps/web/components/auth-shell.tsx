@@ -42,7 +42,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
         </div>
         <div className="flex items-center justify-between gap-4 text-xs text-sidebar-muted">
           <span>© {new Date().getFullYear()} {name}</span>
-          {!custom && <span className="flex items-center gap-2">A product of <img src="/brand/sampledge-logo-on-dark.png" alt="Sampledge" className="h-6 w-auto" /></span>}
+          {!custom && <span className="flex items-center gap-2">A product of <img src="/brand/sampledge-logo-on-dark.svg" alt="Sampledge" className="h-6 w-auto" /></span>}
         </div>
       </section>
       <div className="grid place-items-center px-4 py-10">
@@ -52,8 +52,8 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
           {brand && !custom && (
             <p className="mt-6 flex items-center justify-center gap-2 text-xs text-muted">
               Powered by
-              <img src="/brand/sampledge-logo-on-light.png" alt="Sampledge" className="h-6 w-auto dark:hidden" />
-              <img src="/brand/sampledge-logo-on-dark.png" alt="Sampledge" className="hidden h-6 w-auto dark:block" />
+              <img src="/brand/sampledge-logo-on-light.svg" alt="Sampledge" className="h-6 w-auto dark:hidden" />
+              <img src="/brand/sampledge-logo-on-dark.svg" alt="Sampledge" className="hidden h-6 w-auto dark:block" />
             </p>
           )}
         </div>

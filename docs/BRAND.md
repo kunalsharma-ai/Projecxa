@@ -13,7 +13,7 @@ the Android and iOS app, and these docs.
 | `apps/web/public/brand/samptrek-icon.svg` | Square icon (animated SVG) |
 | `apps/web/public/brand/samptrek-logo-{dark,light}.png` | 717×192 PNGs, for emails (mail apps do not show SVG) |
 | `apps/web/public/brand/samptrek-icon-512.png` | 512×512 icon |
-| `apps/web/app/icon.png`, `apple-icon.png`, `favicon.ico` | Browser tab and home-screen icons: the **Sampledge** mark (Next.js picks them up) |
+| `apps/web/app/icon.svg`, `apple-icon.png`, `favicon.ico` | Browser tab and home-screen icons: the **Sampledge** mark (Next.js picks them up) |
 | `apps/api/assets/brand/samptrek-logo-light.png` | Logo at the top right of report PDFs |
 | `apps/mobile/assets/*.png`, `apps/mobile/assets/brand/*` | App icon, Android adaptive icon, splash and in-app logo |
 
@@ -30,9 +30,10 @@ Where the logo shows:
 - **Emails**: the PNG logo, loaded from the web app's address (`/brand/samptrek-logo-light.png`),
   so it shows once the web app is on a public address.
 - **Report PDFs**: the logo at the top right.
-- **Sampledge logo** (the company behind SampTrek; files `apps/web/public/brand/sampledge-logo-on-light.png`,
+- **Sampledge logo** (the company behind SampTrek; animated SVGs `apps/web/public/brand/sampledge-logo-on-light.svg` (navy wordmark),
+  `sampledge-logo-on-dark.svg` (white wordmark) and `sampledge-mark.svg`, which stop animating for reduced motion; PNG copies `sampledge-logo-on-light.png`,
   `sampledge-logo-on-dark.png`, `sampledge-icon-64.png`, `sampledge-icon-512.png`, copies in `apps/api/assets/brand`):
-  the browser-tab icon (`apps/web/app/icon.png`, `apple-icon.png`, `favicon.ico`), "Powered by Sampledge" under the
+  the browser-tab icon (`apps/web/app/icon.svg` = the animated Sampledge mark; `favicon.ico` and `apple-icon.png` are PNG fallbacks for older browsers and iPhone home screens), "Powered by Sampledge" under the
   sign-in, forgot and set password forms, "A product of Sampledge" on the sign-in side panel, and the respondent pages
   below. Not shown on white-labelled addresses.
 - **Respondent pages** (gate page and every end page: complete, terminate, quota full, quality fail,

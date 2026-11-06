@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-7 -7 78 78" width="64" height="64"
+     role="img" aria-label="Sampledge">
+  <title>Sampledge — animated mark</title>
+  <defs>
+    <linearGradient id="sgTile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0BC5FF"/>
+      <stop offset=".55" stop-color="#2F6BFF"/>
+      <stop offset="1" stop-color="#7B4DFF"/>
+    </linearGradient>
+    <radialGradient id="sgSheen" cx=".3" cy=".2" r=".9">
+      <stop offset="0" stop-color="#fff" stop-opacity=".45"/>
+      <stop offset=".6" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="sgGlow" x="-40%" y="-40%" width="180%" height="190%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#2F6BFF" flood-opacity=".45"/>
+    </filter>
+  </defs>
+  <style>
+    .sg-tile{transform-origin:32px 32px;animation:sgTile 6s ease-in-out infinite}
+    .sg-core{transform-origin:29px 36px;animation:sgCore 3.2s ease-in-out infinite}
+    .sg-dot{transform-origin:29px 36px;animation:sgDot 3.2s ease-in-out infinite}
+    .sg-orbit{transform-origin:29px 36px;animation:sgOrbit 7s cubic-bezier(.6,.05,.3,.95) infinite}
+    .sg-b1{animation:sgBob 2.4s ease-in-out infinite}
+    .sg-b2{animation:sgBob 2.4s .3s ease-in-out infinite}
+    .sg-b3{animation:sgBob 2.4s .6s ease-in-out infinite}
+    @keyframes sgTile{0%,100%{transform:rotate(0) scale(1)}50%{transform:rotate(-4deg) scale(1.03)}}
+    @keyframes sgCore{0%,100%{transform:scale(1)}50%{transform:scale(.92)}}
+    @keyframes sgDot{0%,100%{transform:scale(1)}50%{transform:scale(1.35)}}
+    @keyframes sgOrbit{0%{transform:rotate(0)}18%{transform:rotate(-22deg)}36%,100%{transform:rotate(0)}}
+    @keyframes sgBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.6px)}}
+    @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+  </style>
+    <g filter="url(#sgGlow)">
+      <rect class="sg-tile" x="2" y="2" width="60" height="60" rx="16" fill="url(#sgTile)"/>
+      <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#sgSheen)"/>
+      <g class="sg-core">
+        <circle cx="29" cy="36" r="14" fill="none" stroke="#fff" stroke-width="6.5"/>
+        <circle class="sg-dot" cx="29" cy="36" r="5.6" fill="#fff"/>
+      </g>
+      <g class="sg-orbit">
+        <circle class="sg-b1" cx="39.5" cy="17" r="4" fill="#fff"/>
+        <circle class="sg-b2" cx="47" cy="23.5" r="5.4" fill="#fff"/>
+        <circle class="sg-b3" cx="48.5" cy="33.5" r="3.4" fill="#fff"/>
+      </g>
+    </g>
+</svg>

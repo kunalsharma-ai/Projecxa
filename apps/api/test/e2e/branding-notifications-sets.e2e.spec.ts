@@ -79,17 +79,20 @@ describe('Sampledge logo on respondent pages, notification reads, audience quest
       expect(icon.headers['content-type']).toBe('image/png');
       expect(icon.body.subarray(1, 4).toString('latin1')).toBe('PNG');
       for (const f of ['sampledge-logo-on-light.png', 'sampledge-logo-on-dark.png', 'samptrek-logo-light.png', 'samptrek-logo-dark.png']) await http().get(`/brand/${f}`).expect(200);
+      const svg = await http().get('/brand/sampledge-logo-on-light.svg').expect(200);
+      expect(svg.headers['content-type']).toContain('image/svg+xml');
+      expect(svg.headers['content-security-policy']).not.toContain('script');
       await http().get('/brand/secret.env').expect(404);
       await http().get('/brand/..%2F..%2Fpackage.json').expect(404);
     });
 
     it('shows the logo and tab icon on end pages by default, also without a session', async () => {
       const anon = await http().get('/end/quota_full').expect(200);
-      expect(anon.text).toContain(`<link rel="icon" href="${BASE}/brand/sampledge-icon-64.png">`);
-      expect(anon.text).toContain(`${BASE}/brand/sampledge-logo-on-light.png`);
+      expect(anon.text).toContain(`<link rel="icon" href="${BASE}/brand/sampledge-mark.svg">`);
+      expect(anon.text).toContain(`${BASE}/brand/sampledge-logo-on-light.svg`);
       expect(anon.text).toContain('alt="Sampledge"');
       const page = await endPage();
-      expect(page).toContain('sampledge-logo-on-light.png');
+      expect(page).toContain('sampledge-logo-on-light.svg');
       expect(page).not.toContain('Powered by');
     });
 
@@ -98,10 +101,10 @@ describe('Sampledge logo on respondent pages, notification reads, audience quest
       let page = await endPage();
       expect(page).toContain('Opinion Circle');
       expect(page).toContain('Powered by');
-      expect(page).toContain('sampledge-logo-on-light.png');
+      expect(page).toContain('sampledge-logo-on-light.svg');
       // Dark palette: the logo for dark backgrounds.
       await pm.put(`/projects/${projectId}/page-design`).send({ ...DESIGN, colors: { primary: '#818cf8', accent: '#22d3ee', background: '#0b1020', surface: '#151c33', text: '#e5e7eb' } }).expect(200);
-      expect(await endPage()).toContain('sampledge-logo-on-dark.png');
+      expect(await endPage()).toContain('sampledge-logo-on-dark.svg');
       await pm.put(`/projects/${projectId}/page-design`).send({ ...DESIGN, brandName: 'Opinion Circle', platformLogo: false }).expect(200);
       page = await endPage();
       expect(page).not.toContain('sampledge-logo');
@@ -113,7 +116,7 @@ describe('Sampledge logo on respondent pages, notification reads, audience quest
       await pm.put(`/projects/${projectId}/page-design`).send(DESIGN).expect(200);
       for (const page of ['gate', 'complete']) {
         const r = await pm.post(`/projects/${projectId}/page-design/preview`, { design: DESIGN, page }).expect(201);
-        expect(r.body.html).toContain('sampledge-logo-on-light.png');
+        expect(r.body.html).toContain('sampledge-logo-on-light.svg');
         expect(r.body.html).toContain('rel="icon"');
       }
     });
@@ -124,7 +127,7 @@ describe('Sampledge logo on respondent pages, notification reads, audience quest
       expect(page).toContain('Acme Research');
       expect(page).not.toContain('sampledge-logo');
       await admin.put('/branding', { appName: null }).expect(200);
-      expect(await endPage()).toContain('sampledge-logo-on-light.png');
+      expect(await endPage()).toContain('sampledge-logo-on-light.svg');
     });
   });
 

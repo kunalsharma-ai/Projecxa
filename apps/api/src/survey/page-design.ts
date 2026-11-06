@@ -183,9 +183,9 @@ export interface PlatformBrand {
   icon: string | null;
 }
 
-/** Sampledge's logo files, served by the API from apps/api/assets/brand (PageDesignController.brandFile). */
+/** Sampledge's animated logo (SVG; stops for reduced motion) and PNG tab icon, served by the API from apps/api/assets/brand (PageDesignController.brandFile). */
 export function defaultPlatformBrand(base: string): PlatformBrand {
-  return { name: 'Sampledge', logo: `${base}/brand/sampledge-logo-on-light.png`, logoDark: `${base}/brand/sampledge-logo-on-dark.png`, icon: `${base}/brand/sampledge-icon-64.png` };
+  return { name: 'Sampledge', logo: `${base}/brand/sampledge-logo-on-light.svg`, logoDark: `${base}/brand/sampledge-logo-on-dark.svg`, icon: `${base}/brand/sampledge-mark.svg` };
 }
 
 /** True when the page behind the header is dark enough that the light-on-dark logo reads better. */

@@ -149,16 +149,18 @@ export class PageDesignController {
   brandFile(@Param('file') file: string, @Res() res: Response) {
     const buf = BRAND_FILES.includes(file) ? brandFile(file) : null;
     if (!buf) return res.status(404).end();
-    res.setHeader('Content-Type', 'image/png');
+    const svg = file.endsWith('.svg');
+    res.setHeader('Content-Type', svg ? 'image/svg+xml' : 'image/png');
     res.setHeader('Cache-Control', 'public, max-age=86400');
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Content-Security-Policy', "default-src 'none'");
+    // The animated SVGs carry their own <style> and an embedded data: image for the wordmark; no scripts.
+    res.setHeader('Content-Security-Policy', svg ? "default-src 'none'; style-src 'unsafe-inline'; img-src data:" : "default-src 'none'");
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     return res.end(buf);
   }
 }
 
-const BRAND_FILES = ['sampledge-logo-on-light.png', 'sampledge-logo-on-dark.png', 'sampledge-icon-64.png', 'samptrek-logo-light.png', 'samptrek-logo-dark.png', 'samptrek-icon-64.png', 'samptrek-icon-512.png'];
+const BRAND_FILES = ['sampledge-logo-on-light.svg', 'sampledge-logo-on-dark.svg', 'sampledge-mark.svg', 'sampledge-logo-on-light.png', 'sampledge-logo-on-dark.png', 'sampledge-icon-64.png', 'samptrek-logo-light.png', 'samptrek-logo-dark.png', 'samptrek-icon-64.png', 'samptrek-icon-512.png'];
 const brandCache = new Map<string, Buffer | null>();
 function brandFile(name: string): Buffer | null {
   if (brandCache.has(name)) return brandCache.get(name)!;
