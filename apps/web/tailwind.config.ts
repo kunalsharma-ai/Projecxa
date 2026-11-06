@@ -31,7 +31,7 @@ export default {
         'chart-3': v('chart-3'),
         'chart-4': v('chart-4'),
       },
-      fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+      fontFamily: { sans: ['Country Flags', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
     },
   },
   plugins: [containerQueries],

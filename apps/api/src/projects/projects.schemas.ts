@@ -52,6 +52,24 @@ export const countryInputSchema = countrySettingsSchema.extend({
   countryCode: z.string().regex(/^[A-Z]{2}$/, 'ISO 3166-1 alpha-2 code'),
 });
 
+/** Adding a market to an existing project: missing settings come from `copyFromCountryId` (or the first market). */
+export const addCountrySchema = countryInputSchema.extend({
+  copyFromCountryId: z.string().min(1).optional(),
+  /** Gives the new market the same vendors (new entry links) as the market it copies from. */
+  copyVendors: z.boolean().default(false),
+});
+
+const uidParam = z.string().regex(/^[A-Za-z0-9_.-]{1,64}$/, 'Use letters, numbers, dot, dash or underscore');
+
+/** A vendor added to every market when the project is created. Payout defaults to nothing: it must be given. */
+export const createVendorSchema = z.object({
+  vendorId: z.string().min(1),
+  cpi: z.number().min(0).max(100000),
+  uidParam: uidParam.default('vid'),
+  /** Lets the payout be higher than the client CPI (a loss-making market, on purpose). */
+  allowAboveCpi: z.boolean().default(false),
+});
+
 export const createProjectSchema = z.object({
   name: z.string().min(1).max(300),
   workOrderNo: z.string().max(50).optional(),
@@ -76,6 +94,10 @@ export const createProjectSchema = z.object({
   redirectConfig: redirectConfigSchema.optional(),
   defaults: countrySettingsSchema.default({}),
   countries: z.array(countryInputSchema).min(1, 'Add at least one country').max(100),
+  /** One CPI currency for the whole project; it replaces any per-market currency. */
+  currency: z.string().regex(/^[A-Z]{3}$/).optional(),
+  gateQuestions: questionListSchema.optional(),
+  vendors: z.array(createVendorSchema).max(50).default([]),
   fieldStartAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').optional(),
   fieldEndAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').optional(),
 }).refine((b) => !b.fieldStartAt || !b.fieldEndAt || b.fieldStartAt <= b.fieldEndAt, { message: 'The field end date must be on or after the start date', path: ['fieldEndAt'] });
@@ -110,23 +132,46 @@ export const cloneCountrySchema = z.object({
   fromCountryId: z.string().min(1),
   countryCode: z.string().regex(/^[A-Z]{2}$/),
   language: z.string().min(2).max(10).optional(),
+  targetGroup: z.string().max(200).optional(),
   includeVendors: z.boolean().default(true),
+});
+
+/** Changes many markets at once ("apply to all" / bulk edit). Each market is checked on its own. */
+export const bulkCountriesSchema = z.object({
+  countryIds: z.array(z.string().min(1)).min(1).max(200),
+  set: countrySettingsSchema.omit({ language: true, currency: true }).extend({ status: z.enum(['DRAFT', 'TEST', 'LIVE', 'HOLD', 'CLOSED']).optional() }),
+});
+
+/** Moves many projects between Live and Hold (or another status) at once. */
+export const bulkStatusSchema = z.object({
+  ids: z.array(z.string().min(1)).min(1).max(200),
+  status: z.enum(['TEST', 'LIVE', 'HOLD', 'CLOSED']),
+});
+
+export const cloneProjectSchema = z.object({
+  name: z.string().trim().min(1).max(300).optional(),
+  includeVendors: z.boolean().default(true),
+  includeSurveyLinks: z.boolean().default(true),
+  includeQuotas: z.boolean().default(true),
 });
 
 export const allocationSchema = z.object({
   vendorId: z.string().min(1),
   cpi: z.number().min(0).max(100000),
   targetCompletes: z.number().int().min(1),
-  uidParam: z.string().regex(/^[A-Za-z0-9_.-]{1,64}$/).default('uid'),
+  /** The web app sends "vid" (the team's convention); API callers that leave it out keep "uid". */
+  uidParam: uidParam.default('uid'),
   callbackUrlTemplate: z.string().url().optional(),
+  allowAboveCpi: z.boolean().default(false),
 });
 
 export const updateAllocationSchema = z.object({
   cpi: z.number().min(0).max(100000).optional(),
   targetCompletes: z.number().int().min(1).optional(),
   status: z.enum(['ACTIVE', 'PAUSED', 'CLOSED']).optional(),
-  uidParam: z.string().regex(/^[A-Za-z0-9_.-]{1,64}$/).optional(),
+  uidParam: uidParam.optional(),
   callbackUrlTemplate: z.string().url().nullable().optional(),
+  allowAboveCpi: z.boolean().optional(),
 });
 
 

@@ -18,7 +18,7 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
 
 export function Section({ title, children, actions, className, id }: { title: ReactNode; children: ReactNode; actions?: ReactNode; className?: string; id?: string }) {
   return (
-    <section id={id} className={clsx('card scroll-mt-20', className)}>
+    <section id={id} className={clsx('card relative scroll-mt-20 focus-within:z-20', className)}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3">
         <h2 className="text-sm font-semibold">{title}</h2>
         {actions}

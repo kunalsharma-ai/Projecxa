@@ -116,7 +116,7 @@ const ROUTES: [RegExp, string | null, string?][] = [
   [/^portal\/(requests|files)(\/|$)/, 'portal'],
   [/^projects$/, 'projects.create', 'POST'],
   [/^project-drafts(\/|$)/, 'projects.create'],
-  [/^(projects|project-templates|quotes|callbacks|question-templates|security)(\/|$)/, 'projects'],
+  [/^(projects|project-templates|quotes|callbacks|question-templates|security|custom-options)(\/|$)/, 'projects'],
 ];
 
 /** `path` is the Express route pattern, e.g. /api/v1/projects/:id. */

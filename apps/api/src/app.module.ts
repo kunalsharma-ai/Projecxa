@@ -27,6 +27,7 @@ import { IntegrationsModule } from './integrations/integrations.service';
 import { PrismaModule } from './prisma/prisma.service';
 import { PushModule } from './push/push';
 import { ProjectsModule } from './projects/projects.controller';
+import { CustomOptionsModule } from './custom-options/custom-options';
 import { RedirectsModule } from './redirects/redirects.controller';
 import { RequestsModule } from './requests/requests.controller';
 import { PrivacyModule } from './privacy/privacy';
@@ -54,6 +55,7 @@ import { VendorsModule } from './vendors/vendors.controller';
     ClientsModule,
     VendorsModule,
     ProjectsModule,
+    CustomOptionsModule,
     RedirectsModule,
     SurveyModule,
     CallbacksModule,

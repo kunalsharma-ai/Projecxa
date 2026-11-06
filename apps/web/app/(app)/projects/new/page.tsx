@@ -1,16 +1,20 @@
 'use client';
 import clsx from 'clsx';
-import { ClipboardPaste, Copy, FileStack, LayoutTemplate, Monitor, Smartphone, Sparkles, Tablet, Trash2, Trophy } from 'lucide-react';
+import { AlertTriangle, ClipboardPaste, FileStack, LayoutTemplate, Monitor, Plus, Search, Smartphone, Sparkles, Tablet, Trash2, Trophy, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { DateRangePicker } from '@/components/form/date';
+import { Combobox, CountrySelect, CurrencySelect } from '@/components/form/combobox';
+import { AddableSelect, loadCustomOptions, saveCustomOption, useCustomOptions } from '@/components/form/option-select';
+import { BulkFill } from '@/components/project/bulk-fill';
+import { cleanQuestion, QuestionBuilder, questionProblems } from '@/components/project/question-builder';
 import { BriefBanner, BriefReader, useBriefAvailability, type BriefInfo } from '@/components/project/brief-reader';
 import { ErrorBox, Field, Loading, PageHeader, Section, Toggle } from '@/components/ui';
 import { api, get, post } from '@/lib/api';
 import { describeTemplate, type ProjectTemplate, type TemplateForm } from '@/lib/templates';
 import { COUNTRIES, countryName, flag } from '@/lib/countries';
-import { CATEGORIES, RedirectMode, SECURITY_LABELS, type WonBid } from '@/lib/types';
+import { CATEGORIES, RedirectMode, SECURITY_LABELS, type Option, type Question, type WonBid } from '@/lib/types';
 
 interface ClientOpt { id: string; name: string; contacts: { id: string; name: string }[] }
 interface UserOpt { id: string; name: string; role: string }
@@ -28,6 +32,9 @@ interface CountryRow {
   liveSurveyUrl: string;
 }
 
+/** A vendor added to every market on create; the payout is per complete in the project currency. */
+interface VendorRow { vendorId: string; cpi: Num; uidParam: string }
+
 const SHARED_DEFAULTS = { targetGroup: '', loiMinutes: 15 as Num, irPercent: 30 as Num, cpi: '' as Num, targetCompletes: 100 as Num, liveSurveyUrl: '', testSurveyUrl: '' };
 
 function blankRow(code: string): CountryRow {
@@ -39,7 +46,9 @@ const num = (v: string): Num => (v === '' ? '' : Number(v));
 const opt = (v: number | string | undefined | null): Num => (v === undefined || v === null || v === '' ? '' : Number(v));
 
 interface DraftRow { id: string; title: string; updatedAt: string }
-interface DraftData { info: typeof EMPTY_INFO; devices: Record<'desktop' | 'mobile' | 'tablet', boolean>; security: Record<string, boolean>; mode: RedirectMode; shared: typeof SHARED_DEFAULTS; rows: CountryRow[]; templateId: string | null; wonBidId: string | null; brief?: BriefInfo | null }
+interface DraftData { info: typeof EMPTY_INFO; devices: Record<'desktop' | 'mobile' | 'tablet', boolean>; security: Record<string, boolean>; mode: RedirectMode; shared: typeof SHARED_DEFAULTS; rows: CountryRow[]; templateId: string | null; wonBidId: string | null; brief?: BriefInfo | null; currency?: string; vendors?: VendorRow[]; gateQuestions?: Question[] }
+const sameMarket = (a: CountryRow, b: CountryRow, sharedGroup: string) =>
+  a.countryCode === b.countryCode && a.language.toLowerCase() === b.language.toLowerCase() && (a.targetGroup || sharedGroup).trim().toLowerCase() === (b.targetGroup || sharedGroup).trim().toLowerCase();
 const EMPTY_INFO = { name: '', workOrderNo: '', generateWorkOrder: true, type: 'AD_HOC', category: '', clientId: '', clientContactId: '', salesPersonId: '', projectManagerId: '', description: '', bidReference: '', fieldStartAt: '', fieldEndAt: '' };
 const time = (d: string | Date) => new Date(d).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
@@ -81,7 +90,14 @@ function CreateProjectPage() {
   const [mode, setMode] = useState<RedirectMode>('HYBRID');
   const [shared, setShared] = useState(SHARED_DEFAULTS);
   const [rows, setRows] = useState<CountryRow[]>([]);
-  const [picker, setPicker] = useState('');
+  const [currency, setCurrency] = useState('USD');
+  const [vendorOpts, setVendorOpts] = useState<Option[]>([]);
+  const [vendors, setVendors] = useState<VendorRow[]>([]);
+  const [rememberVendors, setRememberVendors] = useState(false);
+  const [gateQuestions, setGateQuestions] = useState<Question[]>([]);
+  const [selected, setSelected] = useState<number[]>([]);
+  const [filter, setFilter] = useState('');
+  const targetGroups = useCustomOptions('targetGroup');
   const [paste, setPaste] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
@@ -105,8 +121,11 @@ function CreateProjectPage() {
     get<UserOpt[]>('/users').then(setUsers).catch(setError);
     get<ProjectTemplate[]>('/project-templates').then(setTemplates).catch(() => setTemplates([]));
     get<DraftRow[]>('/project-drafts').then(setDrafts).catch(() => setDrafts([]));
+    get<Option[]>('/vendors').then(setVendorOpts).catch(() => setVendorOpts([]));
     const t = params.get('template');
     const d = params.get('draft');
+    // Vendors the team chose to preselect on every new project.
+    if (!d) loadCustomOptions('defaultVendor').then((r) => r.length && setVendors((v) => (v.length ? v : r.map((x) => ({ vendorId: x.value, cpi: '', uidParam: 'vid' })))));
     if (d) loadDraft(d);
     else if (t) applyTemplate(t);
     else ready.current = true;
@@ -131,6 +150,7 @@ function CreateProjectPage() {
       const f = t.form;
       const d = f.defaults;
       setTemplate(t);
+      if (f.countries[0]?.currency) setCurrency(f.countries[0].currency);
       setInfo((i) => ({ ...i, type: f.type, category: f.category, clientId: f.clientId ?? i.clientId, clientContactId: f.clientId ? '' : i.clientContactId, description: i.description || (f.description ?? '') }));
       setDevices({ desktop: !!f.devices.desktop, mobile: !!f.devices.mobile, tablet: !!f.devices.tablet });
       setSecurity(f.security);
@@ -170,6 +190,9 @@ function CreateProjectPage() {
       if (x.mode) setMode(x.mode);
       setShared({ ...SHARED_DEFAULTS, ...x.shared });
       setRows(x.rows ?? []);
+      if (x.currency) setCurrency(x.currency);
+      if (x.vendors) setVendors(x.vendors);
+      if (x.gateQuestions) setGateQuestions(x.gateQuestions);
       setWonBidId(x.wonBidId ?? null);
       setBrief(x.brief ?? null);
       setTemplate(x.templateId ? templates.find((t) => t.id === x.templateId) ?? (await get<ProjectTemplate>(`/project-templates/${x.templateId}`).catch(() => null)) : null);
@@ -199,7 +222,7 @@ function CreateProjectPage() {
   }
 
   // Save the form as a draft a moment after each change, once it has a name or a market.
-  const draftData: DraftData = { info, devices, security, mode, shared, rows, templateId: template?.id ?? null, wonBidId: wonBid?.status === 'NEW' ? wonBid.id : null, brief };
+  const draftData: DraftData = { info, devices, security, mode, shared, rows, templateId: template?.id ?? null, wonBidId: wonBid?.status === 'NEW' ? wonBid.id : null, brief, currency, vendors, gateQuestions };
   const draftJson = JSON.stringify(draftData);
   useEffect(() => {
     if (!ready.current || busy) return;
@@ -242,6 +265,7 @@ function CreateProjectPage() {
         setInfo((i) => ({ ...i, name: b.projectName, description: b.description ?? '', bidReference: b.bidNumber, category, clientId: b.suggestedClient?.id ?? '', clientContactId: '' }));
         setShared((sh) => ({ ...sh, loiMinutes: '', irPercent: '', targetCompletes: '' }));
         setRows(rowsFromBid(b));
+        setCurrency(b.currency);
       })
       .catch(setError);
   }, [wonBidId]);
@@ -269,24 +293,46 @@ function CreateProjectPage() {
   const totalCompletes = useMemo(() => rows.reduce((a, r) => a + Number(r.targetCompletes || shared.targetCompletes || 0), 0), [rows, shared]);
 
   const setRow = (i: number, patch: Partial<CountryRow>) => setRows((rs) => rs.map((r, n) => (n === i ? { ...r, ...patch } : r)));
-  const addCountry = (code: string) => {
+  const addCountry = (code: string | null) => {
     if (!code) return;
     setRows((rs) => [...rs, blankRow(code)]);
-    setPicker('');
   };
+  const removeRows = (idx: number[]) => {
+    setRows((rs) => rs.filter((_, n) => !idx.includes(n)));
+    setSelected([]);
+  };
+  // The same country may be added again for another target group; the exact same market twice is flagged.
+  const duplicates = useMemo(() => new Set(rows.flatMap((r, i) => (rows.some((o, j) => j !== i && sameMarket(r, o, shared.targetGroup)) ? [i] : []))), [rows, shared.targetGroup]);
+  const visible = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    return rows.map((r, i) => i).filter((i) => !q || `${rows[i].countryCode} ${countryName(rows[i].countryCode)} ${rows[i].targetGroup} ${rows[i].language}`.toLowerCase().includes(q));
+  }, [rows, filter]);
+  const minCpi = useMemo(() => {
+    const cpis = rows.map((r) => Number(r.cpi === '' ? shared.cpi : r.cpi)).filter((n) => n > 0);
+    return cpis.length ? Math.min(...cpis) : null;
+  }, [rows, shared.cpi]);
+  function applyToRows(v: Record<string, string>) {
+    const idx = selected.length ? selected : visible;
+    const patch: Partial<CountryRow> = {};
+    for (const k of ['loiMinutes', 'irPercent', 'cpi', 'targetCompletes'] as const) if (v[k] !== undefined) patch[k] = num(v[k]);
+    for (const k of ['targetGroup', 'liveSurveyUrl', 'language'] as const) if (v[k] !== undefined) patch[k] = v[k].trim();
+    setRows((rs) => rs.map((r, n) => (idx.includes(n) ? { ...r, ...patch } : r)));
+  }
 
   function applyPaste() {
-    // Columns: Country code, Language, LOI, IR, CPI, Completes (tab or comma separated, header optional)
+    // Columns: Country (code or name), Language, LOI, IR, CPI, Completes, Target group (tab or comma separated, header optional)
     const parsed: CountryRow[] = [];
     for (const line of (paste ?? '').split(/\r?\n/)) {
       const cols = line.split(/\t|,/).map((s) => s.trim());
-      if (!cols[0] || !/^[A-Za-z]{2}$/.test(cols[0])) continue;
-      const r = blankRow(cols[0].toUpperCase());
+      const c = cols[0] ? COUNTRIES.find((x) => x.code === cols[0].toUpperCase() || x.name.toLowerCase() === cols[0].toLowerCase()) : undefined;
+      if (!c) continue;
+      const r = blankRow(c.code);
       if (cols[1]) r.language = cols[1];
       if (cols[2]) r.loiMinutes = num(cols[2]);
       if (cols[3]) r.irPercent = num(cols[3].replace('%', ''));
       if (cols[4]) r.cpi = num(cols[4]);
       if (cols[5]) r.targetCompletes = num(cols[5]);
+      if (cols[6]) r.targetGroup = cols[6];
       parsed.push(r);
     }
     setRows((rs) => [...rs, ...parsed]);
@@ -294,9 +340,21 @@ function CreateProjectPage() {
   }
 
   async function submit() {
-    setBusy(true);
     setError(null);
     const clean = <T extends object>(o: T) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== '' && v !== undefined)) as Partial<T>;
+    const chosen = vendors.filter((v) => v.vendorId);
+    if (chosen.some((v) => v.cpi === '')) {
+      setError({ message: 'Give every vendor a payout CPI, or remove the vendor.' });
+      return;
+    }
+    const above = chosen.filter((v) => minCpi !== null && Number(v.cpi) > minCpi);
+    if (above.length && !confirm(`${above.map((v) => vendorOpts.find((o) => o.id === v.vendorId)?.name ?? 'A vendor').join(', ')}: payout is higher than the client CPI (${minCpi} ${currency}) in at least one market. Create the project anyway?`)) return;
+    const gate = security.gateSurvey ? gateQuestions.map(cleanQuestion) : [];
+    if (gate.some((q) => questionProblems(q).length)) {
+      setError({ message: 'Fix the gate survey questions first (they are marked in red).' });
+      return;
+    }
+    setBusy(true);
     try {
       const p = await post<{ id: string; templateSkipped?: string[] }>('/projects', {
         ...clean({ ...info, generateWorkOrder: undefined }),
@@ -304,13 +362,19 @@ function CreateProjectPage() {
         devices,
         security,
         redirectMode: mode,
-        defaults: clean(shared),
-        countries: rows.map((r) => clean(r)),
+        currency,
+        defaults: clean({ ...shared, currency }),
+        countries: rows.map((r) => clean({ ...r, currency: undefined })),
+        vendors: chosen.map((v) => ({ vendorId: v.vendorId, cpi: Number(v.cpi), uidParam: v.uidParam || 'vid', allowAboveCpi: above.includes(v) })),
+        ...(gate.length ? { gateQuestions: gate } : {}),
         ...(wonBid?.status === 'NEW' ? { wonBidId: wonBid.id } : {}),
         ...(template ? { templateId: template.id } : {}),
         ...(draftId ? { draftId } : {}),
       });
       lastSaved.current = draftJson;
+      // Target groups typed on the form become options for next time.
+      for (const g of new Set([shared.targetGroup, ...rows.map((r) => r.targetGroup)].map((x) => x.trim()).filter(Boolean))) saveCustomOption('targetGroup', g);
+      if (rememberVendors) await post('/custom-options/replace', { field: 'defaultVendor', values: chosen.map((v) => v.vendorId) }).catch(() => undefined);
       if (p.templateSkipped?.length) {
         try {
           sessionStorage.setItem(`projexa:template-skipped:${p.id}`, JSON.stringify(p.templateSkipped));
@@ -329,7 +393,7 @@ function CreateProjectPage() {
     <>
       <PageHeader
         title="Create project"
-        subtitle="Set shared settings once, then override them per country where markets differ."
+        subtitle="Fill in the basics (LOI, IR, completes, CPI) once, add your target markets, then change any market that differs."
         actions={<Link href="/projects/templates" className="btn-ghost"><LayoutTemplate className="h-4 w-4" /> Templates</Link>}
       />
       <div className="mb-4"><ErrorBox error={error} /></div>
@@ -435,10 +499,8 @@ function CreateProjectPage() {
                   <option value="AD_HOC">Ad-hoc</option><option value="TRACKER">Tracker</option><option value="LONGITUDINAL">Longitudinal</option><option value="QUALITATIVE">Qualitative</option>
                 </select>
               </Field>
-              <Field label="Category *">
-                <select className="input" value={info.category} onChange={(e) => setInfo({ ...info, category: e.target.value })}>
-                  <option value="">Choose…</option>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-                </select>
+              <Field label="Category *" hint="Type to search, or add your own">
+                <AddableSelect field="category" base={CATEGORIES} value={info.category} onChange={(v) => setInfo({ ...info, category: v })} />
               </Field>
               <Field label="Client *">
                 <select className="input" value={info.clientId} onChange={(e) => setInfo({ ...info, clientId: e.target.value, clientContactId: '' })}>
@@ -470,77 +532,161 @@ function CreateProjectPage() {
             </div>
           </Section>
 
+          <Section title="Basics: LOI, IR, completes and CPI">
+            <p className="mb-4 text-sm text-muted">These apply to every market below. Change a single market in its row when it differs.</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              <Field label="LOI (min) *"><input className="input" type="number" min={1} value={shared.loiMinutes} onChange={(e) => setShared({ ...shared, loiMinutes: num(e.target.value) })} /></Field>
+              <Field label="IR % *"><input className="input" type="number" min={1} max={100} value={shared.irPercent} onChange={(e) => setShared({ ...shared, irPercent: num(e.target.value) })} /></Field>
+              <Field label="Completes *"><input className="input" type="number" min={1} value={shared.targetCompletes} onChange={(e) => setShared({ ...shared, targetCompletes: num(e.target.value) })} /></Field>
+              <Field label={`Client CPI (${currency}) *`}><input className="input" type="number" min={0} step="0.01" value={shared.cpi} onChange={(e) => setShared({ ...shared, cpi: num(e.target.value) })} /></Field>
+              <div className="sm:col-span-2">
+                <Field label="CPI currency" hint="One currency for the whole project">
+                  <CurrencySelect value={currency} onChange={(v) => setCurrency(v ?? 'USD')} />
+                </Field>
+              </div>
+              <div className="sm:col-span-3">
+                <Field label="Target group" hint="Choose one or type a new one to add it">
+                  <AddableSelect field="targetGroup" base={[]} value={shared.targetGroup} onChange={(v) => setShared({ ...shared, targetGroup: v })} placeholder="e.g. Gen Z, IT decision makers" />
+                </Field>
+              </div>
+              <div className="sm:col-span-3" />
+              <div className="sm:col-span-3"><Field label="Live survey link" hint="Use {session_token} where the survey expects the respondent ID"><input className="input" value={shared.liveSurveyUrl} placeholder="https://survey.client.com/s?rid={session_token}" onChange={(e) => setShared({ ...shared, liveSurveyUrl: e.target.value })} /></Field></div>
+              <div className="sm:col-span-3"><Field label="Test survey link"><input className="input" value={shared.testSurveyUrl} onChange={(e) => setShared({ ...shared, testSurveyUrl: e.target.value })} /></Field></div>
+            </div>
+          </Section>
+
           <Section
-            title={`Countries${rows.length ? ` · ${rows.length} markets · ${totalCompletes.toLocaleString()} completes` : ''}`}
+            title={`Target markets${rows.length ? ` · ${rows.length} ${rows.length === 1 ? 'market' : 'markets'} · ${totalCompletes.toLocaleString()} completes` : ''}`}
             actions={<button className="btn-ghost px-2.5 py-1.5 text-xs" onClick={() => setPaste('')}><ClipboardPaste className="h-3.5 w-3.5" /> Paste from Excel</button>}
           >
-            <div className="mb-5 rounded-lg bg-sunken/60 p-4">
-              <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Shared settings (used by every country unless overridden)</div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-                <Field label="LOI (min)"><input className="input" type="number" min={1} value={shared.loiMinutes} onChange={(e) => setShared({ ...shared, loiMinutes: num(e.target.value) })} /></Field>
-                <Field label="IR %"><input className="input" type="number" min={1} max={100} value={shared.irPercent} onChange={(e) => setShared({ ...shared, irPercent: num(e.target.value) })} /></Field>
-                <Field label="CPI"><input className="input" type="number" min={0} step="0.01" value={shared.cpi} onChange={(e) => setShared({ ...shared, cpi: num(e.target.value) })} /></Field>
-                <Field label="Completes"><input className="input" type="number" min={1} value={shared.targetCompletes} onChange={(e) => setShared({ ...shared, targetCompletes: num(e.target.value) })} /></Field>
-                <div className="sm:col-span-2"><Field label="Target group"><input className="input" value={shared.targetGroup} onChange={(e) => setShared({ ...shared, targetGroup: e.target.value })} /></Field></div>
-                <div className="sm:col-span-3"><Field label="Live survey link" hint="Use {session_token} where the survey expects the respondent ID"><input className="input" value={shared.liveSurveyUrl} placeholder="https://survey.client.com/s?rid={session_token}" onChange={(e) => setShared({ ...shared, liveSurveyUrl: e.target.value })} /></Field></div>
-                <div className="sm:col-span-3"><Field label="Test survey link"><input className="input" value={shared.testSurveyUrl} onChange={(e) => setShared({ ...shared, testSurveyUrl: e.target.value })} /></Field></div>
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <div className="w-full sm:w-80">
+                <CountrySelect value={null} onChange={addCountry} placeholder="Search a country, e.g. Japan" />
               </div>
+              <span className="text-xs text-muted">Add the same country again for another target group.</span>
             </div>
 
             {paste !== null && (
               <div className="mb-4 rounded-lg border border-line p-4">
-                <Field label="Paste rows: Country code, Language, LOI, IR, CPI, Completes" hint="Copied Excel cells (tabs) or CSV both work. Empty cells use the shared settings.">
-                  <textarea className="input min-h-[110px] font-mono text-xs" value={paste} onChange={(e) => setPaste(e.target.value)} placeholder={'US\ten\t15\t30\t12.50\t500\nGB\ten\t15\t25\t11\t300'} />
+                <Field label="Paste rows: Country, Language, LOI, IR, CPI, Completes, Target group" hint="Copied Excel cells (tabs) or CSV both work. Country can be a code (JP) or a name (Japan). Empty cells use the basics above.">
+                  <textarea className="input min-h-[110px] font-mono text-xs" value={paste} onChange={(e) => setPaste(e.target.value)} placeholder={'JP\tja\t15\t30\t12.50\t500\tGen Z\nJapan\tja\t15\t25\t11\t300\tParents'} />
                 </Field>
                 <div className="mt-3 flex gap-2"><button className="btn-primary" onClick={applyPaste}>Add rows</button><button className="btn-ghost" onClick={() => setPaste(null)}>Cancel</button></div>
               </div>
             )}
 
             {rows.length > 0 && (
-              <div className="-mx-5 mb-4 overflow-x-auto">
-                <table className="w-full min-w-[900px]">
-                  <thead className="border-y border-line bg-sunken/60">
-                    <tr><th className="th">Country</th><th className="th">Language</th><th className="th">Target group</th><th className="th">LOI</th><th className="th">IR %</th><th className="th">CPI</th><th className="th">Currency</th><th className="th">Completes</th><th className="th">Live link override</th><th className="th" /></tr>
-                  </thead>
-                  <tbody className="divide-y divide-line">
-                    {rows.map((r, i) => (
-                      <tr key={i}>
-                        <td className="td"><span className="mr-1.5">{flag(r.countryCode)}</span>{countryName(r.countryCode)}</td>
-                        <td className="td"><input className="input w-16 px-2 py-1" value={r.language} onChange={(e) => setRow(i, { language: e.target.value })} /></td>
-                        <td className="td"><input className="input w-40 px-2 py-1" placeholder={shared.targetGroup || 'shared'} value={r.targetGroup} onChange={(e) => setRow(i, { targetGroup: e.target.value })} /></td>
-                        {(['loiMinutes', 'irPercent', 'cpi'] as const).map((k) => (
-                          <td key={k} className="td"><input className={clsx('input w-20 px-2 py-1', r[k] !== '' && 'border-brand/60')} type="number" placeholder={String(shared[k] ?? '')} value={r[k]} onChange={(e) => setRow(i, { [k]: num(e.target.value) })} /></td>
-                        ))}
-                        <td className="td"><input className="input w-16 px-2 py-1" value={r.currency} onChange={(e) => setRow(i, { currency: e.target.value.toUpperCase() })} /></td>
-                        <td className="td"><input className={clsx('input w-20 px-2 py-1', r.targetCompletes !== '' && 'border-brand/60')} type="number" placeholder={String(shared.targetCompletes)} value={r.targetCompletes} onChange={(e) => setRow(i, { targetCompletes: num(e.target.value) })} /></td>
-                        <td className="td"><input className="input w-56 px-2 py-1" placeholder="shared link" value={r.liveSurveyUrl} onChange={(e) => setRow(i, { liveSurveyUrl: e.target.value })} /></td>
-                        <td className="td">
-                          <div className="flex gap-1">
-                            
-                            <button className="btn-ghost p-1.5" aria-label={`Remove ${r.countryCode}`} onClick={() => setRows((rs) => rs.filter((_, n) => n !== i))}><Trash2 className="h-3.5 w-3.5" /></button>
-                          </div>
-                        </td>
+              <>
+                <datalist id="target-groups">{targetGroups.map((g) => <option key={g} value={g} />)}</datalist>
+                <BulkFill
+                  selected={selected.length}
+                  total={visible.length}
+                  onApply={applyToRows}
+                  fields={[
+                    { key: 'loiMinutes', label: 'LOI', type: 'number', width: 'w-20' },
+                    { key: 'irPercent', label: 'IR %', type: 'number', width: 'w-20' },
+                    { key: 'cpi', label: `CPI (${currency})`, type: 'number', step: '0.01', width: 'w-24' },
+                    { key: 'targetCompletes', label: 'Completes', type: 'number', width: 'w-24' },
+                    { key: 'targetGroup', label: 'Target group', width: 'w-40', list: 'target-groups' },
+                    { key: 'liveSurveyUrl', label: 'Live link', width: 'w-64', placeholder: 'https://…' },
+                  ]}
+                  extra={selected.length > 0 && <button type="button" className="btn-ghost px-2.5 py-1.5 text-xs text-bad" onClick={() => removeRows(selected)}><Trash2 className="h-3.5 w-3.5" /> Remove {selected.length}</button>}
+                />
+                {rows.length > 5 && (
+                  <label className="relative mb-3 block w-full sm:w-72">
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden />
+                    <input className="input py-1.5 pl-8 text-sm" placeholder="Filter markets" aria-label="Filter markets" value={filter} onChange={(e) => setFilter(e.target.value)} />
+                  </label>
+                )}
+                <div className="-mx-5 mb-4 overflow-x-auto">
+                  <table className="w-full min-w-[960px]">
+                    <thead className="border-y border-line bg-sunken/60">
+                      <tr>
+                        <th className="th w-8">
+                          <input type="checkbox" aria-label="Select all markets" checked={visible.length > 0 && visible.every((i) => selected.includes(i))} onChange={(e) => setSelected(e.target.checked ? visible : [])} />
+                        </th>
+                        <th className="th">Country</th><th className="th">Language</th><th className="th">Target group</th><th className="th">LOI</th><th className="th">IR %</th><th className="th">CPI ({currency})</th><th className="th">Completes</th><th className="th">Live link</th><th className="th" />
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-line">
+                      {visible.map((i) => {
+                        const r = rows[i];
+                        return (
+                          <tr key={i} className={clsx(duplicates.has(i) && 'bg-bad/5', selected.includes(i) && 'bg-brand/5')}>
+                            <td className="td"><input type="checkbox" aria-label={`Select ${countryName(r.countryCode)} ${r.targetGroup}`} checked={selected.includes(i)} onChange={(e) => setSelected((s) => (e.target.checked ? [...s, i] : s.filter((x) => x !== i)))} /></td>
+                            <td className="td whitespace-nowrap">
+                              <span className="mr-1.5">{flag(r.countryCode)}</span>{countryName(r.countryCode)}
+                              {duplicates.has(i) && <div className="flex items-center gap-1 text-xs text-bad"><AlertTriangle className="h-3 w-3" /> Same market twice: set a different target group</div>}
+                            </td>
+                            <td className="td"><input className="input w-16 px-2 py-1" value={r.language} onChange={(e) => setRow(i, { language: e.target.value })} /></td>
+                            <td className="td"><input className={clsx('input w-40 px-2 py-1', duplicates.has(i) && 'border-bad')} list="target-groups" placeholder={shared.targetGroup || 'Target group'} value={r.targetGroup} onChange={(e) => setRow(i, { targetGroup: e.target.value })} /></td>
+                            {(['loiMinutes', 'irPercent', 'cpi'] as const).map((k) => (
+                              <td key={k} className="td"><input className={clsx('input w-20 px-2 py-1', r[k] !== '' && 'border-brand/60')} type="number" step={k === 'cpi' ? '0.01' : undefined} placeholder={String(shared[k] ?? '')} value={r[k]} onChange={(e) => setRow(i, { [k]: num(e.target.value) })} /></td>
+                            ))}
+                            <td className="td"><input className={clsx('input w-20 px-2 py-1', r.targetCompletes !== '' && 'border-brand/60')} type="number" placeholder={String(shared.targetCompletes)} value={r.targetCompletes} onChange={(e) => setRow(i, { targetCompletes: num(e.target.value) })} /></td>
+                            <td className="td"><input className="input w-56 px-2 py-1" placeholder={shared.liveSurveyUrl ? 'same as basics' : 'add link before going live'} value={r.liveSurveyUrl} onChange={(e) => setRow(i, { liveSurveyUrl: e.target.value })} /></td>
+                            <td className="td">
+                              <div className="flex gap-1">
+                                <button className="btn-ghost p-1.5" title="Add this country again for another target group" aria-label={`Add ${r.countryCode} again`} onClick={() => setRows((rs) => [...rs.slice(0, i + 1), { ...r, targetGroup: '', liveSurveyUrl: '' }, ...rs.slice(i + 1)])}><Plus className="h-3.5 w-3.5" /></button>
+                                <button className="btn-ghost p-1.5" aria-label={`Remove ${r.countryCode}`} onClick={() => removeRows([i])}><Trash2 className="h-3.5 w-3.5" /></button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {!shared.liveSurveyUrl && rows.some((r) => !r.liveSurveyUrl) && (
+                  <p className="flex items-center gap-1.5 text-xs text-warn"><AlertTriangle className="h-3.5 w-3.5" /> Markets without a live link can be saved, but they cannot go live until the link is added.</p>
+                )}
+              </>
             )}
-            <div className="flex flex-wrap items-center gap-2">
-              <select className="input max-w-xs" value={picker} onChange={(e) => addCountry(e.target.value)} aria-label="Add country">
-                <option value="">Add a country…</option>
-                {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{flag(c.code)} {c.name}</option>)}
-              </select>
-              {rows.length > 0 && (
-                <button
-                  className="btn-ghost text-xs"
-                  title="Copy the shared settings into every row so you can edit them individually"
-                  onClick={() => setRows((rs) => rs.map((r) => ({ ...r, loiMinutes: r.loiMinutes || shared.loiMinutes, irPercent: r.irPercent || shared.irPercent, cpi: r.cpi || shared.cpi, targetCompletes: r.targetCompletes || shared.targetCompletes })))}
-                >
-                  <Copy className="h-3.5 w-3.5" /> Fill rows from shared settings
-                </button>
-              )}
+          </Section>
+
+          <Section title={<span className="flex items-center gap-2"><Users className="h-4 w-4 text-muted" /> Vendors</span>} actions={<button className="btn-ghost px-2.5 py-1.5 text-xs" onClick={() => setVendors([...vendors, { vendorId: '', cpi: '', uidParam: 'vid' }])}><Plus className="h-3.5 w-3.5" /> Add vendor</button>}>
+            <p className="mb-3 text-sm text-muted">Each vendor is added to every market with its own entry link. You can change vendors per market after creating the project.</p>
+            {vendors.length === 0 && <p className="rounded-lg border border-dashed border-line p-4 text-sm text-muted">No vendors yet. Add the vendors you usually use, and tick “Preselect” to have them here on every new project.</p>}
+            <div className="space-y-2">
+              {vendors.map((v, i) => {
+                const high = v.cpi !== '' && minCpi !== null && Number(v.cpi) > minCpi;
+                return (
+                  <div key={i} className="grid grid-cols-1 items-start gap-2 rounded-lg bg-sunken/50 p-3 sm:grid-cols-[minmax(0,1fr)_140px_140px_auto]">
+                    <Field label="Vendor">
+                      <Combobox
+                        options={vendorOpts.filter((o) => o.id === v.vendorId || !vendors.some((x) => x.vendorId === o.id)).map((o) => ({ value: o.id, label: o.name, hint: o.code }))}
+                        value={v.vendorId || null}
+                        onChange={(id) => setVendors(vendors.map((x, n) => (n === i ? { ...x, vendorId: id ?? '' } : x)))}
+                        placeholder="Search vendors"
+                      />
+                    </Field>
+                    <Field label={`Payout CPI (${currency})`}>
+                      <input className={clsx('input', high && 'border-warn')} type="number" min={0} step="0.01" value={v.cpi} onChange={(e) => setVendors(vendors.map((x, n) => (n === i ? { ...x, cpi: num(e.target.value) } : x)))} />
+                    </Field>
+                    <Field label="Link variable">
+                      <input className="input" value={v.uidParam} onChange={(e) => setVendors(vendors.map((x, n) => (n === i ? { ...x, uidParam: e.target.value } : x)))} />
+                    </Field>
+                    <button className="btn-ghost mt-6 p-2" aria-label="Remove vendor" onClick={() => setVendors(vendors.filter((_, n) => n !== i))}><Trash2 className="h-4 w-4" /></button>
+                    {high && <p className="flex items-center gap-1.5 text-xs text-warn sm:col-span-4"><AlertTriangle className="h-3.5 w-3.5" /> Higher than the client CPI ({minCpi} {currency}). You will be asked to confirm.</p>}
+                  </div>
+                );
+              })}
             </div>
+            {vendors.length > 0 && (
+              <label className="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={rememberVendors} onChange={(e) => setRememberVendors(e.target.checked)} /> Preselect these vendors on every new project</label>
+            )}
+            <p className="mt-2 text-xs text-muted">The link variable is the name of the respondent ID in the vendor&apos;s entry link, e.g. <code className="rounded bg-sunken px-1">?vid=[UID]</code>.</p>
+          </Section>
+
+          <Section title="Gate survey questions">
+            {!security.gateSurvey ? (
+              <div className="flex flex-wrap items-center gap-3 text-sm text-muted">
+                The gate survey is off for this project.
+                <button className="btn-ghost px-2.5 py-1.5 text-xs" onClick={() => setSecurity({ ...security, gateSurvey: true })}>Turn it on</button>
+              </div>
+            ) : (
+              <QuestionBuilder value={gateQuestions} onChange={setGateQuestions} editable templatesCurrency={currency} emptyText="No gate questions yet. Add the standard profile questions (age, gender, income, employment, education) from the library, or build your own. You can also add them later on the Gate & security tab." />
+            )}
           </Section>
         </div>
 
@@ -580,8 +726,9 @@ function CreateProjectPage() {
               ))}
             </div>
           </Section>
-          <button className="btn-primary w-full py-2.5" onClick={submit} disabled={busy || !rows.length}>
-            {busy ? 'Creating…' : rows.length ? `Create project in ${rows.length} ${rows.length === 1 ? 'country' : 'countries'}` : 'Add at least one country'}
+          {duplicates.size > 0 && <p className="text-sm text-bad">Some markets are listed twice. Give each a different target group.</p>}
+          <button className="btn-primary w-full py-2.5" onClick={submit} disabled={busy || !rows.length || duplicates.size > 0}>
+            {busy ? 'Creating…' : rows.length ? `Create project in ${rows.length} ${rows.length === 1 ? 'market' : 'markets'}` : 'Add at least one country'}
           </button>
         </div>
       </div>
