@@ -92,6 +92,7 @@ const ROUTES: [RegExp, string | null, string?][] = [
   [/^(requests|files)(\/|$)/, 'requests'],
   [/^integrations\/settings(\/|$)/, 'integrations'],
   [/^integrations\/bidzo/, 'integrations'],
+  [/^integrations\/sampleon/, 'integrations'],
   [/^won-bids(\/|$)/, 'won_bids'],
   [/^(monitor|alerts)(\/|$)/, 'monitor'],
   [/^projects\/:id\/countries\/:countryId\/reallocate$/, 'monitor'],

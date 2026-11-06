@@ -550,7 +550,7 @@ model Project {
   updatedAt               DateTime               @updatedAt
 
   countries         ProjectCountry[]
-  redirectVersions  RedirectPolicyVersion[]  @relation("ProjectRedirectVersions")
+  redirectVersions  RedirectPolicyVersion[]   @relation("ProjectRedirectVersions")
   uniqueLinks       UniqueLink[]
   uniqueLinkBatches UniqueLinkBatch[]
   sessions          RespondentSession[]
@@ -562,6 +562,10 @@ model Project {
   settingsVersions  ProjectSettingsVersion[]
   tickets           Ticket[]
   sharedFiles       SharedFile[]
+  sampleonRequests  SampleonAudienceRequest[]
+  /// How the gate/prescreener questions used by quota cells map onto SUPPLY360 profile attributes, for SAMPLEON.
+  /// { "gate:<questionId>": { attribute, values: { <answerId>: value } } }; see src/sampleon/quota-translate.ts.
+  sampleonQuotaMap  Json?
 
   @@unique([organizationId, projectCode])
   @@index([organizationId, status])
@@ -1975,4 +1979,44 @@ model MobileSsoCode {
   createdAt DateTime  @default(now())
 
   @@index([userId])
+}
+
+/// An audience request this project has with SAMPLEON, the Sampledge audience and routing engine
+/// (SAMPLEON docs/ECOSYSTEM_ARCHITECTURE.md). PROJEXA owns the project, its targets and approved
+/// changes; SAMPLEON owns targeting, feasibility, invitations, routing and live quota counting;
+/// SUPPLY360 owns the respondents. Progress here comes from SAMPLEON's signed events and is kept
+/// apart from ProjectCountry.completes, which counts respondents PROJEXA itself routed.
+model SampleonAudienceRequest {
+  id                String    @id @default(cuid())
+  organizationId    String
+  projectId         String
+  project           Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  /// SAMPLEON's Audience Request ID (AR-…), the correlation id of every event.
+  audienceRequestId String    @unique
+  /// The client survey (e.g. the ZAPX survey id) the request is for.
+  surveyId          String
+  status            String
+  requiredCompletes Int
+  completes         Int       @default(0)
+  remaining         Int?
+  /// Sent with the project's quota cells translated to SUPPLY360 attributes (re-sent on sync).
+  usesProjectQuotas Boolean   @default(false)
+  /// Latest project.quota_updated snapshot: { byCountry, quotas }.
+  progress          Json      @default("{}")
+  progressSequence  Int       @default(0)
+  lastEventType     String?
+  lastEventAt       DateTime?
+  createdById       String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([organizationId, projectId])
+}
+
+/// SAMPLEON events already processed (deduplicated by event id).
+model SampleonInboundEvent {
+  eventId           String   @id
+  type              String
+  audienceRequestId String?
+  receivedAt        DateTime @default(now())
 }

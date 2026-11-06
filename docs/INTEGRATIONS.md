@@ -15,6 +15,8 @@ Every integration is set up by an admin in the app at **Settings → Integration
 
 Captcha keys, the Bidzo webhook secret, alert webhooks and API keys were already set in the app (Settings, and Settings → API and webhooks).
 
+The SAMPLEON connection (audiences from the SUPPLY360 panels) is set on the server for now; see [SAMPLEON_INTEGRATION.md](SAMPLEON_INTEGRATION.md).
+
 ## Who "runs the server"
 
 Sign-in and Xero/QuickBooks apps are one per PROJEXA server (one OAuth app serves every organisation), and Tally reaches a private office network. These are set by the admins of the **server owner organisation**: the one with `Organization.platformOwner = true`, or the oldest organisation when none is marked. The migration marks the oldest one. Admins of other organisations see the status and a note instead of the form.
