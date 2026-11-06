@@ -1,4 +1,5 @@
 'use client';
+import { withPayoutCheck } from './payout';
 import { Minus, Plus, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -51,7 +52,8 @@ export function VendorSuggestions({ projectId, countryId, editable, onAdded, onC
     setBusy(s.vendorId);
     setError(null);
     try {
-      await post(`/projects/${projectId}/countries/${countryId}/allocations`, { vendorId: s.vendorId, cpi: Number(e.cpi), targetCompletes: Number(e.target) });
+      const done = await withPayoutCheck((allowAboveCpi) => post(`/projects/${projectId}/countries/${countryId}/allocations`, { vendorId: s.vendorId, cpi: Number(e.cpi), targetCompletes: Number(e.target), uidParam: 'vid', allowAboveCpi }));
+      if (!done) return;
       onAdded();
       await load();
     } catch (err) {

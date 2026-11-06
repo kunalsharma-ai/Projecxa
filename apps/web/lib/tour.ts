@@ -28,9 +28,9 @@ export const TOUR_STEPS: TourStep[] = [
   {
     id: 'command-center',
     target: 'nav:/',
-    title: 'Command center',
-    body: 'Your home screen: live fieldwork, revenue and alerts at a glance.',
-    points: ['Drag, resize or hide widgets with Customize', 'Markets world map, conversion waterfall and traffic heatmap', 'Money shown in your reporting currency'],
+    title: 'Dashboard',
+    body: 'Your home screen: projects by status, clients, vendors, and clicks, completes and revenue for today, yesterday, this week and this month.',
+    points: ['Click any number to open the list or report behind it', 'Show details for charts, top lists, finance and the project board', 'Star any page in the menu to pin it to Favorites'],
   },
   {
     id: 'search',

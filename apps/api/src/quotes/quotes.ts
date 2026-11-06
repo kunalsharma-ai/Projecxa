@@ -1,3 +1,4 @@
+import { forVendor } from '../common/vendor-safe';
 /**
  * Quote requests (spec module 9: feasibility and CPI quotes). Staff ask vendors what they can deliver
  * in a project market and at what CPI; vendors answer in their portal; staff compare the answers with
@@ -124,7 +125,7 @@ export class QuotesService {
     const q = await this.quote(u, id);
     if (q.status !== 'QUOTED' || q.cpi === null || !q.feasibleCompletes) throw new BadRequestException('Only an answered quote can be accepted');
     const target = b.targetCompletes ?? Math.min(q.feasibleCompletes, q.completesWanted);
-    const alloc = await this.projects.addAllocation(u, q.projectCountry.projectId, q.projectCountry.id, { vendorId: q.vendorId, cpi: Number(q.cpi), targetCompletes: target, uidParam: 'uid' });
+    const alloc = await this.projects.addAllocation(u, q.projectCountry.projectId, q.projectCountry.id, { vendorId: q.vendorId, cpi: Number(q.cpi), targetCompletes: target, uidParam: 'vid', allowAboveCpi: true });
     await this.prisma.quoteRequest.update({ where: { id: q.id }, data: { status: 'ACCEPTED', allocationId: alloc.id } });
     await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'quote.accept', entityType: 'QuoteRequest', entityId: q.id, detail: { allocationId: alloc.id, cpi: Number(q.cpi), targetCompletes: target } });
     await this.emailVendor(q.vendorId, `Quote accepted: ${q.projectCountry.countryCode}`, `Your quote of ${q.currency} ${Number(q.cpi).toFixed(2)} for ${target} completes in ${q.projectCountry.countryCode} was accepted. The entry link is in your portal.`);
@@ -153,12 +154,12 @@ export class QuotesService {
       where: { organizationId: u.organizationId, vendorId, ...(status ? { status } : {}) },
       orderBy: [{ updatedAt: 'desc' }],
       take: 300,
-      include: { projectCountry: { select: { countryCode: true, language: true, project: { select: { projectCode: true, name: true, category: true } } } } },
+      include: { projectCountry: { select: { countryCode: true, language: true, project: { select: { projectCode: true, name: true, vendorTitle: true, category: true } } } } },
     });
     return rows.map((q) => ({
       id: q.id,
       status: q.status,
-      project: q.projectCountry.project,
+      project: forVendor(q.projectCountry.project),
       countryCode: q.projectCountry.countryCode,
       language: q.projectCountry.language,
       completesWanted: q.completesWanted,

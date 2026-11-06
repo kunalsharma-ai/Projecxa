@@ -5,6 +5,7 @@ import { Fragment, useCallback, useEffect, useState } from 'react';
 import { SecretOnce } from '@/components/settings/secret-once';
 import { Empty, ErrorBox, Loading, Section, Toggle } from '@/components/ui';
 import { api, get, patch, post } from '@/lib/api';
+import { Label } from '@/components/help';
 
 interface Endpoint { id: string; url: string; description: string | null; events: string[]; active: boolean; last7d: { delivered: number; pending: number; failed: number } }
 interface List { events: { name: string; description: string }[]; endpoints: Endpoint[] }
@@ -70,14 +71,14 @@ export function Webhooks() {
 
   return (
     <Section title="Webhooks" actions={!adding ? <button className="btn-primary" onClick={() => setAdding(true)}><Plus className="h-4 w-4" />Add endpoint</button> : undefined}>
-      <p className="mb-4 text-sm text-muted">PROJEXA sends a signed POST to your URL when something happens. Failed deliveries are retried up to 12 times with growing gaps, over about six hours. Check the <code className="font-mono text-xs">X-Projexa-Signature</code> header with your signing secret.</p>
+      <p className="mb-4 text-sm text-muted">SampTrek sends a signed POST to your URL when something happens. Failed deliveries are retried up to 12 times with growing gaps, over about six hours. Check the <code className="font-mono text-xs">X-Projexa-Signature</code> header with your signing secret.</p>
       <ErrorBox error={error} />
       {secret && <SecretOnce title="Copy this signing secret into your receiver now. It will not be shown again." value={secret} onDone={() => setSecret(null)} />}
       {adding && list && (
         <div className="mb-5 rounded-lg border border-line p-4">
           <div className="grid gap-4 md:grid-cols-2">
-            <label><span className="label">Endpoint URL</span><input className="input font-mono text-sm" autoFocus placeholder="https://example.com/hooks/projexa" maxLength={500} value={url} onChange={(e) => setUrl(e.target.value)} /></label>
-            <label><span className="label">Description (optional)</span><input className="input" maxLength={120} placeholder="Ops dashboard" value={description} onChange={(e) => setDescription(e.target.value)} /></label>
+            <label><Label>Endpoint URL</Label><input className="input font-mono text-sm" autoFocus placeholder="https://example.com/hooks/samptrek" maxLength={500} value={url} onChange={(e) => setUrl(e.target.value)} /></label>
+            <label><Label>Description (optional)</Label><input className="input" maxLength={120} placeholder="Ops dashboard" value={description} onChange={(e) => setDescription(e.target.value)} /></label>
           </div>
           <fieldset className="mt-4">
             <legend className="label">Events</legend>

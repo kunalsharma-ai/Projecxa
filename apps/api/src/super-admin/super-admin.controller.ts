@@ -126,7 +126,7 @@ export class RegistrationController {
     if (b.homepage) return { ok: true };
     const problem = checkChallenge('platform-register', b.challenge, b.answer);
     if (problem) throw new BadRequestException(problem);
-    // Same answer whether or not the email is known, so the form does not reveal who uses PROJEXA.
+    // Same answer whether or not the email is known, so the form does not reveal who uses SampTrek.
     const pending = await this.prisma.user.count({ where: { email: b.email, organization: { status: 'PENDING' } } });
     if (pending) return { ok: true };
     const plan = b.plan && (await this.prisma.plan.findFirst({ where: { code: b.plan, active: true } })) ? b.plan : null;

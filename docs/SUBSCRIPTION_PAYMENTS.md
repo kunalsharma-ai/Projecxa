@@ -1,6 +1,6 @@
 # Subscription payments: online and offline
 
-Organisations pay the server owner for their PROJEXA plan. Each payment renews the subscription by itself, and
+Organisations pay the server owner for their SampTrek plan. Each payment renews the subscription by itself, and
 everything the plan includes comes on at once on the web and in the Android/iOS app (docs/SUPER_ADMIN.md).
 
 - **Online:** Razorpay (UPI, cards, netbanking, wallets) and/or Stripe (cards). The keys are set up in the app, in
@@ -53,13 +53,13 @@ The same payment can arrive from the browser and from the webhook; it is applied
 
 ### How online payments are verified
 
-- **Razorpay**: PROJEXA creates an order for the exact amount; Checkout returns the payment id and signature, and
+- **Razorpay**: SampTrek creates an order for the exact amount; Checkout returns the payment id and signature, and
   the server checks `HMAC-SHA256(order_id|payment_id, key secret)`. The webhook is checked with
   `X-Razorpay-Signature = HMAC-SHA256(raw body, webhook secret)` and the amount and currency must match the invoice.
-- **Stripe**: PROJEXA creates a Checkout Session for the exact amount. On return, and on the webhook (checked with the
-  `Stripe-Signature` header, 5 minutes tolerance), PROJEXA asks Stripe for the session and only accepts it when
+- **Stripe**: SampTrek creates a Checkout Session for the exact amount. On return, and on the webhook (checked with the
+  `Stripe-Signature` header, 5 minutes tolerance), SampTrek asks Stripe for the session and only accepts it when
   `payment_status` is `paid` and the amount and currency match.
-- Card and bank details go to the gateway only; PROJEXA never sees them. A payment that reaches the gateway after its
+- Card and bank details go to the gateway only; SampTrek never sees them. A payment that reaches the gateway after its
   invoice was cancelled is still honoured.
 
 ## Offline payments (Super Admin → Billing)

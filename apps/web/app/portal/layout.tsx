@@ -48,7 +48,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       <header className="glass sticky top-0 z-20 border-b border-line">
         <div className="mx-auto flex h-14 max-w-[1200px] items-center justify-between gap-3 px-4 sm:px-6">
           <Link href={home} className="flex min-w-0 items-center gap-2 truncate font-semibold tracking-tight">
-            {brand.iconUrl && <BrandIcon brand={brand} className="h-7 w-7" />}
+            {(brand.iconUrl || !brand.custom) && <BrandIcon brand={brand} className="h-7 w-7" />}
             <span className="truncate">{brand.appName} <span className="ml-1 text-xs font-normal text-muted">{me.user.role === 'CLIENT_USER' ? 'Client portal' : 'Vendor portal'} · {company}</span></span>
           </Link>
           <div className="flex items-center gap-2 text-sm">
@@ -77,7 +77,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           : children}
       </main>
       <footer className="pb-8 text-center text-xs text-muted">
-        Operated by {me.organization.name}{!brand.hidePoweredBy && ' · Powered by Sampledge PROJEXA'}
+        Operated by {me.organization.name}{!brand.hidePoweredBy && ' · Powered by SampTrek by Sampledge'}
         {brand.supportEmail && <> · <a className="underline" href={`mailto:${brand.supportEmail}`}>{brand.supportEmail}</a></>}
       </footer>
     </MeContext.Provider>

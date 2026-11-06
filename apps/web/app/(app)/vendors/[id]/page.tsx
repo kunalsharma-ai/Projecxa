@@ -1,5 +1,6 @@
 'use client';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { CopyIcon, Copyable } from '@/components/copy';
+import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -7,7 +8,9 @@ import { canEdit, useMe } from '@/components/me';
 import { FilesPanel } from '@/components/requests/files-panel';
 import { Empty, ErrorBox, Loading, PageHeader, Section, StatusChip } from '@/components/ui';
 import { PART_LABELS, PartBar, ScoreBadge, WEIGHTS, type Grade, type ScoreParts, type VendorStats } from '@/components/vendors/score';
-import { api, get } from '@/lib/api';
+import { api, get, patch } from '@/lib/api';
+import { VendorForm, type VendorDetail } from '@/components/parties/vendor-form';
+import { VENDOR_FALLBACK, VENDOR_REDIRECTS } from '@/lib/contact-rules';
 import { COUNTRIES, countryName, flag } from '@/lib/countries';
 
 interface Market { countryCode: string; stats: VendorStats; score: number | null; grade: Grade; notes: string[]; capacity: { completesPerDay: number | null; completesPerMonth: number | null; note: string | null } | null; committed: number; headroom: number | null }
@@ -26,10 +29,34 @@ export default function VendorScorecard() {
   const [cap, setCap] = useState<CapRow[] | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const [detail, setDetail] = useState<VendorDetail | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [codes, setCodes] = useState<string[]>([]);
+
   const load = useCallback(() => get<Card>(`/vendors/${id}/scorecard?days=${days}`).then(setCard).catch(setError), [id, days]);
+  const loadDetail = useCallback(() => get<VendorDetail>(`/vendors/${id}`).then(setDetail).catch(setError), [id]);
   useEffect(() => {
     load();
   }, [load]);
+  useEffect(() => {
+    loadDetail();
+  }, [loadDetail]);
+
+  async function startEdit() {
+    setEditing(true);
+    get<{ code: string }[]>('/vendors').then((r) => setCodes(r.map((v) => v.code))).catch(() => undefined);
+  }
+  async function saveDetail(body: Record<string, unknown>) {
+    setError(null);
+    try {
+      setDetail(await patch<VendorDetail>(`/vendors/${id}`, body));
+      setEditing(false);
+      load();
+    } catch (e) {
+      setError(e);
+      throw e;
+    }
+  }
 
   function editCapacity() {
     if (!card) return;
@@ -66,7 +93,7 @@ export default function VendorScorecard() {
       <Link href="/vendors" className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"><ArrowLeft className="h-4 w-4" /> Vendors</Link>
       <PageHeader
         title={card.name}
-        subtitle={<span className="flex flex-wrap items-center gap-2"><StatusChip status={card.status} /><span>{card.code}</span></span>}
+        subtitle={<span className="flex flex-wrap items-center gap-2"><StatusChip status={card.status} /><Copyable text={card.code} label="vendor ID" /></span>}
         actions={
           <label className="flex items-center gap-2 text-sm text-muted">
             Period
@@ -109,6 +136,55 @@ export default function VendorScorecard() {
           </div>
         ))}
       </div>
+
+      {detail && (
+        <Section
+          title="Details, redirects and callback"
+          className="mb-6"
+          actions={canEdit(me) && !editing && <button className="btn-ghost px-2.5 py-1.5 text-xs" onClick={startEdit}><Pencil className="h-3.5 w-3.5" /> Edit</button>}
+        >
+          {editing ? (
+            <VendorForm vendor={detail} taken={codes} onSubmit={saveDetail} onCancel={() => setEditing(false)} />
+          ) : (
+            <div className="space-y-4">
+              <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                {([
+                  ['Contact', [detail.contactName, detail.contactEmail].filter(Boolean).join(' · ')],
+                  ['Phone', detail.contactPhone],
+                  ['Website', detail.website?.replace(/^https?:\/\//, '')],
+                  ['Allowed redirect hosts', detail.redirectAllowedDomains.join(', ')],
+                ] as const).map(([l, v]) => (
+                  <div key={l}><dt className="text-xs text-muted">{l}</dt><dd className="mt-0.5 break-words">{v || <span className="text-muted">Not set</span>}</dd></div>
+                ))}
+              </dl>
+              <div className="-mx-5 -mb-5 overflow-x-auto">
+                <table className="w-full min-w-[640px]">
+                  <thead className="border-y border-line bg-sunken/60"><tr><th className="th w-56">Redirect</th><th className="th">URL</th></tr></thead>
+                  <tbody className="divide-y divide-line">
+                    {VENDOR_REDIRECTS.map((r) => {
+                      const own = detail.redirectUrls?.[r.status];
+                      const fb = VENDOR_FALLBACK[r.status];
+                      const used = own ?? (fb ? detail.redirectUrls?.[fb] : undefined);
+                      return (
+                        <tr key={r.status}>
+                          <td className="td text-sm font-medium">{r.label}</td>
+                          <td className="td break-all font-mono text-xs">
+                            {own ? <span className="flex items-start gap-1"><span className="min-w-0 flex-1">{own}</span><CopyIcon text={own} label={`${r.label} URL`} /></span> : used ? <span className="text-muted">Uses the {VENDOR_REDIRECTS.find((x) => x.status === fb)?.label.toLowerCase()} URL</span> : <span className="text-warn">Not set: respondents see the SampTrek end page</span>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    <tr>
+                      <td className="td text-sm font-medium">Callback (server to server)</td>
+                      <td className="td break-all font-mono text-xs">{detail.callbackUrlTemplate ? <span className="flex items-start gap-1"><span className="min-w-0 flex-1">{detail.callbackUrlTemplate}</span><CopyIcon text={detail.callbackUrlTemplate} label="callback URL" /></span> : <span className="text-muted">Not set</span>}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </Section>
+      )}
 
       <Section
         title="Markets and capacity"

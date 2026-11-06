@@ -78,7 +78,7 @@ export class ZohoBooksService {
 
   private async requireBound(org: string) {
     const z = await this.integrations.zohoBooks(org);
-    if (!z.config) throw new BadRequestException(z.otherTenant ? 'Zoho Books is connected to another Projexa organisation' : `Zoho Books is not set up yet. Add it in Settings → Integrations. Missing: ${z.missing.join(', ')}`);
+    if (!z.config) throw new BadRequestException(z.otherTenant ? 'Zoho Books is connected to another SampTrek organisation' : `Zoho Books is not set up yet. Add it in Settings → Integrations. Missing: ${z.missing.join(', ')}`);
     return z.config;
   }
 
@@ -145,7 +145,7 @@ export class ZohoBooksService {
       return { ok: false, organization, checks };
     }
     const base = (await this.payables.settings(org)).baseCurrency;
-    if (base && base !== organization.currency) checks.push({ label: 'Currency', ok: true, detail: `Zoho Books uses ${organization.currency} and Projexa reports in ${base}. Exchange rates are left to Zoho Books.` });
+    if (base && base !== organization.currency) checks.push({ label: 'Currency', ok: true, detail: `Zoho Books uses ${organization.currency} and SampTrek reports in ${base}. Exchange rates are left to Zoho Books.` });
     try {
       const accounts = await this.accounts(api);
       for (const [label, n] of [['Bank account', cfg.bankAccount], ['Expense account', cfg.expenseAccount]] as const) {

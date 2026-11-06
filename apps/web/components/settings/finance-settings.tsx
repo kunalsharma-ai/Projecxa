@@ -3,6 +3,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ErrorBox, Field, Loading, Section } from '@/components/ui';
 import { api, get } from '@/lib/api';
+import { Label } from '@/components/help';
 
 interface Tax { name: string | null; percent: number }
 interface Settings { baseCurrency: string; invoiceTax: Tax; billTax: Tax; rates: { currency: string; rate: number; updatedAt: string }[]; currencies: string[]; missing: string[] }
@@ -63,15 +64,15 @@ export function FinanceSettings({ isAdmin }: { isAdmin: boolean }) {
               <div className="rounded-lg border border-line p-3">
                 <div className="mb-2 text-sm font-medium">Client invoices</div>
                 <div className="flex gap-2">
-                  <label className="flex-1"><span className="label">Tax name</span><input className="input" placeholder="VAT, GST…" maxLength={40} value={inv.name} onChange={(e) => setInv({ ...inv, name: e.target.value })} /></label>
-                  <label className="w-20"><span className="label">%</span><input className="input tabular-nums" type="number" min={0} max={100} step="0.01" value={inv.percent} onChange={(e) => setInv({ ...inv, percent: e.target.value })} /></label>
+                  <label className="flex-1"><Label>Tax name</Label><input className="input" placeholder="VAT, GST…" maxLength={40} value={inv.name} onChange={(e) => setInv({ ...inv, name: e.target.value })} /></label>
+                  <label className="w-20"><Label>%</Label><input className="input tabular-nums" type="number" min={0} max={100} step="0.01" value={inv.percent} onChange={(e) => setInv({ ...inv, percent: e.target.value })} /></label>
                 </div>
               </div>
               <div className="rounded-lg border border-line p-3">
                 <div className="mb-2 text-sm font-medium">Vendor bills</div>
                 <div className="flex gap-2">
-                  <label className="flex-1"><span className="label">Tax name</span><input className="input" placeholder="GST…" maxLength={40} value={bill.name} onChange={(e) => setBill({ ...bill, name: e.target.value })} /></label>
-                  <label className="w-20"><span className="label">%</span><input className="input tabular-nums" type="number" min={0} max={100} step="0.01" value={bill.percent} onChange={(e) => setBill({ ...bill, percent: e.target.value })} /></label>
+                  <label className="flex-1"><Label>Tax name</Label><input className="input" placeholder="GST…" maxLength={40} value={bill.name} onChange={(e) => setBill({ ...bill, name: e.target.value })} /></label>
+                  <label className="w-20"><Label>%</Label><input className="input tabular-nums" type="number" min={0} max={100} step="0.01" value={bill.percent} onChange={(e) => setBill({ ...bill, percent: e.target.value })} /></label>
                 </div>
               </div>
             </div>

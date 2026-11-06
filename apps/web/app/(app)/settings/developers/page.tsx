@@ -15,7 +15,7 @@ export default function DevelopersPage() {
   return (
     <>
       <div className="mb-3"><Link href="/settings" className="inline-flex items-center gap-1 text-sm text-muted hover:text-ink"><ArrowLeft className="h-4 w-4" />Settings</Link></div>
-      <PageHeader title="API and webhooks" subtitle="Connect other systems to PROJEXA: read projects, fieldwork, sessions and finance with an API key, and get events pushed to your own URL." />
+      <PageHeader title="API and webhooks" subtitle="Connect other systems to SampTrek: read projects, fieldwork, sessions and finance with an API key, and get events pushed to your own URL." />
       {!isAdmin ? (
         <Section title="Admins only"><p className="text-sm text-muted">Only admins can create API keys and webhooks. Ask an admin in your team.</p></Section>
       ) : (

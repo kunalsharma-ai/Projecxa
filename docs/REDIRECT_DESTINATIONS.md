@@ -12,7 +12,7 @@ In **hybrid** mode a rule can be `type: "API"`. Its `url` is the endpoint to ask
   "enabled": true, "callbackRequired": true }
 ```
 
-When a respondent reaches that status, PROJEXA sends:
+When a respondent reaches that status, SampTrek sends:
 
 ```
 POST <endpoint>

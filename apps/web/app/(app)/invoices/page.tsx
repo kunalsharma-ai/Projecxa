@@ -1,4 +1,5 @@
 'use client';
+import { CopyIcon } from '@/components/copy';
 import clsx from 'clsx';
 import { Download } from 'lucide-react';
 import Link from 'next/link';
@@ -55,7 +56,7 @@ function Invoices() {
           <button
             className="btn-ghost"
             disabled={!rows?.length}
-            onClick={() => downloadCsv(`projexa-invoices-${new Date().toISOString().slice(0, 10)}.csv`,
+            onClick={() => downloadCsv(`samptrek-invoices-${new Date().toISOString().slice(0, 10)}.csv`,
               ['Number', 'Status', 'Client', 'Project', 'Project name', 'Currency', 'Total', 'Completes', 'Created', 'Issued', 'Due', 'Paid'],
               (rows ?? []).map((r) => [r.number, r.overdue ? 'OVERDUE' : r.status, r.client.name, r.project.projectCode, r.project.name, r.currency, r.total.toFixed(2), r.completes, r.createdAt.slice(0, 10), r.issuedAt?.slice(0, 10), r.dueAt?.slice(0, 10), r.paidAt?.slice(0, 10)]))}
           >
@@ -85,7 +86,7 @@ function Invoices() {
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.id} className="border-t border-line hover:bg-sunken/50">
-                    <td className="td"><Link href={`/invoices/${r.id}`} className="font-mono text-brand hover:underline">{r.number}</Link></td>
+                    <td className="td whitespace-nowrap"><Link href={`/invoices/${r.id}`} className="font-mono text-brand hover:underline">{r.number}</Link><CopyIcon text={r.number} label="invoice number" /></td>
                     <td className="td"><InvoiceStatus status={r.status} overdue={r.overdue} /></td>
                     <td className="td">{r.client.name}</td>
                     <td className="td"><Link href={`/projects/${r.project.id}`} className="hover:underline">{r.project.projectCode}</Link> <span className="text-xs text-muted">{r.project.name}</span></td>

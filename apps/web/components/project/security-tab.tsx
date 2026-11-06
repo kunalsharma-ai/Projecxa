@@ -1,4 +1,5 @@
 'use client';
+import { MobileOsPicker, devicesProblem, withOs, type DeviceSettings } from './mobile-os';
 import clsx from 'clsx';
 import { Bot, Copy, ExternalLink, Fingerprint, Globe2, Link2, ListChecks, MonitorSmartphone, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
@@ -73,7 +74,7 @@ function stable(v: unknown): string {
 export function SecurityTab({ project, editable, reload }: { project: ProjectDetail; editable: boolean; reload: () => void }) {
   const me = useMe();
   const [security, setSecurity] = useState(project.security);
-  const [devices, setDevices] = useState(project.devices);
+  const [devices, setDevices] = useState<DeviceSettings>(withOs(project.devices));
   const [style, setStyle] = useState<CaptchaStyle>(project.captchaStyle ?? 'math');
   const [gate, setGate] = useState<Question[]>(project.gateQuestions ?? []);
   const [pre, setPre] = useState<Question[]>(project.prescreen ?? []);
@@ -91,7 +92,7 @@ export function SecurityTab({ project, editable, reload }: { project: ProjectDet
   }, [project.id]);
 
   const original = useMemo(
-    () => stable([project.security, project.devices, project.captchaStyle, (project.gateQuestions ?? []).map(cleanQuestion), (project.prescreen ?? []).map(cleanQuestion)]),
+    () => stable([project.security, withOs(project.devices), project.captchaStyle, (project.gateQuestions ?? []).map(cleanQuestion), (project.prescreen ?? []).map(cleanQuestion)]),
     [project],
   );
   const dirty = stable([security, devices, style, gate.map(cleanQuestion), pre.map(cleanQuestion)]) !== original;
@@ -128,7 +129,7 @@ export function SecurityTab({ project, editable, reload }: { project: ProjectDet
   return (
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
       <div className="min-w-0 space-y-6">
-        <Section title={<span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-brand" /> Respondent security</span>}>
+        <Section help="project.security" title={<span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-brand" /> Respondent security</span>}>
           <p className="mb-4 text-sm text-muted">
             Order for every respondent: entry checks → human check → gate survey → prescreener → browser checks → client survey. Set these before launch. Test links run every check but never block, so QA can click through.
           </p>
@@ -162,6 +163,10 @@ export function SecurityTab({ project, editable, reload }: { project: ProjectDet
                     {d}{!editable && `: ${devices[d] !== false ? 'yes' : 'no'}`}
                   </label>
                 ))}
+                <div className="basis-full">
+                  {editable ? <MobileOsPicker devices={devices} onChange={setDevices} /> : <span className="pl-6 text-sm text-muted">Mobile systems: {[devices.android && 'Android', devices.ios && 'iOS'].filter(Boolean).join(', ') || 'none'}</span>}
+                </div>
+                {editable && devicesProblem(devices) && <p className="basis-full text-xs text-warn">{devicesProblem(devices)}</p>}
               </div>
             </div>
           </div>
@@ -203,7 +208,7 @@ export function SecurityTab({ project, editable, reload }: { project: ProjectDet
 
         {editable && (dirty || saved || !!error) && (
           <div className="sticky bottom-3 z-10 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-panel p-3 shadow-lg">
-            <button className="btn-primary" disabled={!dirty || saving || problems > 0} onClick={save}>{saving ? 'Saving…' : 'Save security and questions'}</button>
+            <button className="btn-primary" disabled={!dirty || saving || problems > 0 || !!devicesProblem(devices)} onClick={save}>{saving ? 'Saving…' : 'Save security and questions'}</button>
             {problems > 0 && <span className="text-sm text-bad">Fix {problems} question {problems === 1 ? 'problem' : 'problems'} first.</span>}
             {!problems && dirty && <span className="text-sm text-muted">Unsaved changes</span>}
             {!dirty && saved && <span className="text-sm text-ok">Saved</span>}

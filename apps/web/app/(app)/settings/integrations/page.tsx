@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMe } from '@/components/me';
 import { ErrorBox, Loading, PageHeader, Section } from '@/components/ui';
 import { api, get, post } from '@/lib/api';
+import { Label } from '@/components/help';
 
 type FieldType = 'text' | 'secret' | 'select' | 'url' | 'email';
 interface FieldDef { key: string; label: string; type: FieldType; required?: boolean; options?: { value: string; label: string }[]; placeholder?: string; hint?: string; default?: string; transient?: boolean }
@@ -23,7 +24,7 @@ const GROUPS: { id: string; title: string; icon: typeof Mail; blurb: string }[] 
   { id: 'AI', title: 'AI', icon: Bot, blurb: 'The copilot chat and voice assistant.' },
   { id: 'Accounting', title: 'Accounting', icon: BookOpenCheck, blurb: 'Direct sync of invoices, bills and payments.' },
   { id: 'Payments', title: 'Payments', icon: CreditCard, blurb: 'Online payment gateways organisations pay their plan through (Super Admin → Billing).' },
-  { id: 'Bidzo', title: 'Bidzo', icon: Link2, blurb: 'Bids live in Bidzo; PROJEXA links there.' },
+  { id: 'Bidzo', title: 'Bidzo', icon: Link2, blurb: 'Bids live in Bidzo; SampTrek links there.' },
   { id: 'Mobile', title: 'Mobile app', icon: Smartphone, blurb: 'Push notifications to the Android and iOS app.' },
 ];
 
@@ -91,7 +92,7 @@ export default function IntegrationsPage() {
         })}
 
         <Section title={<span className="flex items-center gap-2"><Server className="h-4 w-4 text-muted" /> Server basics</span>}>
-          <p className="mb-3 text-sm text-muted">Only these stay on the server, set once by whoever installs PROJEXA (see docs/INTEGRATIONS.md). Everything else is on this page.</p>
+          <p className="mb-3 text-sm text-muted">Only these stay on the server, set once by whoever installs SampTrek (see docs/INTEGRATIONS.md). Everything else is on this page.</p>
           <ul className="grid gap-2 sm:grid-cols-2">
             {data.bootstrap.map((b) => (
               <li key={b.name} className="flex items-start gap-2 rounded-lg border border-line p-3 text-sm">
@@ -161,7 +162,7 @@ function Card({ i, open, onToggle, onChange }: { i: Integration; open: boolean; 
           <div className="min-w-0 space-y-3">
             {i.managedByServerOwner && (
               <p className="rounded-lg bg-sunken px-3 py-2 text-sm text-muted">
-                {i.scope === 'platform' ? 'One app serves every organisation on this PROJEXA server, so it is set up by the organisation that runs the server.' : 'This reaches a private office network, so only the organisation that runs this PROJEXA server can set it.'}
+                {i.scope === 'platform' ? 'One app serves every organisation on this SampTrek server, so it is set up by the organisation that runs the server.' : 'This reaches a private office network, so only the organisation that runs this SampTrek server can set it.'}
                 {s.state === 'connected' || s.state === 'env' ? ' It is ready to use.' : ' Ask them to add it.'}
               </p>
             )}
@@ -216,7 +217,7 @@ function Card({ i, open, onToggle, onChange }: { i: Integration; open: boolean; 
             </ol>
             {i.redirectUri && (
               <div className="mt-3">
-                <span className="label">Redirect URI to register</span>
+                <Label>Redirect URI to register</Label>
                 <button type="button" onClick={() => copy(i.redirectUri!)} className="flex w-full items-center gap-2 rounded border border-line bg-panel px-2 py-1.5 text-left font-mono text-[11px]" title="Copy">
                   <span className="min-w-0 flex-1 truncate">{i.redirectUri}</span>
                   {copied ? <Check className="h-3.5 w-3.5 text-ok" /> : <Copy className="h-3.5 w-3.5 text-muted" />}

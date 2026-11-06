@@ -76,7 +76,7 @@ export default function FormGalleryPage() {
   const [note, setNote] = useState('Quotas: **50/50 gender**, age 18–65.\n\n- Exclude market research employees\n- Soft launch at 10%');
   return (
     <>
-      <PageHeader title="Form gallery" subtitle="The smart form controls every PROJEXA form uses. Try the keyboard: Tab, arrows, Enter, Escape, Ctrl+Enter. Nothing here is saved." />
+      <PageHeader title="Form gallery" subtitle="The smart form controls every SampTrek form uses. Try the keyboard: Tab, arrows, Enter, Escape, Ctrl+Enter. Nothing here is saved." />
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <Section title="Example: study brief" actions={<Segmented size="sm" value={density} onChange={(v) => setDensity(v as typeof density)} items={[{ value: 'compact', label: 'Compact' }, { value: 'comfortable', label: 'Comfortable' }]} />}>
           <SmartForm key={density} schema={SCHEMA} density={density} draftKey="gallery-brief" submitLabel="Check and submit" onChange={setValues}

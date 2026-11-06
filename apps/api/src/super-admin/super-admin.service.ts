@@ -1,5 +1,5 @@
 /**
- * Super Admin (docs/SUPER_ADMIN.md): the person who runs this PROJEXA server registers
+ * Super Admin (docs/SUPER_ADMIN.md): the person who runs this SampTrek server registers
  * organisations, gives them a plan (a feature package they pay for in billing/, docs/SUBSCRIPTION_PAYMENTS.md), switches any feature
  * on or off for an organisation or one person, on the web and in the mobile app, sees what every
  * admin and user does, and controls every organisation's integrations.
@@ -255,9 +255,9 @@ export class SuperAdminService {
       await this.mail.send({
         organizationId: await this.ownerId(),
         to: [admin.email],
-        subject: `Your PROJEXA workspace for ${admin.organization.name} is ready`,
-        text: `Hello ${admin.name},\n\nYour PROJEXA workspace for ${admin.organization.name} is ready. Choose a password to start (the link works for 72 hours):\n${link.url}\n`,
-        html: `<p>Hello ${esc(admin.name)},</p><p>Your PROJEXA workspace for <b>${org}</b> is ready. Choose a password to start (the link works for 72 hours).</p><p><a href="${esc(link.url)}">Choose a password</a></p>`,
+        subject: `Your SampTrek workspace for ${admin.organization.name} is ready`,
+        text: `Hello ${admin.name},\n\nYour SampTrek workspace for ${admin.organization.name} is ready. Choose a password to start (the link works for 72 hours):\n${link.url}\n`,
+        html: `<p>Hello ${esc(admin.name)},</p><p>Your SampTrek workspace for <b>${org}</b> is ready. Choose a password to start (the link works for 72 hours).</p><p><a href="${esc(link.url)}">Choose a password</a></p>`,
       });
       emailed = true;
     } catch (e) {

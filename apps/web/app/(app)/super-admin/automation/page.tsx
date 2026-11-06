@@ -5,12 +5,13 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { ErrorBox, Loading, PageHeader, Section, Toggle } from '@/components/ui';
 import { api, get, post } from '@/lib/api';
 import { ago, SUB_STATUS, type Action, type AutomationCatalog, type Catalog, type Plan, type Rule, type SubStatus } from '@/lib/super-admin';
+import { Label } from '@/components/help';
 
 interface Run { id: string; createdAt: string; status: string; dedupeKey: string; detail: { results?: { action: string; ok: boolean; message?: string }[] } | null; rule: { id: string; name: string }; organization: { id: string; name: string } | null }
 type Draft = { id?: string; name: string; enabled: boolean; trigger: string; days: number | null; plans: string[]; statuses: SubStatus[]; actions: Action[] };
 
 const defaults: Record<string, Action> = {
-  email_org_admins: { type: 'email_org_admins', subject: 'About your PROJEXA account', message: 'Hello {{org}}, ' },
+  email_org_admins: { type: 'email_org_admins', subject: 'About your SampTrek account', message: 'Hello {{org}}, ' },
   email_super_admins: { type: 'email_super_admins', subject: '{{org}}: ', message: '' },
   create_task: { type: 'create_task', title: 'Follow up with {{org}}' },
   approve_registration: { type: 'approve_registration', planCode: 'starter', trialDays: 14 },
@@ -64,7 +65,7 @@ export default function AutomationPage() {
 
   return (
     <>
-      <PageHeader title="Automation" subtitle="Rules that run by themselves: when something happens to an organisation, PROJEXA emails, reminds, changes the plan or pauses access for you. Time rules are checked every hour."
+      <PageHeader title="Automation" subtitle="Rules that run by themselves: when something happens to an organisation, SampTrek emails, reminds, changes the plan or pauses access for you. Time rules are checked every hour."
         actions={<>
           <button className="btn-ghost" onClick={() => go(() => post('/super-admin/automations/run'), 'Checked every time rule now.')}><Play className="h-4 w-4" />Run time rules now</button>
           <button className="btn-primary" onClick={() => edit()}><Plus className="h-4 w-4" />New rule</button>
@@ -75,7 +76,7 @@ export default function AutomationPage() {
       {draft && (
         <form onSubmit={save} className="mb-6">
           <Section title={draft.id ? 'Edit rule' : 'New rule'} actions={<button type="button" className="text-muted hover:text-ink" aria-label="Close" onClick={() => setDraft(null)}><X className="h-4 w-4" /></button>}>
-            <label className="mb-5 block max-w-md"><span className="label">Name</span><input className="input" required value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="e.g. Renewal reminder" /></label>
+            <label className="mb-5 block max-w-md"><Label>Name</Label><input className="input" required value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="e.g. Renewal reminder" /></label>
             <div className="space-y-3">
               <div className="rounded-xl border border-brand/30 bg-brand/5 p-4">
                 <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-brand"><Zap className="h-3.5 w-3.5" />When</div>

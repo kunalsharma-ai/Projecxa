@@ -1,3 +1,4 @@
+import { marketKey } from './markets';
 import { BadRequestException, Body, ConflictException, Controller, Delete, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Put } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
@@ -109,7 +110,7 @@ export async function templateFromProject(prisma: PrismaService, organizationId:
     defaults: defaults as CountrySettings,
     countries,
   };
-  const key = (c: { countryCode: string; language: string }) => `${c.countryCode}/${c.language}`;
+  const key = marketKey;
   const extras: TemplateExtras = {
     include,
     captchaStyle: p.captchaStyle,
@@ -141,9 +142,9 @@ export async function applyTemplateExtras(tx: Prisma.TransactionClient, organiza
   const active = new Set(
     (await tx.vendor.findMany({ where: { organizationId, id: { in: [...vendorIds, ...ruleVendorIds] }, status: 'ACTIVE' }, select: { id: true } })).map((v) => v.id),
   );
-  const countries = await tx.projectCountry.findMany({ where: { projectId }, select: { id: true, countryCode: true, language: true } });
+  const countries = await tx.projectCountry.findMany({ where: { projectId }, select: { id: true, countryCode: true, language: true, targetGroup: true } });
   for (const c of countries) {
-    const key = `${c.countryCode}/${c.language}`;
+    const key = marketKey(c);
     const quotas = extras.quotas[key] ?? [];
     if (quotas.length) await tx.quotaCell.createMany({ data: quotas.map((q) => ({ projectCountryId: c.id, group: q.group, name: q.name, conditions: (q.conditions ?? []) as Prisma.InputJsonValue, target: q.target, isOpen: q.isOpen, sortOrder: q.sortOrder })) });
     for (const a of extras.vendors[key] ?? []) {

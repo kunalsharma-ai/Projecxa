@@ -118,7 +118,7 @@ export function FinanceTab({ project, editable, reload }: { project: ProjectDeta
       <ErrorBox error={error} />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-        <Section title={<span className="flex items-center gap-2"><ClipboardList className="h-4 w-4 text-brand" /> Reconcile with the client’s list</span>}>
+        <Section help="project.reconcile" title={<span className="flex items-center gap-2"><ClipboardList className="h-4 w-4 text-brand" /> Reconcile with the client’s list</span>}>
           {!editable ? (
             <p className="text-sm text-muted">Only admins and project managers can reconcile.</p>
           ) : (
@@ -182,6 +182,7 @@ export function FinanceTab({ project, editable, reload }: { project: ProjectDeta
 
         <div className="space-y-6">
           <Section
+            help="project.invoices"
             title={<span className="flex items-center gap-2"><FileText className="h-4 w-4 text-brand" /> Invoices</span>}
             actions={<Link href={`/invoices?projectId=${project.id}`} className="text-xs text-brand hover:underline">All invoices</Link>}
           >

@@ -2,7 +2,7 @@
 import clsx from 'clsx';
 import { Check, ChevronDown, Loader2, X } from 'lucide-react';
 import { KeyboardEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { COUNTRIES, flag } from '@/lib/countries';
+import { COUNTRIES, COUNTRY_ALIASES, flag } from '@/lib/countries';
 import { useFieldIds } from './field';
 
 export interface Option { value: string; label: string; hint?: string; icon?: ReactNode; group?: string; keywords?: string }
@@ -57,9 +57,19 @@ export function Combobox(props: Single | Multi) {
   }, [q, open, onSearch]);
 
   const shown = useMemo(() => {
-    const base = onSearch && remote ? remote : options.filter((o) => matches(o, q));
+    // Best matches first: the name starts with what was typed, then a word in it does, then the code matches.
+    const n = norm(q.trim());
+    const rank = (o: Option) => {
+      const l = norm(o.label);
+      if (!n) return 0;
+      if (l.startsWith(n)) return 0;
+      if (l.split(/[\s(·,-]+/).some((w) => w.startsWith(n))) return 1;
+      if (norm(o.value) === n || norm(o.hint ?? '') === n) return 1;
+      return 2;
+    };
+    const base = onSearch && remote ? remote : options.filter((o) => matches(o, q)).map((o, i) => ({ o, i, r: o.group ? 0 : rank(o) })).sort((x, y) => x.r - y.r || x.i - y.i).map((x) => x.o);
     const out = [...base];
-    if (creatable && q.trim() && !out.some((o) => norm(o.label) === norm(q.trim()) || norm(o.value) === norm(q.trim()))) out.push({ value: q.trim(), label: `Add “${q.trim()}”`, keywords: '__create' });
+    if (creatable && q.trim() && !out.some((o) => norm(o.label) === norm(q.trim()) || norm(o.value) === norm(q.trim()))) out.push({ value: q.trim(), label: `+ Add “${q.trim()}”`, keywords: '__create' });
     return out;
   }, [options, remote, q, onSearch, creatable]);
 
@@ -174,7 +184,7 @@ export function Combobox(props: Single | Multi) {
   );
 }
 
-export const COUNTRY_OPTIONS: Option[] = COUNTRIES.map((c) => ({ value: c.code, label: c.name, hint: c.code, icon: <span aria-hidden>{flag(c.code)}</span>, keywords: c.currency }));
+export const COUNTRY_OPTIONS: Option[] = COUNTRIES.map((c) => ({ value: c.code, label: c.name, hint: c.code, icon: <span aria-hidden className="flag">{flag(c.code)}</span>, keywords: `${c.currency} ${COUNTRY_ALIASES[c.code] ?? ''}` }));
 
 /** Country picker with flags (one or several). */
 export function CountrySelect(p: Omit<Single, 'options'> | Omit<Multi, 'options'>) {

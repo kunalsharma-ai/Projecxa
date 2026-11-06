@@ -125,7 +125,7 @@ export default function ClientProject() {
         }
       >
         {notice && <p className="mb-3 text-sm text-ok" role="status">{notice}</p>}
-        <p className="mb-4 text-xs text-muted">The respondent ID is the value your survey received from PROJEXA, so you can match it against your data. Download the CSV, check it, then approve or reject.</p>
+        <p className="mb-4 text-xs text-muted">The respondent ID is the value your survey received from SampTrek, so you can match it against your data. Download the CSV, check it, then approve or reject.</p>
         {!rows ? <Loading /> : rows.length === 0 ? <Empty>No completes in this view.</Empty> : (
           <div className="-mx-5 -mb-5 overflow-x-auto">
             <table className="w-full min-w-[720px]">

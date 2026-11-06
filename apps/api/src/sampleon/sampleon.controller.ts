@@ -1,13 +1,13 @@
 /**
  * SAMPLEON integration (docs/SAMPLEON_INTEGRATION.md; SAMPLEON docs/ECOSYSTEM_ARCHITECTURE.md).
  *
- * PROJEXA project → SAMPLEON audience request → SUPPLY360 panelists → ZAPX survey → SAMPLEON → PROJEXA.
+ * SampTrek project → SAMPLEON audience request → SUPPLY360 panelists → ZAPX survey → SAMPLEON → SampTrek.
  *
- * PROJEXA owns the project, its targets, budgets and approved changes. It sends an audience request
+ * SampTrek owns the project, its targets, budgets and approved changes. It sends an audience request
  * built from the project to SAMPLEON, which owns targeting, feasibility, approval, invitations,
- * routing and live quota counting. SAMPLEON reports progress back with signed events. PROJEXA keeps
+ * routing and live quota counting. SAMPLEON reports progress back with signed events. SampTrek keeps
  * no respondent list and no second quota counter for SAMPLEON respondents: the progress below is
- * SAMPLEON's, shown next to (not added into) the completes PROJEXA routed itself.
+ * SAMPLEON's, shown next to (not added into) the completes SampTrek routed itself.
  */
 import {
   BadGatewayException, BadRequestException, Body, ConflictException, Controller, Get, HttpCode, HttpException, Module, NotFoundException, Param, Post, Put, Req,

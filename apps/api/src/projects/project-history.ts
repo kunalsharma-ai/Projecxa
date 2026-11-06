@@ -1,3 +1,4 @@
+import { marketKey } from './markets';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuthUser } from '../auth/auth.types';
@@ -134,7 +135,7 @@ export class ProjectHistoryService {
   constructor(private readonly prisma: PrismaService) {}
 
   async snapshot(projectId: string, db: Prisma.TransactionClient | PrismaService = this.prisma): Promise<SettingsSnapshot> {
-    const p = await db.project.findUniqueOrThrow({ where: { id: projectId }, include: { countries: { orderBy: [{ countryCode: 'asc' }, { language: 'asc' }] } } });
+    const p = await db.project.findUniqueOrThrow({ where: { id: projectId }, include: { countries: { orderBy: [{ countryCode: 'asc' }, { language: 'asc' }, { createdAt: 'asc' }] } } });
     return {
       name: p.name,
       category: p.category,
@@ -154,7 +155,7 @@ export class ProjectHistoryService {
       autopilot: obj(p.autopilot),
       countries: Object.fromEntries(
         p.countries.map((c) => [
-          `${c.countryCode}/${c.language}`,
+          marketKey(c),
           {
             countryCode: c.countryCode,
             language: c.language,

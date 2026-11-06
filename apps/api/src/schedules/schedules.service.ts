@@ -1,7 +1,7 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Injectable, Logger, Module, NotFoundException, Param, Patch, Post, Put } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { Prisma, ReportSchedule } from '@prisma/client';
-import { BrandingService } from '../branding/branding';
+import { BrandingService, emailLogoUrl } from '../branding/branding';
 import { z } from 'zod';
 import { AuditService } from '../audit/audit.service';
 import { CurrentUser, EDITORS, Roles } from '../auth/decorators';
@@ -98,11 +98,11 @@ export class SchedulesService {
     const ordered = kind === 'overall' ? [...rows].sort((a, b) => b.completes - a.completes || b.clicks - a.clicks) : rows;
     const email = renderEmail({
       org: org.name, name: s.name, reportLabel: REPORTS[kind], from, to, filters: labels, totals: totals[0] ?? null, rows: ordered, rowLabel: GROUP[kind].rowLabel,
-      appUrl: brand.webBase, appName: brand.appName, logoUrl: brand.logoUrl, schedule: describe(s),
+      appUrl: brand.webBase, appName: brand.appName, logoUrl: emailLogoUrl(brand), schedule: describe(s),
     });
     const slug = s.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'report';
     const pdf = () =>
-      renderReportPdf({ org: org.name, title: s.name, reportLabel: REPORTS[kind], from, to, filters: labels, totals: totals[0] ?? null, rows: ordered, rowLabel: GROUP[kind].rowLabel, generated: new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC' });
+      renderReportPdf({ org: org.name, appName: brand.appName, custom: brand.custom, title: s.name, reportLabel: REPORTS[kind], from, to, filters: labels, totals: totals[0] ?? null, rows: ordered, rowLabel: GROUP[kind].rowLabel, generated: new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC' });
     return { ...email, brand, pdf, csv: toCsv(ordered), filename: `${slug}-${from}${from === to ? '' : `-to-${to}`}.csv`, rows: ordered.length, clicks: totals[0]?.clicks ?? 0 };
   }
 

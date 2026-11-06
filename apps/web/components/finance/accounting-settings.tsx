@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useMe } from '@/components/me';
 import { ErrorBox, Loading, Section, Toggle } from '@/components/ui';
 import { api, get } from '@/lib/api';
+import { Label } from '@/components/help';
 
 interface Config {
   partyName: 'name' | 'code'; itemName: string; incomeAccount: string; expenseAccount: string; receivableAccount: string; payableAccount: string; salesTaxAccount: string; purchaseTaxAccount: string; bankAccount: string; paymentMode: string;
@@ -58,14 +59,14 @@ export function AccountingSettings({ onClose }: { onClose: () => void }) {
             </label>
           ))}
           <label className="block">
-            <span className="label">Customers and vendors by</span>
+            <Label>Customers and vendors by</Label>
             <select className="input" disabled={!admin} value={c.partyName} onChange={(e) => set({ partyName: e.target.value as Config['partyName'] })}>
               <option value="name">Name (Acme Insights)</option>
               <option value="code">Code (ACME)</option>
             </select>
           </label>
           <label className="block">
-            <span className="label">Date format</span>
+            <Label>Date format</Label>
             <select className="input" disabled={!admin} value={c.dateFormat} onChange={(e) => set({ dateFormat: e.target.value as Config['dateFormat'] })}>
               <option value="yyyy-mm-dd">2026-10-31</option>
               <option value="dd/mm/yyyy">31/10/2026</option>
@@ -73,7 +74,7 @@ export function AccountingSettings({ onClose }: { onClose: () => void }) {
             </select>
           </label>
           <label className="block">
-            <span className="label">Timezone for dates</span>
+            <Label>Timezone for dates</Label>
             {input(c.timezone, (v) => set({ timezone: v }), 'Asia/Kolkata')}
           </label>
         </div>

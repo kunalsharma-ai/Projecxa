@@ -90,7 +90,7 @@ export function RedirectVersions({ projectId, versions, editable, vendorName, on
     [s.vendorId && (vendorName[s.vendorId] ?? 'Vendor'), s.countryCode && `${flag(s.countryCode)} ${s.countryCode}`].filter(Boolean).join(' + ') || 'Project';
 
   return (
-    <Section title={<span className="flex items-center gap-2"><History className="h-4 w-4" /> Version history</span>}>
+    <Section help="project.redirectVersions" title={<span className="flex items-center gap-2"><History className="h-4 w-4" /> Version history</span>}>
       <ErrorBox error={error} />
       <div className="-mx-5 overflow-x-auto">
         <table className="w-full min-w-[760px]">

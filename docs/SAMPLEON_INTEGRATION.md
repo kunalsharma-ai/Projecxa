@@ -1,27 +1,27 @@
-# PROJEXA → SAMPLEON: audiences from SUPPLY360 panels
+# SampTrek → SAMPLEON: audiences from SUPPLY360 panels
 
 > **Name change:** SAMPLEON is now shown to people as **SampAudience** (by Sampledge). The project tab, its text and the API's error messages use the new name and logo (`apps/web/public/brand/sampaudience/`); `?tab=sampleon` links still open the tab. API paths, `SAMPLEON_*` env vars, the event source `SAMPLEON` and database names are unchanged.
 
 SAMPLEON is the Sampledge audience, invitation and routing engine (repository
-`kunalsharma-ai/Sampleon`; design in its `docs/ECOSYSTEM_ARCHITECTURE.md`). For a PROJEXA
+`kunalsharma-ai/Sampleon`; design in its `docs/ECOSYSTEM_ARCHITECTURE.md`). For a SampTrek
 project the flow is:
 
 ```
-PROJEXA project → SAMPLEON audience request → SUPPLY360 panelists → ZAPX survey → SAMPLEON → PROJEXA
+SampTrek project → SAMPLEON audience request → SUPPLY360 panelists → ZAPX survey → SAMPLEON → SampTrek
 ```
 
-**Who owns what.** PROJEXA owns the project, its requirements, budgets, milestones, project-level
+**Who owns what.** SampTrek owns the project, its requirements, budgets, milestones, project-level
 targets and approved changes, progress tracking and reporting. SAMPLEON owns targeting,
 feasibility, the human approval of the audience, invitations, live quota counting and routing.
-SUPPLY360 owns the respondents. ZAPX hosts the survey. PROJEXA therefore keeps no respondent list
+SUPPLY360 owns the respondents. ZAPX hosts the survey. SampTrek therefore keeps no respondent list
 and no second quota counter for SAMPLEON respondents: SAMPLEON's completes are shown next to
-(not added to) the completes PROJEXA routed itself through its vendors.
+(not added to) the completes SampTrek routed itself through its vendors.
 
 ## Setup
 
 Set `SAMPLEON_URL`, `SAMPLEON_CLIENT_ID` (default `projexa`) and `SAMPLEON_CLIENT_SECRET` on the
-API (`apps/api/.env.example`). In SAMPLEON, register client `projexa` (system `PROJEXA`) with the
-same secret and the webhook URL `{PROJEXA_API}/api/v1/integrations/sampleon/events`.
+API (`apps/api/.env.example`). In SAMPLEON, register client `projexa` (system `PROJEXA`, the identifier SampTrek still sends as `source.platform`) with the
+same secret and the webhook URL `{SAMPTREK_API}/api/v1/integrations/sampleon/events`.
 
 ## Ask SAMPLEON for an audience
 
@@ -31,12 +31,12 @@ same secret and the webhook URL `{PROJEXA_API}/api/v1/integrations/sampleon/even
 {
   "surveyId": "<ZAPX survey id>",
   "launchUrl": "https://take.zapx.example/s/<survey>?vid=SAMPLEON&uid={token}",
-  "targeting": { "naturalLanguage": "Find 1,500 cardiologists in the USA, UK and Germany with at least five years of professional experience for PROJEXA Project PRJ-1045." },
+  "targeting": { "naturalLanguage": "Find 1,500 cardiologists in the USA, UK and Germany with at least five years of professional experience for SampTrek Project PRJ-1045." },
   "rewardPoints": 1500
 }
 ```
 
-The launch URL comes from ZAPX (`POST /api/surveys/{id}/sampleon/connect`). PROJEXA fills in the
+The launch URL comes from ZAPX (`POST /api/surveys/{id}/sampleon/connect`). SampTrek fills in the
 rest from the project: countries, target completes per country (languages of one country add up),
 the longest LOI, the IR weighted by target, the fieldwork dates (or `fieldwork` in the body), the
 project code as `source.projectId`, and the organisation. `targeting.criteria` and `hostId` are
@@ -51,7 +51,7 @@ quota mapping.
 
 ## Quota cells as SUPPLY360 quotas
 
-PROJEXA cells count respondents by gate or prescreener answers; SAMPLEON counts its respondents by
+SampTrek cells count respondents by gate or prescreener answers; SAMPLEON counts its respondents by
 their SUPPLY360 profile. Each question a cell uses is therefore mapped once to a SUPPLY360 profile
 attribute (read from SAMPLEON's `GET /api/v1/attributes`), and each answer to one of the
 attribute's values. Answers whose label matches a value or one of its synonyms are matched
@@ -68,12 +68,12 @@ attributes, and a cell's range becomes `between`, `gte` or `lte`.
 A suggestion is never sent until a person saves it. Cells are left out when they use device (known
 only when the respondent opens the survey), a question or answer that is not mapped, a removed
 question, or when they are closed. Cells of the languages of one country with the same conditions
-are added up into one SAMPLEON quota (`pjx-<cellId>`). PROJEXA keeps counting its own cells for the
+are added up into one SAMPLEON quota (`pjx-<cellId>`). SampTrek keeps counting its own cells for the
 respondents it routes itself; SAMPLEON counts its quotas for the respondents it invites.
 
 ## Approved changes
 
-After changing targets or fieldwork dates in PROJEXA,
+After changing targets or fieldwork dates in SampTrek,
 `POST /api/v1/projects/{id}/sampleon/{requestId}/sync` sends them to SAMPLEON
 (`PATCH /api/v1/audience-requests/{AR-id}`), where quota targets update in place. A request sent
 with the project's quota cells also re-sends them, translated with the current map.
@@ -91,4 +91,4 @@ the latest per-country snapshot.
 
 `apps/api/test/e2e/sampleon.e2e.spec.ts`, `apps/api/test/unit/sampleon-quotas.spec.ts` (the
 translation), and SAMPLEON's `e2e/ecosystem/run.mjs`, which runs the
-workflow with PROJEXA, SAMPLEON, SUPPLY360 and ZAPX together.
+workflow with SampTrek, SAMPLEON, SUPPLY360 and ZAPX together.

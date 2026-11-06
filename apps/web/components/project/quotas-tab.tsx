@@ -6,6 +6,7 @@ import type { ProjectDetail } from '@/components/project/types';
 import { Empty, ErrorBox, Loading, Progress, Section, StatusChip } from '@/components/ui';
 import { api, get, patch } from '@/lib/api';
 import { flag } from '@/lib/countries';
+import { Label } from '@/components/help';
 
 type Source = 'device' | 'gate' | 'prescreen';
 export interface Condition { source: Source; questionId?: string; values?: string[]; min?: number; max?: number }
@@ -18,7 +19,7 @@ interface QuotaView {
   countries: { id: string; countryCode: string; language: string; status: string; targetCompletes: number; completes: number; quotas: Cell[] }[];
 }
 
-const DEVICES = [{ id: 'desktop', label: 'Desktop' }, { id: 'mobile', label: 'Mobile' }, { id: 'tablet', label: 'Tablet' }];
+const DEVICES = [{ id: 'desktop', label: 'Desktop' }, { id: 'mobile', label: 'Mobile' }, { id: 'tablet', label: 'Tablet' }, { id: 'android', label: 'Android phone' }, { id: 'ios', label: 'iPhone (iOS)' }];
 const SOURCE_LABEL: Record<Source, string> = { device: 'Device', gate: 'Gate', prescreen: 'Prescreener' };
 
 /** Field key used by the condition's question picker: "device", "gate:age", "prescreen:pet". */
@@ -69,6 +70,7 @@ export function QuotasTab({ project, editable }: { project: ProjectDetail; edita
         ) : (
           <Section
             key={c.id}
+            help="project.quotaMarket"
             title={<span className="flex items-center gap-2">{flag(c.countryCode)} {c.countryCode} · {c.language.toUpperCase()} <StatusChip status={c.status} /></span>}
             actions={
               <div className="flex items-center gap-3">
@@ -168,8 +170,10 @@ function CellEditor({ view, project, country, onClose, onSaved }: { view: QuotaV
     if (!f || f.q.type === 'number') return;
     const base = condFromKey(from);
     const group = f.key === 'device' ? 'Device' : f.q.text.replace(/\?$/, '').slice(0, 60);
-    const each = Math.max(1, Math.round(country.targetCompletes / f.q.options.length));
-    setCells((all) => [...all, ...f.q.options.map((o) => ({ group, name: o.label.slice(0, 120), target: each, isOpen: true, conditions: [{ ...base, values: [o.id] }] }))]);
+    // Android / iOS are kinds of mobile, so a device split uses desktop / mobile / tablet only (no overlapping cells).
+    const options = f.key === 'device' ? f.q.options.filter((o) => o.id !== 'android' && o.id !== 'ios') : f.q.options;
+    const each = Math.max(1, Math.round(country.targetCompletes / options.length));
+    setCells((all) => [...all, ...options.map((o) => ({ group, name: o.label.slice(0, 120), target: each, isOpen: true, conditions: [{ ...base, values: [o.id] }] }))]);
     setFrom('');
   };
 
@@ -194,10 +198,10 @@ function CellEditor({ view, project, country, onClose, onSaved }: { view: QuotaV
 
   const choiceFields = fields.filter((f) => f.q.type !== 'number');
   return (
-    <Section title={<span>{flag(country.countryCode)} {country.countryCode} · edit quota cells</span>} actions={<button className="btn-ghost px-2 py-1 text-xs" onClick={onClose}><X className="h-3.5 w-3.5" /> Cancel</button>}>
+    <Section help="project.quotaMarket" title={<span>{flag(country.countryCode)} {country.countryCode} · edit quota cells</span>} actions={<button className="btn-ghost px-2 py-1 text-xs" onClick={onClose}><X className="h-3.5 w-3.5" /> Cancel</button>}>
       <div className="mb-4 flex flex-wrap items-end gap-2 rounded-lg border border-dashed border-line p-3">
         <label className="min-w-[220px] flex-1">
-          <span className="label">Quick add: one cell per answer of</span>
+          <Label>Quick add: one cell per answer of</Label>
           <select className="input" value={from} onChange={(e) => setFrom(e.target.value)}>
             <option value="">Choose a question…</option>
             {choiceFields.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
@@ -212,9 +216,9 @@ function CellEditor({ view, project, country, onClose, onSaved }: { view: QuotaV
         {cells.map((cell, i) => (
           <div key={cell.id ?? `new-${i}`} className="rounded-lg border border-line p-3">
             <div className="grid gap-2 sm:grid-cols-[1fr_1.4fr_110px_auto]">
-              <label><span className="label">Group</span><input className="input" placeholder="e.g. Gender" value={cell.group} onChange={(e) => set(i, { group: e.target.value })} /></label>
-              <label><span className="label">Cell name</span><input className="input" value={cell.name} onChange={(e) => set(i, { name: e.target.value })} /></label>
-              <label><span className="label">Target</span><input className="input tabular-nums" type="number" min={1} value={cell.target} onChange={(e) => set(i, { target: Number(e.target.value) })} /></label>
+              <label><Label>Group</Label><input className="input" placeholder="e.g. Gender" value={cell.group} onChange={(e) => set(i, { group: e.target.value })} /></label>
+              <label><Label>Cell name</Label><input className="input" value={cell.name} onChange={(e) => set(i, { name: e.target.value })} /></label>
+              <label><Label>Target</Label><input className="input tabular-nums" type="number" min={1} value={cell.target} onChange={(e) => set(i, { target: Number(e.target.value) })} /></label>
               <div className="flex items-end">
                 <button className="btn-ghost px-2.5" aria-label={`Remove ${cell.name || 'cell'}`} onClick={() => setCells((all) => all.filter((_, n) => n !== i))}><Trash2 className="h-4 w-4" /></button>
               </div>

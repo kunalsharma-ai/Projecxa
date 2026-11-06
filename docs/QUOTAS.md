@@ -8,7 +8,7 @@ Project → **Quotas** tab → **Add cells** / **Edit cells** for a market.
 
 - **Group** is a label for the table (Gender, Age). It has no effect on matching.
 - **Conditions** decide who counts. All conditions of a cell must match, so a cell with *Gender: Female* and *Age 18–34* only counts young women (interlocking).
-  - **Device**: desktop, mobile, tablet (known at entry).
+  - **Device**: desktop, mobile, tablet, or the phone system Android / iOS (known at entry). An Android or iOS value matches any device with that system, so "Device: iOS" counts iPhones. Quick add by device makes desktop / mobile / tablet cells only, so cells do not overlap.
   - **Gate survey / prescreener** questions of type single, dropdown or multi: pick one or more answers (any one matches; for multi, any chosen answer matches).
   - **Number** questions: an inclusive range (min, max or both).
   - Text and grid questions cannot be used.

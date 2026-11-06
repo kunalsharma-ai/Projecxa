@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BrandMark } from '@/components/gate';
+import { ProductLogo } from '@/components/gate';
 import { Backdrop, Card, Field, GradientButton, Muted } from '@/components/ui';
 import { apiRoot, createApi } from '@/lib/api';
 import type { SsoProviderId, SsoProviderInfo } from '@/lib/sso';
@@ -59,7 +59,7 @@ export default function Login() {
 
   const submit = async () => {
     setError(null);
-    if (!apiRoot(server)) return setError('Enter your PROJEXA server address');
+    if (!apiRoot(server)) return setError('Enter your SampTrek server address');
     setBusy(true);
     try {
       if (server !== s.server || web !== s.webUrl) await s.setServer(server, web);
@@ -81,8 +81,7 @@ export default function Login() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ padding: 20, paddingTop: insets.top + 40, gap: 18, flexGrow: 1, justifyContent: 'center' }} keyboardShouldPersistTaps="handled">
           <View style={{ alignItems: 'center', gap: 12 }}>
-            <BrandMark size={72} />
-            <Text style={{ color: c.text, fontSize: 30, fontWeight: '900', letterSpacing: 2 }}>PROJEXA</Text>
+            <ProductLogo height={72} />
             <Text style={{ color: c.muted, fontSize: 14, textAlign: 'center' }}>Plan · Program · Execute · Monitor · Deliver</Text>
           </View>
           <Card strong style={{ gap: 14 }}>
@@ -139,10 +138,10 @@ export default function Login() {
           </Pressable>
           {showServer && (
             <Card style={{ gap: 12 }}>
-              <Field label="Server address" value={server} onChangeText={setServer} autoCapitalize="none" keyboardType="url" placeholder="https://api.projexa.yourcompany.com" />
-              <Field label="Web app address (optional)" value={web} onChangeText={setWeb} autoCapitalize="none" keyboardType="url" placeholder="https://projexa.yourcompany.com" />
+              <Field label="Server address" value={server} onChangeText={setServer} autoCapitalize="none" keyboardType="url" placeholder="https://api.samptrek.yourcompany.com" />
+              <Field label="Web app address (optional)" value={web} onChangeText={setWeb} autoCapitalize="none" keyboardType="url" placeholder="https://samptrek.yourcompany.com" />
               <Field label="Organisation (only if asked)" value={org} onChangeText={setOrg} autoCapitalize="none" placeholder="your-org" />
-              <Muted>The server address is the PROJEXA API your company runs. The web address opens settings screens that live on the web.</Muted>
+              <Muted>The server address is the SampTrek API your company runs. The web address opens settings screens that live on the web.</Muted>
             </Card>
           )}
         </ScrollView>

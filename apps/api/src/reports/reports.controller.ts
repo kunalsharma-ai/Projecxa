@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get,
 import { Prisma } from '@prisma/client';
 import { Response } from 'express';
 import { AuditService } from '../audit/audit.service';
+import { BrandingService } from '../branding/branding';
 import { fileSlug } from '../pdf/pdf';
 import { renderReportPdf } from '../pdf/report-pdf';
 import { PrismaService } from '../prisma/prisma.service';
@@ -28,6 +29,7 @@ export class ReportsController {
   constructor(
     private readonly reports: ReportsService,
     private readonly prisma: PrismaService,
+    private readonly branding: BrandingService,
   ) {}
 
   @Get('options')
@@ -63,6 +65,7 @@ export class ReportsController {
       this.reports.labels(u.organizationId, f),
       this.reports.fxInfo(u.organizationId),
     ]);
+    const brand = await this.branding.brand(u.organizationId);
     const ordered = p.report === 'overall' ? [...rows].sort((a, b) => b.completes - a.completes || b.clicks - a.clicks) : rows;
     let generated: string;
     try {
@@ -71,7 +74,7 @@ export class ReportsController {
       generated = new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
     }
     const title = p.title || `${REPORTS[p.report]} report`;
-    const buf = await renderReportPdf({ org: org.name, title, reportLabel: REPORTS[p.report], from: f.from ?? null, to: f.to ?? null, filters: labels, totals: totals[0] ?? null, rows: ordered, rowLabel: g.rowLabel, generated, moneyMode: p.money, fx });
+    const buf = await renderReportPdf({ org: org.name, appName: brand.appName, custom: brand.custom, title, reportLabel: REPORTS[p.report], from: f.from ?? null, to: f.to ?? null, filters: labels, totals: totals[0] ?? null, rows: ordered, rowLabel: g.rowLabel, generated, moneyMode: p.money, fx });
     const name = `${fileSlug(title)}${f.from ? `-${f.from}` : ''}${f.to && f.to !== f.from ? `-to-${f.to}` : ''}.pdf`;
     res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${name}"`, 'Cache-Control': 'no-store' });
     res.send(buf);

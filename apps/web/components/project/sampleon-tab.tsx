@@ -1,7 +1,7 @@
 'use client';
 /**
  * SAMPLEON audience requests for a project (docs/SAMPLEON_INTEGRATION.md).
- * PROJEXA sends the project's requirements; SAMPLEON finds respondents in SUPPLY360, a person
+ * SampTrek sends the project's requirements; SAMPLEON finds respondents in SUPPLY360, a person
  * approves the audience in SAMPLEON, and progress comes back here. Quota cells are sent as
  * SUPPLY360 attribute quotas once their questions are mapped below.
  */
@@ -81,7 +81,7 @@ export function SampleonTab({ project, editable }: { project: ProjectDetail; edi
   if (!view.configured) {
     return (
       <Empty>
-        SampAudience is not connected. An administrator sets <code>SAMPLEON_URL</code> and <code>SAMPLEON_CLIENT_SECRET</code> for the API, and registers PROJEXA as a client in SampAudience.
+        SampAudience is not connected. An administrator sets <code>SAMPLEON_URL</code> and <code>SAMPLEON_CLIENT_SECRET</code> for the API, and registers SampTrek as a client in SampAudience.
       </Empty>
     );
   }
@@ -89,7 +89,7 @@ export function SampleonTab({ project, editable }: { project: ProjectDetail; edi
     <div className="space-y-5">
       <SampAudienceLogo />
       <p className="text-sm text-muted">
-        Ask SampAudience for respondents from the SUPPLY360 panels. SampAudience checks feasibility, a supply approver approves the audience before any invitation goes out, and progress comes back here. SampAudience completes are shown apart from the completes PROJEXA routes itself.
+        Ask SampAudience for respondents from the SUPPLY360 panels. SampAudience checks feasibility, a supply approver approves the audience before any invitation goes out, and progress comes back here. SampAudience completes are shown apart from the completes SampTrek routes itself.
       </p>
       <Requests project={project} rows={view.requests} editable={editable} reload={load} />
       {editable && <NewRequest project={project} onSent={load} />}
@@ -198,10 +198,10 @@ function NewRequest({ project, onSent }: { project: ProjectDetail; onSent: () =>
   return (
     <Section title="Request an audience">
       <form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
-        <Field label="Survey ID at the survey host" hint="For ZAPX, the survey's ID (zsv_…).">
+        <Field label="Survey ID at the survey host" hint="For SampCode, the survey's ID (zsv_…).">
           <input className="input" required maxLength={120} value={form.surveyId} onChange={(e) => set('surveyId', e.target.value)} />
         </Field>
-        <Field label="Launch link" hint="ZAPX shows it on the survey's SampAudience page. It must contain {token}.">
+        <Field label="Launch link" hint="SampCode shows it on the survey's SampAudience page. It must contain {token}.">
           <input className="input" required type="url" value={form.launchUrl} onChange={(e) => set('launchUrl', e.target.value)} placeholder="https://…?vid=SAMPLEON&uid={token}" />
         </Field>
         <div className="md:col-span-2">
@@ -300,7 +300,7 @@ function QuotaMapping({ project, editable }: { project: ProjectDetail; editable:
       ) : (
         <div className="space-y-5">
           <p className="text-sm text-muted">
-            SampAudience counts its respondents by their SUPPLY360 profile, not by gate answers. Map each question your cells use to a profile attribute once, and each answer to one of its values. Answers with the same name are matched for you. PROJEXA keeps counting its own cells for the respondents it routes itself.
+            SampAudience counts its respondents by their SUPPLY360 profile, not by gate answers. Map each question your cells use to a profile attribute once, and each answer to one of its values. Answers with the same name are matched for you. SampTrek keeps counting its own cells for the respondents it routes itself.
           </p>
           {pending && (
             <div className="flex items-start gap-2 rounded-lg border border-warn/30 bg-warn/10 p-3 text-sm text-warn">

@@ -8,6 +8,7 @@ import { useMe } from '@/components/me';
 import { ErrorBox, Loading, Section, Toggle } from '@/components/ui';
 import { API_URL, api, get, post } from '@/lib/api';
 import { Run, Settings, STATUS, summary } from './zoho-books-sync';
+import { Label } from '@/components/help';
 
 type Provider = 'xero' | 'quickbooks' | 'tally';
 interface Conn {
@@ -20,7 +21,7 @@ interface TestResult { ok: boolean; checks: { label: string; ok: boolean; detail
 const ABOUT: Record<Provider, string> = {
   xero: 'Sales invoices, bills, payments and voids go straight into your Xero organisation. An admin signs in to Xero once and picks the organisation.',
   quickbooks: 'Invoices, bills, payments and voids go straight into your QuickBooks Online company. An admin signs in to Intuit once and picks the company.',
-  tally: 'Sales, Purchase, Receipt and Payment vouchers are posted to Tally Prime’s XML server, in the reporting currency. The Tally computer must be reachable from the PROJEXA server, for example over a VPN.',
+  tally: 'Sales, Purchase, Receipt and Payment vouchers are posted to Tally Prime’s XML server, in the reporting currency. The Tally computer must be reachable from the SampTrek server, for example over a VPN.',
 };
 
 /** Direct sync to Xero, QuickBooks Online and Tally Prime: connect, settings, test, sync now and the run history. */
@@ -109,7 +110,7 @@ export function LedgerSync({ onSynced }: { onSynced?: () => void }) {
             {c.redirectUri && <p className="mt-2 text-xs text-muted">Redirect URI for the app: <code className="break-all font-mono text-ink">{c.redirectUri}</code></p>}
           </div>
         ) : c.otherTenant ? (
-          <p className="rounded-lg border border-dashed border-line p-4 text-sm text-muted">This server&rsquo;s Tally Prime connection belongs to another PROJEXA organisation.</p>
+          <p className="rounded-lg border border-dashed border-line p-4 text-sm text-muted">This server&rsquo;s Tally Prime connection belongs to another SampTrek organisation.</p>
         ) : !c.connected ? (
           <div className="rounded-lg border border-dashed border-line p-4 text-sm">
             {c.status === 'expired' ? (
@@ -155,7 +156,7 @@ export function LedgerSync({ onSynced }: { onSynced?: () => void }) {
           <>
             <div className="grid gap-4 sm:grid-cols-[12rem_minmax(0,1fr)]">
               <label className="block">
-                <span className="label">Sync documents from</span>
+                <Label>Sync documents from</Label>
                 <input type="date" className="input" disabled={!admin} value={form.since ?? ''} onChange={(e) => set({ since: e.target.value || null })} />
                 <span className="mt-1 block text-xs text-muted">Invoice or bill date. Older ones are left alone.</span>
               </label>

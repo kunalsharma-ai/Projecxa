@@ -70,7 +70,7 @@ export default function SettingsPage() {
           <Field label="Allowed domains (one per line)" hint="example.com or *.example.com">
             <textarea className="input min-h-[160px] font-mono text-xs" disabled={!isAdmin} value={domains} onChange={(e) => setDomains(e.target.value)} />
           </Field>
-          <Field label="Fallback URL" hint="Used when no rule applies or a destination is blocked. Must be on the allowlist; otherwise PROJEXA shows its own end page.">
+          <Field label="Fallback URL" hint="Used when no rule applies or a destination is blocked. Must be on the allowlist; otherwise SampTrek shows its own end page.">
             <input className="input" disabled={!isAdmin} value={fallback} onChange={(e) => setFallback(e.target.value)} />
           </Field>
         </div>

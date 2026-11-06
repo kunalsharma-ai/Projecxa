@@ -1,4 +1,5 @@
 'use client';
+import { Copyable } from '@/components/copy';
 import clsx from 'clsx';
 import { Ban, Download, KeyRound, Link2, Search } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -149,7 +150,7 @@ export function UniqueLinksTab({ project, editable }: { project: ProjectDetail; 
       </p>
 
       {editable && (
-        <Section title={<span className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-brand" /> Generate unique links</span>}>
+        <Section help="project.uniqueLinks.generate" title={<span className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-brand" /> Generate unique links</span>}>
           {allocations.length === 0 ? (
             <Empty>Add a vendor on the Vendors &amp; links tab first. Unique links belong to a vendor in a market, so completes, payouts and callbacks are counted correctly.</Empty>
           ) : (
@@ -252,6 +253,7 @@ export function UniqueLinksTab({ project, editable }: { project: ProjectDetail; 
       )}
 
       <Section
+        help="project.uniqueLinks.list"
         title="Links"
         actions={
           <button className="btn-ghost px-2.5 py-1.5 text-xs" disabled={!links?.total} onClick={() => download(filter)}>
@@ -302,7 +304,7 @@ export function UniqueLinksTab({ project, editable }: { project: ProjectDetail; 
                 <tbody className="divide-y divide-line">
                   {links.rows.map((l) => (
                     <tr key={l.id}>
-                      <td className="td font-mono text-xs">{l.key}</td>
+                      <td className="td font-mono text-xs"><Copyable text={l.key} label="link key" /></td>
                       <td className="td whitespace-nowrap text-sm">{l.vendorAllocation.projectCountry.countryCode} · {l.vendorAllocation.vendor.name}</td>
                       <td className="td"><span className={clsx('chip', LINK_TONE[l.shownStatus])}>{LINK_LABEL[l.shownStatus]}</span></td>
                       <td className="td">{l.session ? <OutcomeChip status={l.session.status} /> : <span className="text-xs text-muted">{l.shownStatus === 'USED' ? 'Turned away at entry' : '–'}</span>}</td>

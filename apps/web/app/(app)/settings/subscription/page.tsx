@@ -8,6 +8,7 @@ import { Empty, ErrorBox, Loading, PageHeader, Section } from '@/components/ui';
 import { api, ApiError, FEATURES_EVENT, get, post } from '@/lib/api';
 import { downloadFile } from '@/lib/download';
 import { BillingInvoice, day, fmtMoney, INVOICE_STATUS, METHOD_LABEL, SUB_STATUS, type SubStatus } from '@/lib/super-admin';
+import { Label } from '@/components/help';
 
 type Interval = 'MONTHLY' | 'YEARLY';
 interface PlanOffer { id: string; code: string; name: string; description: string | null; priceLabel: string | null; currency: string; priceMonthly: number | null; priceYearly: number | null; maxUsers: number | null; maxProjects: number | null; mobileEnabled: boolean; features: number }
@@ -75,7 +76,7 @@ function Subscription() {
   if (data.owner) return (
     <>
       <PageHeader title="Subscription" />
-      <Empty>Your organisation runs this PROJEXA server, so it has every feature and pays for nothing. Organisations’ payments are in Super Admin → Billing.</Empty>
+      <Empty>Your organisation runs this SampTrek server, so it has every feature and pays for nothing. Organisations’ payments are in Super Admin → Billing.</Empty>
     </>
   );
 
@@ -117,7 +118,7 @@ function Subscription() {
 
   return (
     <>
-      <PageHeader title="Subscription" subtitle={`Your organisation’s PROJEXA plan, payments and invoices${data.seller ? ` from ${data.seller}` : ''}.`} />
+      <PageHeader title="Subscription" subtitle={`Your organisation’s SampTrek plan, payments and invoices${data.seller ? ` from ${data.seller}` : ''}.`} />
       <ErrorBox error={error} />
       {note && <div className="mb-4 flex items-start gap-2 rounded-lg bg-ok/10 p-3 text-sm text-ok" role="status"><Check className="mt-0.5 h-4 w-4 shrink-0" />{note}</div>}
       {busy === 'stripe' && <Loading label="Checking the payment with Stripe" />}
@@ -137,7 +138,7 @@ function Subscription() {
         {sub?.billingInterval && <div className="text-sm"><div className="text-xs text-muted">Billing</div><div className="font-medium">{sub.billingInterval === 'YEARLY' ? 'Yearly' : 'Monthly'}</div></div>}
       </div>
 
-      {data.plans.length === 0 ? <Empty>No plans can be bought online yet. Contact your PROJEXA provider to renew.</Empty> : (
+      {data.plans.length === 0 ? <Empty>No plans can be bought online yet. Contact your SampTrek provider to renew.</Empty> : (
         <Section title={sub ? 'Renew or change plan' : 'Choose a plan'} actions={hasYearly && (
           <div className="inline-flex rounded-full border border-line p-0.5 text-sm" role="radiogroup" aria-label="Billing period">
             {(['MONTHLY', 'YEARLY'] as const).map((i) => (
@@ -186,9 +187,9 @@ function Subscription() {
               </div>
               <p className="mt-3 flex items-center gap-1.5 text-xs text-muted"><ShieldCheck className="h-3.5 w-3.5" />
                 {renewing ? `Paying adds ${interval === 'YEARLY' ? 'a year' : 'a month'} after your current end date.` : `Your plan changes to ${plan!.name} as soon as the payment is confirmed; the time you already paid for is kept.`}
-                {data.online.providers.length > 0 && ' Card and bank details go to the payment provider, never to PROJEXA.'}
+                {data.online.providers.length > 0 && ' Card and bank details go to the payment provider, never to SampTrek.'}
               </p>
-              {!data.online.providers.length && !data.offline && <p className="mt-2 text-sm text-warn">Payments are not set up yet. Contact your PROJEXA provider.</p>}
+              {!data.online.providers.length && !data.offline && <p className="mt-2 text-sm text-warn">Payments are not set up yet. Contact your SampTrek provider.</p>}
             </div>
           )}
         </Section>
@@ -264,18 +265,18 @@ function OfflineForm({ data, plan, interval, total, onClose, onDone }: {
         </div>
         <div className="mb-5 grid gap-3 sm:grid-cols-2">
           {data.bankDetails && <div className="rounded-lg bg-sunken p-3 text-sm"><div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-muted"><Building2 className="h-3.5 w-3.5" />Bank transfer</div><pre className="whitespace-pre-wrap font-sans">{data.bankDetails}</pre></div>}
-          {data.upiId && <div className="rounded-lg bg-sunken p-3 text-sm"><div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-muted"><QrCode className="h-3.5 w-3.5" />UPI</div><div className="font-medium">{data.upiId}</div><a className="mt-1 inline-block text-xs text-brand hover:underline" href={`upi://pay?pa=${encodeURIComponent(data.upiId)}&am=${total.toFixed(2)}&cu=${plan.currency}&tn=${encodeURIComponent(`PROJEXA ${plan.name}`)}`}>Open in a UPI app</a></div>}
+          {data.upiId && <div className="rounded-lg bg-sunken p-3 text-sm"><div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-muted"><QrCode className="h-3.5 w-3.5" />UPI</div><div className="font-medium">{data.upiId}</div><a className="mt-1 inline-block text-xs text-brand hover:underline" href={`upi://pay?pa=${encodeURIComponent(data.upiId)}&am=${total.toFixed(2)}&cu=${plan.currency}&tn=${encodeURIComponent(`SampTrek ${plan.name}`)}`}>Open in a UPI app</a></div>}
           {data.instructions && <p className="text-sm text-muted sm:col-span-2">{data.instructions}</p>}
         </div>
         <ErrorBox error={error} />
         <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
-          <label className="block"><span className="label">How you paid</span>
+          <label className="block"><Label>How you paid</Label>
             <select className="input" value={method} onChange={(e) => setMethod(e.target.value)}>{data.methods.map((m) => <option key={m} value={m}>{METHOD_LABEL[m] ?? m}</option>)}</select>
           </label>
-          <label className="block"><span className="label">Paid on</span><input className="input" type="date" required max={new Date().toISOString().slice(0, 10)} value={paidOn} onChange={(e) => setPaidOn(e.target.value)} /></label>
+          <label className="block"><Label>Paid on</Label><input className="input" type="date" required max={new Date().toISOString().slice(0, 10)} value={paidOn} onChange={(e) => setPaidOn(e.target.value)} /></label>
           <label className="block sm:col-span-2"><span className="label">{method === 'upi' ? 'UPI transaction ID (UTR)' : method === 'cheque' ? 'Cheque number and bank' : 'Transaction reference'}</span><input className="input" required minLength={2} maxLength={120} value={reference} onChange={(e) => setReference(e.target.value)} placeholder={method === 'upi' ? 'e.g. 431298765432' : 'e.g. NEFT N123456789'} /></label>
-          <label className="block sm:col-span-2"><span className="label">Note (optional)</span><input className="input" maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} /></label>
-          <label className="block sm:col-span-2"><span className="label">Proof of payment (optional, PDF or image, up to 5 MB)</span>
+          <label className="block sm:col-span-2"><Label>Note (optional)</Label><input className="input" maxLength={1000} value={note} onChange={(e) => setNote(e.target.value)} /></label>
+          <label className="block sm:col-span-2"><Label>Proof of payment (optional, PDF or image, up to 5 MB)</Label>
             <span className="flex items-center gap-3 rounded-lg border border-dashed border-line p-3 text-sm">
               <FileUp className="h-4 w-4 text-muted" /><input type="file" accept="application/pdf,image/png,image/jpeg,image/webp" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
             </span>

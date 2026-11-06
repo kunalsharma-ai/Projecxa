@@ -199,7 +199,7 @@ export class WebhooksController {
   @Post(':id/test')
   async test(@CurrentUser() u: AuthUser, @Param('id') id: string) {
     const e = await this.own(u, id);
-    const body = JSON.stringify({ id: `evt_test_${randomToken(6)}`, event: 'ping', createdAt: new Date().toISOString(), data: { message: 'Your PROJEXA webhook works.' } });
+    const body = JSON.stringify({ id: `evt_test_${randomToken(6)}`, event: 'ping', createdAt: new Date().toISOString(), data: { message: 'Your SampTrek webhook works.' } });
     return this.hooks.send(e.url, e.secret, 'test', 'ping', body);
   }
 

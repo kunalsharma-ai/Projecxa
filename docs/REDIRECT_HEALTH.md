@@ -2,7 +2,7 @@
 
 `/redirect-health` (nav: **Redirect health**, all staff) answers one question: are respondents reaching the right place? It covers every project or one project (`?project=<id>`) over the last hour, 24 hours or 7 days. It refreshes every minute.
 
-It reads only what PROJEXA already records, so there is nothing to set up. Test traffic is always left out.
+It reads only what SampTrek already records, so there is nothing to set up. Test traffic is always left out.
 
 | Source | What it shows |
 | --- | --- |

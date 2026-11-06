@@ -6,9 +6,12 @@ import { CurrentUser, EDITORS, Roles } from '../auth/decorators';
 import { AuthUser } from '../auth/auth.types';
 import { ZodPipe } from '../common/zod.pipe';
 import {
+  addCountrySchema,
   allocationSchema,
+  bulkCountriesSchema,
+  bulkStatusSchema,
   cloneCountrySchema,
-  countryInputSchema,
+  cloneProjectSchema,
   createProjectSchema,
   CreateProjectInput,
   listQuerySchema,
@@ -34,6 +37,18 @@ export class ProjectsController {
     return this.projects.create(u, body);
   }
 
+  @Post('bulk-status')
+  @Roles(...EDITORS)
+  bulkStatus(@CurrentUser() u: AuthUser, @Body(new ZodPipe(bulkStatusSchema)) body: z.infer<typeof bulkStatusSchema>) {
+    return this.projects.bulkStatus(u, body);
+  }
+
+  @Post(':id/clone')
+  @Roles(...EDITORS)
+  cloneProject(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body(new ZodPipe(cloneProjectSchema)) body: z.infer<typeof cloneProjectSchema>) {
+    return this.projects.cloneProject(u, id, body);
+  }
+
   @Get(':id')
   get(@CurrentUser() u: AuthUser, @Param('id') id: string) {
     return this.projects.get(u, id);
@@ -47,7 +62,7 @@ export class ProjectsController {
 
   @Post(':id/countries')
   @Roles(...EDITORS)
-  addCountry(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body(new ZodPipe(countryInputSchema)) body: z.infer<typeof countryInputSchema>) {
+  addCountry(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body(new ZodPipe(addCountrySchema)) body: z.infer<typeof addCountrySchema>) {
     return this.projects.addCountry(u, id, body);
   }
 
@@ -55,6 +70,12 @@ export class ProjectsController {
   @Roles(...EDITORS)
   clone(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body(new ZodPipe(cloneCountrySchema)) body: z.infer<typeof cloneCountrySchema>) {
     return this.projects.cloneCountry(u, id, body);
+  }
+
+  @Patch(':id/countries/bulk')
+  @Roles(...EDITORS)
+  bulkCountries(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body(new ZodPipe(bulkCountriesSchema)) body: z.infer<typeof bulkCountriesSchema>) {
+    return this.projects.bulkCountries(u, id, body);
   }
 
   @Patch(':id/countries/:countryId')

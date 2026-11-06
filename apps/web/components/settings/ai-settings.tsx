@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ErrorBox, Loading, Section, Toggle } from '@/components/ui';
 import { api, get } from '@/lib/api';
 import type { AiSettings, AiStatus } from '@/lib/ai';
+import { Label } from '@/components/help';
 
 interface Usage { byDay: { day: string; requests: number; failed: number; prompt: number; output: number }[]; today: { name: string; requests: number; tokens: number }[]; recentErrors: { createdAt: string; model: string; kind: string; error: string | null }[]; actions: Record<string, number> }
 const ROLES = [['ADMIN', 'Admins'], ['PROJECT_MANAGER', 'Project managers'], ['SALES', 'Sales'], ['VIEWER', 'Viewers']] as const;
@@ -48,7 +49,7 @@ export function AiCopilotSettings() {
           ))}
         </div>
         <div>
-          <span className="label">Who can use it</span>
+          <Label>Who can use it</Label>
           <div className="flex flex-wrap gap-4">
             {ROLES.map(([r, label]) => (
               <label key={r} className="inline-flex items-center gap-2 text-sm"><input type="checkbox" disabled={r === 'ADMIN'} checked={r === 'ADMIN' || s.roles.includes(r)} onChange={(e) => set({ roles: e.target.checked ? [...s.roles, r] : s.roles.filter((x) => x !== r) })} />{label}</label>

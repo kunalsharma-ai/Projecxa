@@ -82,6 +82,14 @@
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
 }
 
+/* Country flags: Windows has no flag emoji, so flags come from this font (regional indicator letters only). */
+@font-face {
+  font-family: 'Country Flags';
+  unicode-range: U+1F1E6-1F1FF, U+1F3F4, U+E0062-E0063, U+E0065, U+E0067, U+E006C, U+E006E, U+E0073-E0074, U+E0077, U+E007F;
+  src: url('/fonts/TwemojiCountryFlags.woff2') format('woff2');
+  font-display: swap;
+}
+
 html { font-size: var(--font-scale); }
 html, body { background: rgb(var(--bg)); color: rgb(var(--ink)); }
 body {
@@ -170,6 +178,11 @@ body {
 .dark-show { display: none; }
 [data-mode='dark'] .dark-show { display: inline-block; }
 [data-mode='dark'] .dark-hide { display: none; }
+/* The product logo has a version for dark and one for light backgrounds; the sidebar follows its own tone. */
+.sb-dark-logo { display: inline-block; }
+.sb-light-logo { display: none; }
+[data-sidebar-tone='light'] .sb-dark-logo { display: none; }
+[data-sidebar-tone='light'] .sb-light-logo { display: inline-block; }
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Neon Command (docs/NEON_DESIGN.md). Everything below is scoped to the neon theme and

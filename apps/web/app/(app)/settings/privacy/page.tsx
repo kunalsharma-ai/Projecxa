@@ -5,6 +5,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useMe } from '@/components/me';
 import { ErrorBox, Loading, OutcomeChip, PageHeader, Section, Toggle } from '@/components/ui';
 import { api, get, post } from '@/lib/api';
+import { Label } from '@/components/help';
 
 interface Retention { respondentDays: number | null; eventDays: number | null }
 interface Preview { sessions: number; events: number; waitingForApproval: number }
@@ -110,10 +111,10 @@ export default function PrivacyPage() {
         <div className="space-y-6">
           <Section title={<span className="flex items-center gap-2"><History className="h-4 w-4 text-brand" /> Data retention</span>}>
             <form onSubmit={saveRetention} className="grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
-              <label className="block"><span className="label">Anonymise respondents after (days)</span>
+              <label className="block"><Label>Anonymise respondents after (days)</Label>
                 <input className="input" type="number" min={data.minDays} max={3650} placeholder="Keep" value={keep.respondentDays} disabled={!admin} onChange={(e) => setKeep({ ...keep, respondentDays: e.target.value })} />
               </label>
-              <label className="block"><span className="label">Delete the event log after (days)</span>
+              <label className="block"><Label>Delete the event log after (days)</Label>
                 <input className="input" type="number" min={data.minDays} max={3650} placeholder="Keep" value={keep.eventDays} disabled={!admin} onChange={(e) => setKeep({ ...keep, eventDays: e.target.value })} />
               </label>
               {admin && <button className="btn-primary" disabled={busy}>Save</button>}
@@ -141,14 +142,14 @@ export default function PrivacyPage() {
             </p>
             {editing && (
               <form onSubmit={saveNotice} className="mb-5 grid gap-4 rounded-lg border border-line bg-sunken/40 p-4 md:grid-cols-[10rem_1fr]">
-                <label className="block"><span className="label">Market</span>
+                <label className="block"><Label>Market</Label>
                   <input className="input font-mono uppercase" value={editing.countryCode} disabled={!isNew} maxLength={2} placeholder="DE or *" required onChange={(e) => setEditing({ ...editing, countryCode: e.target.value })} />
                 </label>
-                <label className="block"><span className="label">Title</span><input className="input" value={editing.title} maxLength={120} required onChange={(e) => setEditing({ ...editing, title: e.target.value })} /></label>
-                <label className="block md:col-span-2"><span className="label">What respondents read</span>
+                <label className="block"><Label>Title</Label><input className="input" value={editing.title} maxLength={120} required onChange={(e) => setEditing({ ...editing, title: e.target.value })} /></label>
+                <label className="block md:col-span-2"><Label>What respondents read</Label>
                   <textarea className="input min-h-[9rem]" value={editing.body} maxLength={4000} required placeholder="Who you are, what you collect (answers, a hashed IP address, device type), why, how long you keep it, and how to ask for it to be deleted." onChange={(e) => setEditing({ ...editing, body: e.target.value })} />
                 </label>
-                <label className="block md:col-span-2"><span className="label">Full privacy notice (optional)</span><input className="input" type="url" placeholder="https://" value={editing.privacyUrl} onChange={(e) => setEditing({ ...editing, privacyUrl: e.target.value })} /></label>
+                <label className="block md:col-span-2"><Label>Full privacy notice (optional)</Label><input className="input" type="url" placeholder="https://" value={editing.privacyUrl} onChange={(e) => setEditing({ ...editing, privacyUrl: e.target.value })} /></label>
                 <div className="flex flex-wrap items-center gap-3 md:col-span-2">
                   <Toggle checked={editing.enabled} onChange={(v) => setEditing({ ...editing, enabled: v })} label="Show this notice" />
                   <span className="text-xs text-muted">Changing the wording starts a new version; each respondent&apos;s agreed version is kept.</span>
@@ -182,7 +183,7 @@ export default function PrivacyPage() {
           {admin && (
             <Section title={<span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-brand" /> Access and erasure requests</span>}>
               <form onSubmit={search} className="flex flex-wrap items-end gap-3">
-                <label className="block min-w-[14rem] flex-1"><span className="label">Respondent ID the panel uses</span><input className="input font-mono" value={uid} onChange={(e) => setUid(e.target.value)} placeholder="e.g. 8f3a2c91" required /></label>
+                <label className="block min-w-[14rem] flex-1"><Label>Respondent ID the panel uses</Label><input className="input font-mono" value={uid} onChange={(e) => setUid(e.target.value)} placeholder="e.g. 8f3a2c91" required /></label>
                 <button className="btn-ghost" disabled={busy || !uid.trim()}><Search className="h-4 w-4" /> Find</button>
               </form>
               {found && (found.length === 0 ? <p className="mt-4 text-sm text-muted">No sessions with that ID (it may already be erased).</p> : (

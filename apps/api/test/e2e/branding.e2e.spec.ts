@@ -48,7 +48,7 @@ describe('White-label branding (e2e)', () => {
 
   it('starts with the default brand and lets only admins change it', async () => {
     const start = (await pm.get('/branding').expect(200)).body;
-    expect(start.brand).toMatchObject({ appName: 'PROJEXA', custom: false, logoUrl: null });
+    expect(start.brand).toMatchObject({ appName: 'SampTrek', custom: false, logoUrl: null });
     const body = { appName: 'Acme Insight Hub', tagline: 'Fieldwork by Acme', brandColor: '#0f766e', theme: 'emerald', hidePoweredBy: true, supportEmail: 'help@acme.example', emailFromName: 'Acme Fieldwork', emailReplyTo: 'ops@acme.example', loginMessage: 'Staff and partners only.' };
     await pm.put('/branding', body).expect(403);
     await admin.put('/branding', { ...body, brandColor: 'teal' }).expect(400);
@@ -58,7 +58,7 @@ describe('White-label branding (e2e)', () => {
     expect(saved.brand).toMatchObject({ appName: 'Acme Insight Hub', custom: true, brandColor: '#0f766e', theme: 'emerald', hidePoweredBy: true });
     const me = (await pm.get('/auth/me').expect(200)).body;
     expect(me.branding).toMatchObject({ appName: 'Acme Insight Hub', hidePoweredBy: true });
-    expect((await other.get('/auth/me').expect(200)).body.branding.appName).toBe('PROJEXA');
+    expect((await other.get('/auth/me').expect(200)).body.branding.appName).toBe('SampTrek');
   });
 
   it('accepts PNG, JPEG and WebP logos only, and serves them publicly with a locked-down policy', async () => {
@@ -89,7 +89,7 @@ describe('White-label branding (e2e)', () => {
     await other.put('/branding/domain', { domain: 'research.acme.example' }).expect(409);
 
     // Not used before it is verified.
-    expect((await http().get('/api/v1/public/branding?host=research.acme.example').expect(200)).body).toMatchObject({ default: true, appName: 'PROJEXA' });
+    expect((await http().get('/api/v1/public/branding?host=research.acme.example').expect(200)).body).toMatchObject({ default: true, appName: 'SampTrek' });
     txt = [['projexa-verify=wrong']];
     expect((await admin.post('/branding/domain/verify').expect(200)).body).toMatchObject({ verified: false, found: 1 });
     txt = [['unrelated'], [set.domain.record.value.slice(0, 20), set.domain.record.value.slice(20)]];
@@ -118,7 +118,7 @@ describe('White-label branding (e2e)', () => {
     expect(mail.subject).toBe('You’re invited to brand on Acme Insight Hub'.replace('’', "'"));
     expect(mail.html).toContain('/api/v1/public/branding/brand/logo');
     expect(mail.html).toContain('background:#0f766e');
-    expect(mail.html).not.toContain('PROJEXA');
+    expect(mail.html).not.toContain('SampTrek');
     expect(mail.text).toContain('https://hub.acme.example/set-password?token=');
     expect(mail.html).toContain('help@acme.example');
 

@@ -30,10 +30,10 @@ export function RedirectSigning() {
   }
 
   return (
-    <Section title={<span className="flex items-center gap-2"><KeyRound className="h-4 w-4" /> API destinations</span>}>
+    <Section help="project.apiDestinations" title={<span className="flex items-center gap-2"><KeyRound className="h-4 w-4" /> API destinations</span>}>
       <div className="space-y-3 text-sm">
         <p className="text-muted">
-          In hybrid mode a status can use type <b>API</b>: PROJEXA asks your client&apos;s or vendor&apos;s endpoint where to send each respondent. It POSTs
+          In hybrid mode a status can use type <b>API</b>: SampTrek asks your client&apos;s or vendor&apos;s endpoint where to send each respondent. It POSTs
           <code className="mx-1">{'{status, respondent_uid, vendor_id, country_code, project_code}'}</code>
           and expects <code>{'{"url": "https://…"}'}</code> back. The endpoint and the URL it answers must be on the allowed domains. If it does not answer in time
           (1.5 s by default) or answers something not allowed, the respondent goes to the fallback URL. QA studio asks with <code>&quot;test&quot;: true</code>.
