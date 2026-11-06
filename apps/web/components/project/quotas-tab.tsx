@@ -18,7 +18,7 @@ interface QuotaView {
   countries: { id: string; countryCode: string; language: string; status: string; targetCompletes: number; completes: number; quotas: Cell[] }[];
 }
 
-const DEVICES = [{ id: 'desktop', label: 'Desktop' }, { id: 'mobile', label: 'Mobile' }, { id: 'tablet', label: 'Tablet' }];
+const DEVICES = [{ id: 'desktop', label: 'Desktop' }, { id: 'mobile', label: 'Mobile' }, { id: 'tablet', label: 'Tablet' }, { id: 'android', label: 'Android phone' }, { id: 'ios', label: 'iPhone (iOS)' }];
 const SOURCE_LABEL: Record<Source, string> = { device: 'Device', gate: 'Gate', prescreen: 'Prescreener' };
 
 /** Field key used by the condition's question picker: "device", "gate:age", "prescreen:pet". */
@@ -168,8 +168,10 @@ function CellEditor({ view, project, country, onClose, onSaved }: { view: QuotaV
     if (!f || f.q.type === 'number') return;
     const base = condFromKey(from);
     const group = f.key === 'device' ? 'Device' : f.q.text.replace(/\?$/, '').slice(0, 60);
-    const each = Math.max(1, Math.round(country.targetCompletes / f.q.options.length));
-    setCells((all) => [...all, ...f.q.options.map((o) => ({ group, name: o.label.slice(0, 120), target: each, isOpen: true, conditions: [{ ...base, values: [o.id] }] }))]);
+    // Android / iOS are kinds of mobile, so a device split uses desktop / mobile / tablet only (no overlapping cells).
+    const options = f.key === 'device' ? f.q.options.filter((o) => o.id !== 'android' && o.id !== 'ios') : f.q.options;
+    const each = Math.max(1, Math.round(country.targetCompletes / options.length));
+    setCells((all) => [...all, ...options.map((o) => ({ group, name: o.label.slice(0, 120), target: each, isOpen: true, conditions: [{ ...base, values: [o.id] }] }))]);
     setFrom('');
   };
 

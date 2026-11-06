@@ -7,6 +7,8 @@ import { z } from 'zod';
 import type { Question } from '../survey/questions';
 
 export const DEVICES = ['desktop', 'mobile', 'tablet'] as const;
+/** Device quota values: a device type, or a system (android / ios, on phones and tablets). */
+export const DEVICE_VALUES = [...DEVICES, 'android', 'ios'] as const;
 export const QUOTA_SOURCES = ['device', 'gate', 'prescreen'] as const;
 /** Question types a quota can target. Text and grid answers are too free-form to count against. */
 export const QUOTABLE_TYPES = ['single', 'dropdown', 'multi', 'number'] as const;
@@ -16,7 +18,7 @@ export const conditionSchema = z
     source: z.enum(QUOTA_SOURCES),
     /** gate / prescreen: the question's id. */
     questionId: z.string().regex(/^[a-z0-9_-]{1,32}$/i).optional(),
-    /** device: desktop/mobile/tablet; choice questions: option ids (any one matches). */
+    /** device: desktop/mobile/tablet/android/ios; choice questions: option ids (any one matches). */
     values: z.array(z.string().min(1).max(64)).min(1).max(50).optional(),
     /** number questions: inclusive range. */
     min: z.number().optional(),
@@ -26,7 +28,7 @@ export const conditionSchema = z
   .superRefine((c, ctx) => {
     if (c.source === 'device') {
       if (!c.values?.length) ctx.addIssue({ code: 'custom', message: 'Pick at least one device' });
-      else if (c.values.some((v) => !(DEVICES as readonly string[]).includes(v))) ctx.addIssue({ code: 'custom', message: 'Unknown device' });
+      else if (c.values.some((v) => !(DEVICE_VALUES as readonly string[]).includes(v))) ctx.addIssue({ code: 'custom', message: 'Unknown device' });
       return;
     }
     if (!c.questionId) ctx.addIssue({ code: 'custom', message: 'Pick a question' });
@@ -60,6 +62,8 @@ export interface CellState {
 /** What is known about a respondent: device at entry, answers once the gate page is passed. */
 export interface Respondent {
   device: string | null;
+  /** android / ios / other, from the user agent. */
+  os?: string | null;
   answers: { gate?: Record<string, { value: unknown }>; prescreen?: Record<string, { value: unknown }> } | null;
 }
 
@@ -75,6 +79,8 @@ function valueFor(c: Condition, r: Respondent): unknown {
 }
 
 export function conditionMatches(c: Condition, r: Respondent): boolean {
+  // A device condition matches the device type or the system (e.g. "android" or "mobile").
+  if (c.source === 'device') return !!c.values?.some((x) => x === r.device || (!!r.os && x === r.os));
   const v = valueFor(c, r);
   if (v === undefined || v === null) return false;
   if (typeof v === 'number') {

@@ -22,10 +22,15 @@ export const securitySchema = z
   .object(Object.fromEntries(SECURITY_KEYS.map((k) => [k, z.boolean().default(false)])) as Record<(typeof SECURITY_KEYS)[number], z.ZodDefault<z.ZodBoolean>>)
   .strict();
 
+/**
+ * Devices allowed at entry. `android` and `ios` narrow Mobile to those phone systems; with both on,
+ * every phone is allowed (including other systems), as before.
+ */
 export const devicesSchema = z
-  .object({ desktop: z.boolean().default(true), mobile: z.boolean().default(true), tablet: z.boolean().default(true) })
+  .object({ desktop: z.boolean().default(true), mobile: z.boolean().default(true), tablet: z.boolean().default(true), android: z.boolean().default(true), ios: z.boolean().default(true) })
   .strict()
-  .refine((d) => d.desktop || d.mobile || d.tablet, 'Allow at least one device');
+  .refine((d) => d.desktop || d.mobile || d.tablet, 'Allow at least one device')
+  .refine((d) => !d.mobile || d.android || d.ios, 'Choose Android, iOS or both for mobile');
 
 const surveyUrl = z
   .string()
@@ -88,7 +93,7 @@ export const createProjectSchema = z.object({
   salesPersonId: z.string().optional(),
   projectManagerId: z.string().optional(),
   description: z.string().max(20000).optional(),
-  devices: devicesSchema.default({ desktop: true, mobile: true, tablet: true }),
+  devices: devicesSchema.default({ desktop: true, mobile: true, tablet: true, android: true, ios: true }),
   security: securitySchema.default({} as never),
   redirectMode: z.enum(REDIRECT_MODES).default('HYBRID'),
   redirectConfig: redirectConfigSchema.optional(),

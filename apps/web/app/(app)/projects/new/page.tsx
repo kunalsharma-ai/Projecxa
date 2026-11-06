@@ -10,6 +10,7 @@ import { AddableSelect, loadCustomOptions, saveCustomOption, useCustomOptions } 
 import { BulkFill } from '@/components/project/bulk-fill';
 import { cleanQuestion, QuestionBuilder, questionProblems } from '@/components/project/question-builder';
 import { BriefBanner, BriefReader, useBriefAvailability, type BriefInfo } from '@/components/project/brief-reader';
+import { MobileOsPicker, devicesProblem, withOs, type DeviceSettings } from '@/components/project/mobile-os';
 import { ErrorBox, Field, Loading, PageHeader, Section, Toggle } from '@/components/ui';
 import { api, get, post } from '@/lib/api';
 import { describeTemplate, type ProjectTemplate, type TemplateForm } from '@/lib/templates';
@@ -46,7 +47,7 @@ const num = (v: string): Num => (v === '' ? '' : Number(v));
 const opt = (v: number | string | undefined | null): Num => (v === undefined || v === null || v === '' ? '' : Number(v));
 
 interface DraftRow { id: string; title: string; updatedAt: string }
-interface DraftData { info: typeof EMPTY_INFO; devices: Record<'desktop' | 'mobile' | 'tablet', boolean>; security: Record<string, boolean>; mode: RedirectMode; shared: typeof SHARED_DEFAULTS; rows: CountryRow[]; templateId: string | null; wonBidId: string | null; brief?: BriefInfo | null; currency?: string; vendors?: VendorRow[]; gateQuestions?: Question[] }
+interface DraftData { info: typeof EMPTY_INFO; devices: DeviceSettings; security: Record<string, boolean>; mode: RedirectMode; shared: typeof SHARED_DEFAULTS; rows: CountryRow[]; templateId: string | null; wonBidId: string | null; brief?: BriefInfo | null; currency?: string; vendors?: VendorRow[]; gateQuestions?: Question[] }
 const sameMarket = (a: CountryRow, b: CountryRow, sharedGroup: string) =>
   a.countryCode === b.countryCode && a.language.toLowerCase() === b.language.toLowerCase() && (a.targetGroup || sharedGroup).trim().toLowerCase() === (b.targetGroup || sharedGroup).trim().toLowerCase();
 const EMPTY_INFO = { name: '', workOrderNo: '', generateWorkOrder: true, type: 'AD_HOC', category: '', clientId: '', clientContactId: '', salesPersonId: '', projectManagerId: '', description: '', bidReference: '', fieldStartAt: '', fieldEndAt: '' };
@@ -85,7 +86,7 @@ function CreateProjectPage() {
   const [clients, setClients] = useState<ClientOpt[]>([]);
   const [users, setUsers] = useState<UserOpt[]>([]);
   const [info, setInfo] = useState(EMPTY_INFO);
-  const [devices, setDevices] = useState({ desktop: true, mobile: true, tablet: true });
+  const [devices, setDevices] = useState<DeviceSettings>(withOs(null));
   const [security, setSecurity] = useState<Record<string, boolean>>({ gateSurvey: true, captcha: true });
   const [mode, setMode] = useState<RedirectMode>('HYBRID');
   const [shared, setShared] = useState(SHARED_DEFAULTS);
@@ -152,7 +153,7 @@ function CreateProjectPage() {
       setTemplate(t);
       if (f.countries[0]?.currency) setCurrency(f.countries[0].currency);
       setInfo((i) => ({ ...i, type: f.type, category: f.category, clientId: f.clientId ?? i.clientId, clientContactId: f.clientId ? '' : i.clientContactId, description: i.description || (f.description ?? '') }));
-      setDevices({ desktop: !!f.devices.desktop, mobile: !!f.devices.mobile, tablet: !!f.devices.tablet });
+      setDevices(withOs(f.devices));
       setSecurity(f.security);
       setMode(f.redirectMode as RedirectMode);
       setShared({ targetGroup: d.targetGroup ?? '', loiMinutes: opt(d.loiMinutes), irPercent: opt(d.irPercent), cpi: opt(d.cpi), targetCompletes: opt(d.targetCompletes), liveSurveyUrl: d.liveSurveyUrl ?? '', testSurveyUrl: d.testSurveyUrl ?? '' });
@@ -185,7 +186,7 @@ function CreateProjectPage() {
       fromDraft.current = true;
       lastSaved.current = JSON.stringify(x);
       setInfo({ ...EMPTY_INFO, ...x.info });
-      if (x.devices) setDevices(x.devices);
+      if (x.devices) setDevices(withOs(x.devices));
       if (x.security) setSecurity(x.security);
       if (x.mode) setMode(x.mode);
       setShared({ ...SHARED_DEFAULTS, ...x.shared });
@@ -713,7 +714,8 @@ function CreateProjectPage() {
                   <span className="flex items-center gap-2"><Icon className="h-4 w-4 text-muted" /> {k.charAt(0).toUpperCase() + k.slice(1)}</span>
                   <Toggle label={k} checked={devices[k]} onChange={(v) => setDevices({ ...devices, [k]: v })} />
                 </div>
-              ))}
+              )).flatMap((row, i) => (i === 1 ? [row, <MobileOsPicker key="os" devices={devices} onChange={setDevices} />] : [row]))}
+              {devicesProblem(devices) && <p className="text-xs text-warn">{devicesProblem(devices)}</p>}
             </div>
           </Section>
           <Section title="Security and respondent quality">
@@ -727,7 +729,7 @@ function CreateProjectPage() {
             </div>
           </Section>
           {duplicates.size > 0 && <p className="text-sm text-bad">Some markets are listed twice. Give each a different target group.</p>}
-          <button className="btn-primary w-full py-2.5" onClick={submit} disabled={busy || !rows.length || duplicates.size > 0}>
+          <button className="btn-primary w-full py-2.5" onClick={submit} disabled={busy || !rows.length || duplicates.size > 0 || !!devicesProblem(devices)}>
             {busy ? 'Creating…' : rows.length ? `Create project in ${rows.length} ${rows.length === 1 ? 'market' : 'markets'}` : 'Add at least one country'}
           </button>
         </div>

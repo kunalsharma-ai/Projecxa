@@ -5,7 +5,7 @@ Every respondent who opens a vendor entry link goes through these steps, in this
 | Step | Where | Checks | Fails as |
 |---|---|---|---|
 | 1. Entry link | server, before a session exists | URL protection: `sig = hex(HMAC-SHA256(vendor signing secret, UID))` | refused (no session, so the real respondent's ID is not used up); counted in the project's security summary |
-| 2. Entry | server | device type (from the user agent), TOR exit node, geolocation, same IP + browser | `SECURITY_REJECT` (`DEVICE_NOT_ALLOWED`, `TOR_EXIT`, `GEO_MISMATCH`) or `DUPLICATE` (`SAME_DEVICE`) |
+| 2. Entry | server | device type (from the user agent), TOR exit node, geolocation, same IP + browser | `SECURITY_REJECT` (`DEVICE_NOT_ALLOWED`, `MOBILE_OS_NOT_ALLOWED`, `TOR_EXIT`, `GEO_MISMATCH`) or `DUPLICATE` (`SAME_DEVICE`) |
 | 3. Human check | gate page | chosen captcha style, 3 tries, new challenge each try | `SECURITY_REJECT` / `HUMAN_CHECK_FAILED` |
 | 4. Gate survey | gate page | executive's gate questions | `TERMINATE` / `GATE_SCREENOUT`; invalid answers `SECURITY_REJECT` / `GATE_INCOMPLETE` |
 | 5. Prescreener | gate page | executive's prescreener questions | `TERMINATE` / `PRESCREEN` |
@@ -50,3 +50,13 @@ Google reCAPTCHA is not offered: its free tier is 10,000 assessments a month, af
 - **Geolocation** needs the respondent's country from the CDN or load balancer: set `GEO_COUNTRY_HEADER` (for example `cf-ipcountry`). Unset, the check is shown as not active and lets entries through.
 - **TOR detection** downloads the TOR Project exit list on start and every 6 hours (`TOR_EXIT_LIST_URL`, `TOR_EXIT_LIST_SYNC=false` to turn off). Until it loads, entries are let through.
 - The gate page sends a strict Content Security Policy; only the chosen captcha provider's domains are added.
+
+## Mobile: Android and iOS
+
+Under **Mobile** (Create project → Devices, and the project's Gate & security tab) you can tick **Android**, **iOS** or both. Both are on by default, and older projects count as both on.
+
+- The phone system is read from the user agent at entry: `Android` → Android, `iPhone` / `iPod` / `iPad` → iOS.
+- A phone whose system is not allowed is rejected at entry as `SECURITY_REJECT` with `MOBILE_OS_NOT_ALLOWED`.
+- A phone with another system (for example KaiOS) gets in only when both Android and iOS are ticked.
+- Tablets follow the Tablet switch only; Android / iOS applies to phones.
+- With Mobile on, at least one of Android / iOS must be ticked (the API returns 400 otherwise).
