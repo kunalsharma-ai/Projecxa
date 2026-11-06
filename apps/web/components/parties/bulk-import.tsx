@@ -5,14 +5,16 @@ import { useRef, useState } from 'react';
 import { ErrorBox, Section } from '@/components/ui';
 import { post } from '@/lib/api';
 import { csvObjects, downloadCsv } from '@/lib/csv';
+import { downloadXlsx, isXlsx, readXlsx, rowsToObjects } from '@/lib/xlsx';
 
 export interface ImportColumn { key: string; label: string; required?: boolean; example: string; example2?: string }
 interface Result { row: number; ok: boolean; name?: string; code?: string; errors?: string[] }
 interface Answer { dryRun: boolean; added: number; valid: number; failed: number; results: Result[] }
 
 /**
- * Bulk add clients or vendors: download the CSV template, fill it in a spreadsheet, upload it,
- * check every row (nothing is saved yet), then add the rows that passed.
+ * Bulk add clients or vendors: download the Excel or CSV template, fill it in, upload it (.xlsx
+ * or .csv), check every row (nothing is saved yet), then add the rows that passed. Adding one by
+ * one stays on the page.
  */
 export function BulkImport({ kind, columns, onDone, onClose }: { kind: 'clients' | 'vendors'; columns: ImportColumn[]; onDone: () => void; onClose: () => void }) {
   const [rows, setRows] = useState<Record<string, string>[] | null>(null);
@@ -24,8 +26,11 @@ export function BulkImport({ kind, columns, onDone, onClose }: { kind: 'clients'
   const input = useRef<HTMLInputElement>(null);
   const noun = kind === 'clients' ? 'client' : 'vendor';
 
-  function template() {
-    downloadCsv(`samptrek-${kind}-template.csv`, columns.map((c) => c.key), [columns.map((c) => c.example), columns.map((c) => c.example2 ?? '')]);
+  function template(format: 'xlsx' | 'csv') {
+    const header = columns.map((c) => c.key);
+    const examples = [columns.map((c) => c.example), columns.map((c) => c.example2 ?? '')];
+    if (format === 'csv') downloadCsv(`samptrek-${kind}-template.csv`, header, examples);
+    else downloadXlsx(`samptrek-${kind}-template.xlsx`, [header, ...examples], kind === 'clients' ? 'Clients' : 'Vendors');
   }
 
   async function read(file: File) {
@@ -34,7 +39,7 @@ export function BulkImport({ kind, columns, onDone, onClose }: { kind: 'clients'
     setDone(null);
     setFileName(file.name);
     try {
-      const objs = csvObjects(await file.text());
+      const objs = isXlsx(file) ? rowsToObjects(await readXlsx(await file.arrayBuffer())) : /\.xls$/i.test(file.name) ? (() => { throw new Error('Old .xls files cannot be read. In Excel use File → Save As → Excel Workbook (.xlsx) or CSV.'); })() : csvObjects(await file.text());
       const unknown = Object.keys(objs[0] ?? {}).filter((k) => !columns.some((c) => c.key === k));
       if (!objs.length) throw new Error('The file has no rows under the header.');
       if (objs.length > 1000) throw new Error('Up to 1000 rows at a time. Split the file and import it in parts.');
@@ -74,14 +79,17 @@ export function BulkImport({ kind, columns, onDone, onClose }: { kind: 'clients'
       <ol className="mb-4 grid gap-3 text-sm md:grid-cols-3">
         <li className="rounded-lg bg-sunken/60 p-3">
           <div className="font-medium">1. Get the template</div>
-          <p className="mt-1 text-xs text-muted">A CSV with the columns and two example rows. Open it in Excel or Google Sheets and replace the examples.</p>
-          <button className="btn-ghost mt-2 px-2.5 py-1.5 text-xs" onClick={template}><Download className="h-3.5 w-3.5" /> Download template</button>
+          <p className="mt-1 text-xs text-muted">The columns and two example rows. Open it in Excel or Google Sheets and replace the examples.</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button className="btn-ghost px-2.5 py-1.5 text-xs" onClick={() => template('xlsx')}><Download className="h-3.5 w-3.5" /> Excel template</button>
+            <button className="btn-ghost px-2.5 py-1.5 text-xs" onClick={() => template('csv')}><Download className="h-3.5 w-3.5" /> CSV template</button>
+          </div>
         </li>
         <li className="rounded-lg bg-sunken/60 p-3">
           <div className="font-medium">2. Upload the filled file</div>
-          <p className="mt-1 text-xs text-muted">Save as CSV. Every row is checked first; nothing is added yet.</p>
-          <input ref={input} type="file" accept=".csv,text/csv" className="sr-only" aria-label="CSV file" onChange={(e) => { const f = e.target.files?.[0]; if (f) read(f); e.target.value = ''; }} />
-          <button className="btn-ghost mt-2 px-2.5 py-1.5 text-xs" disabled={busy} onClick={() => input.current?.click()}><FileUp className="h-3.5 w-3.5" /> {fileName ? 'Choose another file' : 'Choose CSV file'}</button>
+          <p className="mt-1 text-xs text-muted">Excel (.xlsx) or CSV. Every row is checked first; nothing is added yet.</p>
+          <input ref={input} type="file" accept=".xlsx,.csv,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sr-only" aria-label="Excel or CSV file" onChange={(e) => { const f = e.target.files?.[0]; if (f) read(f); e.target.value = ''; }} />
+          <button className="btn-ghost mt-2 px-2.5 py-1.5 text-xs" disabled={busy} onClick={() => input.current?.click()}><FileUp className="h-3.5 w-3.5" /> {fileName ? 'Choose another file' : 'Choose Excel or CSV file'}</button>
           {fileName && <div className="mt-1 truncate text-xs text-muted">{fileName}</div>}
         </li>
         <li className="rounded-lg bg-sunken/60 p-3">

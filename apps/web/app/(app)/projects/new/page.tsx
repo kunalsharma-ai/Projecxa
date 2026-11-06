@@ -16,9 +16,10 @@ import { api, get, post } from '@/lib/api';
 import { describeTemplate, type ProjectTemplate, type TemplateForm } from '@/lib/templates';
 import { COUNTRIES, countryName, flag } from '@/lib/countries';
 import { InfoTip } from '@/components/help';
+import { ContactPicker, PartyPicker, type ClientOpt, type PartyOpt } from '@/components/parties/quick-add';
+import { PartyContact } from '@/components/parties/contact-line';
 import { CATEGORIES, RedirectMode, SECURITY_LABELS, type Option, type Question, type WonBid } from '@/lib/types';
 
-interface ClientOpt { id: string; name: string; contacts: { id: string; name: string }[] }
 interface UserOpt { id: string; name: string; role: string }
 
 type Num = number | '';
@@ -94,7 +95,8 @@ function CreateProjectPage() {
   const [shared, setShared] = useState(SHARED_DEFAULTS);
   const [rows, setRows] = useState<CountryRow[]>([]);
   const [currency, setCurrency] = useState('USD');
-  const [vendorOpts, setVendorOpts] = useState<Option[]>([]);
+  const [vendorOpts, setVendorOpts] = useState<PartyOpt[]>([]);
+  const [numbering, setNumbering] = useState<{ nextWorkOrderNo: string; lastWorkOrderNo: string | null } | null>(null);
   const [vendors, setVendors] = useState<VendorRow[]>([]);
   const [rememberVendors, setRememberVendors] = useState(false);
   const [gateQuestions, setGateQuestions] = useState<Question[]>([]);
@@ -120,11 +122,13 @@ function CreateProjectPage() {
   draftRef.current = draftId;
 
   useEffect(() => {
-    get<ClientOpt[]>('/clients').then(setClients).catch(setError);
+    // Only active clients and vendors can be chosen for a new project.
+    get<ClientOpt[]>('/clients?status=ACTIVE').then(setClients).catch(setError);
+    get<{ nextWorkOrderNo: string; lastWorkOrderNo: string | null }>('/numbering').then(setNumbering).catch(() => setNumbering(null));
     get<UserOpt[]>('/users').then(setUsers).catch(setError);
     get<ProjectTemplate[]>('/project-templates').then(setTemplates).catch(() => setTemplates([]));
     get<DraftRow[]>('/project-drafts').then(setDrafts).catch(() => setDrafts([]));
-    get<Option[]>('/vendors').then(setVendorOpts).catch(() => setVendorOpts([]));
+    get<PartyOpt[]>('/vendors?status=ACTIVE').then(setVendorOpts).catch(() => setVendorOpts([]));
     const t = params.get('template');
     const d = params.get('draft');
     // Vendors the team chose to preselect on every new project.
@@ -285,7 +289,7 @@ function CreateProjectPage() {
       const base = clientName.toUpperCase().replace(/[^A-Z0-9]+/g, '').slice(0, 14) || 'CLIENT';
       const code = `${base.length < 2 ? `${base}X` : base}${Math.floor(Math.random() * 900 + 100)}`;
       const c = await post<ClientOpt>('/clients', { name: clientName, code });
-      setClients(await get<ClientOpt[]>('/clients'));
+      setClients(await get<ClientOpt[]>('/clients?status=ACTIVE'));
       setInfo((i) => ({ ...i, clientId: c.id, clientContactId: '' }));
     } catch (e) {
       setError(e);
@@ -490,9 +494,15 @@ function CreateProjectPage() {
           <Section title="Project information">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Project name *"><input className="input" value={info.name} onChange={(e) => setInfo({ ...info, name: e.target.value })} /></Field>
-              <Field label="Work order no." hint={info.workOrderNo ? undefined : info.generateWorkOrder ? 'Will be generated on save' : undefined}>
+              <Field
+                label="Work order no."
+                hint={[
+                  info.workOrderNo ? 'Typed by hand; must not be used by another project' : info.generateWorkOrder ? `${numbering ? numbering.nextWorkOrderNo : 'The next number'} will be given on save` : 'No work order',
+                  numbering?.lastWorkOrderNo ? `last one: ${numbering.lastWorkOrderNo}` : null,
+                ].filter(Boolean).join(' · ')}
+              >
                 <div className="flex gap-2">
-                  <input className="input" value={info.workOrderNo} onChange={(e) => setInfo({ ...info, workOrderNo: e.target.value })} placeholder="Leave empty to generate" />
+                  <input className="input" value={info.workOrderNo} onChange={(e) => setInfo({ ...info, workOrderNo: e.target.value })} placeholder={info.generateWorkOrder && numbering ? `Next: ${numbering.nextWorkOrderNo}` : 'Type one, or tick Generate'} />
                   <label className="flex shrink-0 items-center gap-2 text-xs text-muted">
                     <input type="checkbox" checked={info.generateWorkOrder} onChange={(e) => setInfo({ ...info, generateWorkOrder: e.target.checked })} /> Generate
                   </label>
@@ -506,16 +516,24 @@ function CreateProjectPage() {
               <Field label="Category *" hint="Type to search, or add your own">
                 <AddableSelect field="category" base={CATEGORIES} value={info.category} onChange={(v) => setInfo({ ...info, category: v })} />
               </Field>
-              <Field label="Client *">
-                <select className="input" value={info.clientId} onChange={(e) => setInfo({ ...info, clientId: e.target.value, clientContactId: '' })}>
-                  <option value="">Choose…</option>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+              <Field label="Client *" hint="Active clients only. Type a new name to add one.">
+                <PartyPicker<ClientOpt>
+                  kind="client"
+                  parties={clients}
+                  value={info.clientId}
+                  taken={clients.map((c) => c.code)}
+                  onChange={(id) => setInfo((i) => ({ ...i, clientId: id, clientContactId: clients.find((c) => c.id === id)?.contacts.length === 1 ? clients.find((c) => c.id === id)!.contacts[0].id : '' }))}
+                  onAdded={(c) => setClients((cs) => [...cs, { ...c, contacts: c.contacts ?? [] }].sort((a, b) => a.name.localeCompare(b.name)))}
+                />
               </Field>
-              <Field label="Client contact">
-                <select className="input" value={info.clientContactId} onChange={(e) => setInfo({ ...info, clientContactId: e.target.value })} disabled={!client}>
-                  <option value="">None</option>{client?.contacts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+              <Field label="Client contact" hint="Type a new name to add a contact">
+                <ContactPicker client={client} value={info.clientContactId} onChange={(id) => setInfo((i) => ({ ...i, clientContactId: id }))} onAdded={(all) => setClients((cs) => cs.map((c) => (c.id === info.clientId ? { ...c, contacts: all } : c)))} />
               </Field>
+              {client && (
+                <div className="rounded-lg border border-line bg-sunken/40 p-3 sm:col-span-2">
+                  <PartyContact name={client.name} logoUrl={client.logoUrl} website={client.website} contact={client.contacts.find((c) => c.id === info.clientContactId) ?? null} />
+                </div>
+              )}
               <Field label="Sales person">
                 <select className="input" value={info.salesPersonId} onChange={(e) => setInfo({ ...info, salesPersonId: e.target.value })}>
                   <option value="">None</option>{users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
@@ -676,18 +694,22 @@ function CreateProjectPage() {
                 return (
                   <div key={i} className="grid grid-cols-1 items-start gap-2 rounded-lg bg-sunken/50 p-3 sm:grid-cols-[minmax(0,1fr)_140px_140px_auto]">
                     <Field label="Vendor">
-                      <Combobox
-                        options={vendorOpts.filter((o) => o.id === v.vendorId || !vendors.some((x) => x.vendorId === o.id)).map((o) => ({ value: o.id, label: o.name, hint: o.code }))}
-                        value={v.vendorId || null}
-                        onChange={(id) => setVendors(vendors.map((x, n) => (n === i ? { ...x, vendorId: id ?? '' } : x)))}
-                        placeholder="Search vendors"
+                      <PartyPicker<PartyOpt>
+                        kind="vendor"
+                        parties={vendorOpts}
+                        value={v.vendorId}
+                        exclude={vendors.map((x) => x.vendorId).filter(Boolean)}
+                        taken={vendorOpts.map((o) => o.code)}
+                        onChange={(id) => setVendors((vs) => vs.map((x, n) => (n === i ? { ...x, vendorId: id } : x)))}
+                        onAdded={(o) => setVendorOpts((os) => [...os, o].sort((a, b) => a.name.localeCompare(b.name)))}
+                        placeholder="Search vendors, or type a new name to add"
                       />
                     </Field>
                     <Field label={`Payout CPI (${currency})`}>
                       <input className={clsx('input', high && 'border-warn')} type="number" min={0} step="0.01" value={v.cpi} onChange={(e) => setVendors(vendors.map((x, n) => (n === i ? { ...x, cpi: num(e.target.value) } : x)))} />
                     </Field>
                     <Field label="Link variable">
-                      <input className="input" value={v.uidParam} onChange={(e) => setVendors(vendors.map((x, n) => (n === i ? { ...x, uidParam: e.target.value } : x)))} />
+                      <AddableSelect field="uidParam" base={['vid', 'uid', 'rid', 'pid', 'id']} value={v.uidParam} onChange={(val) => setVendors((vs) => vs.map((x, n) => (n === i ? { ...x, uidParam: val } : x)))} placeholder="vid" />
                     </Field>
                     <button className="btn-ghost mt-6 p-2" aria-label="Remove vendor" onClick={() => setVendors(vendors.filter((_, n) => n !== i))}><Trash2 className="h-4 w-4" /></button>
                     {high && <p className="flex items-center gap-1.5 text-xs text-warn sm:col-span-4"><AlertTriangle className="h-3.5 w-3.5" /> Higher than the client CPI ({minCpi} {currency}). You will be asked to confirm.</p>}

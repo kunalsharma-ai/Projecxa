@@ -5,10 +5,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { canEdit, useMe } from '@/components/me';
 import { BulkImport, type ImportColumn } from '@/components/parties/bulk-import';
 import { ClientForm, type ClientDetail } from '@/components/parties/client-form';
-import { Empty, ErrorBox, Loading, PageHeader, Section, StatusChip } from '@/components/ui';
+import { LogoPicker, LogoUpload, PartyLogo, uploadLogo } from '@/components/parties/logo';
+import { StatusSwitch } from '@/components/parties/status-switch';
+import { Empty, ErrorBox, Loading, PageHeader, Section } from '@/components/ui';
 import { get, patch, post } from '@/lib/api';
 
-interface ClientRow { id: string; name: string; code: string; status: string; website: string | null; contacts: { id: string; name: string; email: string | null; phone: string | null }[]; _count: { projects: number } }
+interface ClientRow { id: string; name: string; code: string; status: string; website: string | null; logoUrl: string | null; contacts: { id: string; name: string; email: string | null; phone: string | null }[]; _count: { projects: number } }
 
 const CLIENT_IMPORT_COLUMNS: ImportColumn[] = [
   { key: 'name', label: 'Company name', required: true, example: 'Acme Research', example2: 'Bright Insights Ltd' },
@@ -29,6 +31,7 @@ export default function ClientsPage() {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
   const [error, setError] = useState<unknown>(null);
+  const [newLogo, setNewLogo] = useState<File | null>(null);
   const load = () => get<ClientRow[]>('/clients').then(setRows).catch(setError);
   useEffect(() => {
     load();
@@ -54,7 +57,10 @@ export default function ClientsPage() {
   async function create(body: Record<string, unknown>) {
     setError(null);
     try {
-      await post('/clients', body);
+      const c = await post<{ id: string }>('/clients', body);
+      // The logo goes up once the client exists; a failed logo does not undo the client.
+      if (newLogo) await uploadLogo('client', c.id, newLogo).catch(setError);
+      setNewLogo(null);
       setPanel(null);
       load();
     } catch (e) {
@@ -79,7 +85,7 @@ export default function ClientsPage() {
     <>
       <PageHeader
         title="Clients"
-        subtitle="Click a client to edit its details, contacts and billing."
+        subtitle="Click a client to edit its details, logo, contacts and billing. Only active clients can be chosen for new projects."
         actions={canAdd && (
           <div className="flex flex-wrap gap-2">
             <button className="btn-ghost" onClick={() => { setEditing(null); setPanel(panel === 'import' ? null : 'import'); }}><Upload className="h-4 w-4" /> Bulk add</button>
@@ -90,12 +96,14 @@ export default function ClientsPage() {
       <div className="mb-4"><ErrorBox error={error} /></div>
       {panel === 'new' && (
         <Section title="New client" className="mb-6">
-          <ClientForm taken={taken} onSubmit={create} onCancel={() => setPanel(null)} />
+          <div className="mb-4"><LogoPicker name="" file={newLogo} onChange={setNewLogo} /></div>
+          <ClientForm taken={taken} onSubmit={create} onCancel={() => { setNewLogo(null); setPanel(null); }} />
         </Section>
       )}
       {panel === 'import' && <BulkImport kind="clients" columns={CLIENT_IMPORT_COLUMNS} onDone={load} onClose={() => setPanel(null)} />}
       {editing && (
         <Section title={`Edit client · ${editing.name}`} className="mb-6">
+          <div className="mb-4"><LogoUpload key={editing.id} kind="client" id={editing.id} name={editing.name} url={editing.logoUrl ?? null} onChange={(url) => setRows((rs) => rs?.map((r) => (r.id === editing.id ? { ...r, logoUrl: url } : r)) ?? rs)} /></div>
           <ClientForm client={editing} taken={taken} onSubmit={save} onCancel={() => setEditing(null)} />
         </Section>
       )}
@@ -117,9 +125,9 @@ export default function ClientsPage() {
               <tbody className="divide-y divide-line">
                 {shown.map((c) => (
                   <tr key={c.id} className={editing?.id === c.id ? 'bg-brand/5' : undefined}>
-                    <td className="td font-medium">{canEdit(me) ? <button className="text-left hover:text-brand hover:underline" onClick={() => openEdit(c.id)}>{c.name}</button> : c.name}</td>
+                    <td className="td font-medium"><span className="flex items-center gap-2"><PartyLogo url={c.logoUrl} name={c.name} size={28} />{canEdit(me) ? <button className="text-left hover:text-brand hover:underline" onClick={() => openEdit(c.id)}>{c.name}</button> : c.name}</span></td>
                     <td className="td"><Copyable text={c.code} label="client ID" /></td>
-                    <td className="td"><StatusChip status={c.status} /></td>
+                    <td className="td"><StatusSwitch kind="client" id={c.id} name={c.name} status={c.status} editable={canAdd} onError={setError} onChange={(st) => setRows((rs) => rs?.map((r) => (r.id === c.id ? { ...r, status: st } : r)) ?? rs)} /></td>
                     <td className="td text-xs">{c.website ? <a className="inline-flex items-center gap-1 text-brand hover:underline" href={c.website} target="_blank" rel="noreferrer noopener"><Globe className="h-3.5 w-3.5" />{c.website.replace(/^https?:\/\//, '')}</a> : <span className="text-muted">–</span>}</td>
                     <td className="td text-sm">{c.contacts.length ? c.contacts.map((x) => <div key={x.id}>{x.name}{x.email && <span className="text-muted"> · {x.email}</span>}</div>) : <span className="text-warn">No contact yet</span>}</td>
                     <td className="td text-right tabular-nums">{c._count.projects}</td>

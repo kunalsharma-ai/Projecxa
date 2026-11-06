@@ -10,7 +10,7 @@ export interface AutoPauseState { config: string; done: Record<string, { reason:
 export interface Allocation {
   id: string;
   vendorId: string;
-  vendor: { id: string; name: string; code: string };
+  vendor: { id: string; name: string; code: string; status?: string; logoUrl?: string | null; contactName?: string | null; contactEmail?: string | null };
   status: string;
   cpi: string;
   targetCompletes: number;
@@ -40,6 +40,9 @@ export interface Country {
   testSurveyUrl: string | null;
   allocations: Allocation[];
   metrics?: FieldMetrics;
+  /** Client unique links (docs/CLIENT_UNIQUE_LINKS.md): on/off and how many are left. */
+  useClientLinks?: boolean;
+  clientLinks?: { total: number; unused: number };
   quotas: { id: string; group: string; name: string; target: number; completes: number; isOpen: boolean }[];
 }
 
@@ -55,7 +58,8 @@ export interface ProjectDetail {
   category: string;
   description: string | null;
   redirectMode: 'STATIC' | 'DYNAMIC' | 'HYBRID';
-  client: { id: string; name: string };
+  client: { id: string; name: string; code?: string; status?: string; website?: string | null; logoUrl?: string | null; contacts?: { id: string; name: string; email: string | null; phone: string | null }[] };
+  clientContact?: { id: string; name: string; email: string | null; phone: string | null } | null;
   projectManager: { name: string };
   salesPerson: { name: string } | null;
   devices: Record<string, boolean>;

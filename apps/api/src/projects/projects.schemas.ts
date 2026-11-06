@@ -78,7 +78,7 @@ export const createVendorSchema = z.object({
 
 export const createProjectSchema = z.object({
   name: z.string().min(1).max(300),
-  workOrderNo: z.string().max(50).optional(),
+  workOrderNo: z.string().trim().max(50).optional(),
   generateWorkOrder: z.boolean().default(false),
   bidReference: z.string().max(100).optional(),
   /** Set when the project is created from a won bid; links them, at most once. */
@@ -112,6 +112,8 @@ export type CreateProjectInput = z.infer<typeof createProjectSchema>;
 
 export const updateProjectSchema = z.object({
   name: z.string().min(1).max(300).optional(),
+  /** Editable later; must not be used by another project. */
+  workOrderNo: z.preprocess((v) => (typeof v === 'string' && !v.trim() ? null : v), z.string().trim().max(50).nullable().optional()),
   /** What vendors see instead of the name (empty = "Survey <code>"). */
   vendorTitle: z.preprocess((v) => (typeof v === 'string' && !v.trim() ? null : v), z.string().trim().max(200).nullable().optional()),
   category: z.string().min(1).max(100).optional(),

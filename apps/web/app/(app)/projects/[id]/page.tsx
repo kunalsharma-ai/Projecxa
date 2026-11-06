@@ -25,6 +25,7 @@ import { SecurityTab } from '@/components/project/security-tab';
 import { SessionsTab } from '@/components/project/sessions-tab';
 import { VendorsTab } from '@/components/project/vendors-tab';
 import { UniqueLinksTab } from '@/components/project/unique-links-tab';
+import { ClientLinksTab } from '@/components/project/client-links-tab';
 import type { ProjectDetail } from '@/components/project/types';
 import { ErrorBox, Loading, PageHeader, money } from '@/components/ui';
 import { InfoTip } from '@/components/help';
@@ -33,7 +34,7 @@ import { get, patch } from '@/lib/api';
 import { flag } from '@/lib/countries';
 import { SECURITY_LABELS } from '@/lib/types';
 
-const TABS = ['Overview', 'Vendors & links', 'Unique links', 'Quotas & monitor', 'SAMPLEON', 'Gate & security', 'Respondent pages', 'Redirects', 'QA studio', 'Respondents', 'Answers', 'Reconcile & invoice', 'Files & requests', 'History'] as const;
+const TABS = ['Overview', 'Vendors & links', 'Vendor unique links', 'Client unique links', 'Quotas & monitor', 'SAMPLEON', 'Gate & security', 'Respondent pages', 'Redirects', 'QA studio', 'Respondents', 'Answers', 'Reconcile & invoice', 'Files & requests', 'History'] as const;
 
 export default function ProjectPage() {
   const { id } = useParams<{ id: string }>();
@@ -60,10 +61,10 @@ export default function ProjectPage() {
 
   // Links such as ?tab=redirects open a tab directly.
   useEffect(() => {
-    const raw = new URLSearchParams(window.location.search).get('tab');
-    // Quotas and Monitor are one tab now; old links to either still open it.
+    const raw = new URLSearchParams(window.location.search).get('tab')?.replace(/-/g, ' ');
+    // Quotas and Monitor are one tab now, and old links said ?tab=unique (the tab was "Unique links").
     const want = raw && /^(quotas|monitor)/i.test(raw) ? 'quotas & monitor' : raw;
-    const t = want && TABS.find((x) => x.toLowerCase().startsWith(want.toLowerCase()));
+    const t = want && (TABS.find((x) => x.toLowerCase().startsWith(want.toLowerCase())) ?? (want.toLowerCase().startsWith('unique') ? 'Vendor unique links' : undefined));
     if (t) setTab(t);
   }, []);
 
@@ -241,7 +242,8 @@ export default function ProjectPage() {
 
       {tab === 'Overview' && <CountriesTab project={p} editable={editable} reload={reload} security={security} />}
       {tab === 'Vendors & links' && <VendorsTab project={p} editable={editable} reload={reload} />}
-      {tab === 'Unique links' && <UniqueLinksTab key={p.id} project={p} editable={editable} />}
+      {tab === 'Vendor unique links' && <UniqueLinksTab key={p.id} project={p} editable={editable} />}
+      {tab === 'Client unique links' && <ClientLinksTab key={p.id} project={p} editable={editable} />}
       {tab === 'Quotas & monitor' && (
         <div className="space-y-8">
           <nav className="flex flex-wrap gap-2 text-xs" aria-label="On this tab">

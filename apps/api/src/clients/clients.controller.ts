@@ -1,4 +1,4 @@
-import { BadRequestException, Body, ConflictException, Controller, Get, NotFoundException, Param, Patch, Post } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, Get, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
 import { Module } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
@@ -10,6 +10,7 @@ import { ZodPipe } from '../common/zod.pipe';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { redirectConfigSchema } from '../redirects/redirect.types';
+import { LOGO_SELECT, withLogoUrl } from '../parties/logos';
 
 /** Every contact needs a name and a way to reach them: a valid email, a valid phone, or both. */
 const contactSchema = z
@@ -57,28 +58,41 @@ const importRowSchema = z.object({
   billing_address: optional(z.string().trim().max(1000)),
   tax_id: optional(z.string().trim().max(80)),
 });
+const statusSchema = z.object({ status: z.enum(['ACTIVE', 'INACTIVE']) });
 const importSchema = z.object({ rows: z.array(z.record(z.string(), z.unknown())).min(1).max(1000), dryRun: z.boolean().default(false) });
 
-const DETAIL = { id: true, name: true, code: true, status: true, website: true, contacts: { orderBy: { name: 'asc' } }, redirectTemplate: true, billingAddress: true, taxId: true } as const;
+const DETAIL = { id: true, name: true, code: true, status: true, website: true, contacts: { orderBy: { name: 'asc' } }, redirectTemplate: true, billingAddress: true, taxId: true, ...LOGO_SELECT } as const;
 
 @Controller('clients')
 export class ClientsController {
   constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
 
+  /** ?status=ACTIVE lists only active clients (what Create project offers). */
   @Get()
-  list(@CurrentUser() u: AuthUser) {
-    return this.prisma.client.findMany({
-      where: { organizationId: u.organizationId },
+  async list(@CurrentUser() u: AuthUser, @Query('status') status?: string) {
+    const rows = await this.prisma.client.findMany({
+      where: { organizationId: u.organizationId, ...(status === 'ACTIVE' || status === 'INACTIVE' ? { status } : {}) },
       orderBy: { name: 'asc' },
-      select: { id: true, name: true, code: true, status: true, website: true, contacts: true, _count: { select: { projects: true } } },
+      select: { id: true, name: true, code: true, status: true, website: true, contacts: { orderBy: { name: 'asc' } }, _count: { select: { projects: true } }, ...LOGO_SELECT },
     });
+    return rows.map((r) => withLogoUrl('client', r));
   }
 
   @Get(':id')
   async get(@CurrentUser() u: AuthUser, @Param('id') id: string) {
     const c = await this.prisma.client.findFirst({ where: { id, organizationId: u.organizationId }, select: DETAIL });
     if (!c) throw new NotFoundException();
-    return c;
+    return withLogoUrl('client', c);
+  }
+
+  /** Quick Active / Inactive switch from the list. Inactive clients cannot be picked for new projects. */
+  @Patch(':id/status')
+  @Roles(...EDITORS, 'SALES')
+  async setStatus(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body(new ZodPipe(statusSchema)) body: z.infer<typeof statusSchema>) {
+    const r = await this.prisma.client.updateMany({ where: { id, organizationId: u.organizationId }, data: { status: body.status } });
+    if (!r.count) throw new NotFoundException();
+    await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'client.status', entityType: 'Client', entityId: id, detail: body });
+    return { id, status: body.status };
   }
 
   @Post()
