@@ -1,4 +1,5 @@
 'use client';
+import { CopyIcon } from '@/components/copy';
 import clsx from 'clsx';
 import { ArrowRight, Check, Copy, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
@@ -112,12 +113,12 @@ export function VendorRedirectsSummary({ vendors, editable }: { vendors: PolicyV
             <tbody className="divide-y divide-line">
               {vendors.map((v) => (
                 <tr key={v.id}>
-                  <td className="td font-medium">{v.name} <span className="text-xs text-muted">{v.code}</span></td>
+                  <td className="td font-medium">{v.name} <span className="inline-flex items-center text-xs text-muted">{v.code}<CopyIcon text={v.code} label={`${v.name} vendor ID`} /></span></td>
                   {main.map((r) => {
                     const url = v.redirectUrls[r.status] ?? (VENDOR_FALLBACK[r.status] ? v.redirectUrls[VENDOR_FALLBACK[r.status]] : undefined);
                     return (
                       <td key={r.status} className="td max-w-[220px] truncate font-mono text-xs" title={url}>
-                        {url ? url.replace(/^https?:\/\//, '') : <span className="font-sans text-warn">Missing</span>}
+                        {url ? <span className="flex items-center gap-1"><span className="truncate">{url.replace(/^https?:\/\//, '')}</span><CopyIcon text={url} label={`${v.name} ${STATUS_LABEL[r.status]} URL`} /></span> : <span className="font-sans text-warn">Missing</span>}
                       </td>
                     );
                   })}

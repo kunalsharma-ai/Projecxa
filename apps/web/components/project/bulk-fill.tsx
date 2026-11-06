@@ -8,7 +8,7 @@ export interface FillField { key: string; label: string; type?: 'number' | 'text
  * "Apply to all": type a value once and put it into every selected row (or every row when none are
  * selected). Only the fields that were filled in are applied.
  */
-export function BulkFill({ fields, selected, total, onApply, extra }: { fields: FillField[]; selected: number; total: number; onApply: (values: Record<string, string>) => void | Promise<void>; extra?: React.ReactNode }) {
+export function BulkFill({ fields, selected, total, onApply, extra, noun = ['row', 'rows'], hint = 'Fill in only what should change, then apply. Tick rows to change just those.' }: { fields: FillField[]; selected: number; total: number; onApply: (values: Record<string, string>) => void | Promise<void>; extra?: React.ReactNode; noun?: [string, string]; hint?: string }) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const filled = Object.fromEntries(Object.entries(values).filter(([, v]) => v.trim() !== ''));
@@ -18,7 +18,7 @@ export function BulkFill({ fields, selected, total, onApply, extra }: { fields: 
       <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
         <Wand2 className="h-3.5 w-3.5 text-brand" aria-hidden />
         <span className="font-semibold">Apply to {selected ? `${selected} selected` : `all ${total}`}</span>
-        <span className="text-muted">Fill in only what should change, then apply. Tick rows to change just those.</span>
+        <span className="text-muted">{hint}</span>
       </div>
       <div className="flex flex-wrap items-end gap-2">
         {fields.map((f) => (
@@ -51,7 +51,7 @@ export function BulkFill({ fields, selected, total, onApply, extra }: { fields: 
             }
           }}
         >
-          {busy ? 'Applying…' : `Apply to ${n} ${n === 1 ? 'row' : 'rows'}`}
+          {busy ? 'Applying…' : `Apply to ${n} ${n === 1 ? noun[0] : noun[1]}`}
         </button>
       </div>
     </div>

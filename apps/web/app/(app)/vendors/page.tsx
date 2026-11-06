@@ -1,4 +1,5 @@
 'use client';
+import { Copyable } from '@/components/copy';
 import { Pencil, Plus, Search, Upload, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import { ScoreBadge, type Grade } from '@/components/vendors/score';
@@ -129,7 +130,7 @@ export default function VendorsPage() {
             <tbody className="divide-y divide-line">
               {shown.map((v) => (
                 <tr key={v.id} className={editing?.id === v.id ? 'bg-brand/5' : undefined}>
-                  <td className="td font-medium"><Link className="hover:text-brand hover:underline" href={`/vendors/${v.id}`}>{v.name}</Link></td><td className="td">{v.code}</td><td className="td"><StatusChip status={v.status} /></td>
+                  <td className="td font-medium"><Link className="hover:text-brand hover:underline" href={`/vendors/${v.id}`}>{v.name}</Link></td><td className="td"><Copyable text={v.code} label={`${v.name} vendor ID`} /></td><td className="td"><StatusChip status={v.status} /></td>
                   <td className="td"><Link href={`/vendors/${v.id}`}><ScoreBadge score={scores.get(v.id)?.score ?? null} grade={scores.get(v.id)?.grade ?? null} /></Link></td>
                   <td className="td text-sm" title={scores.get(v.id)?.markets.join(', ')}>{scores.get(v.id)?.markets.length ? scores.get(v.id)!.markets.slice(0, 6).map(flag).join(' ') + (scores.get(v.id)!.markets.length > 6 ? ` +${scores.get(v.id)!.markets.length - 6}` : '') : <span className="text-muted">–</span>}</td>
                   <td className="td text-right tabular-nums">{scores.get(v.id)?.committed ?? 0}</td>

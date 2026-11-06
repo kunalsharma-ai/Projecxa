@@ -1,4 +1,5 @@
 'use client';
+import { Copyable } from '@/components/copy';
 import { ShieldCheck } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Empty, ErrorBox, Loading, OutcomeChip, Section, money } from '@/components/ui';
@@ -84,7 +85,7 @@ export function SessionsTab({ project, editable }: { project: ProjectDetail; edi
                         }} />
                       )}
                     </td>
-                    <td className="td font-mono text-xs">{r.vendorRespondentId}{r.isTest && <span className="ml-2 chip bg-info/15 text-info">test</span>}</td>
+                    <td className="td font-mono text-xs"><Copyable text={r.vendorRespondentId} label="respondent ID" />{r.isTest && <span className="ml-2 chip bg-info/15 text-info">test</span>}</td>
                     <td className="td">{flag(r.projectCountry.countryCode)} {r.projectCountry.countryCode}</td>
                     <td className="td">{r.vendorAllocation.vendor.name}</td>
                     <td className="td">

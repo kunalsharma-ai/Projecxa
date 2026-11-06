@@ -1,4 +1,5 @@
 'use client';
+import { Copyable } from '@/components/copy';
 import { Globe, Pencil, Plus, Search, Upload } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { canEdit, useMe } from '@/components/me';
@@ -117,7 +118,7 @@ export default function ClientsPage() {
                 {shown.map((c) => (
                   <tr key={c.id} className={editing?.id === c.id ? 'bg-brand/5' : undefined}>
                     <td className="td font-medium">{canEdit(me) ? <button className="text-left hover:text-brand hover:underline" onClick={() => openEdit(c.id)}>{c.name}</button> : c.name}</td>
-                    <td className="td">{c.code}</td>
+                    <td className="td"><Copyable text={c.code} label="client ID" /></td>
                     <td className="td"><StatusChip status={c.status} /></td>
                     <td className="td text-xs">{c.website ? <a className="inline-flex items-center gap-1 text-brand hover:underline" href={c.website} target="_blank" rel="noreferrer noopener"><Globe className="h-3.5 w-3.5" />{c.website.replace(/^https?:\/\//, '')}</a> : <span className="text-muted">–</span>}</td>
                     <td className="td text-sm">{c.contacts.length ? c.contacts.map((x) => <div key={x.id}>{x.name}{x.email && <span className="text-muted"> · {x.email}</span>}</div>) : <span className="text-warn">No contact yet</span>}</td>

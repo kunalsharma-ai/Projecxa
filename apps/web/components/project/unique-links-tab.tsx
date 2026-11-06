@@ -1,4 +1,5 @@
 'use client';
+import { Copyable } from '@/components/copy';
 import clsx from 'clsx';
 import { Ban, Download, KeyRound, Link2, Search } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -302,7 +303,7 @@ export function UniqueLinksTab({ project, editable }: { project: ProjectDetail; 
                 <tbody className="divide-y divide-line">
                   {links.rows.map((l) => (
                     <tr key={l.id}>
-                      <td className="td font-mono text-xs">{l.key}</td>
+                      <td className="td font-mono text-xs"><Copyable text={l.key} label="link key" /></td>
                       <td className="td whitespace-nowrap text-sm">{l.vendorAllocation.projectCountry.countryCode} · {l.vendorAllocation.vendor.name}</td>
                       <td className="td"><span className={clsx('chip', LINK_TONE[l.shownStatus])}>{LINK_LABEL[l.shownStatus]}</span></td>
                       <td className="td">{l.session ? <OutcomeChip status={l.session.status} /> : <span className="text-xs text-muted">{l.shownStatus === 'USED' ? 'Turned away at entry' : '–'}</span>}</td>

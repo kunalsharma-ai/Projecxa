@@ -1,4 +1,5 @@
 'use client';
+import { Copyable } from '@/components/copy';
 import clsx from 'clsx';
 import { ChevronDown, ExternalLink, PlusCircle, RotateCcw, Trophy, XCircle } from 'lucide-react';
 import Link from 'next/link';
@@ -145,7 +146,7 @@ export default function WonBidsPage() {
                           </button>
                         </td>
                         <td className="td">
-                          <div className="font-mono text-xs">{b.bidNumber}</div>
+                          <div className="font-mono text-xs"><Copyable text={b.bidNumber} label="bid number" /></div>
                           {b.bidVersion && <div className="text-xs text-muted">version {b.bidVersion}</div>}
                         </td>
                         <td className="td max-w-[260px]">

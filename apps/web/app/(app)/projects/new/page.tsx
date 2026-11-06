@@ -31,6 +31,7 @@ interface CountryRow {
   currency: string;
   targetCompletes: Num;
   liveSurveyUrl: string;
+  testSurveyUrl?: string;
 }
 
 /** A vendor added to every market on create; the payout is per complete in the project currency. */
@@ -40,7 +41,7 @@ const SHARED_DEFAULTS = { targetGroup: '', loiMinutes: 15 as Num, irPercent: 30 
 
 function blankRow(code: string): CountryRow {
   const c = COUNTRIES.find((x) => x.code === code);
-  return { countryCode: code, language: c?.lang ?? 'en', currency: c?.currency ?? 'USD', targetGroup: '', loiMinutes: '', irPercent: '', cpi: '', targetCompletes: '', liveSurveyUrl: '' };
+  return { countryCode: code, language: c?.lang ?? 'en', currency: c?.currency ?? 'USD', targetGroup: '', loiMinutes: '', irPercent: '', cpi: '', targetCompletes: '', liveSurveyUrl: '', testSurveyUrl: '' };
 }
 
 const num = (v: string): Num => (v === '' ? '' : Number(v));
@@ -168,6 +169,7 @@ function CreateProjectPage() {
           cpi: opt(c.cpi),
           targetCompletes: opt(c.targetCompletes),
           liveSurveyUrl: c.liveSurveyUrl ?? '',
+          testSurveyUrl: c.testSurveyUrl ?? '',
         })),
       );
       setUrl({ template: id });
@@ -316,7 +318,7 @@ function CreateProjectPage() {
     const idx = selected.length ? selected : visible;
     const patch: Partial<CountryRow> = {};
     for (const k of ['loiMinutes', 'irPercent', 'cpi', 'targetCompletes'] as const) if (v[k] !== undefined) patch[k] = num(v[k]);
-    for (const k of ['targetGroup', 'liveSurveyUrl', 'language'] as const) if (v[k] !== undefined) patch[k] = v[k].trim();
+    for (const k of ['targetGroup', 'liveSurveyUrl', 'testSurveyUrl', 'language'] as const) if (v[k] !== undefined) patch[k] = v[k].trim();
     setRows((rs) => rs.map((r, n) => (idx.includes(n) ? { ...r, ...patch } : r)));
   }
 
@@ -590,6 +592,7 @@ function CreateProjectPage() {
                     { key: 'targetCompletes', label: 'Completes', type: 'number', width: 'w-24' },
                     { key: 'targetGroup', label: 'Target group', width: 'w-40', list: 'target-groups' },
                     { key: 'liveSurveyUrl', label: 'Live link', width: 'w-64', placeholder: 'https://…' },
+                    { key: 'testSurveyUrl', label: 'Test link', width: 'w-64', placeholder: 'https://…' },
                   ]}
                   extra={selected.length > 0 && <button type="button" className="btn-ghost px-2.5 py-1.5 text-xs text-bad" onClick={() => removeRows(selected)}><Trash2 className="h-3.5 w-3.5" /> Remove {selected.length}</button>}
                 />
@@ -606,7 +609,7 @@ function CreateProjectPage() {
                         <th className="th w-8">
                           <input type="checkbox" aria-label="Select all markets" checked={visible.length > 0 && visible.every((i) => selected.includes(i))} onChange={(e) => setSelected(e.target.checked ? visible : [])} />
                         </th>
-                        <th className="th">Country</th><th className="th">Language</th><th className="th">Target group</th><th className="th">LOI</th><th className="th">IR %</th><th className="th">CPI ({currency})</th><th className="th">Completes</th><th className="th">Live link</th><th className="th" />
+                        <th className="th">Country</th><th className="th">Language</th><th className="th">Target group</th><th className="th">LOI</th><th className="th">IR %</th><th className="th">CPI ({currency})</th><th className="th">Completes</th><th className="th">Live / test link</th><th className="th" />
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-line">
@@ -625,10 +628,13 @@ function CreateProjectPage() {
                               <td key={k} className="td"><input className={clsx('input w-20 px-2 py-1', r[k] !== '' && 'border-brand/60')} type="number" step={k === 'cpi' ? '0.01' : undefined} placeholder={String(shared[k] ?? '')} value={r[k]} onChange={(e) => setRow(i, { [k]: num(e.target.value) })} /></td>
                             ))}
                             <td className="td"><input className={clsx('input w-20 px-2 py-1', r.targetCompletes !== '' && 'border-brand/60')} type="number" placeholder={String(shared.targetCompletes)} value={r.targetCompletes} onChange={(e) => setRow(i, { targetCompletes: num(e.target.value) })} /></td>
-                            <td className="td"><input className="input w-56 px-2 py-1" placeholder={shared.liveSurveyUrl ? 'same as basics' : 'add link before going live'} value={r.liveSurveyUrl} onChange={(e) => setRow(i, { liveSurveyUrl: e.target.value })} /></td>
+                            <td className="td space-y-1">
+                              <input className="input w-56 px-2 py-1" aria-label={`Live link for ${countryName(r.countryCode)}`} placeholder={shared.liveSurveyUrl ? 'same as basics' : 'add link before going live'} value={r.liveSurveyUrl} onChange={(e) => setRow(i, { liveSurveyUrl: e.target.value })} />
+                              <input className="input w-56 px-2 py-1 text-xs" aria-label={`Test link for ${countryName(r.countryCode)}`} placeholder={shared.testSurveyUrl ? 'test: same as basics' : 'test link (optional)'} value={r.testSurveyUrl ?? ''} onChange={(e) => setRow(i, { testSurveyUrl: e.target.value })} />
+                            </td>
                             <td className="td">
                               <div className="flex gap-1">
-                                <button className="btn-ghost p-1.5" title="Add this country again for another target group" aria-label={`Add ${r.countryCode} again`} onClick={() => setRows((rs) => [...rs.slice(0, i + 1), { ...r, targetGroup: '', liveSurveyUrl: '' }, ...rs.slice(i + 1)])}><Plus className="h-3.5 w-3.5" /></button>
+                                <button className="btn-ghost p-1.5" title="Add this country again for another target group" aria-label={`Add ${r.countryCode} again`} onClick={() => setRows((rs) => [...rs.slice(0, i + 1), { ...r, targetGroup: '', liveSurveyUrl: '', testSurveyUrl: '' }, ...rs.slice(i + 1)])}><Plus className="h-3.5 w-3.5" /></button>
                                 <button className="btn-ghost p-1.5" aria-label={`Remove ${r.countryCode}`} onClick={() => removeRows([i])}><Trash2 className="h-3.5 w-3.5" /></button>
                               </div>
                             </td>
@@ -647,6 +653,19 @@ function CreateProjectPage() {
 
           <Section title={<span className="flex items-center gap-2"><Users className="h-4 w-4 text-muted" /> Vendors</span>} actions={<button className="btn-ghost px-2.5 py-1.5 text-xs" onClick={() => setVendors([...vendors, { vendorId: '', cpi: '', uidParam: 'vid' }])}><Plus className="h-3.5 w-3.5" /> Add vendor</button>}>
             <p className="mb-3 text-sm text-muted">Each vendor is added to every market with its own entry link. You can change vendors per market after creating the project.</p>
+            {vendors.length > 1 && (
+              <BulkFill
+                selected={0}
+                total={vendors.length}
+                noun={['vendor', 'vendors']}
+                hint="Same payout or link variable for every vendor."
+                onApply={(v) => setVendors(vendors.map((x) => ({ ...x, ...(v.cpi !== undefined ? { cpi: num(v.cpi) } : {}), ...(v.uidParam !== undefined ? { uidParam: v.uidParam.trim() || 'vid' } : {}) })))}
+                fields={[
+                  { key: 'cpi', label: `Payout (${currency})`, type: 'number', step: '0.01', width: 'w-24' },
+                  { key: 'uidParam', label: 'Link variable', width: 'w-24', placeholder: 'vid' },
+                ]}
+              />
+            )}
             {vendors.length === 0 && <p className="rounded-lg border border-dashed border-line p-4 text-sm text-muted">No vendors yet. Add the vendors you usually use, and tick “Preselect” to have them here on every new project.</p>}
             <div className="space-y-2">
               {vendors.map((v, i) => {
