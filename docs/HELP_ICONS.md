@@ -18,7 +18,7 @@ and every icon changes. No other file holds help text.
 | Key | Where the icon shows | Example |
 | --- | --- | --- |
 | `page:<route>` | Next to the page title (found from the URL; ids written as `[id]`) | `page:/projects/[id]` |
-| `tab:<name>` | Next to the active project tab | `tab:Quotas` |
+| `tab:<name>` | Next to the active project tab | `tab:Quotas & monitor` |
 | `section:<title>` | Next to a card title that is plain text, on any page | `section:Field dates` |
 | `section:<route>::<title>` | Same title, only on that page (wins over the general one) | `section:/projects/new::Gate survey questions` |
 | `field:<label>` | Next to a field label. A trailing `*` and a final `(…)` are ignored, so `Client CPI (USD) *` uses `field:Client CPI` | `field:Payout CPI` |

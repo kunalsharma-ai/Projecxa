@@ -27,6 +27,8 @@ import { evaluate, Question, questionsOf } from './questions';
 import { TorService } from './tor.service';
 import { matchCells, Respondent } from '../quotas/quota.rules';
 import { consentFor } from '../privacy/privacy';
+import { isSpeeder, SPEEDER_DETAIL, speederOf } from '../projects/field-metrics';
+import { runAutoPause } from '../monitor/auto-pause';
 
 /** Toggles that need the respondent's browser, so they run on the gate page before the survey. */
 const GATE_KEYS = ['gateSurvey', 'captcha', 'browserFingerprinting', 'browserLanguage', 'timezoneTracking', 'cookieValidation'] as const;
@@ -387,7 +389,8 @@ export class SurveyService {
     let detail: string | undefined = reason;
 
     if (session.status !== 'STARTED') {
-      const same = session.status === requested || (session.statusDetail === 'OVERQUOTA' && requested === 'COMPLETE');
+      // An overquota or a speeder was a complete on the client side; repeating it is not a conflict.
+      const same = session.status === requested || ((session.statusDetail === 'OVERQUOTA' || session.statusDetail === SPEEDER_DETAIL) && requested === 'COMPLETE');
       if (source === 'S2S' && same && !session.outcomeVerified) {
         await this.prisma.respondentSession.update({ where: { id: session.id }, data: { outcomeVerified: true } });
       }
@@ -400,6 +403,11 @@ export class SurveyService {
     if (session.expiresAt < new Date() && source === 'BROWSER') {
       status = 'SECURITY_REJECT';
       detail = 'EXPIRED';
+    }
+    // Speeder check: a complete faster than the chosen share of the planned LOI is a quality fail.
+    if (status === 'COMPLETE' && isSpeeder(speederOf(session.project.speederCheck), session.projectCountry.loiMinutes, session.gatePassedAt ?? session.startedAt, new Date())) {
+      status = 'QUALITY_FAIL';
+      detail = SPEEDER_DETAIL;
     }
 
     const changed = await this.prisma.$transaction(async (tx) => {
@@ -467,6 +475,8 @@ export class SurveyService {
         market: { countryCode: session.projectCountry.countryCode, currency: session.projectCountry.currency, targetCompletes: session.projectCountry.targetCompletes },
         vendor: { code: session.vendorAllocation.vendor.code, name: session.vendorAllocation.vendor.name },
       });
+      // Auto-pause checkpoint: act on the complete that reaches it, not minutes later.
+      await runAutoPause(this.prisma, session.projectId).catch((e) => this.log.warn(`Auto-pause check failed: ${(e as Error).message}`));
     }
     return { effectiveStatus: status as OutcomeStatus, conflict: false, changed: true };
   }

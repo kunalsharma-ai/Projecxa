@@ -22,9 +22,9 @@ export function summaryCsv(filename: string, nameHeader: string, rows: SummaryRo
   const cur = rows.find((r) => r.reporting?.currency)?.reporting.currency ?? 'reporting currency';
   downloadCsv(
     filename,
-    [nameHeader, ...(withSub ? [withSub] : []), 'Clicks', 'Completes', 'Conversion %', 'Terminates', 'Quota full', 'Quality fails', 'Partial or error', 'In survey', 'Approved', 'Pending', 'Rejected', 'Median LOI (min)', 'Revenue', 'Payout', 'Profit', 'Margin %',
+    [nameHeader, ...(withSub ? [withSub] : []), 'Clicks', 'Completes', 'Conversion %', 'Terminates', 'Quota full', 'Quality fails', 'Speeders', 'Partial or error', 'In survey', 'Approved', 'Pending', 'Rejected', 'LOI (min)', 'IR %', 'Revenue', 'Payout', 'Profit', 'Margin %',
       `Revenue (${cur})`, `Payout (${cur})`, `Profit (${cur})`, `Margin % (${cur})`, 'Not converted (no rate)'],
-    rows.map((r) => [r.label, ...(withSub ? [r.sublabel ?? ''] : []), r.clicks, r.completes, r.conversion, r.terminates, r.quotaFull, r.qualityFail, r.partial, r.inProgress, r.approved, r.pending, r.rejected, r.medianLoiMinutes ?? '', moneyLines(r, 'revenue').join('; '), moneyLines(r, 'payout').join('; '), moneyLines(r, 'profit').join('; '), r.margin ?? '',
+    rows.map((r) => [r.label, ...(withSub ? [r.sublabel ?? ''] : []), r.clicks, r.completes, r.conversion, r.terminates, r.quotaFull, r.qualityFail, r.speeders ?? 0, r.partial, r.inProgress, r.approved, r.pending, r.rejected, r.loiMinutes ?? '', r.ir ?? '', moneyLines(r, 'revenue').join('; '), moneyLines(r, 'payout').join('; '), moneyLines(r, 'profit').join('; '), r.margin ?? '',
       r.reporting.revenue.toFixed(2), r.reporting.payout.toFixed(2), r.reporting.profit.toFixed(2), r.reporting.margin ?? '', r.reporting.missing.join(' ')]),
   );
 }
@@ -53,7 +53,9 @@ export function SummaryTable({ rows, totals, nameHeader, subHeader, mode = 'mark
       <td className="td text-right tabular-nums">{n(r.terminates)}</td>
       <td className="td text-right tabular-nums">{n(r.quotaFull)}</td>
       <td className="td text-right tabular-nums">{n(r.qualityFail)}</td>
-      <td className="td text-right tabular-nums">{r.medianLoiMinutes ?? '–'}</td>
+      <td className="td text-right tabular-nums">{n(r.speeders ?? 0)}</td>
+      <td className="td text-right tabular-nums">{r.loiMinutes ?? '–'}</td>
+      <td className="td text-right tabular-nums">{r.ir == null ? '–' : `${r.ir}%`}</td>
       <td className="td text-right tabular-nums">{n(r.pending)} / {n(r.rejected)}</td>
       <td className="td text-right align-top tabular-nums"><MoneyCell r={r} k="revenue" mode={mode} /></td>
       <td className="td text-right align-top tabular-nums"><MoneyCell r={r} k="payout" mode={mode} /></td>
@@ -63,7 +65,7 @@ export function SummaryTable({ rows, totals, nameHeader, subHeader, mode = 'mark
   );
   return (
     <div className="-m-5 overflow-x-auto">
-      <table className="w-full min-w-[1100px]">
+      <table className="w-full min-w-[1240px]">
         <thead className="border-b border-line bg-sunken/60">
           <tr>
             <th className="th">{nameHeader}</th>
@@ -74,7 +76,9 @@ export function SummaryTable({ rows, totals, nameHeader, subHeader, mode = 'mark
             <th className="th text-right">Terms</th>
             <th className="th text-right">Quota full</th>
             <th className="th text-right">Quality</th>
-            <th className="th text-right" title="Median minutes from entry to complete">LOI</th>
+            <th className="th text-right" title="Completes rejected by the speeder check">Speeders</th>
+            <th className="th text-right" title="Average minutes from reaching the client survey to complete">LOI</th>
+            <th className="th text-right" title="Completes ÷ (completes + terminates)">IR</th>
             <th className="th text-right" title="Completes waiting for approval / rejected">Pending / rej.</th>
             <th className="th text-right">Revenue</th>
             <th className="th text-right">Payout</th>

@@ -10,7 +10,7 @@ import { FilesTab } from '@/components/project/files-tab';
 import { FinanceTab } from '@/components/project/finance-tab';
 import { HistoryTab } from '@/components/project/history-tab';
 import { SaveTemplate } from '@/components/project/save-template';
-import { AlertTriangle, BadgeCheck, CircleSlash, CopyPlus, Gauge, Hourglass, LayoutTemplate, ShieldAlert, X } from 'lucide-react';
+import { AlertTriangle, BadgeCheck, CircleSlash, Clock, CopyPlus, Gauge, Hourglass, LayoutTemplate, Percent, Rabbit, ShieldAlert, X } from 'lucide-react';
 import { CloneProject } from '@/components/project/clone-project';
 import { MonitorTab } from '@/components/project/monitor-tab';
 import { QuotasTab } from '@/components/project/quotas-tab';
@@ -31,7 +31,7 @@ import { get, patch } from '@/lib/api';
 import { flag } from '@/lib/countries';
 import { SECURITY_LABELS } from '@/lib/types';
 
-const TABS = ['Overview', 'Vendors & links', 'Unique links', 'Quotas', 'SAMPLEON', 'Monitor', 'Gate & security', 'Respondent pages', 'Redirects', 'QA studio', 'Respondents', 'Answers', 'Reconcile & invoice', 'Files & requests', 'History'] as const;
+const TABS = ['Overview', 'Vendors & links', 'Unique links', 'Quotas & monitor', 'SAMPLEON', 'Gate & security', 'Respondent pages', 'Redirects', 'QA studio', 'Respondents', 'Answers', 'Reconcile & invoice', 'Files & requests', 'History'] as const;
 const NEXT_STATUS: Record<string, string[]> = {
   DRAFT: ['TEST', 'LIVE'],
   TEST: ['LIVE', 'HOLD'],
@@ -65,7 +65,9 @@ export default function ProjectPage() {
 
   // Links such as ?tab=redirects open a tab directly.
   useEffect(() => {
-    const want = new URLSearchParams(window.location.search).get('tab');
+    const raw = new URLSearchParams(window.location.search).get('tab');
+    // Quotas and Monitor are one tab now; old links to either still open it.
+    const want = raw && /^(quotas|monitor)/i.test(raw) ? 'quotas & monitor' : raw;
     const t = want && TABS.find((x) => x.toLowerCase().startsWith(want.toLowerCase()));
     if (t) setTab(t);
   }, []);
@@ -74,6 +76,25 @@ export default function ProjectPage() {
   useEffect(() => {
     reload();
   }, [reload]);
+
+  // Live projects refresh their counts, LOI, IR and money every 30 seconds (only the figures, so open
+  // forms keep what is being typed).
+  const [refreshedAt, setRefreshedAt] = useState<Date | null>(null);
+  const live = p?.status === 'LIVE';
+  useEffect(() => {
+    if (!live) return;
+    setRefreshedAt(new Date());
+    const t = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      get<ProjectDetail>(`/projects/${id}`)
+        .then((n) => {
+          setP((prev) => (prev ? { ...prev, stats: n.stats, metrics: n.metrics, finance: n.finance } : n));
+          setRefreshedAt(new Date());
+        })
+        .catch(() => {});
+    }, 30_000);
+    return () => clearInterval(t);
+  }, [id, live]);
 
   // Remember this project in the sidebar's "Recent projects" (most recent first, at most 8).
   const { prefs, update } = useTheme();
@@ -109,6 +130,8 @@ export default function ProjectPage() {
   };
   const loi = range(p.countries.map((c) => c.loiMinutes), ' min');
   const ir = range(p.countries.map((c) => c.irPercent), '%');
+  const avgLoi = p.metrics?.avgLoiMinutes != null ? `${p.metrics.avgLoiMinutes} min` : '–';
+  const avgIr = p.metrics?.irPercent != null ? `${p.metrics.irPercent}%` : '–';
 
   return (
     <>
@@ -122,8 +145,8 @@ export default function ProjectPage() {
             <span>· {p.client.name}</span>
             <span>· {p.category}</span>
             <span>· PM {p.projectManager.name}</span>
-            <span>· LOI {loi}</span>
-            <span>· IR {ir}</span>
+            <span title={`Planned LOI ${loi}`}>· Avg LOI {avgLoi}</span>
+            <span title={`Planned IR ${ir}`}>· Avg IR {avgIr}</span>
             <span>· {[...new Set(p.countries.map((c) => flag(c.countryCode)))].join(' ')}</span>
           </span>
         }
@@ -162,19 +185,30 @@ export default function ProjectPage() {
       {savingTemplate && <SaveTemplate project={p} onClose={() => setSavingTemplate(false)} />}
       {cloning && <CloneProject project={p} onClose={() => setCloning(false)} />}
 
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="flex items-center gap-1.5 text-sm font-semibold">Fieldwork status <InfoTip id="project.fieldStatus" /></h2>
+        {live && refreshedAt && (
+          <span className="inline-flex items-center gap-1.5 text-xs text-muted" role="status">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-ok" aria-hidden /> Live · updated {refreshedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+          </span>
+        )}
+      </div>
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Fieldwork status">
         {([
-          ['Completes', `${completes} / ${target}`, BadgeCheck, 'tone-violet'],
-          ['In progress', p.stats.STARTED, Hourglass, 'tone-blue'],
-          ['Terminates', p.stats.TERMINATE, CircleSlash, 'tone-amber'],
-          ['Overquota / quota full', p.stats.QUOTA_FULL, Gauge, 'tone-cyan'],
-          ['Quality, duplicate, security', p.stats.QUALITY_FAIL + p.stats.DUPLICATE + p.stats.SECURITY_REJECT, ShieldAlert, 'tone-pink'],
-        ] as const).map(([l, v, Icon, tone], i) => (
-          <div key={l} className={clsx('card flex min-w-0 items-center gap-3 p-4', i === 0 && 'col-span-2 lg:col-span-1')}>
+          ['Completes', `${completes} / ${target}`, BadgeCheck, 'tone-violet', null],
+          ['In progress', p.stats.STARTED, Hourglass, 'tone-blue', null],
+          ['Terminates', p.stats.TERMINATE, CircleSlash, 'tone-amber', null],
+          ['Overquota / quota full', p.stats.QUOTA_FULL, Gauge, 'tone-cyan', null],
+          ['Speeders', p.stats.SPEEDER ?? 0, Rabbit, 'tone-pink', p.speederCheck?.enabled ? `faster than ${p.speederCheck.fraction} of LOI` : 'speeder check off'],
+          ['Quality, duplicate, security', p.stats.QUALITY_FAIL + p.stats.DUPLICATE + p.stats.SECURITY_REJECT, ShieldAlert, 'tone-pink', null],
+          ['Avg LOI', avgLoi, Clock, 'tone-blue', `planned ${loi}`],
+          ['Avg IR', avgIr, Percent, 'tone-violet', `planned ${ir}`],
+        ] as const).map(([l, v, Icon, tone, hint]) => (
+          <div key={l} className="card flex min-w-0 items-center gap-3 p-4">
             <span className={clsx('icon-tile hidden sm:grid', tone)}><Icon className="h-5 w-5" aria-hidden /></span>
             <div className="min-w-0">
               <div className="text-xl font-bold tabular-nums">{v}</div>
-              <div className="text-xs text-muted">{l}</div>
+              <div className="truncate text-xs text-muted">{l}{hint ? <span className="text-muted/80"> · {hint}</span> : null}</div>
             </div>
           </div>
         ))}
@@ -186,14 +220,14 @@ export default function ProjectPage() {
             [
               ['Client CPI', f.minCpi === f.maxCpi ? money(f.minCpi, f.currency) : `${money(f.minCpi, f.currency)}–${money(f.maxCpi)}`, f.minCpi === f.maxCpi ? 'per complete' : `per complete · average ${money(f.avgCpi)}`],
               ['Expected revenue', money(f.plannedRevenue, f.currency), 'CPI × target completes'],
-              ['Revenue so far', money(f.revenue, f.currency), 'from completes'],
-              ['Vendor cost so far', money(f.cost, f.currency), f.plannedCost ? `about ${money(f.plannedCost, f.currency)} at target` : 'no vendors yet'],
-              ['Margin so far', money(f.margin, f.currency), f.revenue ? `${Math.round((f.margin / f.revenue) * 100)}% of revenue` : 'no completes yet'],
+              ['Revenue (live)', money(f.revenue, f.currency), 'client CPI × completes so far'],
+              ['Cost (live)', money(f.cost, f.currency), f.plannedCost ? `vendor payouts · about ${money(f.plannedCost, f.currency)} at target` : 'vendor payouts · no vendors yet'],
+              ['Profit (live)', money(f.margin, f.currency), f.revenue ? `${Math.round((f.margin / f.revenue) * 100)}% margin` : 'no completes yet'],
             ] as const
           ).map(([label, value, hint]) => (
             <div key={`${f.currency}-${label}`} className="card min-w-0 p-4">
-              <div className="text-xs text-muted">{label}{p.finance!.length > 1 ? ` · ${f.currency}` : ''}</div>
-              <div className={clsx('truncate text-lg font-bold tabular-nums', label === 'Margin so far' && f.margin < 0 && 'text-bad')}>{value}</div>
+              <div className="flex items-center gap-1 text-xs text-muted">{label}{p.finance!.length > 1 ? ` · ${f.currency}` : ''}{label === 'Revenue (live)' && <InfoTip id="project.liveMoney" />}</div>
+              <div className={clsx('truncate text-lg font-bold tabular-nums', label === 'Profit (live)' && (f.margin < 0 ? 'text-bad' : f.margin > 0 && 'text-ok'))}>{value}</div>
               <div className="truncate text-xs text-muted">{hint}</div>
             </div>
           )))}
@@ -215,9 +249,17 @@ export default function ProjectPage() {
       {tab === 'Overview' && <CountriesTab project={p} editable={editable} reload={reload} security={security} />}
       {tab === 'Vendors & links' && <VendorsTab project={p} editable={editable} reload={reload} />}
       {tab === 'Unique links' && <UniqueLinksTab key={p.id} project={p} editable={editable} />}
-      {tab === 'Quotas' && <QuotasTab key={p.id} project={p} editable={editable} />}
+      {tab === 'Quotas & monitor' && (
+        <div className="space-y-8">
+          <nav className="flex flex-wrap gap-2 text-xs" aria-label="On this tab">
+            <a href="#quotas" className="chip bg-sunken text-ink hover:bg-brand/10">Quota cells</a>
+            <a href="#monitor" className="chip bg-sunken text-ink hover:bg-brand/10">Field dates, autopilot and alerts</a>
+          </nav>
+          <section id="quotas" className="scroll-mt-24"><QuotasTab key={p.id} project={p} editable={editable} /></section>
+          <section id="monitor" className="scroll-mt-24"><MonitorTab key={p.id} project={p} editable={editable} reload={reload} /></section>
+        </div>
+      )}
       {tab === 'SAMPLEON' && <SampleonTab key={p.id} project={p} editable={editable} />}
-      {tab === 'Monitor' && <MonitorTab key={p.id} project={p} editable={editable} reload={reload} />}
       {tab === 'Redirects' && <RedirectsTab project={p} editable={editable} reload={reload} />}
       {tab === 'QA studio' && <QaStudio project={p} />}
       {tab === 'Respondents' && <SessionsTab project={p} editable={editable} />}

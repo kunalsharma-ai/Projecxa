@@ -16,7 +16,9 @@ interface Row {
   id: string; projectCode: string; workOrderNo: string | null; name: string; status: string; category: string;
   client: { name: string }; projectManager: { name: string }; salesPerson: { name: string } | null; type: string;
   countries: string[]; liveCountries: number; links: { live: number; total: number }; targetCompletes: number; completes: number; terminates: number;
-  overquotas: number; dropouts: number; inProgress: number; qualityFails: number; loiMinutes: number | null; irPercent: number | null;
+  overquotas: number; dropouts: number; inProgress: number; qualityFails: number; speeders: number; loiMinutes: number | null; irPercent: number | null;
+  /** Actual, from live sessions; loiMinutes / irPercent are the planned values. */
+  avgLoiMinutes: number | null; avgIrPercent: number | null;
   redirectMode: string; fieldStartAt: string | null; fieldEndAt: string | null; createdAt: string;
 }
 
@@ -57,8 +59,25 @@ const columns = (pick: Pick): GridColumn<Row>[] => [
   { id: 'dropouts', header: 'Dropouts', align: 'right', cell: (r) => r.dropouts },
   { id: 'inProgress', header: 'In survey', align: 'right', defaultHidden: true, cell: (r) => r.inProgress },
   { id: 'quality', header: 'Quality fails', align: 'right', defaultHidden: true, cell: (r) => r.qualityFails },
-  { id: 'loi', header: 'LOI', align: 'right', cell: (r) => r.loiMinutes ?? '–' },
-  { id: 'ir', header: 'IR', align: 'right', cell: (r) => (r.irPercent != null ? `${r.irPercent}%` : '–') },
+  { id: 'speeders', header: 'Speeders', align: 'right', title: 'Completes rejected by the speeder check', cell: (r) => <span className={r.speeders ? 'text-bad' : 'text-muted'}>{r.speeders ?? 0}</span> },
+  {
+    id: 'loi', header: 'Avg LOI', align: 'right', title: 'Average minutes of live completes (planned LOI under it)',
+    cell: (r) => (
+      <span className="whitespace-nowrap" title={`Planned ${r.loiMinutes ?? '–'} min`}>
+        {r.avgLoiMinutes != null ? `${r.avgLoiMinutes} min` : '–'}
+        <span className="block text-xs text-muted">plan {r.loiMinutes ?? '–'}</span>
+      </span>
+    ),
+  },
+  {
+    id: 'ir', header: 'Avg IR', align: 'right', title: 'Completes ÷ (completes + terminates) (planned IR under it)',
+    cell: (r) => (
+      <span className="whitespace-nowrap" title={`Planned ${r.irPercent ?? '–'}%`}>
+        <span className={r.avgIrPercent != null && r.irPercent != null && r.avgIrPercent < r.irPercent * 0.7 ? 'text-warn' : undefined}>{r.avgIrPercent != null ? `${r.avgIrPercent}%` : '–'}</span>
+        <span className="block text-xs text-muted">plan {r.irPercent != null ? `${r.irPercent}%` : '–'}</span>
+      </span>
+    ),
+  },
   { id: 'manager', header: 'Manager', sortKey: 'manager', cell: (r) => <span className="whitespace-nowrap">{r.projectManager.name}</span> },
   { id: 'sales', header: 'Sales person', defaultHidden: true, cell: (r) => r.salesPerson?.name ?? '–' },
   { id: 'fieldEnd', header: 'Field ends', sortKey: 'fieldEnd', defaultHidden: true, cell: (r) => <span className="whitespace-nowrap">{day(r.fieldEndAt)}</span> },
@@ -142,8 +161,8 @@ export default function ProjectsPage() {
       }
       downloadCsv(
         `samptrek-projects-${new Date().toISOString().slice(0, 10)}.csv`,
-        ['Project ID', 'Work order', 'Name', 'Status', 'Category', 'Type', 'Client', 'Project manager', 'Sales person', 'Markets', 'Live links', 'Total links', 'Target', 'Completes', 'Terminates', 'Overquotas', 'Dropouts', 'In progress', 'Quality fails', 'LOI (min)', 'IR %', 'Redirect mode', 'Created'],
-        rows.map((r) => [r.projectCode, r.workOrderNo, r.name, r.status, r.category, r.type, r.client.name, r.projectManager?.name, r.salesPerson?.name, r.countries.join(' '), r.links.live, r.links.total, r.targetCompletes, r.completes, r.terminates, r.overquotas, r.dropouts, r.inProgress, r.qualityFails, r.loiMinutes, r.irPercent, r.redirectMode, r.createdAt.slice(0, 10)]),
+        ['Project ID', 'Work order', 'Name', 'Status', 'Category', 'Type', 'Client', 'Project manager', 'Sales person', 'Markets', 'Live links', 'Total links', 'Target', 'Completes', 'Terminates', 'Overquotas', 'Dropouts', 'In progress', 'Quality fails', 'Speeders', 'Avg LOI (min)', 'Planned LOI (min)', 'Avg IR %', 'Planned IR %', 'Redirect mode', 'Created'],
+        rows.map((r) => [r.projectCode, r.workOrderNo, r.name, r.status, r.category, r.type, r.client.name, r.projectManager?.name, r.salesPerson?.name, r.countries.join(' '), r.links.live, r.links.total, r.targetCompletes, r.completes, r.terminates, r.overquotas, r.dropouts, r.inProgress, r.qualityFails, r.speeders, r.avgLoiMinutes, r.loiMinutes, r.avgIrPercent, r.irPercent, r.redirectMode, r.createdAt.slice(0, 10)]),
       );
     } catch (e) {
       setError(e);
