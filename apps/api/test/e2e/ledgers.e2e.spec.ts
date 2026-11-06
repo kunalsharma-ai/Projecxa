@@ -257,7 +257,7 @@ describe('Direct sync to Xero, QuickBooks Online and Tally Prime (e2e)', () => {
       await prisma.vendorBill.create({ data: { organizationId: org, vendorId, number: 'BILL-2026-00201', status: 'APPROVED', currency: 'USD', lines: [{ projectId: project.id, projectCode: project.projectCode, countryCode: 'US', description: 'Brand study US', quantity: 10, unitPrice: 4, amount: 40 }], completes: 10, subtotal: 40, total: 40, vendorReference: 'PA-77', approvedAt: new Date('2026-10-10T08:00:00Z') } })
     ).id;
     await admin.put('/organization/finance-settings', { baseCurrency: 'USD', rates: [{ currency: 'EUR', rate: 1.08 }] }).expect(200);
-    Object.assign(process.env, { PUBLIC_BASE_URL: 'http://api.projexa.test' });
+    Object.assign(process.env, { PUBLIC_BASE_URL: 'http://api.samptrek.test' });
   });
   afterAll(async () => {
     process.env = env;
@@ -283,7 +283,7 @@ describe('Direct sync to Xero, QuickBooks Online and Tally Prime (e2e)', () => {
     for (const k of ['XERO_CLIENT_ID', 'XERO_CLIENT_SECRET', 'QUICKBOOKS_CLIENT_ID', 'QUICKBOOKS_CLIENT_SECRET', 'TALLY_URL', 'TALLY_TENANT']) delete process.env[k];
     const list = (await pm.get('/accounting/ledgers').expect(200)).body;
     expect(list.map((c: { provider: string; configured: boolean; connected: boolean }) => [c.provider, c.configured, c.connected])).toEqual([['xero', false, false], ['quickbooks', false, false], ['tally', false, false]]);
-    expect(list[0].redirectUri).toBe('http://api.projexa.test/api/v1/accounting/ledgers/xero/callback');
+    expect(list[0].redirectUri).toBe('http://api.samptrek.test/api/v1/accounting/ledgers/xero/callback');
     const r = await admin.get('/accounting/ledgers/xero/connect').expect(302);
     expect(decodeURIComponent(r.headers.location)).toMatch(/ledger_error=Xero is not set up/);
     await since('xero');
@@ -308,7 +308,7 @@ describe('Direct sync to Xero, QuickBooks Online and Tally Prime (e2e)', () => {
       const { to, back } = await connect('xero');
       expect(to.origin + to.pathname).toBe('https://login.xero.com/identity/connect/authorize');
       expect(to.searchParams.get('scope')).toBe('offline_access accounting.contacts accounting.invoices accounting.payments accounting.settings.read');
-      expect(to.searchParams.get('redirect_uri')).toBe('http://api.projexa.test/api/v1/accounting/ledgers/xero/callback');
+      expect(to.searchParams.get('redirect_uri')).toBe('http://api.samptrek.test/api/v1/accounting/ledgers/xero/callback');
       expect(back).toMatch(/\/accounting\?ledger=xero&connected=1/);
       expect(xero.tok.s.lastAuth).toBe(`Basic ${Buffer.from('xero-client:xero-secret').toString('base64')}`);
       const row = await prisma.ledgerConnection.findFirstOrThrow({ where: { organizationId: org, provider: 'xero' } });

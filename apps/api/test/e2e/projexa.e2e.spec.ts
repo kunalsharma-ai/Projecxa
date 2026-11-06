@@ -5,7 +5,7 @@ import { CallbacksService } from '../../src/callbacks/callbacks.service';
 import { hmacSha256 } from '../../src/common/crypto';
 import { api, createApp, login, makeOrg, resetDb, tokenFrom } from './helpers';
 
-const BASE = 'http://api.projexa.test';
+const BASE = 'http://api.samptrek.test';
 
 describe('SampTrek milestone 1 (e2e)', () => {
   let app: INestApplication;

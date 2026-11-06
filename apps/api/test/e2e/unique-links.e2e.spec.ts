@@ -83,13 +83,13 @@ describe('One-time unique links (e2e)', () => {
     const list = (await viewer.get(`/projects/${projectId}/unique-links?take=10`).expect(200)).body;
     expect(list.total).toBe(1200);
     expect(list.rows).toHaveLength(10);
-    expect(list.rows[0].url).toBe(`http://api.projexa.test/u/${list.rows[0].key}`);
+    expect(list.rows[0].url).toBe(`http://api.samptrek.test/u/${list.rows[0].key}`);
   });
 
   it('does not use up a link while the project is not live', async () => {
     const link = await prisma.uniqueLink.findFirstOrThrow({ where: { projectId, status: 'UNUSED' } });
     const res = await enter(link.key);
-    expect(res.headers.location).toBe('http://api.projexa.test/end/quota_full');
+    expect(res.headers.location).toBe('http://api.samptrek.test/end/quota_full');
     expect((await prisma.uniqueLink.findUniqueOrThrow({ where: { id: link.id } })).status).toBe('UNUSED');
     expect(await prisma.respondentSession.count({ where: { projectId } })).toBe(0);
   });
@@ -135,19 +135,19 @@ describe('One-time unique links (e2e)', () => {
   });
 
   it('rejects unknown, malformed, revoked and expired keys', async () => {
-    expect((await enter(newKey())).headers.location).toBe('http://api.projexa.test/end/security_reject');
-    expect((await enter('bad key!')).headers.location).toBe('http://api.projexa.test/end/security_reject');
+    expect((await enter(newKey())).headers.location).toBe('http://api.samptrek.test/end/security_reject');
+    expect((await enter('bad key!')).headers.location).toBe('http://api.samptrek.test/end/security_reject');
 
     const one = await prisma.uniqueLink.findFirstOrThrow({ where: { projectId, status: 'UNUSED' } });
     await viewer.post(`/projects/${projectId}/unique-links/revoke`, { linkIds: [one.id] }).expect(403);
     expect((await pm.post(`/projects/${projectId}/unique-links/revoke`, { linkIds: [one.id] }).expect(201)).body.revoked).toBe(1);
-    expect((await enter(one.key)).headers.location).toBe('http://api.projexa.test/end/security_reject');
+    expect((await enter(one.key)).headers.location).toBe('http://api.samptrek.test/end/security_reject');
 
     const soon = new Date(Date.now() + 60_000).toISOString();
     const b = (await pm.post(`/projects/${projectId}/unique-links`, { allocationId: alloc.id, count: 2, label: 'Short', expiresAt: soon }).expect(201)).body.batch;
     await prisma.uniqueLinkBatch.update({ where: { id: b.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
     const exp = await prisma.uniqueLink.findFirstOrThrow({ where: { batchId: b.id } });
-    expect((await enter(exp.key)).headers.location).toBe('http://api.projexa.test/end/security_reject');
+    expect((await enter(exp.key)).headers.location).toBe('http://api.samptrek.test/end/security_reject');
     expect((await prisma.uniqueLink.findUniqueOrThrow({ where: { id: exp.id } })).status).toBe('UNUSED');
     const expired = (await pm.get(`/projects/${projectId}/unique-links?status=EXPIRED`).expect(200)).body;
     expect(expired.total).toBe(2);
@@ -169,7 +169,7 @@ describe('One-time unique links (e2e)', () => {
     await viewer.post(`/projects/${projectId}/unique-links/allocations/${alloc.id}/only`, { uniqueLinksOnly: true }).expect(403);
     await pm.post(`/projects/${projectId}/unique-links/allocations/${alloc.id}/only`, { uniqueLinksOnly: true }).expect(201);
     const shared = await http().get(`/s/${alloc.entryCode}?uid=SHARED1`).set('User-Agent', UA).expect(302);
-    expect(shared.headers.location).toBe('http://api.projexa.test/end/security_reject');
+    expect(shared.headers.location).toBe('http://api.samptrek.test/end/security_reject');
     expect(await prisma.respondentSession.count({ where: { vendorRespondentId: 'SHARED1' } })).toBe(0);
     const test = await http().get(`/s/${alloc.testEntryCode}?uid=TEST1`).set('User-Agent', UA).expect(302);
     expect(test.headers.location).toMatch(/client\.example\.com/);

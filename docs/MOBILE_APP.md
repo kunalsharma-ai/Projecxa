@@ -95,7 +95,7 @@ What you need: a free Expo account (expo.dev) and an Android phone. No Android S
 
 1. `cd apps/mobile && npm install`
 2. `npx eas-cli@latest login` (your Expo account), then `npx eas-cli@latest init` once. This creates the project in your account and writes its ID into `app.json` (`extra.eas.projectId`); push notifications need that ID. Commit the change.
-3. In `eas.json` → `build.preview.env`, set `EXPO_PUBLIC_API_URL` to your API address (for example `https://api.projexa.yourcompany.com`) and `EXPO_PUBLIC_WEB_URL` to the web app. Both can also be typed on the sign-in screen later.
+3. In `eas.json` → `build.preview.env`, set `EXPO_PUBLIC_API_URL` to your API address (for example `https://api.samptrek.yourcompany.com`) and `EXPO_PUBLIC_WEB_URL` to the web app. Both can also be typed on the sign-in screen later.
 4. For push: upload the Firebase key as described under Push notifications (can be done after the first build too; then build again).
 5. `npx eas-cli@latest build --platform android --profile preview`. The free plan queues the build in the cloud (often 10–30 minutes). When it finishes, the page and the terminal show a link and QR code for the `.apk`.
 6. Open the link on the phone, download and install (allow "install unknown apps" for your browser once). Sign in.

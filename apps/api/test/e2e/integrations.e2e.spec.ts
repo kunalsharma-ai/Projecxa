@@ -56,8 +56,8 @@ describe('Settings → Integrations (e2e)', () => {
     expect(r.owner).toBe(true);
     expect(r.integrations.map((i: { kind: string }) => i.kind)).toEqual(['smtp', 'sso_google', 'sso_microsoft', 'sso_zoho', 'gemini', 'zoho_books', 'xero', 'quickbooks', 'tally', 'bidzo', 'razorpay', 'stripe', 'push']);
     const google = r.integrations.find((i: { kind: string }) => i.kind === 'sso_google');
-    expect(google.redirectUri).toBe('http://api.projexa.test/api/v1/auth/sso/google/callback');
-    expect(google.steps.join(' ')).toContain('http://api.projexa.test/api/v1/auth/sso/google/callback');
+    expect(google.redirectUri).toBe('http://api.samptrek.test/api/v1/auth/sso/google/callback');
+    expect(google.steps.join(' ')).toContain('http://api.samptrek.test/api/v1/auth/sso/google/callback');
     expect(google.status.state).toBe('off');
     expect(r.bootstrap.map((b: { name: string }) => b.name)).toContain('DATABASE_URL');
   });
