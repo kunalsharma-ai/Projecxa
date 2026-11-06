@@ -39,7 +39,7 @@ Design rules:
 
 Precedence (most specific first; the security policy always wins):
 
-1. Mandatory security policy: https (http only outside production), allowlisted domains (organization + that vendor's own), no credentials, no loops into PROJEXA links
+1. Mandatory security policy: https (http only outside production), allowlisted domains (organization + that vendor's own), no credentials, no loops into SampTrek links
 2. Project rule for vendor + country
 3. Project rule for vendor
 4. Project rule for country
@@ -47,15 +47,15 @@ Precedence (most specific first; the security policy always wins):
 6. Client redirect template
 7. Organization default
 
-Two enabled rules at the same level for the same status are a conflict: validation blocks activation, and at runtime the engine falls back rather than guessing. A disabled rule disables the status at that level instead of falling through. Fallback is the organization fallback URL if it passes the policy, else PROJEXA's neutral end page.
+Two enabled rules at the same level for the same status are a conflict: validation blocks activation, and at runtime the engine falls back rather than guessing. A disabled rule disables the status at that level instead of falling through. Fallback is the organization fallback URL if it passes the policy, else SampTrek's neutral end page.
 
 ## Integration with other Sampledge products
 
-| Product | Owns | Contract with PROJEXA (planned) |
+| Product | Owns | Contract with SampTrek (planned) |
 |---|---|---|
-| Bidzo | RFQs, bids, pricing | Bidzo emits `bid.won` (webhook) → PROJEXA creates a draft project with `bidReference`, client, markets, LOI/IR/CPI. PROJEXA never stores bid pricing workflows. |
+| Bidzo | RFQs, bids, pricing | Bidzo emits `bid.won` (webhook) → SampTrek creates a draft project with `bidReference`, client, markets, LOI/IR/CPI. SampTrek never stores bid pricing workflows. |
 | DealFlow | Sales pipeline | Read-only lookup of the sales owner / account; no copy of pipeline data. |
-| Panel management | Panelists | PROJEXA treats the Sampledge panel as a vendor: one vendor record, entry links and callbacks like any external supplier. |
+| Panel management | Panelists | SampTrek treats the Sampledge panel as a vendor: one vendor record, entry links and callbacks like any external supplier. |
 | Survey programming | Questionnaires, hosting | Uses the documented client survey integration (`docs/SURVEY_INTEGRATION.md`): session token in, `/r/:status` out, optional signed S2S. |
 | Supply CRM / Crew | Supplier relationships, staff | To be confirmed with the product owner; avoid duplicating vendor master data by syncing vendor IDs. |
 

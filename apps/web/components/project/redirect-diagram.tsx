@@ -22,7 +22,7 @@ const ROW = 50;
 const TOP = 34;
 const COL = { vendor: 10, checks: 200, survey: 390, outcome: 580, dest: 760 };
 const NODE_W = { vendor: 160, checks: 160, survey: 160, outcome: 150, dest: 230 };
-/** Outcomes that PROJEXA decides before the respondent reaches the client survey. */
+/** Outcomes that SampTrek decides before the respondent reaches the client survey. */
 const PRE_SURVEY: OutcomeStatus[] = ['DUPLICATE', 'SECURITY_REJECT'];
 const TONE: Record<string, string> = { COMPLETE: 'ok', TERMINATE: 'muted', QUOTA_FULL: 'warn', QUALITY_FAIL: 'bad', DUPLICATE: 'bad', SECURITY_REJECT: 'bad', PARTIAL: 'warn', TECHNICAL_ERROR: 'warn' };
 
@@ -62,7 +62,7 @@ function Node({ x, y, w, h = 38, title, sub, tone = 'line', fill = 'panel', tip 
 }
 
 /**
- * The respondent journey for one market and vendor: entry link, PROJEXA's checks (security,
+ * The respondent journey for one market and vendor: entry link, SampTrek's checks (security,
  * gate survey), the client survey, each outcome and where it sends the respondent, with the
  * rule that decided it. Built from the effective routing of the active redirect version.
  */
@@ -100,7 +100,7 @@ export function RedirectDiagram({ rows, checks, gate }: { rows: RouteRow[]; chec
       </div>
       <div className="overflow-x-auto">
         <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full min-w-[760px]" role="img" aria-label={`Redirect flow for ${vendor.name} in ${market}`}>
-          {['Vendor entry', 'PROJEXA checks', 'Client survey', 'Outcome', 'Sent to'].map((t, i) => (
+          {['Vendor entry', 'SampTrek checks', 'Client survey', 'Outcome', 'Sent to'].map((t, i) => (
             <text key={t} x={[COL.vendor, COL.checks, COL.survey, COL.outcome, COL.dest][i]} y={12} fontSize={10} className="fill-muted" style={{ textTransform: 'uppercase', letterSpacing: 0.6 }}>{t}</text>
           ))}
           <Edge x1={COL.vendor + NODE_W.vendor} y1={midY} x2={COL.checks} y2={midY} tone="brand" />
@@ -137,7 +137,7 @@ export function RedirectDiagram({ rows, checks, gate }: { rows: RouteRow[]; chec
           })}
         </svg>
       </div>
-      <p className="mt-2 text-xs text-muted">Dashed lines: outcomes PROJEXA decides before the survey, and destinations asked from your API at outcome time. Hover a box for the full address. Sample values fill the macros.</p>
+      <p className="mt-2 text-xs text-muted">Dashed lines: outcomes SampTrek decides before the survey, and destinations asked from your API at outcome time. Hover a box for the full address. Sample values fill the macros.</p>
     </div>
   );
 }

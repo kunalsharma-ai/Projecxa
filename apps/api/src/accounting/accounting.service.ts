@@ -110,7 +110,7 @@ export class AccountingService {
 
   private fileName(f: ExportFilters, ext: string) {
     const span = f.from || f.to ? `${f.from ?? 'start'}_to_${f.to ?? 'now'}` : new Date().toISOString().slice(0, 10);
-    return `projexa-${f.format.replace('_', '-')}-${f.kind}-${span}.${ext}`;
+    return `samptrek-${f.format.replace('_', '-')}-${f.kind}-${span}.${ext}`;
   }
 
   /** What the export would contain, without making it. */

@@ -123,7 +123,7 @@ describe('Settings → Integrations (e2e)', () => {
   it('sign-in apps are one per server: only the owner organisation sets them, and the sign-in page picks them up', async () => {
     const providers = async () => (await request(app.getHttpServer()).get('/api/v1/auth/sso/providers').expect(200)).body.map((p: { id: string }) => p.id);
     expect(await providers()).toEqual([]);
-    expect((await otherAdmin.put('/integrations/settings/sso_google', { values: { GOOGLE_CLIENT_ID: 'x', GOOGLE_CLIENT_SECRET: 'y' } }).expect(403)).body.message).toMatch(/runs this PROJEXA server/);
+    expect((await otherAdmin.put('/integrations/settings/sso_google', { values: { GOOGLE_CLIENT_ID: 'x', GOOGLE_CLIENT_SECRET: 'y' } }).expect(403)).body.message).toMatch(/runs this SampTrek server/);
     const other = await item(otherAdmin, 'sso_google');
     expect(other.editable).toBe(false);
     expect(other.managedByServerOwner).toBe(true);
@@ -203,7 +203,7 @@ describe('Settings → Integrations (e2e)', () => {
   });
 
   it('Tally reaches a private network, so only the server owner may set it', async () => {
-    expect((await otherAdmin.put('/integrations/settings/tally', { values: { TALLY_URL: 'http://10.0.0.5:9000' } }).expect(403)).body.message).toMatch(/runs this PROJEXA server/);
+    expect((await otherAdmin.put('/integrations/settings/tally', { values: { TALLY_URL: 'http://10.0.0.5:9000' } }).expect(403)).body.message).toMatch(/runs this SampTrek server/);
     await admin.put('/integrations/settings/tally', { values: { TALLY_URL: 'ftp://10.0.0.5' } }).expect(400);
     await admin.put('/integrations/settings/tally', { values: { TALLY_URL: 'http://10.0.0.5:9000' } }).expect(200);
     expect((await admin.get('/accounting/ledgers').expect(200)).body.find((l: { provider: string }) => l.provider === 'tally')).toMatchObject({ configured: true, connected: true, company: '10.0.0.5:9000' });

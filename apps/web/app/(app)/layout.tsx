@@ -271,7 +271,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {tour && (
         <ProductTour
           role={me.user.role}
-          appName={me.branding?.appName || 'PROJEXA'}
+          appName={me.branding?.appName || 'SampTrek'}
           firstName={me.user.name.split(' ')[0] ?? ''}
           onFinish={finishTour}
           onLater={tourLater}

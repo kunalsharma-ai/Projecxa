@@ -314,7 +314,7 @@ export const TOOLS: Tool[] = [
         };
       }).sort((a, b) => b.openTasks + b.activeProjectsManaged * 2 - (a.openTasks + a.activeProjectsManaged * 2));
       return {
-        data: { people: rows, unassignedOpenTasks: tasks.filter((t) => !t.assigneeId).length, note: 'Workload counts tasks and managed projects only; time tracking is not recorded in PROJEXA.' },
+        data: { people: rows, unassignedOpenTasks: tasks.filter((t) => !t.assigneeId).length, note: 'Workload counts tasks and managed projects only; time tracking is not recorded in SampTrek.' },
         display: [
           { type: 'bars', title: 'Open tasks per person', items: rows.map((r) => ({ label: r.name, value: r.openTasks, tone: r.overdueTasks ? 'bad' : r.urgentOrHigh ? 'warn' : 'ok' })) },
           { type: 'table', title: 'Workload', columns: [{ key: 'name', label: 'Person' }, { key: 'openTasks', label: 'Open', align: 'right' }, { key: 'overdueTasks', label: 'Overdue', align: 'right' }, { key: 'dueNext7Days', label: 'Due in 7 days', align: 'right' }, { key: 'activeProjectsManaged', label: 'Active projects', align: 'right' }], rows: rows.map((r) => ({ ...r })) },
@@ -400,7 +400,7 @@ export const TOOLS: Tool[] = [
           revenue: { awaitingReconciliation: t(tiles.pendingReconciliation), reconciledNotInvoiced: t(tiles.invoicePending), invoicedUnpaid: t(tiles.invoiced), paid: t(tiles.paymentReceived) },
           overdueInvoices: overdue.map((i) => ({ number: i.number, client: i.client.name, amount: `${i.currency} ${Number(i.total)}`, dueDate: iso(i.dueAt), daysOverdue: Math.floor((ctx.now.getTime() - i.dueAt!.getTime()) / 86_400_000) })),
           vendorPayables: { unbilled: p(pay.totals.unbilled), draftBills: p(pay.totals.draft), billsDue: p(pay.totals.due), paid: p(pay.totals.paid) },
-          note: 'There are no budgets or expense records in PROJEXA beyond client revenue and vendor payouts per complete.',
+          note: 'There are no budgets or expense records in SampTrek beyond client revenue and vendor payouts per complete.',
         },
         display: [{ type: 'stats', title: 'Money', items: [{ label: 'Not yet invoiced', value: fmt(tiles.invoicePending.byCurrency), tone: 'warn' }, { label: 'Invoiced, unpaid', value: fmt(tiles.invoiced.byCurrency) }, { label: 'Paid', value: fmt(tiles.paymentReceived.byCurrency), tone: 'ok' }, { label: 'Overdue invoices', value: String(overdue.length), tone: overdue.length ? 'bad' : 'ok' }, { label: 'Vendor bills due', value: fmt(pay.totals.due.byCurrency) }] }],
       };
@@ -435,7 +435,7 @@ export const TOOLS: Tool[] = [
     roles: STAFF,
     spec: {
       name: 'list_vendor_bills',
-      description: 'Vendor bills (what PROJEXA owes panel vendors) with status, amount and due date.',
+      description: 'Vendor bills (what SampTrek owes panel vendors) with status, amount and due date.',
       parameters: obj({ status: str('Bill status', ['DRAFT', 'APPROVED', 'PAID', 'VOID']), vendor: str('Vendor name or code') }),
     },
     async run(ctx, a) {
@@ -497,7 +497,7 @@ export const TOOLS: Tool[] = [
     spec: { name: 'list_people', description: 'Active team members with their role, for assigning tasks.', parameters: obj({}) },
     async run(ctx) {
       const rows = await ctx.prisma.user.findMany({ where: { organizationId: ctx.u.organizationId, active: true, role: { in: STAFF } }, select: { name: true, email: true, role: true }, orderBy: { name: 'asc' } });
-      return { data: { people: rows, note: 'PROJEXA has roles but no teams or departments.' } };
+      return { data: { people: rows, note: 'SampTrek has roles but no teams or departments.' } };
     },
   },
 

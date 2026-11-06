@@ -35,7 +35,7 @@ export default function SuperAdminOverview() {
   const totalSubs = Object.values(data.subscriptions).reduce((a, b) => a + (b ?? 0), 0);
   return (
     <>
-      <PageHeader title="Overview" subtitle="Every organisation on this PROJEXA server: their subscriptions, what they use, and what needs you." />
+      <PageHeader title="Overview" subtitle="Every organisation on this SampTrek server: their subscriptions, what they use, and what needs you." />
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         {tiles.map((t) => (
           <Link key={t.label} href={t.href} className="card p-4 transition-colors hover:border-brand/40">

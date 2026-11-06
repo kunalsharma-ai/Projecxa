@@ -224,7 +224,7 @@ export function checkDestination(raw: string, policy: DestinationPolicy): { ok: 
   }
   if (url.username || url.password) return { ok: false, reason: 'Credentials in URL are not allowed' };
   if (policy.selfHost && url.host.toLowerCase() === policy.selfHost.toLowerCase()) {
-    if (/^\/(s|r)\//.test(url.pathname)) return { ok: false, reason: 'Redirect loop: destination is a PROJEXA entry or outcome link' };
+    if (/^\/(s|r)\//.test(url.pathname)) return { ok: false, reason: 'Redirect loop: destination is a SampTrek entry or outcome link' };
   }
   if (!hostAllowed(url.hostname, policy.allowedDomains)) {
     return { ok: false, reason: `Domain ${url.hostname} is not on the allowlist` };

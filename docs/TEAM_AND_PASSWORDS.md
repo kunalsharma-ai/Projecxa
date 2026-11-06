@@ -4,7 +4,7 @@
 
 **Team** (`/settings/team`, in the sidebar for admins) lists every staff member (admins, project managers, sales, viewers) with role, status, how they sign in (password, two-step, Google/Microsoft/Zoho) and their last sign-in. Client and vendor logins stay under **Portal access**.
 
-- **Invite someone**: name, work email and role. PROJEXA emails an invitation (Zoho Mail SMTP, the same settings as scheduled reports) with a link to choose a password. The link works for 72 hours. Until then the person shows as **Invited** and cannot sign in with a password (their account has a random one nobody knows). If email is not set up on the server, the screen shows the link to copy and send another way. Someone invited can also simply use single sign-on if it is on for your domain.
+- **Invite someone**: name, work email and role. SampTrek emails an invitation (Zoho Mail SMTP, the same settings as scheduled reports) with a link to choose a password. The link works for 72 hours. Until then the person shows as **Invited** and cannot sign in with a password (their account has a random one nobody knows). If email is not set up on the server, the screen shows the link to copy and send another way. Someone invited can also simply use single sign-on if it is on for your domain.
 - **Role**: change it from the list. It applies to their next click; no sign-out needed.
 - **Resend invite / Send reset link**: a new link (the previous one stops working). Invited people get a new invitation; everyone else a password reset link.
 - **Sign out everywhere** (log-out icon): ends every session on every browser and device, e.g. after a lost laptop.
@@ -15,7 +15,7 @@ Every change is in the audit log: `user.invite`, `user.reinvite`, `user.update`,
 
 ## Forgot password
 
-**Forgot password?** on the sign-in page asks for the email (and the organization slug if the email is in several). If the account exists, PROJEXA emails a reset link.
+**Forgot password?** on the sign-in page asks for the email (and the organization slug if the email is in several). If the account exists, SampTrek emails a reset link.
 
 - The page always gives the same answer, so it cannot be used to find out who has an account.
 - The link works **once**, for **30 minutes**. Asking again makes the earlier link stop working. At most 3 reset emails per person per hour.

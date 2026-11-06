@@ -12,7 +12,7 @@ There are no paid plans or billing. White-labelling is available to every organi
 | Tagline | Under the name in emails |
 | Sign-in message | Under "Sign in" on the custom domain |
 | Support email | Portal footers, end of invitation emails, reply-to if none is set |
-| Hide "Powered by Sampledge PROJEXA" | Client and vendor portals |
+| Hide "Powered by SampTrek by Sampledge" | Client and vendor portals |
 | Default theme and brand colour | The starting look for everyone in the organisation. A person's own Theme Studio choices still win. The colour engine keeps text readable. |
 | Sender name and reply-to | All emails: invitations, password resets, scheduled reports, portal request and quote emails. The address stays the server's own `SMTP_FROM`, so SPF/DKIM keep passing. |
 | Logo, dark-mode logo, icon | PNG, JPEG or WebP, up to 512 KB. The icon must be square. SVG is refused because the images are served on public pages and in emails. |
@@ -34,7 +34,7 @@ Images are stored in the database (`BrandAsset`). They are served from `GET /api
 
 ### What operations must do
 
-- **TLS:** add the domain to the HTTPS certificate of the web front end (for example Caddy on-demand TLS, or an extra name on the load balancer). PROJEXA does not issue certificates.
+- **TLS:** add the domain to the HTTPS certificate of the web front end (for example Caddy on-demand TLS, or an extra name on the load balancer). SampTrek does not issue certificates.
 - **Same-origin API:** build the web app with `NEXT_PUBLIC_CUSTOM_DOMAINS=true` and set `NEXT_PUBLIC_WEB_ORIGIN` to the main web origin. On any other host the browser calls `/api/v1/*` on the same host, and Next.js rewrites it to `API_INTERNAL_URL` (or `NEXT_PUBLIC_API_URL`). This keeps sign-in cookies first-party on the custom domain.
 - **SSO** (Google/Microsoft/Zoho) callbacks stay registered on the main domain. People who use SSO finish signing in there.
 

@@ -4,7 +4,7 @@ import { ChevronsLeft, ChevronsRight, Clock, Star, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { canEdit, useMe } from '@/components/me';
-import { BrandIcon } from '@/components/brand-mark';
+import { BrandIcon, ProductLogo } from '@/components/brand-mark';
 import { DEFAULT_BRAND } from '@/lib/branding';
 import { useTheme } from '@/components/theme';
 import { isActive, NAV_GROUPS, visibleNav, type NavItem } from './nav';
@@ -82,11 +82,21 @@ export function Sidebar({ mobileOpen, onClose, badges = {} }: { mobileOpen: bool
     >
       <div className={clsx('flex h-16 shrink-0 items-center justify-between px-4', compact && 'lg:justify-center lg:px-0')}>
         <Link href="/" className="flex min-w-0 items-center gap-2.5 font-semibold tracking-tight">
-          <BrandIcon brand={brand} />
-          <span className={clsx('min-w-0 leading-tight', compact && 'lg:sr-only')}>
-            <span className="block truncate text-[15px] font-bold tracking-wide">{brand.custom ? brand.appName : 'PROJEXA'}</span>
-            <span className="block truncate text-[11px] font-normal text-sidebar-muted">{brand.custom ? (brand.tagline ?? 'Research project management') : 'by Sampledge · Research PM suite'}</span>
-          </span>
+          {brand.custom ? (
+            <>
+              <BrandIcon brand={brand} />
+              <span className={clsx('min-w-0 leading-tight', compact && 'lg:sr-only')}>
+                <span className="block truncate text-[15px] font-bold tracking-wide">{brand.appName}</span>
+                <span className="block truncate text-[11px] font-normal text-sidebar-muted">{brand.tagline ?? 'Research project management'}</span>
+              </span>
+            </>
+          ) : (
+            <>
+              {/* SampTrek's full logo; only the icon when the sidebar is collapsed. */}
+              <BrandIcon brand={brand} className={clsx('hidden', compact && 'lg:block')} />
+              <ProductLogo surface="sidebar" className={clsx('h-12', compact && 'lg:hidden')} />
+            </>
+          )}
         </Link>
         <button className="rounded p-1 lg:hidden" onClick={onClose} aria-label="Close menu">
           <X className="h-5 w-5" />

@@ -1,5 +1,5 @@
 /**
- * SAMPLEON integration (docs/SAMPLEON_INTEGRATION.md): a PROJEXA project sends its approved
+ * SAMPLEON integration (docs/SAMPLEON_INTEGRATION.md): a SampTrek project sends its approved
  * requirements to SAMPLEON as a signed audience request, sends approved changes, and follows the
  * request through SAMPLEON's signed events. The SAMPLEON here is a mock that checks signatures
  * with its own code, following SAMPLEON's documented contract; the cross-service run lives in
@@ -106,7 +106,7 @@ describe('SAMPLEON integration', () => {
     rewardPoints: 1500,
   };
 
-  it('sends the project’s requirements as a signed PROJEXA audience request', async () => {
+  it('sends the project’s requirements as a signed SampTrek audience request', async () => {
     const res = await pm.post(`/projects/${project.id}/sampleon/audience-requests`, body).expect(201);
     recordId = res.body.record.id;
     expect(res.body.audienceRequest).toMatchObject({ audienceRequestId: AR, status: 'submitted' });
@@ -146,7 +146,7 @@ describe('SAMPLEON integration', () => {
     const res = await pm.post(`/projects/${project.id}/sampleon/${recordId}/sync`).expect(200);
     expect(res.body.record.requiredCompletes).toBe(1700);
     const hit = hits.find((h) => h.method === 'PATCH')!;
-    // Sent with the project's quota cells (none here), so SAMPLEON's quotas follow PROJEXA's.
+    // Sent with the project's quota cells (none here), so SAMPLEON's quotas follow SampTrek's.
     expect(JSON.parse(hit.body)).toEqual({ requiredCompletes: 1700, quotas: [], completesByCountry: { US: 700, GB: 500, DE: 500 }, fieldwork: { start: '2026-11-10', end: '2026-12-10' } });
   });
 
@@ -167,7 +167,7 @@ describe('SAMPLEON integration', () => {
     await event('project.quota_updated', snap(5, 120)).expect(200);
     await event('project.quota_updated', snap(4, 100)).expect(200);
     expect(await row()).toMatchObject({ completes: 120, remaining: 1580, progressSequence: 5 });
-    // SAMPLEON's completes are kept apart from the completes PROJEXA routed itself.
+    // SAMPLEON's completes are kept apart from the completes SampTrek routed itself.
     const p = (await pm.get(`/projects/${project.id}`).expect(200)).body;
     expect(p.countries.every((c: { completes: number }) => c.completes === 0)).toBe(true);
 

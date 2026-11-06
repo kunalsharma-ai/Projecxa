@@ -83,7 +83,7 @@ export class RedirectsController {
   }
 }
 
-/** The secret API destination endpoints use to check that a request came from PROJEXA. Admins only. */
+/** The secret API destination endpoints use to check that a request came from SampTrek. Admins only. */
 @Controller('organization/redirect-signing-secret')
 @Roles('ADMIN')
 export class RedirectSecretController {

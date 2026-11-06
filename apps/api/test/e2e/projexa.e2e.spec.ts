@@ -7,7 +7,7 @@ import { api, createApp, login, makeOrg, resetDb, tokenFrom } from './helpers';
 
 const BASE = 'http://api.projexa.test';
 
-describe('PROJEXA milestone 1 (e2e)', () => {
+describe('SampTrek milestone 1 (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaClient;
   let pm: ReturnType<typeof api>;

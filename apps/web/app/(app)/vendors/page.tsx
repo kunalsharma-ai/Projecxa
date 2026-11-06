@@ -42,7 +42,7 @@ export default function VendorsPage() {
           {
             name: 'callback', type: 'url', label: 'Callback URL template', span: 'full', placeholder: 'https://panel.example.com/cb?uid={uid}&status={status}',
             hint: 'Optional. Macros: {uid} {status} {vendor_id} {country_code} {project_code}',
-            help: 'PROJEXA calls this address when a respondent finishes, so the vendor learns the outcome server to server.',
+            help: 'SampTrek calls this address when a respondent finishes, so the vendor learns the outcome server to server.',
           },
           {
             name: 'domains', type: 'tags', label: 'Redirect domains', span: 'full', placeholder: 'panel.example.com, then Enter',

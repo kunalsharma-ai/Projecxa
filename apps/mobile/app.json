@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "PROJEXA",
+    "name": "SampTrek",
     "slug": "projexa",
     "scheme": "projexa",
     "version": "0.1.0",
@@ -16,7 +16,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.sampledge.projexa",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "PROJEXA uses the microphone when you talk to the AI copilot."
+        "NSMicrophoneUsageDescription": "SampTrek uses the microphone when you talk to the AI copilot."
       }
     },
     "android": {
@@ -45,7 +45,7 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "PROJEXA uses the microphone when you talk to the AI copilot.",
+          "microphonePermission": "SampTrek uses the microphone when you talk to the AI copilot.",
           "recordAudioAndroid": true,
           "enableBackgroundPlayback": false
         }

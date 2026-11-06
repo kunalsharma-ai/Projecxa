@@ -1,26 +1,26 @@
-# Bidzo → PROJEXA: won bid intake
+# Bidzo → SampTrek: won bid intake
 
-When a bid is marked **won** in Bidzo, Bidzo sends one signed webhook to PROJEXA. The bid then appears in PROJEXA under **Won bids → Waiting for setup**, where a PM clicks **Set up project**. The new-project wizard opens prefilled from the bid (name, description, bid number, category, client, and one market per country line with LOI, IR, CPI, currency and sample size as the target). A won bid can only ever become one project.
+When a bid is marked **won** in Bidzo, Bidzo sends one signed webhook to SampTrek. The bid then appears in SampTrek under **Won bids → Waiting for setup**, where a PM clicks **Set up project**. The new-project wizard opens prefilled from the bid (name, description, bid number, category, client, and one market per country line with LOI, IR, CPI, currency and sample size as the target). A won bid can only ever become one project.
 
-Bids themselves stay in Bidzo. PROJEXA stores only what it needs to start the project.
+Bids themselves stay in Bidzo. SampTrek stores only what it needs to start the project.
 
 ## Setup (once per organization)
 
-1. In PROJEXA, an admin opens **Settings → Bidzo connection** and clicks **Connect Bidzo**. PROJEXA shows the endpoint, the tenant slug and a signing secret (`bzw_…`). The secret is shown once.
+1. In SampTrek, an admin opens **Settings → Bidzo connection** and clicks **Connect Bidzo**. SampTrek shows the endpoint, the tenant slug and a signing secret (`bzw_…`). The secret is shown once.
 2. Bidzo stores the endpoint, tenant and secret for that organization.
 3. **Rotate secret** issues a new one and invalidates the old one immediately. **Turn off** stops all intake (every delivery gets 401).
 
 ## Request
 
 ```
-POST {PROJEXA_API}/api/v1/integrations/bidzo/events
+POST {SAMPTREK_API}/api/v1/integrations/bidzo/events
 Content-Type: application/json
 X-Bidzo-Tenant: <organization slug>
 X-Bidzo-Timestamp: <unix seconds>
 X-Bidzo-Signature: sha256=<hex>
 ```
 
-**Signature:** `hex(HMAC-SHA256(secret, timestamp + "." + rawBody))`, computed over the exact bytes sent. The timestamp must be within **300 seconds** of PROJEXA's clock.
+**Signature:** `hex(HMAC-SHA256(secret, timestamp + "." + rawBody))`, computed over the exact bytes sent. The timestamp must be within **300 seconds** of SampTrek's clock.
 
 **Body:**
 
@@ -36,10 +36,10 @@ X-Bidzo-Signature: sha256=<hex>
     "projectName": "Retail shopper journey tracker",
     "projectDescription": "…",           // optional
     "projectType": "Tracker",            // optional
-    "projectCategory": "B2C",            // optional; matched to PROJEXA categories case-insensitively
+    "projectCategory": "B2C",            // optional; matched to SampTrek categories case-insensitively
     "currency": "USD",                   // ISO 4217
     "totalAmount": 18450,                // optional
-    "client": { "id": "c-17", "name": "Acme Insights" },   // matched to a PROJEXA client by name
+    "client": { "id": "c-17", "name": "Acme Insights" },   // matched to a SampTrek client by name
     "contact": { "name": "Jordan Buyer", "email": "jordan@example.com" },   // optional
     "biddingPerson": { "name": "Sam Sales", "email": "sam@example.com" },  // optional
     "countries": [
@@ -59,7 +59,7 @@ X-Bidzo-Signature: sha256=<hex>
 | `202 {wonBidId, status, duplicate:true}` | Already received (same `bid.id`) | Mark delivered |
 | `400 {message, issues[]}` | Body failed validation | Fix the payload; do not retry as is |
 | `401` | Unknown tenant, connection off, bad signature, or stale timestamp (same answer for all) | Check config and clock; retry after fixing |
-| `5xx` / timeout | PROJEXA problem | Retry with backoff |
+| `5xx` / timeout | SampTrek problem | Retry with backoff |
 
 ## Idempotency and updates
 
@@ -76,14 +76,14 @@ const body = JSON.stringify(event);
 const ts = Math.floor(Date.now() / 1000).toString();
 const sig = crypto.createHmac('sha256', secret).update(`${ts}.${body}`).digest('hex');
 
-await fetch(`${PROJEXA_API}/api/v1/integrations/bidzo/events`, {
+await fetch(`${SAMPTREK_API}/api/v1/integrations/bidzo/events`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json', 'X-Bidzo-Tenant': tenant, 'X-Bidzo-Timestamp': ts, 'X-Bidzo-Signature': `sha256=${sig}` },
   body,
 });
 ```
 
-## PROJEXA endpoints behind the screens
+## SampTrek endpoints behind the screens
 
 | Endpoint | Who | Purpose |
 |---|---|---|

@@ -115,7 +115,7 @@ function Copilot() {
             <Card style={{ alignItems: 'center', gap: 12 }}>
               <IconTile icon="cpu" size={56} />
               <Text style={{ color: c.text, fontSize: 18, fontWeight: '800' }}>How can I help you today?</Text>
-              <Muted style={{ alignSelf: 'stretch' }}>Answers use your live PROJEXA data. Anything that changes data shows a card for you to confirm first.</Muted>
+              <Muted style={{ alignSelf: 'stretch' }}>Answers use your live SampTrek data. Anything that changes data shows a card for you to confirm first.</Muted>
               <View style={{ alignSelf: 'stretch', gap: 8 }}>
                 {STARTERS.map((s) => (
                   <Pressable key={s} accessibilityRole="button" onPress={() => send(s)} style={{ flexDirection: 'row', gap: 8, alignItems: 'center', padding: 12, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.card }}>

@@ -1,9 +1,9 @@
 /**
  * Data processing & quality and Reporting & analytics pages (docs/DATA_PROCESSING_AND_ANALYTICS.md).
  *
- * Everything is worked out from data PROJEXA already collects for one project: respondent sessions
+ * Everything is worked out from data SampTrek already collects for one project: respondent sessions
  * (status, reason, approval, verification, device, timing), gate and prescreener answers, quota cells,
- * reconciliations, invoices and shared deliverables. Nothing is sample data, and steps PROJEXA does not
+ * reconciliations, invoices and shared deliverables. Nothing is sample data, and steps SampTrek does not
  * do (such as weighting or open-end coding inside the client survey) are not shown as if it did.
  */
 import { Controller, Get, Module, NotFoundException, Query } from '@nestjs/common';
@@ -21,7 +21,7 @@ const DAY = 86_400_000;
 export const SESSION_LIMIT = 100_000;
 const CLEAN_EXPORT_LIMIT = 20_000;
 
-/** Statuses rejected by PROJEXA's own entry and quality checks. */
+/** Statuses rejected by SampTrek's own entry and quality checks. */
 const CHECK_REJECTS: RespondentStatus[] = ['SECURITY_REJECT', 'DUPLICATE', 'QUALITY_FAIL'];
 const STATUS_LABEL: Record<RespondentStatus, string> = {
   STARTED: 'In survey', COMPLETE: 'Complete', TERMINATE: 'Terminate', QUOTA_FULL: 'Quota full', QUALITY_FAIL: 'Quality fail',
@@ -247,9 +247,9 @@ export class AnalyticsController {
     const stages = [
       { id: 'intake', label: 'Data intake', done: finished, total: n, percent: pct(finished, n), detail: `${n.toLocaleString('en')} entrants received; ${(n - finished).toLocaleString('en')} still in the survey`, hint: 'Entrants whose outcome is recorded (complete, terminate, quota full, rejected …) out of everyone who entered.' },
       { id: 'validation', label: 'Data validation', done: verified, total: completes.length, percent: pct(verified, completes.length), detail: `${verified} of ${completes.length} completes confirmed server-to-server by the survey platform`, hint: 'Completes whose outcome the client survey platform confirmed with a signed server callback, not only a browser redirect.' },
-      { id: 'quality', label: 'Quality checks', done: n - checkRejects, total: n, percent: pct(n - checkRejects, n), detail: `${checkRejects} removed by security, duplicate and quality checks`, hint: 'Entrants who passed PROJEXA’s entry checks (bot check, duplicates, device, location, gate answers). Lower means more were caught.' },
+      { id: 'quality', label: 'Quality checks', done: n - checkRejects, total: n, percent: pct(n - checkRejects, n), detail: `${checkRejects} removed by security, duplicate and quality checks`, hint: 'Entrants who passed SampTrek’s entry checks (bot check, duplicates, device, location, gate answers). Lower means more were caught.' },
       { id: 'review', label: 'Review & reconciliation', done: reviewed, total: completes.length, percent: pct(reviewed, completes.length), detail: `${approved.length} approved, ${rejected} rejected, ${completes.length - reviewed} waiting · ${reconciliations} reconciliation${reconciliations === 1 ? '' : 's'}`, hint: 'Completes that were approved or rejected, by hand, by the client in the portal or by a client ID list (Reconcile & invoice tab).' },
-      { id: 'quota', label: 'Quota balance', done: quotaFilled, total: quotaTarget, percent: pct(quotaFilled, quotaTarget), detail: cells.length ? `${cells.length} quota cells, ${cells.filter((c) => c.completes >= c.target).length} full` : 'No quota cells; market targets are used', hint: 'Completes counted towards each quota cell (capped at its target) out of all cell targets. PROJEXA balances the sample with quotas while in field; it does not weight data afterwards.' },
+      { id: 'quota', label: 'Quota balance', done: quotaFilled, total: quotaTarget, percent: pct(quotaFilled, quotaTarget), detail: cells.length ? `${cells.length} quota cells, ${cells.filter((c) => c.completes >= c.target).length} full` : 'No quota cells; market targets are used', hint: 'Completes counted towards each quota cell (capped at its target) out of all cell targets. SampTrek balances the sample with quotas while in field; it does not weight data afterwards.' },
       { id: 'billing', label: 'Final delivery & billing', done: billed, total: approved.length, percent: pct(billed, approved.length), detail: `${billed} of ${approved.length} approved completes are on a client invoice`, hint: 'Approved completes that are on a client invoice. Download the clean data file below to deliver the respondent list.' },
     ];
     const measured = stages.filter((s) => s.id !== 'quality' && s.percent != null);

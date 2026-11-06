@@ -65,7 +65,7 @@ export class IntegrationsService {
     try {
       await t.verify();
       const address = /<([^>]+)>/.exec(c.from)?.[1] ?? c.from;
-      await t.sendMail({ from: `"${fromName.replace(/["\\<>]/g, '')}" <${address}>`, to, subject: 'PROJEXA test email', text: 'Email sending from PROJEXA works. You can close this message.', html: '<p>Email sending from PROJEXA works. You can close this message.</p>' });
+      await t.sendMail({ from: `"${fromName.replace(/["\\<>]/g, '')}" <${address}>`, to, subject: 'SampTrek test email', text: 'Email sending from SampTrek works. You can close this message.', html: '<p>Email sending from SampTrek works. You can close this message.</p>' });
     } finally {
       t.close();
     }
@@ -239,7 +239,7 @@ export class IntegrationsService {
       const editable = await this.canEdit(u, def);
       const showValues = u.role === 'ADMIN' && (def.scope === 'org' || owner);
       const allowed = await this.allowed(u.organizationId, def.kind);
-      if (!allowed) { state = 'off'; detail = 'Not part of your plan. Your PROJEXA provider can turn it on.'; }
+      if (!allowed) { state = 'off'; detail = 'Not part of your plan. Your SampTrek provider can turn it on.'; }
       out.push({
         ...def,
         allowed,
@@ -287,7 +287,7 @@ export class IntegrationsService {
     }
     if (f.key === 'SMTP_HOST' && v) {
       if (!/^[a-z0-9.-]+$/i.test(v)) throw new BadRequestException('SMTP server: enter a host name such as smtp.zoho.in');
-      // Only the server owner may point PROJEXA at its own private network.
+      // Only the server owner may point SampTrek at its own private network.
       if (process.env.NODE_ENV === 'production' && (await this.ownerId()) !== u.organizationId) {
         const ips = await this.lookup(v).catch(() => [] as string[]);
         if (!ips.length) throw new BadRequestException(`SMTP server ${v} could not be found`);
@@ -299,7 +299,7 @@ export class IntegrationsService {
   async save(u: AuthUser, kind: string, body: z.infer<typeof saveSchema>) {
     if (!isKind(kind)) throw new NotFoundException('Unknown integration');
     const def = KIND[kind];
-    if (!(await this.canEdit(u, def))) throw new ForbiddenException(def.scope === 'platform' || def.ownerOnly ? 'Only the admins of the organisation that runs this PROJEXA server can change this' : 'Only admins can change integrations');
+    if (!(await this.canEdit(u, def))) throw new ForbiddenException(def.scope === 'platform' || def.ownerOnly ? 'Only the admins of the organisation that runs this SampTrek server can change this' : 'Only admins can change integrations');
     const existing = await this.prisma.integrationSetting.findUnique({ where: { organizationId_kind: { organizationId: u.organizationId, kind } } });
     const before = existing ? this.open(existing) : {};
     const values: Record<string, string> = {};
@@ -381,7 +381,7 @@ export class IntegrationsService {
         if (!c) return { ok: false, message: 'Enter the mailbox and app password first.' };
         const me = await this.prisma.user.findUniqueOrThrow({ where: { id: u.id }, select: { email: true } });
         try {
-          await this.smtpCheck(c, me.email, 'PROJEXA');
+          await this.smtpCheck(c, me.email, 'SampTrek');
         } catch (e) {
           const m = (e as Error).message;
           if (/auth|535|credentials/i.test(m)) return { ok: false, message: `${c.host} did not accept the mailbox and password. Use a Zoho app password, and check the server matches your data centre (smtp.zoho.in for India). (${m.slice(0, 160)})` };
@@ -434,7 +434,7 @@ export class IntegrationsService {
         try {
           r = await this.http(t.config.url, { method: 'POST', headers: { 'Content-Type': 'text/xml; charset=utf-8' }, body: req });
         } catch (e) {
-          return { ok: false, message: `Tally Prime could not be reached at ${new URL(t.config.url).host}: ${(e as Error).message}. Is Tally open with its XML server on, and reachable from the PROJEXA server?` };
+          return { ok: false, message: `Tally Prime could not be reached at ${new URL(t.config.url).host}: ${(e as Error).message}. Is Tally open with its XML server on, and reachable from the SampTrek server?` };
         }
         if (r.status !== 200) return { ok: false, message: `Tally Prime answered ${r.status}` };
         const names = [...(await r.text()).matchAll(/<COMPANY NAME="([^"]*)"/gi)].map((m) => m[1]);
@@ -461,8 +461,8 @@ export class IntegrationsService {
         const c = await this.push();
         if (!c.enabled) return { ok: false, message: 'Push notifications are Off. Choose On and save.' };
         const phones = await this.prisma.pushDevice.findMany({ where: { userId: u.id }, select: { token: true } });
-        if (!phones.length) return { ok: false, message: 'Push is on. Sign in to the PROJEXA phone app and allow notifications, then test again to get a push on your phone.' };
-        const r = await this.pushSend(phones.map((p) => ({ to: p.token, title: 'PROJEXA', body: 'Push notifications work.', sound: 'default', data: { path: '/' } })), c.accessToken);
+        if (!phones.length) return { ok: false, message: 'Push is on. Sign in to the SampTrek phone app and allow notifications, then test again to get a push on your phone.' };
+        const r = await this.pushSend(phones.map((p) => ({ to: p.token, title: 'SampTrek', body: 'Push notifications work.', sound: 'default', data: { path: '/' } })), c.accessToken);
         const j = safeJson(await r.text()) as { data?: { status: string; message?: string }[]; errors?: { message?: string }[] };
         if (r.status === 401 || r.status === 403) return { ok: false, message: 'Expo did not accept the access token. Create a new one in your Expo account, or leave it empty if enhanced security is off.' };
         if (r.status !== 200) return { ok: false, message: `Expo answered ${r.status}${j.errors?.[0]?.message ? `: ${j.errors[0].message}` : ''}` };

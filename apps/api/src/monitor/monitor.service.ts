@@ -211,7 +211,7 @@ export class MonitorService {
   /** Signed POST of one alert. The signature covers `${timestamp}.${body}`. */
   async notify(alertId: string, url: string, secret: string, test = false) {
     const alert = test
-      ? { id: 'test', rule: 'test', severity: 'info', title: 'Test alert from PROJEXA', detail: 'Your alert webhook works.', firstSeenAt: new Date() }
+      ? { id: 'test', rule: 'test', severity: 'info', title: 'Test alert from SampTrek', detail: 'Your alert webhook works.', firstSeenAt: new Date() }
       : await this.prisma.alert.findUniqueOrThrow({ where: { id: alertId }, include: { project: { select: { id: true, projectCode: true, name: true } } } });
     const body = JSON.stringify({ event: test ? 'alert.test' : 'alert.opened', alert, link: `${config.webOrigins[0] ?? ''}/monitor` });
     const ts = Math.floor(Date.now() / 1000).toString();

@@ -1,13 +1,13 @@
 /**
- * PROJEXA quota cells → SAMPLEON quotas on SUPPLY360 profile attributes.
+ * SampTrek quota cells → SAMPLEON quotas on SUPPLY360 profile attributes.
  *
- * A PROJEXA cell counts respondents by their gate or prescreener answers (or device). SAMPLEON
+ * A SampTrek cell counts respondents by their gate or prescreener answers (or device). SAMPLEON
  * counts its respondents by their SUPPLY360 profile, so each question a cell uses is mapped once
  * onto a profile attribute, and each answer onto one of the attribute's values. The map is kept
  * on the project; answers whose label matches an attribute value are mapped without help.
  *
  * Cells that cannot be expressed this way (device cells, unmapped questions or answers, closed
- * cells) are not sent and are listed with the reason. PROJEXA keeps counting its own cells for the
+ * cells) are not sent and are listed with the reason. SampTrek keeps counting its own cells for the
  * respondents it routes itself; SAMPLEON counts its quotas for the respondents it invites.
  */
 import { z } from 'zod';
@@ -143,7 +143,7 @@ export function translateCells(input: {
   const skipped: Translation['skipped'] = [];
   for (const cell of input.cells) {
     const skip = (reason: string) => skipped.push({ cellId: cell.id, name: cell.name, country: cell.country, reason });
-    if (!cell.isOpen) { skip('The cell is closed in PROJEXA'); continue; }
+    if (!cell.isOpen) { skip('The cell is closed in SampTrek'); continue; }
     const parsed = z.array(conditionSchema).safeParse(cell.conditions);
     if (!parsed.success || !parsed.data.length) { skip('The cell has no usable conditions'); continue; }
     const criteria: Criterion[] = [];

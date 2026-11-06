@@ -72,7 +72,7 @@ function renderHuman(h: NonNullable<GateView['human']>, imageUrl: string): strin
 }
 
 /**
- * Respondent gate page. Neutral (no PROJEXA or client branding), phone-first, needs JavaScript.
+ * Respondent gate page. Neutral (no SampTrek or client branding), phone-first, needs JavaScript.
  * Steps, in order: consent notice → human check → gate survey → prescreener. Signals the project turned on
  * (language, time zone, fingerprint) and the background captcha are collected meanwhile.
  * Everything is posted to /g/:token, which runs every check and returns where to go next.

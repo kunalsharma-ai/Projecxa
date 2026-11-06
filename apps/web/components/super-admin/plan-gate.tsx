@@ -16,7 +16,7 @@ export function FeatureOff({ feature }: { feature: string }) {
     <div className="mx-auto mt-16 max-w-md text-center">
       <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-sunken text-muted"><Lock className="h-5 w-5" /></div>
       <h1 className="text-lg font-semibold">{LABEL[feature] ?? 'This feature'} is not part of your access</h1>
-      <p className="mt-2 text-sm text-muted">Your organisation’s plan does not include it, or it was turned off for you. Ask your admin, or your PROJEXA provider, to turn it on.</p>
+      <p className="mt-2 text-sm text-muted">Your organisation’s plan does not include it, or it was turned off for you. Ask your admin, or your SampTrek provider, to turn it on.</p>
       <Link href="/" className="btn-ghost mt-5 inline-flex">Back to the start</Link>
     </div>
   );
@@ -24,7 +24,7 @@ export function FeatureOff({ feature }: { feature: string }) {
 
 const BLOCK: Record<string, [string, string]> = {
   ORG_PENDING: ['Your organisation is waiting for approval', 'You will get an email as soon as it is ready.'],
-  ORG_SUSPENDED: ['Your organisation’s access is paused', 'Contact your PROJEXA provider to get access back. Your data is kept.'],
+  ORG_SUSPENDED: ['Your organisation’s access is paused', 'Contact your SampTrek provider to get access back. Your data is kept.'],
   SUBSCRIPTION_INACTIVE: ['Your subscription has ended', 'Renew it to continue. Your projects and data are kept and come back as soon as it is renewed.'],
 };
 

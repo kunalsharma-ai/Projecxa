@@ -1,5 +1,6 @@
 'use client';
 import { Activity, BarChart3, ReceiptText, ShieldCheck, Sparkles, Trophy } from 'lucide-react';
+import { ProductLogo } from '@/components/brand-mark';
 import { usePublicBrand } from '@/lib/branding';
 
 const STEPS = [
@@ -19,14 +20,13 @@ const STEPS = [
 export function AuthShell({ children }: { children: React.ReactNode }) {
   const brand = usePublicBrand();
   const custom = !!brand && !brand.default && !!brand.custom;
-  const name = brand?.appName ?? 'PROJEXA';
+  const name = brand?.appName ?? 'SampTrek';
   const tagline = custom ? (brand?.tagline ?? 'Research project management') : 'Research Project Management Suite';
   return (
     <main className="grid min-h-screen lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
       <section className="neon-rail relative hidden overflow-hidden bg-sidebar p-12 text-sidebar-ink lg:flex lg:flex-col lg:justify-between" aria-hidden>
         <div>
-          <div className="text-3xl font-bold tracking-wide">{name}</div>
-          {!custom && <div className="text-sm text-sidebar-muted">by Sampledge</div>}
+          {custom ? <div className="text-3xl font-bold tracking-wide">{name}</div> : <ProductLogo surface="sidebar" className="h-20" />}
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sidebar-active">Plan · Program · Execute · Monitor · Deliver</p>

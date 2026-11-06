@@ -3,7 +3,7 @@ import { join } from 'path';
 import PDFDocument from 'pdfkit';
 
 /**
- * Small layout helpers over pdfkit for PROJEXA's PDFs (reports, invoices). Text uses DejaVu Sans,
+ * Small layout helpers over pdfkit for SampTrek's PDFs (reports, invoices). Text uses DejaVu Sans,
  * shipped in apps/api/assets/fonts, so names in most scripts render; PDF_FONT_DIR overrides.
  */
 
@@ -17,13 +17,22 @@ function fonts(): string | null {
   return fontDir;
 }
 
+/** SampTrek's logo for light backgrounds (apps/api/assets/brand), or null when it is not shipped. */
+let logoPath: string | null | undefined;
+export function productLogoPath(): string | null {
+  if (logoPath !== undefined) return logoPath;
+  const candidates = [join(process.cwd(), 'assets/brand'), join(process.cwd(), 'apps/api/assets/brand'), join(__dirname, '../../assets/brand'), join(__dirname, '../../../assets/brand')].map((d) => join(d, 'samptrek-logo-light.png'));
+  logoPath = candidates.find((f) => existsSync(f)) ?? null;
+  return logoPath;
+}
+
 export const INK = '#111827';
 export const MUTED = '#6b7280';
 export const LINE = '#e5e7eb';
 export const BRAND = '#1d4ed8';
 
 export function newDoc(opts: { landscape?: boolean; title: string; author: string }): Doc {
-  const doc = new PDFDocument({ size: 'A4', layout: opts.landscape ? 'landscape' : 'portrait', margin: 40, bufferPages: true, info: { Title: opts.title, Author: opts.author, Creator: 'PROJEXA' } });
+  const doc = new PDFDocument({ size: 'A4', layout: opts.landscape ? 'landscape' : 'portrait', margin: 40, bufferPages: true, info: { Title: opts.title, Author: opts.author, Creator: 'SampTrek' } });
   const dir = fonts();
   if (dir) {
     doc.registerFont('body', join(dir, 'DejaVuSans.ttf'));
