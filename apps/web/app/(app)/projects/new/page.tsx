@@ -707,7 +707,7 @@ function CreateProjectPage() {
                 <button className="btn-ghost px-2.5 py-1.5 text-xs" onClick={() => setSecurity({ ...security, gateSurvey: true })}>Turn it on</button>
               </div>
             ) : (
-              <QuestionBuilder value={gateQuestions} onChange={setGateQuestions} editable templatesCurrency={currency} emptyText="No gate questions yet. Add the standard profile questions (age, gender, income, employment, education) from the library, or build your own. You can also add them later on the Gate & security tab." />
+              <QuestionBuilder value={gateQuestions} onChange={setGateQuestions} editable templatesCurrency={currency} emptyText="No gate questions yet. Pick an audience set (B2B, B2C, parents, teens, healthcare consumers, patients or caregivers), add single profile questions from the library, or build your own. You can also add them later on the Gate & security tab." />
             )}
           </Section>
         </div>

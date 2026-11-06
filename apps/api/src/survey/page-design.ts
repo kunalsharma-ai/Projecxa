@@ -42,6 +42,8 @@ export const pageDesignSchema = z
     brandName: z.string().max(60).optional(),
     footer: z.string().max(200).optional(),
     confetti: z.boolean().default(true),
+    /** Show the platform logo (SampTrek by Sampledge, or the organisation's white-label logo) and its tab icon. */
+    platformLogo: z.boolean().default(true),
     texts: z.object(Object.fromEntries(END_STATUSES.map((k) => [k, text.optional()])) as Record<EndStatus, z.ZodOptional<typeof text>>).strict().default({}),
     /** Show the end page first, then continue to the vendor's redirect after `seconds`. */
     interstitial: z.object({ enabled: z.boolean(), seconds: z.number().int().min(0).max(15) }).strict().default({ enabled: false, seconds: 5 }),
@@ -66,6 +68,7 @@ export const DEFAULT_DESIGN: PageDesign = {
   font: 'system',
   radius: 'soft',
   confetti: true,
+  platformLogo: true,
   texts: {},
   interstitial: { enabled: false, seconds: 5 },
 };
@@ -143,7 +146,8 @@ export function designCss(d: PageDesign) {
   return `:root{--bg:${c.background};--card:${c.surface};--ink:${ink};--page-ink:${pageInk};--muted:${muted};--line:${line};--brand:${c.primary};--brand-ink:${inkOn(c.primary)};--accent:${c.accent};--bad:#dc2626;--radius:${radius};--ctl:${control};--font:${FONT_STACKS[d.font]}}
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%}body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font:16px/1.55 var(--font)}
 img{max-width:100%}
-.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.01em}.brand.on-dark{color:#fff}.brand img{max-height:40px;width:auto}`;
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.01em}.brand.on-dark{color:#fff}.brand img{max-height:40px;width:auto}.brand .plogo{max-height:34px}.pbrand.on-dark .plogo{max-height:44px;background:#0b1020b3;padding:6px 12px;border-radius:12px}.plogo-name,.pmini-name{font-weight:700}
+.powered{display:flex;align-items:center;justify-content:center;gap:6px;font-size:.75rem;opacity:.7;margin:18px 0 0}.powered .pmini{height:16px;width:auto}`;
 }
 
 /** Background for the gate page in the project's template (a lighter version of the end page). */
@@ -165,16 +169,63 @@ export function gateBackgroundCss(d: PageDesign, base: string) {
   }
 }
 
-export function brandHtml(d: PageDesign, base: string, onDark = false) {
-  if (!d.logoAssetId && !d.brandName) return '';
+/**
+ * The platform's brand on respondent pages: SampTrek by Sampledge, or the organisation's own
+ * white-label name and logo. URLs are on the public API host so the pages' `img-src 'self'` allows them.
+ */
+export interface PlatformBrand {
+  name: string;
+  /** Logo for light backgrounds. */
+  logo: string | null;
+  /** Logo for dark backgrounds. */
+  logoDark: string | null;
+  /** Square icon for the browser tab. */
+  icon: string | null;
+}
+
+/** SampTrek's own files, served by the API from apps/api/assets/brand (see BrandAssetsController). */
+export function defaultPlatformBrand(base: string): PlatformBrand {
+  return { name: 'SampTrek by Sampledge', logo: `${base}/brand/samptrek-logo-light.png`, logoDark: `${base}/brand/samptrek-logo-dark.png`, icon: `${base}/brand/samptrek-icon-64.png` };
+}
+
+/** True when the page behind the header is dark enough that the light-on-dark logo reads better. */
+function darkBehind(d: PageDesign, onDark: boolean) {
+  return onDark || inkOn(d.colors.background) === '#ffffff';
+}
+
+function platformLogoImg(p: PlatformBrand, dark: boolean, cls: string) {
+  const src = dark ? (p.logoDark ?? p.logo) : (p.logo ?? p.logoDark);
+  return src ? `<img class="${cls}" src="${esc(src)}" alt="${esc(p.name)}">` : `<span class="${cls}-name">${esc(p.name)}</span>`;
+}
+
+/**
+ * Header brand: the project's own logo or name; when the project has none and the platform logo is
+ * on, the platform logo instead.
+ */
+export function brandHtml(d: PageDesign, base: string, onDark = false, platform?: PlatformBrand | null) {
+  if (!d.logoAssetId && !d.brandName) {
+    if (!platform || !d.platformLogo) return '';
+    return `<div class="brand pbrand${onDark ? ' on-dark' : ''}">${platformLogoImg(platform, darkBehind(d, onDark), 'plogo')}</div>`;
+  }
   return `<div class="brand${onDark ? ' on-dark' : ''}">${d.logoAssetId ? `<img src="${assetUrl(base, d.logoAssetId)}" alt="${esc(d.brandName ?? 'Logo')}">` : ''}${d.brandName ? `<span>${esc(d.brandName)}</span>` : ''}</div>`;
+}
+
+/** Small "Powered by" line under the page, used when the project shows its own logo at the top. */
+export function poweredByHtml(d: PageDesign, platform: PlatformBrand | null | undefined, dark: boolean) {
+  if (!platform || !d.platformLogo || (!d.logoAssetId && !d.brandName)) return '';
+  return `<p class="powered">Powered by ${platformLogoImg(platform, dark, 'pmini')}</p>`;
+}
+
+/** Browser-tab icon link for the head. */
+export function faviconHtml(d: PageDesign, platform: PlatformBrand | null | undefined) {
+  return platform?.icon && d.platformLogo ? `<link rel="icon" href="${esc(platform.icon)}">` : '';
 }
 
 /**
  * Full end page. `continueUrl` (interstitial mode) adds a countdown and a button that
  * takes the respondent on to the vendor's page.
  */
-export function renderEndPage(d: PageDesign, status: EndStatus, opts: { base: string; nonce: string; continueUrl?: string; seconds?: number; preview?: boolean }): string {
+export function renderEndPage(d: PageDesign, status: EndStatus, opts: { base: string; nonce: string; continueUrl?: string; seconds?: number; preview?: boolean; platform?: PlatformBrand | null }): string {
   const def = STATUS_DEFAULTS[status];
   const t = d.texts[status] ?? {};
   const title = esc(t.title?.trim() || def.title);
@@ -189,7 +240,8 @@ export function renderEndPage(d: PageDesign, status: EndStatus, opts: { base: st
       : '';
   const hero = d.heroAssetId ? assetUrl(opts.base, d.heroAssetId) : null;
   const confetti = status === 'complete' && d.confetti;
-  const footer = d.footer ? `<p class="foot">${esc(d.footer)}</p>` : '';
+  const darkCard = d.template === 'spotlight' || inkOn(d.template === 'minimal' ? c.background : c.surface) === '#ffffff';
+  const footer = `${d.footer ? `<p class="foot">${esc(d.footer)}</p>` : ''}${poweredByHtml(d, opts.platform, darkCard)}`;
   const content = `${icon}<h1>${title}</h1><p class="msg">${message}</p>${button}${footer}`;
 
   let layout = '';
@@ -198,38 +250,38 @@ export function renderEndPage(d: PageDesign, status: EndStatus, opts: { base: st
     case 'minimal':
       css = `.bar{height:6px;background:linear-gradient(90deg,var(--brand),var(--accent))}.wrap{max-width:40rem;margin:0 auto;padding:48px 20px}.wrap .brand{margin-bottom:56px;color:var(--page-ink)}
 main{color:var(--page-ink)}.icon{margin-bottom:22px}h1{font-size:clamp(1.75rem,5vw,2.5rem)}.msg{color:var(--page-ink);opacity:.8;font-size:1.1rem}`;
-      layout = `<div class="bar"></div><div class="wrap">${brandHtml(d, opts.base)}<main>${content}</main></div>`;
+      layout = `<div class="bar"></div><div class="wrap">${brandHtml(d, opts.base, false, opts.platform)}<main>${content}</main></div>`;
       break;
     case 'split':
       css = `.split{display:grid;grid-template-columns:1fr 1fr;min-height:100vh}.art{background:${hero ? `url(${hero}) center/cover` : `linear-gradient(135deg,var(--brand),var(--accent))`};position:relative;min-height:220px}
 .art::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,#0005,transparent 50%)}.art .brand{position:absolute;left:24px;bottom:24px;z-index:1;color:#fff}
 .side{display:grid;place-items:center;padding:40px 24px;background:var(--card)}main{max-width:28rem}
 @media (max-width:760px){.split{grid-template-columns:1fr}.art{min-height:200px}}`;
-      layout = `<div class="split"><div class="art">${brandHtml(d, opts.base, true)}</div><div class="side"><main>${content}</main></div></div>`;
+      layout = `<div class="split"><div class="art">${brandHtml(d, opts.base, true, opts.platform)}</div><div class="side"><main>${content}</main></div></div>`;
       break;
     case 'spotlight':
       css = `body{background:${hero ? `linear-gradient(#000a,#000c),url(${hero}) center/cover fixed` : `linear-gradient(135deg,var(--brand),var(--accent))`}}.wrap{min-height:100vh;display:grid;place-items:center;padding:24px;text-align:center;color:#fff}
 .wrap .brand{justify-content:center;margin-bottom:28px;color:#fff}main{max-width:34rem}.msg{color:#fffd}.foot{color:#fffb}.icon{margin:0 auto 22px;box-shadow:0 0 0 10px #ffffff22}
 h1{font-size:clamp(2rem,6vw,3rem);text-shadow:0 2px 20px #0006}.btn{background:#fff;color:#111}.small{color:#fffc}`;
-      layout = `<div class="wrap"><main>${brandHtml(d, opts.base, true)}${content}</main></div>`;
+      layout = `<div class="wrap"><main>${brandHtml(d, opts.base, true, opts.platform)}${content}</main></div>`;
       break;
     case 'bold':
       css = `.top{background:linear-gradient(135deg,var(--brand),${mix(c.primary, c.accent, 0.35)});color:var(--brand-ink);padding:28px 20px 120px}.top .brand{max-width:36rem;margin:0 auto;color:var(--brand-ink)}
 main{max-width:36rem;margin:-96px auto 40px;background:var(--card);border-radius:var(--radius);padding:36px 28px;box-shadow:0 30px 60px -20px #0004;text-align:center;position:relative}
 @media (max-width:640px){main{margin:-96px 16px 32px;padding:28px 20px}}.icon{margin:-72px auto 18px;box-shadow:0 0 0 8px var(--card)}`;
-      layout = `<div class="top">${brandHtml(d, opts.base, true)}</div><main>${content}</main>`;
+      layout = `<div class="top">${brandHtml(d, opts.base, true, opts.platform)}</div><main>${content}</main>`;
       break;
     case 'playful':
       css = `body{background:radial-gradient(${c.accent}40 2px,transparent 2px) 0 0/22px 22px,var(--bg)}.wrap{min-height:100vh;display:grid;place-items:center;padding:20px}
 main{max-width:30rem;background:var(--card);border-radius:calc(var(--radius) + 12px);padding:40px 28px;text-align:center;border:3px solid var(--ink);box-shadow:10px 10px 0 var(--brand)}
 .icon{margin:0 auto 18px;transform:rotate(-6deg);border:3px solid var(--ink)}h1{font-size:2rem}.wrap .brand{justify-content:center;margin-bottom:20px}.btn{border:3px solid var(--ink);box-shadow:4px 4px 0 var(--ink)}`;
-      layout = `<div class="wrap"><main>${brandHtml(d, opts.base)}${content}</main></div>`;
+      layout = `<div class="wrap"><main>${brandHtml(d, opts.base, false, opts.platform)}${content}</main></div>`;
       break;
     default: // aurora
       css = `body{background:radial-gradient(60rem 40rem at 10% -10%,${c.primary}40,transparent 60%),radial-gradient(50rem 40rem at 110% 110%,${c.accent}40,transparent 60%),var(--bg)}
 .wrap{min-height:100vh;display:grid;place-items:center;padding:20px}main{max-width:32rem;width:100%;background:color-mix(in srgb,var(--card) 86%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:var(--radius);padding:40px 28px;text-align:center;box-shadow:0 30px 80px -30px #0003}
 .icon{margin:0 auto 20px}.wrap main .brand{justify-content:center;margin-bottom:26px}`;
-      layout = `<div class="wrap"><main>${brandHtml(d, opts.base)}${content}</main></div>`;
+      layout = `<div class="wrap"><main>${brandHtml(d, opts.base, false, opts.platform)}${content}</main></div>`;
   }
 
   const confettiJs = confetti
@@ -243,7 +295,7 @@ main{max-width:30rem;background:var(--card);border-radius:calc(var(--radius) + 1
       ? `location.replace(document.getElementById('go').href);`
       : '';
 
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${title}</title>
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${title}</title>${faviconHtml(d, opts.platform)}
 <style nonce="${opts.nonce}">${designCss(d)}
 h1{margin:0 0 10px;line-height:1.15;letter-spacing:-.02em;font-size:clamp(1.6rem,4.5vw,2.2rem)}.msg{margin:0 auto 24px;color:var(--muted);max-width:30rem}
 .icon{--tone:${toneColor};--tone-ink:${inkOn(toneColor)};width:72px;height:72px;border-radius:calc(var(--radius) + 8px);display:grid;place-items:center;background:var(--tone);color:var(--tone-ink);animation:pop .5s cubic-bezier(.2,1.4,.4,1) both}
@@ -253,4 +305,19 @@ h1{margin:0 0 10px;line-height:1.15;letter-spacing:-.02em;font-size:clamp(1.6rem
 @keyframes fall{to{top:105vh;transform:translateX(40px) rotate(540deg)}}@keyframes pop{from{transform:scale(.6);opacity:0}}
 @media (prefers-reduced-motion:reduce){.icon{animation:none}}
 ${css}</style></head><body>${layout}${confettiJs || countdownJs ? `<script nonce="${opts.nonce}">${confettiJs}${countdownJs}</script>` : ''}</body></html>`;
+}
+
+/** Platform brand for an organisation: its white-label name/logo when set, else SampTrek by Sampledge. */
+export function platformBrandOf(
+  base: string,
+  brand: { custom: boolean; appName: string; logoUrl: string | null; logoDarkUrl: string | null; iconUrl: string | null } | null,
+): PlatformBrand {
+  const def = defaultPlatformBrand(base);
+  if (!brand || (!brand.custom && !brand.logoUrl)) return def;
+  return {
+    name: brand.custom ? brand.appName : def.name,
+    logo: brand.logoUrl ?? brand.logoDarkUrl ?? (brand.custom ? null : def.logo),
+    logoDark: brand.logoDarkUrl ?? brand.logoUrl ?? (brand.custom ? null : def.logoDark),
+    icon: brand.iconUrl ?? (brand.custom ? null : def.icon),
+  };
 }

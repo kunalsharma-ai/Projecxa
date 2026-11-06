@@ -86,7 +86,7 @@ const ROUTES: [RegExp, string | null, string?][] = [
   [/^organization(\/|$)/, 'settings'],
   [/^security\/(captcha|tor)/, 'settings'],
   [/^dashboard(\/|$)/, 'dashboard'],
-  [/^insights$/, 'notifications'],
+  [/^insights(\/read)?$/, 'notifications'],
   [/^ai(\/|$)/, 'copilot'],
   [/^tasks(\/|$)/, 'tasks'],
   [/^(requests|files)(\/|$)/, 'requests'],

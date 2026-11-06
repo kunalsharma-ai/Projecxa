@@ -110,6 +110,7 @@ model Organization {
   /// White-label (docs/WHITE_LABEL.md): { appName, tagline, brandColor, theme, hidePoweredBy, supportEmail, emailFromName, emailReplyTo, loginMessage }.
   branding               Json?
   brandAssets            BrandAsset[]
+  questionSets           QuestionSet[]
   /// Custom web domain for this organisation (e.g. research.acme.com), used once verified by DNS.
   customDomain           String?              @unique
   customDomainToken      String?
@@ -390,6 +391,7 @@ model User {
   /// Last authenticated request (written at most every 5 minutes).
   lastSeenAt         DateTime?
   passwordTokens     PasswordToken[]
+  notificationReads  NotificationRead[]
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
 
@@ -2047,4 +2049,38 @@ model SampleonInboundEvent {
   type              String
   audienceRequestId String?
   receivedAt        DateTime @default(now())
+}
+
+/// One person has read one notification (docs/NOTIFICATIONS.md). Notifications are worked out live, so
+/// `key` is the notification's id and `title` the wording it had: when the wording changes (for example
+/// "3 callbacks failed" becomes "5 callbacks failed") it counts as new again.
+model NotificationRead {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key            String
+  title          String
+  readAt         DateTime @default(now())
+
+  @@unique([userId, key])
+  @@index([readAt])
+}
+
+/// An organisation's own gate survey question set (docs/GATE_QUESTION_SETS.md): either its edited
+/// version of a built-in audience set (key = b2b, b2c, parents, teens, hc_consumer, hc_patient,
+/// hc_caregiver) or a set it made itself (key = custom-…).
+model QuestionSet {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  key            String
+  name           String
+  description    String?
+  questions      Json
+  updatedById    String?
+  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, key])
 }

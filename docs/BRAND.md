@@ -30,6 +30,15 @@ Where the logo shows:
 - **Emails**: the PNG logo, loaded from the web app's address (`/brand/samptrek-logo-light.png`),
   so it shows once the web app is on a public address.
 - **Report PDFs**: the logo at the top right.
+- **Respondent pages** (gate page and every end page: complete, terminate, quota full, quality fail,
+  duplicate, security reject, partial, technical error, and the countdown page before a vendor
+  redirect): the logo at the top and the icon on the browser tab. When the project sets its own logo
+  or brand name (Respondent pages → Brand and images), that goes at the top and the SampTrek logo moves
+  to a small "Powered by" line at the bottom. A project can turn it off with **Show the Sampledge logo**.
+  The light or dark file is picked from the page's background. The API serves these files itself at
+  `/brand/<file>` (only `samptrek-logo-light.png`, `samptrek-logo-dark.png`, `samptrek-icon-64.png`,
+  `samptrek-icon-512.png`, from `apps/api/assets/brand`), so the pages' strict CSP (`img-src 'self'`) allows
+  them. An organisation with its own white-label name or logo gets that instead of SampTrek.
 
 Components: `ProductLogo` and `BrandIcon` in `apps/web/components/brand-mark.tsx`; `ProductLogo`,
 `BrandMark` and `Wordmark` in `apps/mobile/src/components/gate.tsx`.

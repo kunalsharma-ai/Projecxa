@@ -10,6 +10,7 @@ import { CommandPalette } from '@/components/shell/command-palette';
 import { InsightsPanel, type Insights } from '@/components/shell/insights-panel';
 import { bidzoUrl } from '@/components/shell/nav';
 import { Popover } from '@/components/shell/popover';
+import { InfoTip } from '@/components/help';
 import { ProductTour } from '@/components/shell/product-tour';
 import { Sidebar } from '@/components/shell/sidebar';
 import { ThemeMenu } from '@/components/shell/theme-menu';
@@ -98,6 +99,24 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return () => clearInterval(t);
   }, [me, loadInsights]);
 
+  // Opening the bell marks what it shows as read for this person; the badge then counts only new ones.
+  // Items stay labelled "New" until the menu closes, so the person can still see what was new.
+  const [fresh, setFresh] = useState<Set<string>>(new Set());
+  const onBellOpen = useCallback((open: boolean) => {
+    if (!open) { setFresh(new Set()); return; }
+    const unread = (insights?.items ?? []).filter((i) => i.severity !== 'info' && !i.read).slice(0, 6); // what the menu shows first
+    setFresh(new Set(unread.map((i) => i.id)));
+    if (!unread.length) return;
+    const ids = new Set(unread.map((i) => i.id));
+    setInsights((cur) => {
+      if (!cur) return cur;
+      const items = cur.items.map((i) => (ids.has(i.id) ? { ...i, read: true } : i));
+      const left = items.filter((i) => i.severity !== 'info' && !i.read).length;
+      return { ...cur, items, alerts: left, unread: left };
+    });
+    post('/insights/read', { items: unread.map((i) => ({ id: i.id, title: i.title })) }).catch(() => undefined);
+  }, [insights]);
+
   const toggleInsights = useCallback(() => update({ insightsOpen: !prefs.insightsOpen }), [update, prefs.insightsOpen]);
 
   // Keyboard: Ctrl/Cmd+K search, [ sidebar, ] insights (not while typing).
@@ -184,16 +203,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </Popover>
               )}
               <div data-tour="notifications">
-              <Popover label="Notifications" trigger={<Bell className="h-[18px] w-[18px]" />} badge={insights?.alerts} width="w-80">
+              <Popover label="Notifications" trigger={<Bell className="h-[18px] w-[18px]" />} badge={insights?.alerts} width="w-80" onOpenChange={onBellOpen}>
                 {(close) => (
                   <div className="p-2">
-                    <div className="px-2 pb-2 pt-1 text-xs font-semibold text-muted">Alerts</div>
+                    <div className="flex items-center justify-between px-2 pb-2 pt-1 text-xs font-semibold text-muted"><span className="flex items-center gap-1">Alerts<InfoTip id="shell.notifications" /></span>{fresh.size > 0 && <span className="font-normal">{fresh.size} new · now marked read</span>}</div>
                     {!insights || insights.items.filter((i) => i.severity !== 'info').length === 0 ? (
                       <p className="px-2 pb-2 text-sm text-muted">No alerts.</p>
                     ) : (
-                      insights.items.filter((i) => i.severity !== 'info').slice(0, 6).map((i) => (
-                        <Link key={i.id} href={i.href} onClick={close} className="block rounded-md px-2 py-2 text-sm hover:bg-sunken">
-                          <div className={clsx('font-medium', i.severity === 'bad' ? 'text-bad' : 'text-ink')}>{i.title}</div>
+                      insights.items.filter((i) => i.severity !== 'info').sort((a, b) => Number(fresh.has(b.id)) - Number(fresh.has(a.id))).slice(0, 6).map((i) => (
+                        <Link key={i.id} href={i.href} onClick={close} className={clsx('block rounded-md px-2 py-2 text-sm hover:bg-sunken', fresh.has(i.id) && 'bg-brand/5')}>
+                          <div className={clsx('flex items-center gap-1.5', fresh.has(i.id) ? 'font-semibold' : 'font-medium', i.severity === 'bad' ? 'text-bad' : 'text-ink')}>
+                            {fresh.has(i.id) && <span className="h-2 w-2 shrink-0 rounded-full bg-brand" aria-hidden />}
+                            <span className="min-w-0 flex-1 truncate">{i.title}</span>
+                            {fresh.has(i.id) && <span className="chip shrink-0 bg-brand/10 px-1.5 py-0 text-[10px] text-brand">New</span>}
+                          </div>
                           <div className="truncate text-xs text-muted">{i.detail}</div>
                         </Link>
                       ))

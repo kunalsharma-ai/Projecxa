@@ -22,7 +22,8 @@ import {
   REASON_LABELS,
 } from './respondent-checks';
 import { captchaSvg, CaptchaStyle, CAPTCHA_STYLES, HUMAN_MAX_ATTEMPTS, humanChallenge, normaliseAnswer, ProviderStyle, providerKeysOf, verifyProvider } from './captcha';
-import { DEFAULT_DESIGN, designOf, END_STATUSES, EndStatus, PageDesign } from './page-design';
+import { DEFAULT_DESIGN, defaultPlatformBrand, designOf, END_STATUSES, EndStatus, PageDesign, PlatformBrand, platformBrandOf } from './page-design';
+import { brandOf } from '../branding/branding';
 import { evaluate, Question, questionsOf } from './questions';
 import { TorService } from './tor.service';
 import { matchCells, Respondent } from '../quotas/quota.rules';
@@ -62,6 +63,8 @@ export interface GateView {
   design: PageDesign;
   /** Public base URL, for image links. */
   base: string;
+  /** Platform logo and tab icon (SampTrek by Sampledge, or the organisation's white-label brand). */
+  platform?: PlatformBrand | null;
   /** Builder preview: renders the page but never submits. */
   preview?: boolean;
 }
@@ -113,6 +116,12 @@ const ALLOCATION_INCLUDE = {
 } as const;
 
 type AllocationWithContext = Prisma.VendorAllocationGetPayload<{ include: typeof ALLOCATION_INCLUDE }>;
+
+/** The logo respondent pages show for an organisation (white-label first, else SampTrek by Sampledge). */
+export async function loadPlatformBrand(prisma: PrismaService, organizationId: string): Promise<PlatformBrand> {
+  const o = await prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true, slug: true, branding: true, customDomain: true, customDomainVerifiedAt: true, brandAssets: { select: { kind: true, hash: true } } } });
+  return platformBrandOf(appConfig.publicBaseUrl, o ? brandOf(o, o.brandAssets) : null);
+}
 
 /** Unique link keys are 22+ url-safe characters (128 bits of randomness). */
 export const UNIQUE_KEY_RE = /^[A-Za-z0-9_-]{16,64}$/;
@@ -492,6 +501,7 @@ export class SurveyService {
         consent: consent ? { title: consent.title, body: consent.body, privacyUrl: consent.privacyUrl, version: consent.version } : null,
         design: designOf(session.project.pageDesign),
         base: appConfig.publicBaseUrl,
+        platform: await this.platformBrand(session.organizationId),
       },
     };
   }
@@ -716,19 +726,26 @@ export class SurveyService {
     return destination;
   }
 
+  /** The logo respondent pages show for an organisation (white-label first, else SampTrek by Sampledge). */
+  platformBrand(organizationId: string): Promise<PlatformBrand> {
+    return loadPlatformBrand(this.prisma, organizationId);
+  }
+
   /** Data for a designed end page. Status comes from the recorded redirect, not the URL, when a token is known. */
-  async endView(slug: string, token: string | undefined): Promise<{ design: PageDesign; status: EndStatus; continueUrl?: string; seconds?: number }> {
+  async endView(slug: string, token: string | undefined): Promise<{ design: PageDesign; status: EndStatus; continueUrl?: string; seconds?: number; platform: PlatformBrand }> {
     const fallback = (END_STATUSES as readonly string[]).includes(slug) ? (slug as EndStatus) : 'technical_error';
-    if (!token || token.length > 200) return { design: DEFAULT_DESIGN, status: fallback };
-    const session = await this.prisma.respondentSession.findUnique({ where: { token }, select: { id: true, project: { select: { pageDesign: true } } } });
-    if (!session) return { design: DEFAULT_DESIGN, status: fallback };
+    const platform = defaultPlatformBrand(appConfig.publicBaseUrl);
+    if (!token || token.length > 200) return { design: DEFAULT_DESIGN, status: fallback, platform };
+    const session = await this.prisma.respondentSession.findUnique({ where: { token }, select: { id: true, organizationId: true, project: { select: { pageDesign: true } } } });
+    if (!session) return { design: DEFAULT_DESIGN, status: fallback, platform };
     const design = designOf(session.project.pageDesign);
+    const brand = await this.platformBrand(session.organizationId);
     const last = await this.prisma.redirectExecution.findFirst({ where: { sessionId: session.id }, orderBy: { createdAt: 'desc' }, select: { status: true, destination: true } });
-    if (!last) return { design, status: fallback };
+    if (!last) return { design, status: fallback, platform: brand };
     const status = (END_STATUSES as readonly string[]).includes(last.status.toLowerCase()) ? (last.status.toLowerCase() as EndStatus) : fallback;
     const external = !last.destination.startsWith(`${appConfig.publicBaseUrl}/end/`);
-    if (design.interstitial.enabled && external) return { design, status, continueUrl: last.destination, seconds: design.interstitial.seconds };
-    return { design, status };
+    if (design.interstitial.enabled && external) return { design, status, continueUrl: last.destination, seconds: design.interstitial.seconds, platform: brand };
+    return { design, status, platform: brand };
   }
 
   private async enqueueVendorCallback(session: SessionWithContext, status: OutcomeStatus) {

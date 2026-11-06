@@ -13,7 +13,10 @@ import { AuthUser } from '../auth/auth.types';
 import { config } from '../common/config';
 import { ZodPipe } from '../common/zod.pipe';
 import { PrismaService } from '../prisma/prisma.service';
+import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
 import { renderGatePage } from './gate-page';
+import { loadPlatformBrand } from './survey.service';
 import { DEFAULT_DESIGN, designOf, END_STATUSES, FONTS, PALETTES, pageDesignSchema, renderEndPage, STATUS_DEFAULTS, TEMPLATES } from './page-design';
 
 export const MAX_ASSET_BYTES = 1_500_000;
@@ -84,6 +87,7 @@ export class PageDesignController {
   async preview(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body(new ZodPipe(previewSchema)) body: z.infer<typeof previewSchema>, @Res() res: Response) {
     await this.project(u, id);
     const nonce = randomBytes(12).toString('base64');
+    const platform = await loadPlatformBrand(this.prisma, u.organizationId);
     const html =
       body.page === 'gate'
         ? renderGatePage(
@@ -97,6 +101,7 @@ export class PageDesignController {
               consent: null,
               design: body.design,
               base: config.publicBaseUrl,
+              platform,
               preview: true,
             },
             nonce,
@@ -107,6 +112,7 @@ export class PageDesignController {
             continueUrl: body.interstitial ? 'https://vendor.example.com/return' : undefined,
             seconds: body.interstitial ? body.design.interstitial.seconds : undefined,
             preview: true,
+            platform,
           });
     res.json({ html });
   }
@@ -136,4 +142,29 @@ export class PageDesignController {
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     return res.end(Buffer.from(a.data));
   }
+
+  /** Public: SampTrek's own logo files for respondent pages (apps/api/assets/brand). Only the listed files. */
+  @Public()
+  @Get('brand/:file')
+  brandFile(@Param('file') file: string, @Res() res: Response) {
+    const buf = BRAND_FILES.includes(file) ? brandFile(file) : null;
+    if (!buf) return res.status(404).end();
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Security-Policy', "default-src 'none'");
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    return res.end(buf);
+  }
+}
+
+const BRAND_FILES = ['samptrek-logo-light.png', 'samptrek-logo-dark.png', 'samptrek-icon-64.png', 'samptrek-icon-512.png'];
+const brandCache = new Map<string, Buffer | null>();
+function brandFile(name: string): Buffer | null {
+  if (brandCache.has(name)) return brandCache.get(name)!;
+  const dirs = [join(process.cwd(), 'assets/brand'), join(process.cwd(), 'apps/api/assets/brand'), join(__dirname, '../../assets/brand'), join(__dirname, '../../../assets/brand')];
+  const path = dirs.map((d) => join(d, name)).find((f) => existsSync(f));
+  const buf = path ? readFileSync(path) : null;
+  brandCache.set(name, buf);
+  return buf;
 }

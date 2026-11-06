@@ -114,7 +114,7 @@ export class SurveyPublicController {
       'Content-Security-Policy',
       `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`,
     );
-    res.status(200).send(renderEndPage(v.design, v.status, { base: appConfig.publicBaseUrl, nonce, continueUrl: v.continueUrl, seconds: v.seconds }));
+    res.status(200).send(renderEndPage(v.design, v.status, { base: appConfig.publicBaseUrl, nonce, continueUrl: v.continueUrl, seconds: v.seconds, platform: v.platform }));
   }
 }
 
