@@ -286,6 +286,7 @@ export function RedirectsTab({ project, editable, reload }: { project: ProjectDe
             selected={0}
             total={OUTCOME_STATUSES.length}
             noun={['status', 'statuses']}
+            help="bulk.everyStatus"
             hint="One custom URL for every status. In a dynamic URL, {status} becomes complete, terminate and so on. “Reset to prebuilt” puts every status back on the vendor’s saved redirect."
             onApply={(v) => everyStatus(v.url.trim())}
             fields={[{ key: 'url', label: 'Custom URL for every status', width: 'w-[min(32rem,80vw)]', placeholder: 'https://panel.example.com/end?st={status}&uid={respondent_uid}' }]}
@@ -374,17 +375,17 @@ export function RedirectsTab({ project, editable, reload }: { project: ProjectDe
         )}
         {editable && (
           <div className="grid grid-cols-1 gap-3 rounded-lg bg-sunken/60 p-4 md:grid-cols-[200px_200px_150px_110px_1fr_auto]">
-            <Field label="Country">
+            <Field label="Country" help="redirect.override.country">
               <select className="input" value={override.countryCode ?? ''} onChange={(e) => setOverride({ ...override, countryCode: e.target.value || undefined })}>
                 <option value="">Any</option>{policy.countries.length > 1 && <option value={EACH}>Every market (one rule each)</option>}{policy.countries.map((c) => <option key={c} value={c}>{flag(c)} {c}</option>)}
               </select>
             </Field>
-            <Field label="Vendor">
+            <Field label="Vendor" help="redirect.override.vendor">
               <select className="input" value={override.vendorId ?? ''} onChange={(e) => setOverride({ ...override, vendorId: e.target.value || undefined })}>
                 <option value="">Any</option>{policy.vendors.length > 1 && <option value={EACH}>Every vendor (one rule each)</option>}{policy.vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
               </select>
             </Field>
-            <Field label="Status">
+            <Field label="Status" help="redirect.override.status">
               <select className="input" value={override.status} onChange={(e) => setOverride({ ...override, status: e.target.value as OutcomeStatus })}>
                 {OUTCOME_STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}<option value={EACH}>Every status</option>
               </select>

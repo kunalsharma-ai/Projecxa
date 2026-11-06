@@ -44,6 +44,7 @@ for (const t of tabs) ok(`tab ${t} has help`, !!helpForTab(t));
 for (const f of files) {
   const src = readFileSync(f, 'utf8');
   for (const m of src.matchAll(/\bhelp="([^"]+)"/g)) ok(`${relative(root, f)}: help="${m[1]}" exists`, !!findHelp(m[1]));
+  for (const m of src.matchAll(/\bhelp = '([^']+)'/g)) ok(`${relative(root, f)}: default help '${m[1]}' exists`, !!findHelp(m[1]));
   for (const m of src.matchAll(/<InfoTip id="([^"]+)"/g)) ok(`${relative(root, f)}: InfoTip id="${m[1]}" exists`, !!findHelp(m[1]));
 }
 

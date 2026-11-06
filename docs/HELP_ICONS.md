@@ -49,8 +49,11 @@ stay clean.
 - a `help="…"` id in the code has no entry,
 - an entry is missing what/how/where, or a line is longer than 260 characters.
 
+## Apply to all, copy and phone systems
+
+The Apply to all boxes (`bulk.*`, set with `help=` on `BulkFill`), Copy all links (`vendors.copyAll`), redirect override pickers (`redirect.override.*`), Android/iOS device choices (`device.*`) and device quota conditions (`quota.device`) have their own entries.
+
 ## Not covered yet
 
-- New fields from open PRs (#53 mobile app, #54 apply-to-all and copy icons) are added after they merge.
 - The Android/iOS app has no help icons.
 - Sign-in, registration and respondent-facing pages have no icons on purpose.

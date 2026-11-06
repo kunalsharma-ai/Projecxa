@@ -660,6 +660,7 @@ function CreateProjectPage() {
                 selected={0}
                 total={vendors.length}
                 noun={['vendor', 'vendors']}
+                help="bulk.createVendors"
                 hint="Same payout or link variable for every vendor."
                 onApply={(v) => setVendors(vendors.map((x) => ({ ...x, ...(v.cpi !== undefined ? { cpi: num(v.cpi) } : {}), ...(v.uidParam !== undefined ? { uidParam: v.uidParam.trim() || 'vid' } : {}) })))}
                 fields={[

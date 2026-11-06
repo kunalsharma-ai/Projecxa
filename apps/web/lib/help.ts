@@ -537,6 +537,86 @@ export const HELP: Record<string, HelpEntry> = {
   'check:torDetection': { what: 'Blocks connections through the TOR network.', how: 'Turn on to stop anonymous traffic.', where: 'Whole project.' },
   'check:cookieValidation': { what: 'Needs cookies on, and catches the same browser coming back.', how: 'Turn on as an extra duplicate check.', where: 'Whole project.' },
 
+  // ───────────── Apply to all, copy, Android/iOS (follow-up to the first help PR) ─────────────
+  'bulk.markets': {
+    title: 'Apply to all markets',
+    what: 'Changes LOI, IR, CPI, completes or survey links for many markets in one go.',
+    how: 'Fill in only the boxes that should change and press Apply. Tick rows first to change just those markets.',
+    where: 'All markets shown, or only the ticked ones. Empty boxes leave values as they are.',
+  },
+  'bulk.vendorLinks': {
+    title: 'Apply to all vendor links',
+    what: 'Changes payout, target completes or link variable on many vendor links at once, and pauses or resumes them together.',
+    how: 'Pick a vendor and/or market (or leave All), fill only what should change, then Apply. Use Pause or Resume to stop or restart those links.',
+    where: 'Every vendor link that matches the vendor and market you picked on this project.',
+  },
+  'bulk.everyStatus': {
+    title: 'One URL for every status',
+    what: 'Sends every status (Complete, Terminate, Over quota, Security…) to one custom URL.',
+    how: 'Paste one URL and Apply. Put {status} in it to pass the outcome. Reset to prebuilt puts every status back on the vendor\'s saved redirect.',
+    where: 'The project status matrix. Country and vendor overrides still win.',
+  },
+  'bulk.createVendors': {
+    title: 'Apply to all vendors',
+    what: 'Gives every vendor on the new project the same payout or link variable.',
+    how: 'Fill in the payout or link variable and Apply; change single vendors after.',
+    where: 'All vendors listed on Create project, in every market.',
+  },
+  'vendors.copyAll': {
+    title: 'Copy all links',
+    what: 'Copies every vendor\'s live and test entry links for every market in one go.',
+    how: 'Click, then paste into an email or sheet. Small copy icons next to a single link or ID copy just that one.',
+    where: 'All vendors and markets of this project.',
+  },
+  'vendors.addEveryMarket': {
+    title: 'Add to every market',
+    what: 'Adds this vendor to all markets of the project at once, with the same payout and target.',
+    how: 'Tick it before saving; change one market later if needed.',
+    where: 'Every market of this project.',
+  },
+  'redirect.override.country': {
+    title: 'Override: country',
+    what: 'Which market this override is for.',
+    how: 'Pick one country, Any, or Every market to make one rule for each market at once.',
+    where: 'Overrides beat the project matrix: vendor + country first, then vendor, then country.',
+  },
+  'redirect.override.vendor': {
+    title: 'Override: vendor',
+    what: 'Which vendor this override is for.',
+    how: 'Pick one vendor, Any, or Every vendor to make one rule for each vendor at once.',
+    where: 'This project\'s redirects for that vendor.',
+  },
+  'redirect.override.status': {
+    title: 'Override: status',
+    what: 'Which outcome this override is for, such as Complete or Terminate.',
+    how: 'Pick one status, or Every status to make one rule for each status at once.',
+    where: 'Only respondents who end with that status.',
+  },
+  'device.allowed': {
+    title: 'Devices allowed',
+    what: 'Which devices may take this survey: desktop, mobile and tablet, and for mobile, Android and/or iPhone.',
+    how: 'Switch a device off to stop it. Under Mobile, untick Android or iOS to allow only one kind of phone.',
+    where: 'Every market and vendor of this project. Blocked devices get the Terminate page.',
+  },
+  'device.mobileOs': {
+    title: 'Android and iOS',
+    what: 'Which phone systems are let in when Mobile is allowed.',
+    how: 'Keep both ticked for all phones. Untick one to allow only Android phones or only iPhones. At least one must stay ticked.',
+    where: 'Phones only, for every market of this project. Other phone systems get in only when both are ticked.',
+  },
+  'quota.device': {
+    title: 'Device quota',
+    what: 'Limits completes by device: Desktop, Mobile, Tablet, Android phone or iPhone (iOS).',
+    how: 'Pick the devices this cell counts. Android phone and iPhone are kinds of Mobile, so do not mix them with Mobile in one split.',
+    where: 'This market. Quick add on Device makes Desktop / Mobile / Tablet cells only.',
+  },
+  'field:Quick add: one cell per answer of': {
+    title: 'Quick add',
+    what: 'Makes one quota cell for each answer of a question or for each device, with the market target shared evenly.',
+    how: 'Pick the question or Device, then adjust each cell\'s limit.',
+    where: 'This market.',
+  },
+
   // ───────────────────────── Other sections ─────────────────────────
   'section:Finance: currency and tax': { what: 'Your reporting currency, FX rates and default tax.', how: 'Pick the reporting currency and keep exchange rates up to date.', where: 'Reports, dashboard and invoices.' },
   'settings.invoiceProfile': { title: 'Invoice details', what: 'Your legal name, address, tax ID and payment details printed on invoices.', how: 'Fill them in once and save.', where: 'Every client invoice PDF.' },

@@ -1,5 +1,6 @@
 'use client';
 import clsx from 'clsx';
+import { InfoTip } from '@/components/help';
 
 export type DeviceSettings = { desktop: boolean; mobile: boolean; tablet: boolean; android: boolean; ios: boolean };
 
@@ -26,6 +27,7 @@ export function MobileOsPicker({ devices, onChange, disabled }: { devices: Devic
           {k === 'android' ? 'Android' : 'iOS (iPhone)'}
         </label>
       ))}
+      <InfoTip id="device.mobileOs" />
       {devices.mobile && !devices.android && !devices.ios && <span className="text-xs text-warn">Pick at least one</span>}
     </div>
   );

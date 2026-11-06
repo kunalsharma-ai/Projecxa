@@ -10,6 +10,7 @@ import { get, patch } from '@/lib/api';
 import type { CaptchaStyle, Question } from '@/lib/types';
 import { cleanQuestion, QuestionBuilder, questionProblems } from './question-builder';
 import type { ProjectDetail } from './types';
+import { InfoTip } from '@/components/help';
 
 interface Status { geolocation: { configured: boolean; header: string | null }; tor: { nodes: number; updatedAt: string | null } }
 interface CaptchaInfo { providers: Record<'turnstile' | 'hcaptcha', { configured: boolean; siteKey: string | null }> }
@@ -155,7 +156,7 @@ export function SecurityTab({ project, editable, reload }: { project: ProjectDet
               </div>
             ))}
             <div>
-              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted"><MonitorSmartphone className="h-3.5 w-3.5" /> Devices allowed</div>
+              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted"><MonitorSmartphone className="h-3.5 w-3.5" /> Devices allowed<InfoTip id="device.allowed" /></div>
               <div className="flex flex-wrap gap-4 rounded-lg border border-line p-3">
                 {(['desktop', 'mobile', 'tablet'] as const).map((d) => (
                   <label key={d} className="flex items-center gap-2 text-sm capitalize">
