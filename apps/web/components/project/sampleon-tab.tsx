@@ -1,7 +1,7 @@
 'use client';
 /**
  * SAMPLEON audience requests for a project (docs/SAMPLEON_INTEGRATION.md).
- * PROJEXA sends the project's requirements; SAMPLEON finds respondents in SUPPLY360, a person
+ * SampTrek sends the project's requirements; SAMPLEON finds respondents in SUPPLY360, a person
  * approves the audience in SAMPLEON, and progress comes back here. Quota cells are sent as
  * SUPPLY360 attribute quotas once their questions are mapped below.
  */
@@ -71,14 +71,14 @@ export function SampleonTab({ project, editable }: { project: ProjectDetail; edi
   if (!view.configured) {
     return (
       <Empty>
-        SAMPLEON is not connected. An administrator sets <code>SAMPLEON_URL</code> and <code>SAMPLEON_CLIENT_SECRET</code> for the API, and registers PROJEXA as a client in SAMPLEON.
+        SAMPLEON is not connected. An administrator sets <code>SAMPLEON_URL</code> and <code>SAMPLEON_CLIENT_SECRET</code> for the API, and registers SampTrek as a client in SAMPLEON.
       </Empty>
     );
   }
   return (
     <div className="space-y-5">
       <p className="text-sm text-muted">
-        Ask SAMPLEON for respondents from the SUPPLY360 panels. SAMPLEON checks feasibility, a supply approver approves the audience before any invitation goes out, and progress comes back here. SAMPLEON completes are shown apart from the completes PROJEXA routes itself.
+        Ask SAMPLEON for respondents from the SUPPLY360 panels. SAMPLEON checks feasibility, a supply approver approves the audience before any invitation goes out, and progress comes back here. SAMPLEON completes are shown apart from the completes SampTrek routes itself.
       </p>
       <Requests project={project} rows={view.requests} editable={editable} reload={load} />
       {editable && <NewRequest project={project} onSent={load} />}
@@ -289,7 +289,7 @@ function QuotaMapping({ project, editable }: { project: ProjectDetail; editable:
       ) : (
         <div className="space-y-5">
           <p className="text-sm text-muted">
-            SAMPLEON counts its respondents by their SUPPLY360 profile, not by gate answers. Map each question your cells use to a profile attribute once, and each answer to one of its values. Answers with the same name are matched for you. PROJEXA keeps counting its own cells for the respondents it routes itself.
+            SAMPLEON counts its respondents by their SUPPLY360 profile, not by gate answers. Map each question your cells use to a profile attribute once, and each answer to one of its values. Answers with the same name are matched for you. SampTrek keeps counting its own cells for the respondents it routes itself.
           </p>
           {pending && (
             <div className="flex items-start gap-2 rounded-lg border border-warn/30 bg-warn/10 p-3 text-sm text-warn">

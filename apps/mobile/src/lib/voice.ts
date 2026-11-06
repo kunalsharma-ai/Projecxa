@@ -188,7 +188,7 @@ export function useVoice<D = unknown, A = unknown>(api: Api, ev: VoiceEvents<D, 
 
   async function prepareAudio() {
     const p = await requestRecordingPermissionsAsync();
-    if (!p.granted) throw new Error('Allow microphone access for PROJEXA in your phone settings to talk to the copilot.');
+    if (!p.granted) throw new Error('Allow microphone access for SampTrek in your phone settings to talk to the copilot.');
     await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true, shouldRouteThroughEarpiece: false });
   }
 

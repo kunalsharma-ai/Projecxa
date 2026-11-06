@@ -5,7 +5,7 @@ import { Check, Ledger, LedgerContext, LedgerDoc, LedgerError, Party, Remote } f
 /**
  * Tally Prime through its XML server (docs/ACCOUNTING_SYNC.md). The same vouchers as the Tally
  * export, posted one document at a time so each gets its own result. Tally has no way to look a
- * voucher up by number here, so PROJEXA relies on what it has sent (LedgerLink).
+ * voucher up by number here, so SampTrek relies on what it has sent (LedgerLink).
  */
 
 export interface TallyResult { created: number; altered: number; cancelled: number; errors: number; exceptions: number; lastVoucherId: string | null; lineErrors: string[] }
@@ -98,7 +98,7 @@ export class TallyLedger implements Ledger {
   async void(d: LedgerDoc, remote: Remote) {
     if (!/^\d+$/.test(remote.id)) throw new LedgerError('Tally did not report this voucher’s id when it was created. Cancel it in Tally by hand.');
     const vch = d.kind === 'invoice' ? this.ctx.cfg.tally.salesVoucherType : this.ctx.cfg.tally.purchaseVoucherType;
-    const msg = `<TALLYMESSAGE xmlns:UDF="TallyUDF"><VOUCHER TAGNAME="MASTER ID" TAGVALUE="${xml(remote.id)}" VCHTYPE="${xml(vch)}" ACTION="Cancel"><NARRATION>Voided in PROJEXA</NARRATION></VOUCHER></TALLYMESSAGE>`;
+    const msg = `<TALLYMESSAGE xmlns:UDF="TallyUDF"><VOUCHER TAGNAME="MASTER ID" TAGVALUE="${xml(remote.id)}" VCHTYPE="${xml(vch)}" ACTION="Cancel"><NARRATION>Voided in SampTrek</NARRATION></VOUCHER></TALLYMESSAGE>`;
     const r = await this.import('Vouchers', msg);
     if (r.cancelled + r.altered < 1 || r.errors || r.exceptions) this.fail(r, 'cancellation');
   }

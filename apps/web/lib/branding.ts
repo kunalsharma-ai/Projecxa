@@ -16,11 +16,19 @@ export interface Brand {
 }
 export interface PublicBrand extends Partial<Brand> { default: boolean; appName: string; organization: { name: string; slug: string } | null }
 
-export const DEFAULT_BRAND: Brand = { appName: 'PROJEXA', custom: false, tagline: null, brandColor: null, theme: null, hidePoweredBy: false, supportEmail: null, loginMessage: null, logoUrl: null, logoDarkUrl: null, iconUrl: null };
+export const DEFAULT_BRAND: Brand = { appName: 'SampTrek', custom: false, tagline: null, brandColor: null, theme: null, hidePoweredBy: false, supportEmail: null, loginMessage: null, logoUrl: null, logoDarkUrl: null, iconUrl: null };
 
-/** Two letters for the mark when there is no icon ("Acme Insight Hub" → "AI", "PROJEXA" → "PX"). */
+/** The product's own logo files (apps/web/public/brand). "dark" is drawn for dark backgrounds. */
+export const PRODUCT_ASSETS = {
+  icon: '/brand/samptrek-icon.svg',
+  logoForDark: '/brand/samptrek-logo-dark.svg',
+  logoForLight: '/brand/samptrek-logo-light.svg',
+} as const;
+export const PRODUCT_TAGLINE = 'Projects on track.';
+
+/** Two letters for the mark when there is no icon ("Acme Insight Hub" → "AI", "SampTrek" → "ST"). */
 export function initials(name: string) {
-  if (name === 'PROJEXA') return 'PX';
+  if (name === 'SampTrek') return 'ST';
   const w = name.split(/\s+/).filter(Boolean);
   return (w.length > 1 ? w[0][0] + w[1][0] : name.slice(0, 2)).toUpperCase();
 }
@@ -28,7 +36,7 @@ export function initials(name: string) {
 /** Tab title and icon follow the brand. */
 export function applyDocumentBrand(b: Pick<Brand, 'appName' | 'custom' | 'iconUrl'>) {
   if (typeof document === 'undefined') return;
-  document.title = b.custom ? b.appName : 'PROJEXA · Sampledge';
+  document.title = b.custom ? b.appName : 'SampTrek · Sampledge';
   let link = document.querySelector<HTMLLinkElement>('link[rel="icon"][data-brand]');
   if (b.iconUrl) {
     if (!link) { link = document.createElement('link'); link.rel = 'icon'; link.dataset.brand = ''; document.head.appendChild(link); }
@@ -42,7 +50,7 @@ export function usePublicBrand(): PublicBrand | null {
   const [b, setB] = useState<PublicBrand | null>(null);
   useEffect(() => {
     // Imported lazily so this file stays free of the API client for scripts.
-    cache ??= import('./api').then(({ get }) => get<PublicBrand>(`/public/branding?host=${encodeURIComponent(location.host)}`)).catch(() => ({ default: true, appName: 'PROJEXA', organization: null }));
+    cache ??= import('./api').then(({ get }) => get<PublicBrand>(`/public/branding?host=${encodeURIComponent(location.host)}`)).catch(() => ({ default: true, appName: 'SampTrek', organization: null }));
     let live = true;
     cache.then((r) => { if (live) { setB(r); if (!r.default) applyDocumentBrand({ appName: r.appName, custom: !!r.custom, iconUrl: r.iconUrl ?? null }); } });
     return () => { live = false; };

@@ -1,9 +1,11 @@
 'use client';
 import clsx from 'clsx';
-import { Activity, ArrowRight, BarChart3, CheckCircle2, ChevronUp, FlaskConical, ReceiptText, Send, Settings2, ShieldCheck, Sparkles, Trophy } from 'lucide-react';
+import { Activity, ArrowRight, BarChart3, CheckCircle2, ChevronUp, FlaskConical, Layers, ReceiptText, Send, Settings2, ShieldCheck, Sparkles, Trophy } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { useMe } from '@/components/me';
+import { PRODUCT_ASSETS } from '@/lib/branding';
 
 /** One step of the research lifecycle, linked to the screen where that work happens. */
 interface Stage { label: string; href: string; icon: typeof Trophy; tone: string; count?: number; countLabel?: string }
@@ -22,6 +24,7 @@ export function CommandHero({ firstName, canCreate, counts }: {
   counts: { live: number; draft: number; test: number; closed: number; invoiced: number; total: number };
 }) {
   const router = useRouter();
+  const custom = !!useMe()?.branding?.custom;
   const [q, setQ] = useState('');
   const [hidden, setHidden] = useState(false);
   useEffect(() => {
@@ -82,7 +85,7 @@ export function CommandHero({ firstName, canCreate, counts }: {
             style={{ boxShadow: '0 0 40px -6px rgb(var(--brand) / 0.55), inset 0 0 40px -10px rgb(var(--accent2) / 0.5)' }} />
           <div className="absolute left-1/2 top-1/2 grid h-24 w-24 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-3xl bg-neon"
             style={{ boxShadow: '0 0 0 1px rgb(255 255 255 / 0.25) inset, 0 18px 40px -10px rgb(var(--brand) / 0.9), 0 0 60px -10px rgb(var(--accent2) / 0.9)' }} aria-hidden>
-            <span className="text-center leading-none"><span className="block text-4xl font-black">P</span><span className="mt-1 block text-[9px] font-semibold tracking-[0.2em]">LIFECYCLE</span></span>
+            <span className="flex flex-col items-center text-center leading-none">{custom ? <Layers className="h-9 w-9" /> : <img src={PRODUCT_ASSETS.icon} alt="" className="h-12 w-12" />}<span className="mt-1 block text-[9px] font-semibold tracking-[0.2em]">LIFECYCLE</span></span>
           </div>
           <ol className="absolute inset-0">
             {stages.map((s, i) => {

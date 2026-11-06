@@ -1,18 +1,18 @@
 # Data processing & quality, and Reporting & analytics
 
-Two pages from panels 10 and 11 of Kunal's *PROJEXA Neon Project Management Suite* mockup, in the
+Two pages from panels 10 and 11 of Kunal's *SampTrek Neon Project Management Suite* mockup, in the
 Neon Command look (docs/NEON_DESIGN.md). Both sit in the sidebar under **Fieldwork** and work on one
 project at a time (pick it at the top; the page remembers it in the address as `?project=`). With no
 project chosen they open the most recently changed live project that has traffic.
 
-Every number comes from data PROJEXA already collects. Nothing is sample data, and steps PROJEXA does
+Every number comes from data SampTrek already collects. Nothing is sample data, and steps SampTrek does
 not do are not shown as if it did (see "What is not here").
 
 ## Data processing & quality — `/data-processing`
 
 | Tab | What it shows |
 | --- | --- |
-| **Data intake** | Processing progress ring (average of the pipeline steps) and the pipeline: **Data intake** (entrants with an outcome), **Data validation** (completes confirmed server-to-server by the survey platform), **Quality checks** (pass rate of PROJEXA's entry checks; a rate, so not in the average), **Review & reconciliation** (completes approved or rejected, by hand, in the client portal or by a client ID list), **Quota balance** (completes towards each quota cell, capped at its target; market targets when there are no cells) and **Final delivery & billing** (approved completes on a client invoice). Below: outcomes of all entrants. |
+| **Data intake** | Processing progress ring (average of the pipeline steps) and the pipeline: **Data intake** (entrants with an outcome), **Data validation** (completes confirmed server-to-server by the survey platform), **Quality checks** (pass rate of SampTrek's entry checks; a rate, so not in the average), **Review & reconciliation** (completes approved or rejected, by hand, in the client portal or by a client ID list), **Quota balance** (completes towards each quota cell, capped at its target; market targets when there are no cells) and **Final delivery & billing** (approved completes on a client invoice). Below: outcomes of all entrants. |
 | **Validation** | Verified completes, entry-check pass rate, possible speeders (completes in under a third of the planned LOI), entrants still in the survey; reasons entrants were removed or screened out; device mix. |
 | **Cleaning** | Quality by vendor (entrants, completes, removed by checks, duplicates, security, quality fail, client-rejected, median minutes, quality score = share of entrants not removed and not rejected); the latest 25 removed or rejected respondents; review and last reconciliation, with a link to reconcile. |
 | **Quota balance** | Every quota cell (or market target) with completes / target. |
@@ -38,10 +38,10 @@ project is bigger.
 
 ## What is not here, on purpose
 
-* **Weighting** (mockup step): PROJEXA balances the sample *during* fieldwork with quota cells; it does
+* **Weighting** (mockup step): SampTrek balances the sample *during* fieldwork with quota cells; it does
   not weight data afterwards. The step is shown as *Quota balance* and the page says so.
 * **Satisfaction scores, brand consideration, purchase intent** (mockup tiles): these are answers to the
-  client's own questionnaire, which stays in the client's survey platform. PROJEXA only has the gate and
+  client's own questionnaire, which stays in the client's survey platform. SampTrek only has the gate and
   prescreener answers, outcomes, devices, markets, vendors and timing, and the charts use those.
 * **Open-end coding / recoding**: text answers stay in the Answers tab and the clean data file.
 

@@ -1,5 +1,5 @@
 /**
- * Which parts of PROJEXA this person may open in the app.
+ * Which parts of SampTrek this person may open in the app.
  *
  * Super Admin decides per organisation (subscription) and per user, separately for web and mobile.
  * The API answers GET /auth/me/features with the effective switches; this file turns that answer

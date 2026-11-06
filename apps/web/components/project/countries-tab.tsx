@@ -127,7 +127,7 @@ export function CountriesTab({ project, editable, reload, security }: { project:
           {project.description && <p className="mt-4 whitespace-pre-wrap border-t border-line pt-4 text-sm text-muted">{project.description}</p>}
         </Section>
         <Section title="Client survey integration">
-          <p className="text-sm text-muted">At the end of the survey, send respondents to this URL with the status and the token PROJEXA passed in:</p>
+          <p className="text-sm text-muted">At the end of the survey, send respondents to this URL with the status and the token SampTrek passed in:</p>
           <code className="mt-2 block break-all rounded-lg bg-sunken p-3 text-xs">{project.outcomeEndpoints.browser}</code>
           <p className="mt-2 text-xs text-muted">Statuses: {project.outcomeEndpoints.statuses.join(', ')}</p>
           <p className="mt-4 text-sm text-muted">To confirm outcomes server to server (recommended before billing), POST a signed request to:</p>

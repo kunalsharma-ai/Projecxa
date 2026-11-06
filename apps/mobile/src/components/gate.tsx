@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import * as Linking from 'expo-linking';
 import type { ReactNode } from 'react';
-import { Text, View } from 'react-native';
+import { Image, Text, View } from 'react-native';
 import { FEATURES } from '@/lib/features';
 import { useSession } from '@/lib/session';
 import { useTheme } from '@/lib/theme';
@@ -40,7 +40,7 @@ export function Locked({ title, onCheck }: { title: string; onCheck: () => void 
   );
 }
 
-/** Opens a page of the PROJEXA web app (settings-heavy screens stay on the web). */
+/** Opens a page of the SampTrek web app (settings-heavy screens stay on the web). */
 export function useOpenWeb() {
   const { webUrl, server } = useSession();
   const base = (webUrl || server.replace(/\/api\/v1\/?$/, '')).replace(/\/+$/, '');
@@ -57,26 +57,33 @@ export function OpenOnWeb({ path, label = 'Open on web' }: { path: string; label
 }
 
 /** The "P" mark from the mockups. */
+const ICON = require('../../assets/brand/samptrek-icon.png');
+const LOGO_FOR_DARK = require('../../assets/brand/samptrek-logo-dark.png');
+const LOGO_FOR_LIGHT = require('../../assets/brand/samptrek-logo-light.png');
+/** Width ÷ height of the SampTrek logo images. */
+const LOGO_RATIO = 717 / 192;
+
+/** SampTrek's icon. */
 export function BrandMark({ size = 40 }: { size?: number }) {
+  return <Image source={ICON} style={{ width: size, height: size }} resizeMode="contain" accessibilityIgnoresInvertColors />;
+}
+
+/** SampTrek's full logo ("Projects on track. by Sampledge"), in the version for the background it sits on. */
+export function ProductLogo({ height = 44, onDark }: { height?: number; onDark?: boolean }) {
   const { c } = useTheme();
-  return (
-    <LinearGradient colors={[c.cyan, c.primary, c.magenta]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: size, height: size, borderRadius: size * 0.28, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ color: '#fff', fontWeight: '900', fontSize: size * 0.55 }}>P</Text>
-    </LinearGradient>
-  );
+  const dark = onDark ?? c.dark;
+  return <Image source={dark ? LOGO_FOR_DARK : LOGO_FOR_LIGHT} style={{ width: height * LOGO_RATIO, height }} resizeMode="contain" accessibilityLabel="SampTrek. Projects on track. by Sampledge" />;
 }
 
 export function Wordmark({ onDark }: { onDark?: boolean }) {
   const { c } = useTheme();
   const { me } = useSession();
   const custom = me?.branding?.custom ? me.branding.appName : null;
+  if (!custom) return <ProductLogo height={40} onDark={onDark} />;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
       <BrandMark size={34} />
-      <View>
-        <Text style={{ color: onDark ? '#fff' : c.text, fontWeight: '900', fontSize: 18, letterSpacing: 1 }}>{custom ?? 'PROJEXA'}</Text>
-        {!custom && <Text style={{ color: onDark ? 'rgba(255,255,255,0.8)' : c.muted, fontSize: 10 }}>by Sampledge</Text>}
-      </View>
+      <Text style={{ color: onDark ? '#fff' : c.text, fontWeight: '900', fontSize: 18, letterSpacing: 1 }}>{custom}</Text>
     </View>
   );
 }

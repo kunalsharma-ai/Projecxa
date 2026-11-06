@@ -121,7 +121,7 @@ export class WonBidsController {
       include: { project: { select: { id: true, projectCode: true, status: true } } },
     });
     if (!r) throw new NotFoundException();
-    // Suggest the PROJEXA client whose name matches Bidzo's (case-insensitive).
+    // Suggest the SampTrek client whose name matches Bidzo's (case-insensitive).
     const match = await this.prisma.client.findFirst({
       where: { organizationId: u.organizationId, name: { equals: r.clientName, mode: 'insensitive' } },
       select: { id: true, name: true },

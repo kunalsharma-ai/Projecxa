@@ -518,7 +518,7 @@ async function seedSuperAdmin(hash: string) {
     onlineEnabled: true, offlineEnabled: true, offlineMethods: ['bank_transfer', 'upi', 'cheque'], taxName: 'GST', taxPercent: 18,
     bankDetails: 'Account name: Sampledge Pvt Ltd\nAccount: 50200012345678\nIFSC: HDFC0001234 (HDFC Bank, Andheri East)', upiId: 'sampledge@hdfcbank',
     offlineInstructions: 'Write your organisation name in the payment remarks.', sellerName: 'Sampledge Pvt Ltd', sellerAddress: 'Andheri East, Mumbai 400069, India',
-    sellerTaxId: '27AABCS1234F1Z5', sellerEmail: 'billing@sampledge.com', invoiceFooter: 'Thank you for choosing PROJEXA.',
+    sellerTaxId: '27AABCS1234F1Z5', sellerEmail: 'billing@sampledge.com', invoiceFooter: 'Thank you for choosing SampTrek.',
   } } } });
   const nw = await prisma.organization.findUniqueOrThrow({ where: { slug: 'northwind' } });
   const starter = await prisma.plan.findUniqueOrThrow({ where: { code: 'starter' } });

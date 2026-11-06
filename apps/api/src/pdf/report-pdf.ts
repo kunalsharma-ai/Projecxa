@@ -1,8 +1,12 @@
 import { SummaryRow } from '../reports/reports.service';
-import { amount, BRAND, Column, count, footer, INK, LINE, MUTED, newDoc, table, toBuffer, widths } from './pdf';
+import { amount, BRAND, Column, count, footer, INK, LINE, MUTED, newDoc, productLogoPath, table, toBuffer, widths } from './pdf';
 
 export interface ReportPdfInput {
   org: string;
+  /** The organisation's product name (white-label); SampTrek when not set. */
+  appName?: string;
+  /** True when the organisation uses its own product name: then SampTrek's logo is left out. */
+  custom?: boolean;
   title: string;
   reportLabel: string;
   from: string | null;
@@ -26,7 +30,13 @@ export async function renderReportPdf(e: ReportPdfInput): Promise<Buffer> {
   const money = converted ? reportingMoney : marketMoney;
   const doc = newDoc({ landscape: true, title: e.title, author: e.org });
   const range = !e.from && !e.to ? 'All time' : e.from === e.to ? e.from! : `${e.from ?? 'start'} to ${e.to ?? 'today'}`;
-  doc.font('bold').fontSize(8).fillColor(MUTED).text(`${e.org.toUpperCase()} · PROJEXA`, { characterSpacing: 0.5 });
+  const logo = e.custom ? null : productLogoPath();
+  if (logo) {
+    const top = doc.y;
+    doc.image(logo, doc.page.width - doc.page.margins.right - 112, top - 8, { height: 30 });
+    doc.y = top;
+  }
+  doc.font('bold').fontSize(8).fillColor(MUTED).text(`${e.org.toUpperCase()} · ${e.custom && e.appName ? e.appName : 'SampTrek'}`, { characterSpacing: 0.5 });
   doc.moveDown(0.2).font('bold').fontSize(18).fillColor(INK).text(e.title);
   doc.moveDown(0.1).font('body').fontSize(9).fillColor(MUTED).text([e.reportLabel, range, ...e.filters].join(' · '));
   doc.moveDown(0.8);

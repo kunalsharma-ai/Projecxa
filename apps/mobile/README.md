@@ -1,4 +1,4 @@
-# PROJEXA mobile (Android + iOS)
+# SampTrek mobile (Android + iOS)
 
 Expo / React Native app. Full guide, feature list and the Super Admin feature-switch contract: [docs/MOBILE_APP.md](../../docs/MOBILE_APP.md).
 

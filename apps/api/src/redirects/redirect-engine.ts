@@ -52,7 +52,7 @@ export interface EngineResult {
   apiFallback?: boolean;
 }
 
-/** What PROJEXA sends to an API destination endpoint. */
+/** What SampTrek sends to an API destination endpoint. */
 export interface ApiPayload {
   status: string;
   respondent_uid: string | null;
@@ -81,7 +81,7 @@ export function computeRedirect(input: EngineInput): EngineResult {
       if (chk.ok) destination = input.organizationFallbackUrl;
       steps.push({ step: 'fallback', ok: chk.ok, detail: chk.ok ? 'Organization fallback URL' : `Organization fallback rejected: ${chk.reason}` });
     } else {
-      steps.push({ step: 'fallback', ok: true, detail: 'PROJEXA end page (no organization fallback configured)' });
+      steps.push({ step: 'fallback', ok: true, detail: 'SampTrek end page (no organization fallback configured)' });
     }
     return { destination, usedFallback: true, callbackRequired: false, params: {}, blockedReason: reason, steps, ...partial };
   };

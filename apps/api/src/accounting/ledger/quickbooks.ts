@@ -87,7 +87,7 @@ export class QuickBooksLedger implements Ledger {
   private currency(doc: LedgerDoc) {
     if (doc.currency === this.home) return {};
     if (!this.multiCurrency) throw new LedgerError(`${doc.currency} documents need multicurrency turned on in QuickBooks (home currency is ${this.home})`);
-    // ExchangeRate is home-currency units per unit of the document currency: PROJEXA's rate, when both use the same base.
+    // ExchangeRate is home-currency units per unit of the document currency: SampTrek's rate, when both use the same base.
     const rate = this.ctx.baseCurrency === this.home ? this.ctx.rate(doc.currency) : null;
     return { CurrencyRef: { value: doc.currency }, ...(rate ? { ExchangeRate: rate } : {}) };
   }
@@ -95,7 +95,7 @@ export class QuickBooksLedger implements Ledger {
     if (!(doc.taxPercent > 0)) return {};
     const name = doc.taxName?.trim().toLowerCase();
     const t = name ? this.taxCodes.find((x) => x.Name.toLowerCase() === name) : undefined;
-    if (!t) throw new LedgerError(`Taxed documents need a QuickBooks tax code with the same name as the tax${doc.taxName ? ` ("${doc.taxName}")` : ''}. Create it in QuickBooks or rename the tax in PROJEXA.`);
+    if (!t) throw new LedgerError(`Taxed documents need a QuickBooks tax code with the same name as the tax${doc.taxName ? ` ("${doc.taxName}")` : ''}. Create it in QuickBooks or rename the tax in SampTrek.`);
     return { TaxCodeRef: { value: t.Id } };
   }
   private async item() {

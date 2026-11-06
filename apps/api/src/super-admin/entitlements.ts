@@ -13,8 +13,8 @@ import { FEATURES, featureDef, MOBILE_FEATURE_KEYS } from './features';
 export type Block = 'ORG_PENDING' | 'ORG_SUSPENDED' | 'SUBSCRIPTION_INACTIVE' | null;
 export const BLOCK_MESSAGE: Record<Exclude<Block, null>, string> = {
   ORG_PENDING: 'Your organisation is waiting for approval. You will get an email when it is ready.',
-  ORG_SUSPENDED: 'Your organisation’s access is paused. Contact your PROJEXA provider.',
-  SUBSCRIPTION_INACTIVE: 'Your organisation’s subscription has ended. Contact your PROJEXA provider to renew.',
+  ORG_SUSPENDED: 'Your organisation’s access is paused. Contact your SampTrek provider.',
+  SUBSCRIPTION_INACTIVE: 'Your organisation’s subscription has ended. Contact your SampTrek provider to renew.',
 };
 
 export type OrgForFeatures = Pick<Organization, 'id' | 'status' | 'platformOwner'> & {
@@ -147,7 +147,7 @@ export class EntitlementsService {
     if (o.limits.maxUsers == null) return;
     const used = await this.prisma.user.count({ where: { organizationId: orgId, active: true, role: { in: ['ADMIN', 'PROJECT_MANAGER', 'SALES', 'VIEWER'] as Role[] } } });
     if (used + adding > o.limits.maxUsers) {
-      throw new ForbiddenException({ statusCode: 403, code: 'PLAN_LIMIT', limit: 'users', message: `Your plan allows ${o.limits.maxUsers} active team members. Deactivate someone or ask your PROJEXA provider for more.` });
+      throw new ForbiddenException({ statusCode: 403, code: 'PLAN_LIMIT', limit: 'users', message: `Your plan allows ${o.limits.maxUsers} active team members. Deactivate someone or ask your SampTrek provider for more.` });
     }
   }
 
@@ -157,7 +157,7 @@ export class EntitlementsService {
     if (o.limits.maxProjects == null) return;
     const used = await this.prisma.project.count({ where: { organizationId: orgId } });
     if (used >= o.limits.maxProjects) {
-      throw new ForbiddenException({ statusCode: 403, code: 'PLAN_LIMIT', limit: 'projects', message: `Your plan allows ${o.limits.maxProjects} projects. Ask your PROJEXA provider for more.` });
+      throw new ForbiddenException({ statusCode: 403, code: 'PLAN_LIMIT', limit: 'projects', message: `Your plan allows ${o.limits.maxProjects} projects. Ask your SampTrek provider for more.` });
     }
   }
 }

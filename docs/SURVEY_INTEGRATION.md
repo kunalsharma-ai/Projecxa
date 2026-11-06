@@ -31,7 +31,7 @@ Vendor or client destination (static or dynamic URL)
 
 ## For client survey platforms
 
-- The survey link receives an opaque `session_token`; put `{session_token}` where your platform expects the respondent ID. If the link has no macro, PROJEXA appends `token=...`.
+- The survey link receives an opaque `session_token`; put `{session_token}` where your platform expects the respondent ID. If the link has no macro, SampTrek appends `token=...`.
 - Other macros: `{country_code}`, `{project_code}`.
 - At the end, redirect the browser to `/r/{status}?token={token}` (`rid` is accepted too). Status slugs:
 
@@ -56,4 +56,4 @@ Vendor or client destination (static or dynamic URL)
 - A browser **Complete** is recorded with approval `PENDING`; it is not billable until approved. An S2S confirmation marks it verified.
 - A complete arriving after the country or vendor target is full becomes **Quota full** with detail `OVERQUOTA` (shown as an overquota in reports).
 - An expired session (default lifetime 4 × LOI, at least 60 minutes) that returns through the browser becomes **Security reject** with detail `EXPIRED`.
-- Unknown tokens go to PROJEXA's neutral end page.
+- Unknown tokens go to SampTrek's neutral end page.

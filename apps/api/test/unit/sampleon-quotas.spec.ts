@@ -20,7 +20,7 @@ const PRESCREEN = [q('dia', 'single', 'Have you been diagnosed with diabetes?', 
 const cell = (id: string, country: string, conditions: unknown[], over: Partial<{ target: number; isOpen: boolean; group: string }> = {}) =>
   ({ id, name: id, group: over.group ?? '', target: over.target ?? 10, isOpen: over.isOpen ?? true, country, conditions });
 
-describe('PROJEXA quota cells → SAMPLEON quotas', () => {
+describe('SampTrek quota cells → SAMPLEON quotas', () => {
   it('matches answer labels to attribute values, synonyms and yes/no', () => {
     expect(matchValue(CATALOGUE[0], 'Cardiology')).toBe('cardiology');
     expect(matchValue(CATALOGUE[0], 'family  medicine')).toBe('general_practice');
@@ -77,7 +77,7 @@ describe('PROJEXA quota cells → SAMPLEON quotas', () => {
     expect(t.quotas[0].conditions).toEqual([{ attribute: 'hcp.specialty', op: 'in', values: ['oncology'] }]);
     expect(Object.fromEntries(t.skipped.map((s) => [s.cellId, s.reason]))).toEqual({
       dev: 'Device is only known when the respondent opens the survey',
-      closed: 'The cell is closed in PROJEXA',
+      closed: 'The cell is closed in SampTrek',
       gone: 'Question removed is no longer in the gate survey',
     });
 

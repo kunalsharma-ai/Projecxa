@@ -81,7 +81,7 @@ function Payables() {
           <button
             className="btn-ghost"
             disabled={!bills?.length}
-            onClick={() => downloadCsv(`projexa-vendor-bills-${new Date().toISOString().slice(0, 10)}.csv`,
+            onClick={() => downloadCsv(`samptrek-vendor-bills-${new Date().toISOString().slice(0, 10)}.csv`,
               ['Number', 'Status', 'Vendor', 'Vendor code', 'Vendor invoice', 'Currency', 'Subtotal', 'Tax', 'Total', 'Completes', 'Created', 'Due', 'Paid'],
               (bills ?? []).map((b) => [b.number, b.overdue ? 'OVERDUE' : b.status, b.vendor.name, b.vendor.code, b.vendorReference, b.currency, b.subtotal.toFixed(2), b.taxAmount.toFixed(2), b.total.toFixed(2), b.completes, b.createdAt.slice(0, 10), b.dueAt?.slice(0, 10), b.paidAt?.slice(0, 10)]))}
           >

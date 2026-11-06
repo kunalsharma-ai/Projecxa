@@ -405,7 +405,7 @@ function CreateProjectPage() {
                 <div className="text-muted">Name, description, markets, sample sizes, LOI, IR and CPI ({wonBid.currency}) come from Bidzo. Check them, add survey links and save; the bid is then linked to this project.</div>
                 {!wonBid.suggestedClient && !info.clientId && (
                   <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <span>Client “{wonBid.clientName}” is not in PROJEXA yet.</span>
+                    <span>Client “{wonBid.clientName}” is not in SampTrek yet.</span>
                     <button type="button" className="btn-ghost px-2.5 py-1 text-xs" onClick={addBidClient} disabled={addingClient}>{addingClient ? 'Adding…' : 'Add it as a client'}</button>
                     <span className="text-muted">or choose an existing client below.</span>
                   </div>

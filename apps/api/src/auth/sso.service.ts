@@ -62,7 +62,7 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 /** The page the phone's browser shows for a moment: it opens the app, with a button if the phone asks first. */
 export function returnToAppPage(url: string, ok: boolean) {
   const u = esc(url);
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="0;url=${u}"><title>Back to PROJEXA</title><style>body{font-family:system-ui,sans-serif;background:#0b0820;color:#f4f2ff;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;padding:16px;text-align:center}a{display:inline-block;margin-top:16px;padding:14px 22px;border-radius:14px;background:linear-gradient(90deg,#6366f1,#a855f7);color:#fff;text-decoration:none;font-weight:700}</style></head><body><main><h1 style="font-size:20px">${ok ? 'Signed in' : 'Sign-in did not finish'}</h1><p>Going back to the PROJEXA app…</p><a href="${u}">Open the PROJEXA app</a></main><script>location.replace(${JSON.stringify(url).replace(/</g, '\\u003c')})</script></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="0;url=${u}"><title>Back to SampTrek</title><style>body{font-family:system-ui,sans-serif;background:#0b0820;color:#f4f2ff;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;padding:16px;text-align:center}a{display:inline-block;margin-top:16px;padding:14px 22px;border-radius:14px;background:linear-gradient(90deg,#6366f1,#a855f7);color:#fff;text-decoration:none;font-weight:700}</style></head><body><main><h1 style="font-size:20px">${ok ? 'Signed in' : 'Sign-in did not finish'}</h1><p>Going back to the SampTrek app…</p><a href="${u}">Open the SampTrek app</a></main><script>location.replace(${JSON.stringify(url).replace(/</g, '\\u003c')})</script></body></html>`;
 }
 
 @Injectable()
@@ -206,12 +206,12 @@ export class SsoService {
     if (used.count !== 1) throw bad();
     await this.prisma.mobileSsoCode.deleteMany({ where: { expiresAt: { lt: new Date(Date.now() - 3600_000) } } });
     const user = await this.prisma.user.findUnique({ where: { id: row.userId }, include: { organization: true } });
-    if (!user || !user.active) throw new UnauthorizedException('Your PROJEXA account is not active.');
+    if (!user || !user.active) throw new UnauthorizedException('Your SampTrek account is not active.');
     if (user.mfaEnabledAt) return { mfaRequired: true, mfaToken: await this.session.mfaToken(user.id) };
     return this.session.start(user, res);
   }
 
-  /** Finds the PROJEXA user: by the linked identity, or the first time by email, then links it. */
+  /** Finds the SampTrek user: by the linked identity, or the first time by email, then links it. */
   private async resolve(p: SsoProvider, id: { subject: string; email: string | null; tenant?: string }, orgSlug: string | null): Promise<User & { organization: Organization }> {
     const allowed = (org: Organization, email: string | null) => {
       const c = ssoConfigOf(org.ssoConfig);
@@ -223,14 +223,14 @@ export class SsoService {
     const linked = await this.prisma.ssoIdentity.findUnique({ where: { provider_subject: { provider: p, subject: id.subject } }, include: { user: { include: { organization: true } } } });
     if (linked) {
       const u = linked.user;
-      if (!u.active) throw new SsoFailure('Your PROJEXA account is not active.');
+      if (!u.active) throw new SsoFailure('Your SampTrek account is not active.');
       if (!allowed(u.organization, id.email ?? linked.email)) throw new SsoFailure(`${PROVIDER_LABEL[p]} sign-in is not turned on for ${u.organization.name}.`);
       await this.prisma.ssoIdentity.update({ where: { id: linked.id }, data: { lastUsedAt: new Date(), ...(id.email ? { email: id.email } : {}) } });
       return u;
     }
     if (!id.email) throw new SsoFailure(`${PROVIDER_LABEL[p]} did not share a verified email address.`);
     const candidates = (await this.prisma.user.findMany({ where: { email: id.email, active: true, ...(orgSlug ? { organization: { slug: orgSlug } } : {}) }, include: { organization: true } })).filter((u) => allowed(u.organization, id.email));
-    if (candidates.length === 0) throw new SsoFailure(`No PROJEXA account for ${id.email} can sign in with ${PROVIDER_LABEL[p]}. Ask your admin to add you, or sign in with your password.`);
+    if (candidates.length === 0) throw new SsoFailure(`No SampTrek account for ${id.email} can sign in with ${PROVIDER_LABEL[p]}. Ask your admin to add you, or sign in with your password.`);
     if (candidates.length > 1) throw new SsoFailure('Your email is in several organizations. Enter your organization, then choose the sign-in button again.');
     const u = candidates[0];
     try {

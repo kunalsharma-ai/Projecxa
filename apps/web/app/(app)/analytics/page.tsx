@@ -198,7 +198,7 @@ export default function AnalyticsPage() {
               </table>
             </div>
           )}
-          <p className="mt-3 text-xs text-muted">Column percentages. Multi-choice answers count once per choice, so columns can add up to more than 100%. The client survey’s own answers stay in the survey platform; PROJEXA has the gate and prescreener answers and the respondent fields.</p>
+          <p className="mt-3 text-xs text-muted">Column percentages. Multi-choice answers count once per choice, so columns can add up to more than 100%. The client survey’s own answers stay in the survey platform; SampTrek has the gate and prescreener answers and the respondent fields.</p>
         </Panel>
       )}
 
