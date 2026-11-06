@@ -20,7 +20,7 @@ Changes from Kunal's testing feedback (2026-11-06).
 ## Go-live rules
 - A **market** can be set live only with a live survey link and at least one vendor (`NOT_READY`).
 - A **project** goes live when at least one market is ready. Ready markets in draft/test go live with it; markets on hold stay on hold; markets without a link or vendor stay in draft and are returned in `launch.notReady`, shown as an alert. If no market is ready, the request is refused with the list.
-- **Projects list**: tick projects, then **Set live** or **Put on hold** (`POST /projects/bulk-status { ids, status }`; each project checked on its own).
+- **Projects list**: tick Live projects to put them on hold, or Hold projects to set them live (`POST /projects/bulk-status { ids, status: LIVE|HOLD }`; each project checked on its own; Draft, Test, Closed and Invoiced are never moved in bulk). See docs/PROJECT_STATUS_AND_REDIRECTS.md.
 
 ## Vendor payouts
 - A payout above the market's client CPI is refused with `PAYOUT_ABOVE_CPI` unless `allowAboveCpi: true`; the web app asks for confirmation and retries. Applies to adding and editing allocations and to vendors on create. Accepting a vendor quote counts as confirmed.

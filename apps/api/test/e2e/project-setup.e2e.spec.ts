@@ -130,12 +130,26 @@ describe('Project setup (e2e)', () => {
   it('moves many projects between live and hold', async () => {
     const ready = (await pm.post('/projects', base({ vendors: [{ vendorId: vendorA, cpi: 5 }] })).expect(201)).body;
     const notReady = (await pm.post('/projects', base({ countries: [{ countryCode: 'DE', language: 'de' }] })).expect(201)).body;
+    // Draft projects are never moved from the list, in either direction.
+    const draft = (await pm.post('/projects/bulk-status', { ids: [ready.id], status: 'LIVE' }).expect(201)).body;
+    expect(draft.changed).toBe(0);
+    expect(draft.results[0]).toMatchObject({ ok: false, error: expect.stringContaining('Draft') });
+    await pm.post('/projects/bulk-status', { ids: [ready.id], status: 'TEST' }).expect(400);
+    // Live → Hold, then Hold → Live (each checked on its own: one without a live link stays on hold).
+    await pm.patch(`/projects/${ready.id}`, { status: 'LIVE' }).expect(200);
+    await prisma.project.update({ where: { id: notReady.id }, data: { status: 'HOLD' } });
+    const h = (await pm.post('/projects/bulk-status', { ids: [ready.id, notReady.id], status: 'HOLD' }).expect(201)).body;
+    expect(h.changed).toBe(1);
+    expect(h.results.find((x: { id: string }) => x.id === notReady.id)).toMatchObject({ ok: false, error: expect.stringContaining('Hold') });
+    expect((await pm.get(`/projects/${ready.id}`).expect(200)).body.status).toBe('HOLD');
     const r = (await pm.post('/projects/bulk-status', { ids: [ready.id, notReady.id], status: 'LIVE' }).expect(201)).body;
     expect(r.changed).toBe(1);
     expect(r.results.find((x: { id: string }) => x.id === notReady.id)).toMatchObject({ ok: false });
-    const h = (await pm.post('/projects/bulk-status', { ids: [ready.id], status: 'HOLD' }).expect(201)).body;
-    expect(h.changed).toBe(1);
-    expect((await pm.get(`/projects/${ready.id}`).expect(200)).body.status).toBe('HOLD');
+    expect((await pm.get(`/projects/${ready.id}`).expect(200)).body.status).toBe('LIVE');
+    const list = (await pm.get('/projects?status=LIVE').expect(200)).body;
+    expect(list.items.every((x: { status: string }) => x.status === 'LIVE')).toBe(true);
+    expect(list.counts.LIVE).toBeGreaterThanOrEqual(1);
+    expect(list.counts.HOLD).toBeGreaterThanOrEqual(1);
     await viewer.post('/projects/bulk-status', { ids: [ready.id], status: 'LIVE' }).expect(403);
   });
 
