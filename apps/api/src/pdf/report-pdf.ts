@@ -44,7 +44,7 @@ export async function renderReportPdf(e: ReportPdfInput): Promise<Buffer> {
   const t = e.totals;
   if (t) {
     const tiles: [string, string[]][] = [
-      ['Clicks', [count(t.clicks)]], ['Completes', [count(t.completes)]], ['Conversion', [`${t.conversion}%`]], ['Median LOI', [t.medianLoiMinutes == null ? '–' : `${t.medianLoiMinutes} min`]],
+      ['Clicks', [count(t.clicks)]], ['Completes', [count(t.completes)]], ['Conversion', [`${t.conversion}%`]], ['LOI', [t.loiMinutes == null ? '–' : `${t.loiMinutes} min`]], ['IR', [t.ir == null ? '–' : `${t.ir}%`]],
       ['Revenue', money(t, 'revenue')], ['Payout', money(t, 'payout')], ['Profit', money(t, 'profit')],
       ...(converted ? ([['Margin', [t.reporting.margin == null ? '–' : `${t.reporting.margin}%`]]] as [string, string[]][]) : []),
     ];
@@ -55,7 +55,7 @@ export async function renderReportPdf(e: ReportPdfInput): Promise<Buffer> {
     tiles.forEach(([label, lines], i) => {
       doc.roundedRect(x, top, w[i] - 6, h, 4).lineWidth(0.75).strokeColor(LINE).stroke();
       doc.font('body').fontSize(7).fillColor(MUTED).text(label.toUpperCase(), x + 8, top + 8, { width: w[i] - 22 });
-      doc.font('bold').fontSize(lines.length > 1 ? 9 : 12).fillColor(i < 4 ? INK : BRAND);
+      doc.font('bold').fontSize(lines.length > 1 ? 9 : 12).fillColor(i < 5 ? INK : BRAND);
       lines.forEach((l, k) => doc.text(l, x + 8, top + 20 + k * 13, { width: w[i] - 22, lineBreak: false }));
       x += w[i];
     });
@@ -74,8 +74,9 @@ export async function renderReportPdf(e: ReportPdfInput): Promise<Buffer> {
       { label: 'Conv. %', width: w[3], align: 'right', value: (r) => `${r.conversion}` },
       { label: 'Terminates', width: w[4], align: 'right', value: (r) => count(r.terminates) },
       { label: 'Quota full', width: w[5], align: 'right', value: (r) => count(r.quotaFull) },
-      { label: 'Quality', width: w[6], align: 'right', value: (r) => count(r.qualityFail) },
-      { label: 'LOI', width: w[7], align: 'right', value: (r) => (r.medianLoiMinutes == null ? '–' : `${r.medianLoiMinutes}`) },
+      // Quality fails including speeders (the screen shows speeders in their own column).
+      { label: 'Quality', width: w[6], align: 'right', value: (r) => count(r.qualityFail + (r.speeders ?? 0)) },
+      { label: 'LOI', width: w[7], align: 'right', value: (r) => (r.loiMinutes == null ? '–' : `${r.loiMinutes}`) },
       { label: 'Revenue', width: w[8], align: 'right', value: (r) => money(r, 'revenue') },
       { label: 'Payout', width: w[9], align: 'right', value: (r) => money(r, 'payout') },
       { label: 'Profit', width: w[10], align: 'right', value: (r) => money(r, 'profit') },

@@ -12,6 +12,8 @@ import { randomToken } from '../common/crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { defaultParamMappings, prebuiltRules, RedirectConfig } from '../redirects/redirect.types';
 import { parseConfig } from '../redirects/redirects.service';
+import { emptyFieldMetrics, fieldMetrics, SPEEDER_DETAIL } from './field-metrics';
+import { autopilotOf } from '../monitor/monitor.rules';
 import { assertPayout, launchProblems, marketKey, marketLabel, sameMarket } from './markets';
 import {
   addCountrySchema,
@@ -118,6 +120,7 @@ export class ProjectsService {
           devices: input.devices,
           security: normalizeSecurity(input.security),
           redirectMode: input.redirectMode,
+          ...(input.speederCheck ? { speederCheck: input.speederCheck } : {}),
           fieldStartAt: input.fieldStartAt ? new Date(`${input.fieldStartAt}T00:00:00Z`) : undefined,
           fieldEndAt: input.fieldEndAt ? new Date(`${input.fieldEndAt}T00:00:00Z`) : undefined,
           ...(input.gateQuestions?.length ? { gateQuestions: input.gateQuestions as Prisma.InputJsonValue } : {}),
@@ -250,13 +253,14 @@ export class ProjectsService {
       }),
     ]);
     const rows = pageIds ? pageIds.map((id) => found.find((r) => r.id === id)!).filter(Boolean) : found;
-    const stats = await this.sessionStats(rows.map((r) => r.id));
+    const [stats, metrics] = await Promise.all([this.sessionStats(rows.map((r) => r.id)), fieldMetrics(this.prisma, rows.map((r) => r.id))]);
     return {
       total,
       page: q.page,
       pageSize: q.pageSize,
       items: rows.map((r) => {
         const s = stats.get(r.id) ?? emptyStats();
+        const fm = metrics.get(r.id) ?? emptyFieldMetrics();
         const target = r.countries.reduce((a, c) => a + c.targetCompletes, 0);
         const live = r.countries.filter((c) => c.status === 'LIVE').length;
         return {
@@ -284,8 +288,13 @@ export class ProjectsService {
           dropouts: s.PARTIAL,
           inProgress: s.STARTED,
           qualityFails: s.QUALITY_FAIL + s.DUPLICATE + s.SECURITY_REJECT,
+          speeders: s.SPEEDER,
+          /** Planned (bid) LOI and IR, averaged over the markets. */
           loiMinutes: avg(r.countries.map((c) => c.loiMinutes)),
           irPercent: avg(r.countries.map((c) => c.irPercent)),
+          /** Actual, from live sessions (docs/FIELD_METRICS.md). */
+          avgLoiMinutes: fm.avgLoiMinutes,
+          avgIrPercent: fm.irPercent,
           redirectMode: r.redirectMode,
           fieldStartAt: r.fieldStartAt,
           fieldEndAt: r.fieldEndAt,
@@ -300,13 +309,13 @@ export class ProjectsService {
     const out = new Map<string, ReturnType<typeof emptyStats>>();
     if (!projectIds.length) return out;
     const grouped = await this.prisma.respondentSession.groupBy({
-      by: ['projectId', 'status'],
+      by: ['projectId', 'status', 'statusDetail'],
       where: { projectId: { in: projectIds }, isTest: false },
       _count: { _all: true },
     });
     for (const g of grouped) {
       const s = out.get(g.projectId) ?? emptyStats();
-      s[g.status] = g._count._all;
+      addStat(s, g);
       out.set(g.projectId, s);
     }
     return out;
@@ -333,16 +342,17 @@ export class ProjectsService {
     if (!p) throw new NotFoundException('Project not found');
     const stats = (await this.sessionStats([p.id])).get(p.id) ?? emptyStats();
     const byCountryVendor = await this.prisma.respondentSession.groupBy({
-      by: ['vendorAllocationId', 'status'],
+      by: ['vendorAllocationId', 'status', 'statusDetail'],
       where: { projectId: p.id, isTest: false },
       _count: { _all: true },
     });
     const allocStats = new Map<string, ReturnType<typeof emptyStats>>();
     for (const g of byCountryVendor) {
       const s = allocStats.get(g.vendorAllocationId) ?? emptyStats();
-      s[g.status] = g._count._all;
+      addStat(s, g);
       allocStats.set(g.vendorAllocationId, s);
     }
+    const [projectMetrics, marketMetrics] = await Promise.all([fieldMetrics(this.prisma, [p.id]), fieldMetrics(this.prisma, [p.id], 'country')]);
     const base = config.publicBaseUrl;
     const signed = !!(p.security as Record<string, boolean> | null)?.urlProtection;
     const money = await this.prisma.respondentSession.groupBy({
@@ -353,9 +363,12 @@ export class ProjectsService {
     return {
       ...p,
       stats,
+      /** Actual LOI, IR and speeders from live sessions; planned values stay on each market. */
+      metrics: projectMetrics.get(p.id) ?? emptyFieldMetrics(),
       finance: projectFinance(p.countries, money.map((m) => ({ countryId: m.projectCountryId, revenue: Number(m._sum.revenue ?? 0), cost: Number(m._sum.payout ?? 0) }))),
       countries: p.countries.map((c) => ({
         ...c,
+        metrics: marketMetrics.get(c.id) ?? emptyFieldMetrics(),
         allocations: c.allocations.map((a) => ({
           ...a,
           // With URL protection on, vendors append sig = hex HMAC-SHA256(their signing secret, UID).
@@ -378,6 +391,8 @@ export class ProjectsService {
     }
     if (body.fieldStartAt !== undefined) data.fieldStartAt = body.fieldStartAt ? new Date(`${body.fieldStartAt}T00:00:00.000Z`) : null;
     if (body.fieldEndAt !== undefined) data.fieldEndAt = body.fieldEndAt ? new Date(`${body.fieldEndAt}T23:59:59.999Z`) : null;
+    // Switching the auto-pause checkpoint on again starts it afresh for every market and link.
+    if (body.autopilot?.autoPause?.enabled && !autopilotOf(p.autopilot).autoPause.enabled) data.autopilotState = Prisma.DbNull;
     const launch = body.status === 'LIVE' ? await this.launchPlan(p.id) : null;
     const before = await this.history.snapshot(id);
     await this.prisma.$transaction(async (tx) => {
@@ -615,6 +630,7 @@ export class ProjectsService {
           captchaStyle: src.captchaStyle,
           pageDesign: json(src.pageDesign),
           autopilot: json(src.autopilot),
+          speederCheck: json(src.speederCheck),
           redirectMode: src.redirectMode,
         },
       });
@@ -740,9 +756,11 @@ export class ProjectsService {
     const data: Prisma.ProjectUncheckedUpdateInput = {};
     for (const k of RESTORABLE) {
       const val = snap[k];
+      // Versions saved before the speeder check existed leave the current setting alone.
+      if (k === 'speederCheck' && val === undefined) continue;
       if (k === 'fieldStartAt') data.fieldStartAt = val ? new Date(`${val}T00:00:00.000Z`) : null;
       else if (k === 'fieldEndAt') data.fieldEndAt = val ? new Date(`${val}T23:59:59.999Z`) : null;
-      else if (k === 'gateQuestions' || k === 'prescreen' || k === 'pageDesign' || k === 'autopilot') data[k] = val == null ? Prisma.DbNull : (val as Prisma.InputJsonValue);
+      else if (k === 'gateQuestions' || k === 'prescreen' || k === 'pageDesign' || k === 'autopilot' || k === 'speederCheck') data[k] = val == null ? Prisma.DbNull : (val as Prisma.InputJsonValue);
       else (data as Record<string, unknown>)[k] = val;
     }
     // People and contacts may have left since; keep the current ones then.
@@ -845,7 +863,14 @@ export function emptyStats() {
     SECURITY_REJECT: 0,
     PARTIAL: 0,
     TECHNICAL_ERROR: 0,
+    /** Quality fails from the speeder check; counted here and left out of QUALITY_FAIL. */
+    SPEEDER: 0,
   };
+}
+
+function addStat(s: ReturnType<typeof emptyStats>, g: { status: keyof ReturnType<typeof emptyStats>; statusDetail: string | null; _count: { _all: number } }) {
+  if (g.status === 'QUALITY_FAIL' && g.statusDetail === SPEEDER_DETAIL) s.SPEEDER += g._count._all;
+  else s[g.status] += g._count._all;
 }
 
 function avg(xs: number[]) {

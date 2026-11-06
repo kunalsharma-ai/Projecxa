@@ -31,21 +31,79 @@ export const settingsOf = (json: unknown): AlertSettings => {
   return r.success ? r.data : DEFAULT_ALERT_SETTINGS;
 };
 
+/**
+ * Auto-pause checkpoint (soft launch): pause each market or vendor link once it reaches a share of
+ * its target or a number of completes, so someone can check the data before fieldwork continues.
+ * It fires once per market or link: after someone resumes it, or once its target is reached, it is
+ * off for that market or link. When every one is done, the autopilot switches the checkpoint off.
+ */
+export const autoPauseSchema = z
+  .object({
+    enabled: z.boolean().default(false),
+    /** percent: `value`% of the target; completes: a fixed number of completes. */
+    by: z.enum(['percent', 'completes']).default('percent'),
+    value: z.number().int().min(1).max(100_000).default(10),
+    /** market: put the whole market on hold; vendor: pause each vendor link on its own target. */
+    scope: z.enum(['market', 'vendor']).default('market'),
+  })
+  .strict()
+  .refine((a) => a.by !== 'percent' || a.value <= 99, { message: 'A percentage checkpoint must be between 1 and 99', path: ['value'] });
+export type AutoPause = z.infer<typeof autoPauseSchema>;
+export const DEFAULT_AUTO_PAUSE: AutoPause = { enabled: false, by: 'percent', value: 10, scope: 'market' };
+
 export const autopilotSchema = z
   .object({
     /** Pause a vendor link when its quality rejects pass the threshold. */
     pauseOnQuality: z.boolean().default(false),
     /** Close a vendor link once it has delivered its target. */
     closeOnTarget: z.boolean().default(false),
+    autoPause: autoPauseSchema.optional(),
   })
   .strict();
 export type Autopilot = z.infer<typeof autopilotSchema>;
-export const autopilotOf = (json: unknown): Autopilot => {
+export const autopilotOf = (json: unknown): Autopilot & { autoPause: AutoPause } => {
   const r = autopilotSchema.safeParse(json ?? {});
-  return r.success ? r.data : { pauseOnQuality: false, closeOnTarget: false };
+  const a = r.success ? r.data : { pauseOnQuality: false, closeOnTarget: false };
+  return { ...a, autoPause: a.autoPause ?? DEFAULT_AUTO_PAUSE };
 };
 
-export const RULES = ['stalled', 'behind_pace', 'low_ir', 'loi_short', 'loi_long', 'quality_spike', 'drop_off', 'quota_near', 'target_reached', 'cell_full', 'callbacks_failed'] as const;
+/** Completes at which the checkpoint fires for a target, or null when it never can (target 0, or checkpoint at/after target). */
+export function autoPauseAt(a: AutoPause, target: number): number | null {
+  if (target <= 0) return null;
+  const at = a.by === 'percent' ? Math.max(1, Math.ceil((target * a.value) / 100)) : a.value;
+  return at < target ? at : null;
+}
+
+/** What the autopilot did per market ("m:<id>") or vendor link ("a:<id>"); stored in Project.autopilotState. */
+export interface AutoPauseState {
+  /** The checkpoint settings these entries belong to; a different checkpoint starts afresh. */
+  config: string;
+  done: Record<string, { reason: 'paused' | 'target'; at: string; completes: number; target: number }>;
+  /** Set when the autopilot switched the checkpoint off because every market or link was done. */
+  switchedOffAt?: string;
+}
+export const autoPauseKey = (a: AutoPause) => `${a.by}:${a.value}:${a.scope}`;
+export function autoPauseStateOf(json: unknown, a: AutoPause): AutoPauseState {
+  const s = (json ?? {}) as { autoPause?: AutoPauseState };
+  const st = s.autoPause;
+  return st && st.config === autoPauseKey(a) && st.done && typeof st.done === 'object' ? st : { config: autoPauseKey(a), done: {} };
+}
+
+export type AutoPauseDecision = { key: string; action: 'pause' | 'target'; completes: number; target: number; at: number | null };
+
+/**
+ * Pure decision for one market or vendor link: pause it now, mark it done because it reached the
+ * target, or nothing. Items already done never act again, so a resumed market stays live.
+ */
+export function autoPauseDecision(a: AutoPause, state: AutoPauseState, key: string, completes: number, target: number, open: boolean): AutoPauseDecision | null {
+  if (!a.enabled || state.done[key]) return null;
+  const at = autoPauseAt(a, target);
+  if (target > 0 && completes >= target) return { key, action: 'target', completes, target, at };
+  if (at != null && open && completes >= at) return { key, action: 'pause', completes, target, at };
+  return null;
+}
+
+export const RULES = ['stalled', 'behind_pace', 'low_ir', 'loi_short', 'loi_long', 'quality_spike', 'drop_off', 'quota_near', 'target_reached', 'cell_full', 'auto_paused', 'callbacks_failed'] as const;
 export type Rule = (typeof RULES)[number];
 export type Severity = 'info' | 'warn' | 'bad';
 

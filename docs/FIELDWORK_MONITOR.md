@@ -5,7 +5,7 @@ The fieldwork monitor watches every live market and vendor link, works out wheth
 ## Where to find it
 
 - **Fieldwork monitor** (`/monitor`, in the sidebar): summary tiles, active and resolved alerts, and a table of live markets. Expand a market to see its vendor links and pause or reactivate them.
-- **Project → Monitor tab**: field start and end dates, autopilot switches, and this project's alerts and markets.
+- **Project → Quotas & monitor tab** (the Quotas and Monitor tabs merged; old `?tab=quotas` and `?tab=monitor` links open it): quota cells first, then field start and end dates, autopilot switches, and this project's alerts and markets.
 - **Settings → Fieldwork alerts** (admins): thresholds and the alert webhook.
 - **Command center insights** show open warning and critical alerts.
 
@@ -55,6 +55,17 @@ Off by default, per project (`autopilot` on `PATCH /projects/:id`):
 - `closeOnTarget`: close a vendor link once it delivers its target.
 
 Every action is written to the audit log (`autopilot.pause_link`, `autopilot.close_link`, no actor) and shown on the alert. Autopilot never reactivates a link; a person does that from the monitor.
+
+### Auto-pause at a checkpoint (soft launch)
+
+`autopilot.autoPause = { enabled, by: 'percent' | 'completes', value, scope: 'market' | 'vendor' }`:
+
+- **When**: at `value`% of the target (1–99, rounded up, at least 1 complete) or at `value` completes. A checkpoint at or past the target never fires.
+- **What**: `market` puts each market on hold (`ProjectCountry.status = HOLD`); `vendor` pauses each vendor link on its own target.
+- **How fast**: checked right after every live complete (`src/monitor/auto-pause.ts`, called by the survey engine) and on every monitor run, so it acts on the complete that reaches the checkpoint.
+- **Once each**: what happened is stored server-side in `Project.autopilotState.autoPause.done` (`m:<marketId>` / `a:<allocationId>`, reason `paused` or `target`). After someone resumes a market or link it is never paused again by the same checkpoint; a market or link that reaches its target is marked done without pausing.
+- **Switches itself off**: when every open market or link is done, the autopilot sets `autoPause.enabled = false` and records `switchedOffAt` (audit `autopilot.auto_pause_off`). Switching it on again, or changing the checkpoint, starts afresh.
+- **Alert**: while a market or link stays paused at the checkpoint, the monitor shows an info alert `auto_paused`; it resolves when someone resumes it. Audit: `autopilot.pause_market` / `autopilot.pause_link`.
 
 ## Reallocation suggestions
 

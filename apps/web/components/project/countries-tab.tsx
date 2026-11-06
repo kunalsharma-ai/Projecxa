@@ -204,7 +204,7 @@ export function CountriesTab({ project, editable, reload, security }: { project:
             <thead className="border-y border-line bg-sunken/60">
               <tr>
                 {editable && <th className="th w-8"><input type="checkbox" aria-label="Select all markets" checked={visible.length > 0 && visible.every((c) => selected.includes(c.id))} onChange={(e) => setSelected(e.target.checked ? visible.map((c) => c.id) : [])} /></th>}
-                <th className="th">Market</th><th className="th">Status</th><th className="th">Completes</th><th className="th">LOI</th><th className="th">IR</th><th className="th">CPI</th><th className="th">Vendors</th><th className="th">Survey links</th><th className="th" />
+                <th className="th">Market</th><th className="th">Status</th><th className="th">Completes</th><th className="th" title="Planned LOI, with the average of live completes under it">LOI</th><th className="th" title="Planned IR, with the actual incidence under it">IR</th><th className="th">CPI</th><th className="th">Vendors</th><th className="th">Survey links</th><th className="th" />
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -246,8 +246,14 @@ export function CountriesTab({ project, editable, reload, security }: { project:
                     </td>
                     <td className="td"><StatusChip status={c.status} /></td>
                     <td className="td"><Progress value={c.completes} max={c.targetCompletes} /></td>
-                    <td className="td tabular-nums">{c.loiMinutes} min</td>
-                    <td className="td tabular-nums">{c.irPercent}%</td>
+                    <td className="td tabular-nums">
+                      <div className="whitespace-nowrap">{c.loiMinutes} min</div>
+                      {c.metrics?.avgLoiMinutes != null && <div className="whitespace-nowrap text-xs text-muted" title="Average LOI of live completes">Avg {c.metrics.avgLoiMinutes} min</div>}
+                    </td>
+                    <td className="td tabular-nums">
+                      <div>{c.irPercent}%</div>
+                      {c.metrics?.irPercent != null && <div className={clsx('whitespace-nowrap text-xs', c.metrics.irPercent < c.irPercent * 0.7 ? 'text-warn' : 'text-muted')} title="Completes ÷ (completes + terminates)">Avg {c.metrics.irPercent}%</div>}
+                    </td>
                     <td className="td tabular-nums">{money(c.cpi, c.currency)}</td>
                     <td className="td">{c.allocations.length || <span className="text-warn">0</span>}</td>
                     <td className="td max-w-[300px] text-xs text-muted" title={c.liveSurveyUrl ?? ''}>

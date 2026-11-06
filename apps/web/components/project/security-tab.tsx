@@ -11,6 +11,7 @@ import type { CaptchaStyle, Question } from '@/lib/types';
 import { cleanQuestion, QuestionBuilder, questionProblems } from './question-builder';
 import type { ProjectDetail } from './types';
 import { InfoTip } from '@/components/help';
+import { SpeederCheck } from './speeder-check';
 
 interface Status { geolocation: { configured: boolean; header: string | null }; tor: { nodes: number; updatedAt: string | null } }
 interface CaptchaInfo { providers: Record<'turnstile' | 'hcaptcha', { configured: boolean; siteKey: string | null }> }
@@ -172,6 +173,8 @@ export function SecurityTab({ project, editable, reload }: { project: ProjectDet
             </div>
           </div>
         </Section>
+
+        <SpeederCheck key={`${project.speederCheck?.enabled}-${project.speederCheck?.fraction}`} project={project} editable={editable} reload={reload} />
 
         <Section title="Human check style">
           {!humanOn && <p className="mb-3 text-sm text-muted">Turn on the gate survey or captcha to use a human check.</p>}

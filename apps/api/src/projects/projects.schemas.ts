@@ -1,4 +1,5 @@
 import { autopilotSchema } from '../monitor/monitor.rules';
+import { speederCheckSchema } from './field-metrics';
 import { z } from 'zod';
 import { redirectConfigSchema, REDIRECT_MODES } from '../redirects/redirect.types';
 import { CAPTCHA_STYLES } from '../survey/captcha';
@@ -102,6 +103,7 @@ export const createProjectSchema = z.object({
   /** One CPI currency for the whole project; it replaces any per-market currency. */
   currency: z.string().regex(/^[A-Z]{3}$/).optional(),
   gateQuestions: questionListSchema.optional(),
+  speederCheck: speederCheckSchema.optional(),
   vendors: z.array(createVendorSchema).max(50).default([]),
   fieldStartAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').optional(),
   fieldEndAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').optional(),
@@ -127,6 +129,8 @@ export const updateProjectSchema = z.object({
   fieldStartAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').nullable().optional(),
   fieldEndAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').nullable().optional(),
   autopilot: autopilotSchema.optional(),
+  /** Completes faster than this share of the planned LOI become speeders (docs/FIELD_METRICS.md). */
+  speederCheck: speederCheckSchema.optional(),
 }).refine((b) => !b.fieldStartAt || !b.fieldEndAt || b.fieldStartAt <= b.fieldEndAt, { message: 'The field end date must be on or after the start date', path: ['fieldEndAt'] });
 
 export const updateCountrySchema = countrySettingsSchema.extend({
