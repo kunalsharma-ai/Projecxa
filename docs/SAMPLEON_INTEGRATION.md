@@ -1,5 +1,7 @@
 # PROJEXA → SAMPLEON: audiences from SUPPLY360 panels
 
+> **Name change:** SAMPLEON is now shown to people as **SampAudience** (by Sampledge). The project tab, its text and the API's error messages use the new name and logo (`apps/web/public/brand/sampaudience/`); `?tab=sampleon` links still open the tab. API paths, `SAMPLEON_*` env vars, the event source `SAMPLEON` and database names are unchanged.
+
 SAMPLEON is the Sampledge audience, invitation and routing engine (repository
 `kunalsharma-ai/Sampleon`; design in its `docs/ECOSYSTEM_ARCHITECTURE.md`). For a PROJEXA
 project the flow is:

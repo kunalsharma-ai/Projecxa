@@ -59,6 +59,16 @@ function describe(c: Criterion, attrs: Attribute[]) {
   return `${name}: up to ${c.value}`;
 }
 
+/** SampAudience (formerly SAMPLEON) lockup; the "dark" file is drawn for dark backgrounds. */
+function SampAudienceLogo() {
+  return (
+    <div>
+      <img src="/brand/sampaudience/sampaudience-logo-light.svg" alt="SampAudience by Sampledge" width={204} height={48} className="h-12 w-auto dark:hidden" />
+      <img src="/brand/sampaudience/sampaudience-logo-dark.svg" alt="SampAudience by Sampledge" width={204} height={48} className="hidden h-12 w-auto dark:block" />
+    </div>
+  );
+}
+
 export function SampleonTab({ project, editable }: { project: ProjectDetail; editable: boolean }) {
   const [view, setView] = useState<{ configured: boolean; requests: RequestRow[] } | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -71,14 +81,15 @@ export function SampleonTab({ project, editable }: { project: ProjectDetail; edi
   if (!view.configured) {
     return (
       <Empty>
-        SAMPLEON is not connected. An administrator sets <code>SAMPLEON_URL</code> and <code>SAMPLEON_CLIENT_SECRET</code> for the API, and registers PROJEXA as a client in SAMPLEON.
+        SampAudience is not connected. An administrator sets <code>SAMPLEON_URL</code> and <code>SAMPLEON_CLIENT_SECRET</code> for the API, and registers PROJEXA as a client in SampAudience.
       </Empty>
     );
   }
   return (
     <div className="space-y-5">
+      <SampAudienceLogo />
       <p className="text-sm text-muted">
-        Ask SAMPLEON for respondents from the SUPPLY360 panels. SAMPLEON checks feasibility, a supply approver approves the audience before any invitation goes out, and progress comes back here. SAMPLEON completes are shown apart from the completes PROJEXA routes itself.
+        Ask SampAudience for respondents from the SUPPLY360 panels. SampAudience checks feasibility, a supply approver approves the audience before any invitation goes out, and progress comes back here. SampAudience completes are shown apart from the completes PROJEXA routes itself.
       </p>
       <Requests project={project} rows={view.requests} editable={editable} reload={load} />
       {editable && <NewRequest project={project} onSent={load} />}
@@ -119,7 +130,7 @@ function Requests({ project, rows, editable, reload }: { project: ProjectDetail;
                 <th className="py-2 pr-3 font-medium">Request</th>
                 <th className="py-2 pr-3 font-medium">Survey</th>
                 <th className="py-2 pr-3 font-medium">Status</th>
-                <th className="py-2 pr-3 font-medium">SAMPLEON completes</th>
+                <th className="py-2 pr-3 font-medium">SampAudience completes</th>
                 <th className="py-2 pr-3 font-medium">Last update</th>
                 <th className="py-2" />
               </tr>
@@ -134,7 +145,7 @@ function Requests({ project, rows, editable, reload }: { project: ProjectDetail;
                     <div className="mb-1 text-xs tabular-nums">{r.completes} / {r.requiredCompletes}</div>
                     <Progress value={r.completes} max={r.requiredCompletes} />
                   </td>
-                  <td className="py-2 pr-3 text-xs text-muted">{r.lastEventType ? `${r.lastEventType.replace(/[._]/g, ' ')} · ${new Date(r.lastEventAt!).toLocaleString()}` : 'Waiting for SAMPLEON'}</td>
+                  <td className="py-2 pr-3 text-xs text-muted">{r.lastEventType ? `${r.lastEventType.replace(/[._]/g, ' ')} · ${new Date(r.lastEventAt!).toLocaleString()}` : 'Waiting for SampAudience'}</td>
                   <td className="py-2 text-right">
                     {editable && r.status !== 'closed' && r.status !== 'rejected' && (
                       <button className="btn-ghost px-2.5 py-1 text-xs" disabled={busy === r.id} onClick={() => sync(r)} title="Send the project's current targets and fieldwork dates">
@@ -190,11 +201,11 @@ function NewRequest({ project, onSent }: { project: ProjectDetail; onSent: () =>
         <Field label="Survey ID at the survey host" hint="For ZAPX, the survey's ID (zsv_…).">
           <input className="input" required maxLength={120} value={form.surveyId} onChange={(e) => set('surveyId', e.target.value)} />
         </Field>
-        <Field label="Launch link" hint="ZAPX shows it on the survey's SAMPLEON page. It must contain {token}.">
+        <Field label="Launch link" hint="ZAPX shows it on the survey's SampAudience page. It must contain {token}.">
           <input className="input" required type="url" value={form.launchUrl} onChange={(e) => set('launchUrl', e.target.value)} placeholder="https://…?vid=SAMPLEON&uid={token}" />
         </Field>
         <div className="md:col-span-2">
-          <Field label="Who should take part" hint="Plain language. SAMPLEON turns it into SUPPLY360 profile filters and shows them to the approver.">
+          <Field label="Who should take part" hint="Plain language. SampAudience turns it into SUPPLY360 profile filters and shows them to the approver.">
             <textarea className="input min-h-[80px]" required minLength={3} maxLength={2000} value={form.naturalLanguage} onChange={(e) => set('naturalLanguage', e.target.value)} placeholder="Cardiologists with at least five years of professional experience" />
           </Field>
         </div>
@@ -206,7 +217,7 @@ function NewRequest({ project, onSent }: { project: ProjectDetail; onSent: () =>
           <label className="flex items-center gap-3 text-sm"><Toggle checked={form.useProjectQuotas} onChange={(v) => set('useProjectQuotas', v)} label="Send quota cells" /> Send this project's quota cells (mapped below)</label>
         </div>
         <p className="text-xs text-muted md:col-span-2">
-          Sends {project.countries.length} market{project.countries.length === 1 ? '' : 's'} with their targets, LOI, incidence and fieldwork dates. Nobody is invited until a supply approver approves the audience in SAMPLEON.
+          Sends {project.countries.length} market{project.countries.length === 1 ? '' : 's'} with their targets, LOI, incidence and fieldwork dates. Nobody is invited until a supply approver approves the audience in SampAudience.
         </p>
         <div className="md:col-span-2">
           <ErrorBox error={error} />
@@ -216,7 +227,7 @@ function NewRequest({ project, onSent }: { project: ProjectDetail; onSent: () =>
               {result.skipped.length > 0 && <div className="mt-1 text-xs">{result.skipped.length} quota cell{result.skipped.length === 1 ? ' was' : 's were'} not sent; see below.</div>}
             </div>
           )}
-          <button className="btn-primary" disabled={busy || !urlOk}><Send className="h-4 w-4" /> {busy ? 'Sending…' : 'Send to SAMPLEON'}</button>
+          <button className="btn-primary" disabled={busy || !urlOk}><Send className="h-4 w-4" /> {busy ? 'Sending…' : 'Send to SampAudience'}</button>
           {form.launchUrl && !urlOk && <span className="ml-3 text-xs text-warn">The launch link needs {'{token}'}.</span>}
         </div>
       </form>
@@ -246,7 +257,7 @@ function QuotaMapping({ project, editable }: { project: ProjectDetail; editable:
     get<QuotaPreview>(`/projects/${project.id}/sampleon/quotas`).then(show).catch(setError);
   }, [project.id]);
 
-  if (!view) return error ? <Section title="Quota cells for SAMPLEON"><ErrorBox error={error} /></Section> : <Loading label="Loading quota cells" />;
+  if (!view) return error ? <Section title="Quota cells for SampAudience"><ErrorBox error={error} /></Section> : <Loading label="Loading quota cells" />;
   const attrs = view.attributes;
   const pending = view.questions.some((q) => q.suggested);
 
@@ -283,13 +294,13 @@ function QuotaMapping({ project, editable }: { project: ProjectDetail; editable:
   };
 
   return (
-    <Section title="Quota cells for SAMPLEON" actions={editable && view.questions.length > 0 && <button className="btn-primary px-3 py-1.5 text-sm" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save mapping'}</button>}>
+    <Section title="Quota cells for SampAudience" actions={editable && view.questions.length > 0 && <button className="btn-primary px-3 py-1.5 text-sm" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save mapping'}</button>}>
       {view.cells === 0 ? (
-        <Empty>This project has no quota cells. SAMPLEON gets the per-market targets only.</Empty>
+        <Empty>This project has no quota cells. SampAudience gets the per-market targets only.</Empty>
       ) : (
         <div className="space-y-5">
           <p className="text-sm text-muted">
-            SAMPLEON counts its respondents by their SUPPLY360 profile, not by gate answers. Map each question your cells use to a profile attribute once, and each answer to one of its values. Answers with the same name are matched for you. PROJEXA keeps counting its own cells for the respondents it routes itself.
+            SampAudience counts its respondents by their SUPPLY360 profile, not by gate answers. Map each question your cells use to a profile attribute once, and each answer to one of its values. Answers with the same name are matched for you. PROJEXA keeps counting its own cells for the respondents it routes itself.
           </p>
           {pending && (
             <div className="flex items-start gap-2 rounded-lg border border-warn/30 bg-warn/10 p-3 text-sm text-warn">
@@ -349,7 +360,7 @@ function QuotaMapping({ project, editable }: { project: ProjectDetail; editable:
           </div>
 
           <div>
-            <h3 className="mb-2 text-sm font-semibold">Sent to SAMPLEON ({view.quotas.length})</h3>
+            <h3 className="mb-2 text-sm font-semibold">Sent to SampAudience ({view.quotas.length})</h3>
             {view.quotas.length === 0 ? (
               <p className="text-sm text-muted">Nothing yet.</p>
             ) : (

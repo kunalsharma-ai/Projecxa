@@ -27,7 +27,7 @@ import { get, patch } from '@/lib/api';
 import { flag } from '@/lib/countries';
 import { SECURITY_LABELS } from '@/lib/types';
 
-const TABS = ['Overview', 'Vendors & links', 'Unique links', 'Quotas', 'SAMPLEON', 'Monitor', 'Gate & security', 'Respondent pages', 'Redirects', 'QA studio', 'Respondents', 'Answers', 'Reconcile & invoice', 'Files & requests', 'History'] as const;
+const TABS = ['Overview', 'Vendors & links', 'Unique links', 'Quotas', 'SampAudience', 'Monitor', 'Gate & security', 'Respondent pages', 'Redirects', 'QA studio', 'Respondents', 'Answers', 'Reconcile & invoice', 'Files & requests', 'History'] as const;
 const NEXT_STATUS: Record<string, string[]> = {
   DRAFT: ['TEST', 'LIVE'],
   TEST: ['LIVE', 'HOLD'],
@@ -59,7 +59,8 @@ export default function ProjectPage() {
 
   // Links such as ?tab=redirects open a tab directly.
   useEffect(() => {
-    const want = new URLSearchParams(window.location.search).get('tab');
+    const raw = new URLSearchParams(window.location.search).get('tab');
+    const want = raw?.toLowerCase() === 'sampleon' ? 'sampaudience' : raw; // old SAMPLEON links keep working
     const t = want && TABS.find((x) => x.toLowerCase().startsWith(want.toLowerCase()));
     if (t) setTab(t);
   }, []);
@@ -152,7 +153,14 @@ export default function ProjectPage() {
       <div className="mb-5 flex gap-1 overflow-x-auto border-b border-line" role="tablist">
         {TABS.map((t) => (
           <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={clsx('-mb-px whitespace-nowrap border-b-2 px-4 py-2.5 text-sm', tab === t ? 'border-brand font-medium text-brand' : 'border-transparent text-muted hover:text-ink')}>
-            {t}
+            {t === 'SampAudience' ? (
+              <span className="inline-flex items-center gap-1.5">
+                <img src="/brand/sampaudience/sampaudience-icon.svg" alt="" aria-hidden width={18} height={18} className="-my-1 h-[18px] w-[18px]" />
+                {t}
+              </span>
+            ) : (
+              t
+            )}
           </button>
         ))}
       </div>
@@ -161,7 +169,7 @@ export default function ProjectPage() {
       {tab === 'Vendors & links' && <VendorsTab project={p} editable={editable} reload={reload} />}
       {tab === 'Unique links' && <UniqueLinksTab key={p.id} project={p} editable={editable} />}
       {tab === 'Quotas' && <QuotasTab key={p.id} project={p} editable={editable} />}
-      {tab === 'SAMPLEON' && <SampleonTab key={p.id} project={p} editable={editable} />}
+      {tab === 'SampAudience' && <SampleonTab key={p.id} project={p} editable={editable} />}
       {tab === 'Monitor' && <MonitorTab key={p.id} project={p} editable={editable} reload={reload} />}
       {tab === 'Redirects' && <RedirectsTab project={p} editable={editable} reload={reload} />}
       {tab === 'QA studio' && <QaStudio project={p} />}

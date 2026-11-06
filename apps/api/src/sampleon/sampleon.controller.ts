@@ -128,14 +128,14 @@ export class SampleonController {
         ...(method === 'GET' ? {} : { body: text }),
       });
     } catch (e) {
-      throw new BadGatewayException(`SAMPLEON could not be reached: ${(e as Error).message}`.slice(0, 300));
+      throw new BadGatewayException(`SampAudience could not be reached: ${(e as Error).message}`.slice(0, 300));
     }
     const raw = await res.text();
     let parsed: Record<string, unknown> = {};
     try { parsed = raw ? JSON.parse(raw) : {}; } catch { parsed = { message: raw.slice(0, 300) }; }
     if (res.ok) return parsed;
-    if (res.status >= 400 && res.status < 500) throw new HttpException({ message: 'SAMPLEON refused the request', sampleon: parsed }, res.status);
-    throw new BadGatewayException({ message: `SAMPLEON answered ${res.status}`, sampleon: parsed });
+    if (res.status >= 400 && res.status < 500) throw new HttpException({ message: 'SampAudience refused the request', sampleon: parsed }, res.status);
+    throw new BadGatewayException({ message: `SampAudience answered ${res.status}`, sampleon: parsed });
   }
 
   /** SUPPLY360's attribute catalogue, read through SAMPLEON. */
@@ -170,7 +170,7 @@ export class SampleonController {
   /** How the project's quota cells would be sent to SAMPLEON, and the question → attribute map. */
   @Get('projects/:id/sampleon/quotas')
   async quotas(@CurrentUser() u: AuthUser, @Param('id') id: string) {
-    if (!sampleonConfig().configured) throw new ServiceUnavailableException('The SAMPLEON integration is not configured');
+    if (!sampleonConfig().configured) throw new ServiceUnavailableException('The SampAudience integration is not configured');
     const p = await this.project(u, id);
     const attributes = await this.catalogue();
     return { ...(await this.translation(u.organizationId, p.id, attributes)), attributes };
@@ -180,7 +180,7 @@ export class SampleonController {
   @Put('projects/:id/sampleon/quotas')
   @Roles(...EDITORS)
   async saveQuotaMap(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body() body: unknown) {
-    if (!sampleonConfig().configured) throw new ServiceUnavailableException('The SAMPLEON integration is not configured');
+    if (!sampleonConfig().configured) throw new ServiceUnavailableException('The SampAudience integration is not configured');
     const input = z.object({ map: quotaMapSchema }).strict().safeParse(body);
     if (!input.success) throw new BadRequestException({ message: 'Invalid map', issues: input.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`) });
     const p = await this.project(u, id);
@@ -205,7 +205,7 @@ export class SampleonController {
   @Post('projects/:id/sampleon/audience-requests')
   @Roles(...EDITORS)
   async submit(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body() body: unknown) {
-    if (!sampleonConfig().configured) throw new ServiceUnavailableException('The SAMPLEON integration is not configured');
+    if (!sampleonConfig().configured) throw new ServiceUnavailableException('The SampAudience integration is not configured');
     const input = submitSchema.safeParse(body);
     if (!input.success) throw new BadRequestException({ message: 'Invalid request', issues: input.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`) });
     const v = input.data;
@@ -238,7 +238,7 @@ export class SampleonController {
     Country.array().parse(request.countries);
     const ar = await this.call('POST', '/api/v1/audience-requests', request, `projexa:${p.id}:${randomBytes(8).toString('hex')}`);
     const audienceRequestId = typeof ar.audienceRequestId === 'string' ? ar.audienceRequestId : null;
-    if (!audienceRequestId || !/^AR-[0-9A-HJKMNP-TV-Z]{26}$/.test(audienceRequestId)) throw new BadGatewayException('SAMPLEON did not return an Audience Request ID');
+    if (!audienceRequestId || !/^AR-[0-9A-HJKMNP-TV-Z]{26}$/.test(audienceRequestId)) throw new BadGatewayException('SampAudience did not return an Audience Request ID');
     const row = await this.prisma.sampleonAudienceRequest.create({
       data: {
         organizationId: u.organizationId, projectId: p.id, audienceRequestId, surveyId: v.surveyId,
@@ -254,7 +254,7 @@ export class SampleonController {
   @Roles(...EDITORS)
   @HttpCode(200)
   async sync(@CurrentUser() u: AuthUser, @Param('id') id: string, @Param('requestId') requestId: string) {
-    if (!sampleonConfig().configured) throw new ServiceUnavailableException('The SAMPLEON integration is not configured');
+    if (!sampleonConfig().configured) throw new ServiceUnavailableException('The SampAudience integration is not configured');
     const p = await this.project(u, id);
     const row = await this.prisma.sampleonAudienceRequest.findFirst({ where: { id: requestId, projectId: p.id, organizationId: u.organizationId } });
     if (!row) throw new NotFoundException('Audience request not found');
@@ -282,7 +282,7 @@ export class SampleonController {
   @HttpCode(200)
   async events(@Req() req: Request & { rawBody?: Buffer }) {
     const cfg = sampleonConfig();
-    if (!cfg.configured) throw new ServiceUnavailableException('The SAMPLEON integration is not configured');
+    if (!cfg.configured) throw new ServiceUnavailableException('The SampAudience integration is not configured');
     const h = (k: string) => req.header(k) ?? '';
     const ts = h('x-sampledge-timestamp');
     const sig = h('x-sampledge-signature').replace(/^v1=/, '');
