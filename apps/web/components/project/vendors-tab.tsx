@@ -14,6 +14,7 @@ import { withPayoutCheck } from './payout';
 import { BulkFill } from './bulk-fill';
 import { CopyIcon, copyText } from '@/components/copy';
 import type { Allocation, Country, ProjectDetail } from './types';
+import { InfoTip } from '@/components/help';
 
 export function CopyButton({ text, label }: { text: string; label: string }) {
   const [done, setDone] = useState(false);
@@ -212,7 +213,7 @@ export function VendorsTab({ project, editable, reload }: { project: ProjectDeta
           <span>
             {project.countries.length} {project.countries.length === 1 ? 'market' : 'markets'}, {byVendor.length} {byVendor.length === 1 ? 'vendor' : 'vendors'}. Each vendor gets its own entry link per market. Replace <code className="rounded bg-sunken px-1">[UID]</code> with the vendor&apos;s respondent ID macro. Test links are never billed.
           </span>
-          {byVendor.length > 0 && <CopyButton text={allLinks} label="Copy all links" />}
+          {byVendor.length > 0 && <span className="inline-flex items-center gap-1"><CopyButton text={allLinks} label="Copy all links" /><InfoTip id="vendors.copyAll" /></span>}
         </p>
         {editable && byVendor.length > 0 && (
           <div className="mt-4">
@@ -221,6 +222,7 @@ export function VendorsTab({ project, editable, reload }: { project: ProjectDeta
               total={scoped.length}
               onApply={applyToLinks}
               noun={['vendor link', 'vendor links']}
+              help="bulk.vendorLinks"
               hint="Fill in only what should change, then apply. Pick a vendor or market to change just those links."
               fields={[
                 { key: 'cpi', label: `Payout (${project.countries[0]?.currency ?? ''})`, type: 'number', step: '0.01', width: 'w-24' },
@@ -321,7 +323,7 @@ export function VendorsTab({ project, editable, reload }: { project: ProjectDeta
                     <button className="btn-primary" disabled={!form.vendorId || form.cpi === ''} onClick={() => add(c.id)}>Add</button>
                     <button className="btn-ghost" onClick={() => setAdding(null)}>Cancel</button>
                     {project.countries.length > 1 && (
-                      <label className="flex items-center gap-2 text-xs text-muted"><input type="checkbox" checked={form.applyToAll} onChange={(e) => setForm({ ...form, applyToAll: e.target.checked })} /> Add to every market</label>
+                      <label className="flex items-center gap-2 text-xs text-muted"><input type="checkbox" checked={form.applyToAll} onChange={(e) => setForm({ ...form, applyToAll: e.target.checked })} /> Add to every market<InfoTip id="vendors.addEveryMarket" /></label>
                     )}
                   </div>
                 </div>

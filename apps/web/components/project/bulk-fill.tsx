@@ -1,6 +1,7 @@
 'use client';
 import { Wand2 } from 'lucide-react';
 import { useState } from 'react';
+import { InfoTip } from '@/components/help';
 
 export interface FillField { key: string; label: string; type?: 'number' | 'text' | 'url'; step?: string; width?: string; placeholder?: string; list?: string }
 
@@ -8,7 +9,7 @@ export interface FillField { key: string; label: string; type?: 'number' | 'text
  * "Apply to all": type a value once and put it into every selected row (or every row when none are
  * selected). Only the fields that were filled in are applied.
  */
-export function BulkFill({ fields, selected, total, onApply, extra, noun = ['row', 'rows'], hint = 'Fill in only what should change, then apply. Tick rows to change just those.' }: { fields: FillField[]; selected: number; total: number; onApply: (values: Record<string, string>) => void | Promise<void>; extra?: React.ReactNode; noun?: [string, string]; hint?: string }) {
+export function BulkFill({ fields, selected, total, onApply, extra, noun = ['row', 'rows'], hint = 'Fill in only what should change, then apply. Tick rows to change just those.', help = 'bulk.markets' }: { fields: FillField[]; selected: number; total: number; onApply: (values: Record<string, string>) => void | Promise<void>; extra?: React.ReactNode; noun?: [string, string]; hint?: string; /** Id in lib/help.ts for the "i" next to the title. */ help?: string }) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const filled = Object.fromEntries(Object.entries(values).filter(([, v]) => v.trim() !== ''));
@@ -17,7 +18,7 @@ export function BulkFill({ fields, selected, total, onApply, extra, noun = ['row
     <div className="mb-3 rounded-lg border border-dashed border-brand/40 bg-brand/5 p-3" role="group" aria-label="Apply to all">
       <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
         <Wand2 className="h-3.5 w-3.5 text-brand" aria-hidden />
-        <span className="font-semibold">Apply to {selected ? `${selected} selected` : `all ${total}`}</span>
+        <span className="inline-flex items-center gap-1 font-semibold">Apply to {selected ? `${selected} selected` : `all ${total}`}<InfoTip id={help} label="Apply to all" /></span>
         <span className="text-muted">{hint}</span>
       </div>
       <div className="flex flex-wrap items-end gap-2">
