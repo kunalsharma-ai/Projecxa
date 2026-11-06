@@ -19,13 +19,13 @@ The SAMPLEON connection (audiences from the SUPPLY360 panels) is set on the serv
 
 ## Who "runs the server"
 
-Sign-in and Xero/QuickBooks apps are one per PROJEXA server (one OAuth app serves every organisation), and Tally reaches a private office network. These are set by the admins of the **server owner organisation**: the one with `Organization.platformOwner = true`, or the oldest organisation when none is marked. The migration marks the oldest one. Admins of other organisations see the status and a note instead of the form.
+Sign-in and Xero/QuickBooks apps are one per SampTrek server (one OAuth app serves every organisation), and Tally reaches a private office network. These are set by the admins of the **server owner organisation**: the one with `Organization.platformOwner = true`, or the oldest organisation when none is marked. The migration marks the oldest one. Admins of other organisations see the status and a note instead of the form.
 
 For the same reason, only the server owner can point the SMTP server at a private address in production.
 
 ## Zoho Books without curl
 
-Paste the Self Client ID and secret, then the **grant code** from the API console's Generate Code tab (scope `ZohoBooks.fullaccess.all`, 10 minutes). On save PROJEXA swaps the code for a refresh token and fills in the Books organization ID when your Zoho login has only one. The binding to `ZOHO_BOOKS_TENANT` is no longer needed: settings saved in the app belong to the organisation that saved them.
+Paste the Self Client ID and secret, then the **grant code** from the API console's Generate Code tab (scope `ZohoBooks.fullaccess.all`, 10 minutes). On save SampTrek swaps the code for a refresh token and fills in the Books organization ID when your Zoho login has only one. The binding to `ZOHO_BOOKS_TENANT` is no longer needed: settings saved in the app belong to the organisation that saved them.
 
 ## How secrets are kept
 
@@ -39,7 +39,7 @@ If an organisation has not saved an integration in the app, the old variables ap
 
 ## What stays on the server
 
-Only what PROJEXA needs before anyone can sign in:
+Only what SampTrek needs before anyone can sign in:
 
 | Variable | Why |
 | --- | --- |

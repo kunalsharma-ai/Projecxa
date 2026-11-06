@@ -1,6 +1,6 @@
-# Installing PROJEXA
+# Installing SampTrek
 
-This is the production install guide for PROJEXA (source: `main` of
+This is the production install guide for SampTrek (source: `main` of
 github.com/kunalsharma-ai/Projecxa; a downloaded package notes its commit in `VERSION.txt`).
 It is a pnpm monorepo with two apps:
 

@@ -6,10 +6,10 @@ import { useSession } from '@/lib/session';
 import { useTheme } from '@/lib/theme';
 
 const COPY: Record<string, { title: string; body: string }> = {
-  MOBILE_DISABLED: { title: 'Mobile app not switched on', body: 'Your administrator has not given you access to the PROJEXA mobile app. You can still use PROJEXA on the web. Ask them to switch the mobile app on for you in Super Admin.' },
-  ORG_SUSPENDED: { title: 'Account paused', body: 'Your organisation’s PROJEXA account is paused. Please contact your administrator.' },
-  ORG_PENDING: { title: 'Account waiting for approval', body: 'Your organisation’s PROJEXA account has not been approved yet. You can use the app as soon as it is.' },
-  SUBSCRIPTION_INACTIVE: { title: 'Subscription inactive', body: 'Your organisation’s subscription is not active, so PROJEXA is not available right now. Please contact your administrator.' },
+  MOBILE_DISABLED: { title: 'Mobile app not switched on', body: 'Your administrator has not given you access to the SampTrek mobile app. You can still use SampTrek on the web. Ask them to switch the mobile app on for you in Super Admin.' },
+  ORG_SUSPENDED: { title: 'Account paused', body: 'Your organisation’s SampTrek account is paused. Please contact your administrator.' },
+  ORG_PENDING: { title: 'Account waiting for approval', body: 'Your organisation’s SampTrek account has not been approved yet. You can use the app as soon as it is.' },
+  SUBSCRIPTION_INACTIVE: { title: 'Subscription inactive', body: 'Your organisation’s subscription is not active, so SampTrek is not available right now. Please contact your administrator.' },
   NONE: { title: 'Nothing switched on yet', body: 'No features are switched on for you in the mobile app. Ask your administrator to assign features to you in Super Admin.' },
 };
 

@@ -114,7 +114,7 @@ export default function ProjectsPage() {
         if (rows.length >= d.total || d.items.length === 0 || p >= 100) break;
       }
       downloadCsv(
-        `projexa-projects-${new Date().toISOString().slice(0, 10)}.csv`,
+        `samptrek-projects-${new Date().toISOString().slice(0, 10)}.csv`,
         ['Project ID', 'Work order', 'Name', 'Status', 'Category', 'Type', 'Client', 'Project manager', 'Sales person', 'Markets', 'Live links', 'Total links', 'Target', 'Completes', 'Terminates', 'Overquotas', 'Dropouts', 'In progress', 'Quality fails', 'LOI (min)', 'IR %', 'Redirect mode', 'Created'],
         rows.map((r) => [r.projectCode, r.workOrderNo, r.name, r.status, r.category, r.type, r.client.name, r.projectManager?.name, r.salesPerson?.name, r.countries.join(' '), r.links.live, r.links.total, r.targetCompletes, r.completes, r.terminates, r.overquotas, r.dropouts, r.inProgress, r.qualityFails, r.loiMinutes, r.irPercent, r.redirectMode, r.createdAt.slice(0, 10)]),
       );

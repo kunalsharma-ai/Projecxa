@@ -10,7 +10,7 @@ interface Run { id: string; createdAt: string; status: string; dedupeKey: string
 type Draft = { id?: string; name: string; enabled: boolean; trigger: string; days: number | null; plans: string[]; statuses: SubStatus[]; actions: Action[] };
 
 const defaults: Record<string, Action> = {
-  email_org_admins: { type: 'email_org_admins', subject: 'About your PROJEXA account', message: 'Hello {{org}}, ' },
+  email_org_admins: { type: 'email_org_admins', subject: 'About your SampTrek account', message: 'Hello {{org}}, ' },
   email_super_admins: { type: 'email_super_admins', subject: '{{org}}: ', message: '' },
   create_task: { type: 'create_task', title: 'Follow up with {{org}}' },
   approve_registration: { type: 'approve_registration', planCode: 'starter', trialDays: 14 },
@@ -64,7 +64,7 @@ export default function AutomationPage() {
 
   return (
     <>
-      <PageHeader title="Automation" subtitle="Rules that run by themselves: when something happens to an organisation, PROJEXA emails, reminds, changes the plan or pauses access for you. Time rules are checked every hour."
+      <PageHeader title="Automation" subtitle="Rules that run by themselves: when something happens to an organisation, SampTrek emails, reminds, changes the plan or pauses access for you. Time rules are checked every hour."
         actions={<>
           <button className="btn-ghost" onClick={() => go(() => post('/super-admin/automations/run'), 'Checked every time rule now.')}><Play className="h-4 w-4" />Run time rules now</button>
           <button className="btn-primary" onClick={() => edit()}><Plus className="h-4 w-4" />New rule</button>

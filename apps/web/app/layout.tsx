@@ -4,8 +4,9 @@ import { BOOT_SCRIPT } from '@/lib/theme';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'PROJEXA · Sampledge',
-  description: 'Research project management and fieldwork automation',
+  title: 'SampTrek · Sampledge',
+  description: 'SampTrek by Sampledge. Projects on track: research project management and fieldwork automation.',
+  applicationName: 'SampTrek',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

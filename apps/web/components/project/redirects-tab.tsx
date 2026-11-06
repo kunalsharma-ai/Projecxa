@@ -237,7 +237,7 @@ export function RedirectsTab({ project, editable, reload }: { project: ProjectDe
                       </select>
                     </td>
                     <td className="td w-full">
-                      <input className="input px-2 py-1 font-mono text-xs" disabled={ro} value={r?.url ?? ''} aria-label={`${STATUS_LABEL[s]} ${r?.type === 'API' ? 'endpoint' : 'URL'}`} placeholder={r?.type === 'API' ? 'Endpoint, e.g. https://router.client.example.com/projexa' : inh ? `Inherited from ${inh}` : 'No rule: respondents see the PROJEXA end page'} onChange={(e) => (e.target.value || r ? setProjectRule(s, { url: e.target.value }) : null)} />
+                      <input className="input px-2 py-1 font-mono text-xs" disabled={ro} value={r?.url ?? ''} aria-label={`${STATUS_LABEL[s]} ${r?.type === 'API' ? 'endpoint' : 'URL'}`} placeholder={r?.type === 'API' ? 'Endpoint, e.g. https://router.client.example.com/projexa' : inh ? `Inherited from ${inh}` : 'No rule: respondents see the SampTrek end page'} onChange={(e) => (e.target.value || r ? setProjectRule(s, { url: e.target.value }) : null)} />
                       {r?.type === 'API' && mode === 'HYBRID' && (
                         <div className="mt-1.5 grid gap-1.5 sm:grid-cols-[1fr_120px]">
                           <input className="input px-2 py-1 font-mono text-xs" disabled={ro} value={r.fallbackUrl ?? ''} aria-label={`${STATUS_LABEL[s]} fallback URL`} placeholder="Fallback URL if the endpoint fails (macros allowed)" onChange={(e) => setProjectRule(s, { fallbackUrl: e.target.value })} />

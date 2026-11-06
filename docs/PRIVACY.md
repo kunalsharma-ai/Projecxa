@@ -75,5 +75,5 @@ Migration: `20261102170000_privacy_retention_consent`.
 ## Not included
 
 - Notices in several languages for one market.
-- Consent receipts emailed to respondents. Respondents are anonymous to PROJEXA.
+- Consent receipts emailed to respondents. Respondents are anonymous to SampTrek.
 - Automatic erasure requests from panels through the API.

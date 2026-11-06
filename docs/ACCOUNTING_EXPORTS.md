@@ -41,7 +41,7 @@ QuickBooks and Xero payment imports are not offered: both match payments from ba
 
 Notes per format:
 
-- **Tax**: invoices and bills carry one tax (name and percent) on the subtotal. CSV formats put the tax name and percent on each line; the target system recalculates tax, which can differ by a cent from PROJEXA's rounding. Xero gets `TaxAmount` per line so totals match.
+- **Tax**: invoices and bills carry one tax (name and percent) on the subtotal. CSV formats put the tax name and percent on each line; the target system recalculates tax, which can differ by a cent from SampTrek's rounding. Xero gets `TaxAmount` per line so totals match.
 - **Tally amounts are in the reporting currency** (Settings → Finance). Documents in other currencies are converted with your manual exchange rates, and the narration keeps the original amount and rate. Without a rate for a currency the export is refused and the preview says which rate to add. Tally's sign rule is used: debit amounts are negative.
 - **Tally ledgers**: client and vendor ledgers must exist in Tally with the same names, or turn on "Create client and vendor ledgers" to include them (under Sundry Debtors and Sundry Creditors, or the groups you set).
 - **Customer and vendor names** must match the contacts in the accounting system. Choose names or codes under Account names.

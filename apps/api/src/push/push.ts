@@ -1,5 +1,5 @@
 /**
- * Push notifications to the PROJEXA phone app (docs/MOBILE_APP.md → Push notifications).
+ * Push notifications to the SampTrek phone app (docs/MOBILE_APP.md → Push notifications).
  *
  * Phones register their Expo push token with the categories the person wants. Messages go through
  * Expo's push service, which is free and needs no key unless the Expo account turned on enhanced
@@ -77,7 +77,7 @@ export class PushService {
     if (!d) throw new NotFoundException('This phone is not registered. Open Account in the app again.');
     const c = await this.integrations.push();
     if (!c.enabled) throw new BadRequestException('Push notifications are not turned on for this server yet.');
-    const sent = await this.deliver([d], { title: 'PROJEXA', body: 'Push notifications work on this phone.', path: '/' }, c.accessToken);
+    const sent = await this.deliver([d], { title: 'SampTrek', body: 'Push notifications work on this phone.', path: '/' }, c.accessToken);
     if (!sent) throw new BadRequestException(d.lastError ?? (await this.prisma.pushDevice.findUnique({ where: { id: d.id } }))?.lastError ?? 'Expo could not send the test push.');
     return { ok: true };
   }

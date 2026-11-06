@@ -50,7 +50,7 @@ export function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-/** Bids live in Bidzo; PROJEXA links there when the URL is set (Settings → Integrations, or the build env). */
+/** Bids live in Bidzo; SampTrek links there when the URL is set (Settings → Integrations, or the build env). */
 export const BIDZO_URL = process.env.NEXT_PUBLIC_BIDZO_URL || '';
 export const bidzoUrl = (me: { links?: { bidzoUrl: string | null } } | null) => (me?.links?.bidzoUrl || BIDZO_URL).replace(/\/$/, '');
 

@@ -8,7 +8,7 @@ import { get, post } from '@/lib/api';
 
 interface Info { open: boolean; trialDays?: number; plans?: { code: string; name: string; description: string | null; priceLabel: string | null }[]; challenge?: { token: string; question: string } }
 
-/** Public: a company registers for PROJEXA (docs/SUPER_ADMIN.md). The Super Admin approves it, or Automation does. */
+/** Public: a company registers for SampTrek (docs/SUPER_ADMIN.md). The Super Admin approves it, or Automation does. */
 export default function RegisterPage() {
   const [info, setInfo] = useState<Info | null>(null);
   const [f, setF] = useState({ companyName: '', contactName: '', email: '', phone: '', website: '', message: '', plan: '', answer: '', homepage: '' });
@@ -39,7 +39,7 @@ export default function RegisterPage() {
   if (!info.open) {
     return (
       <main className="grid min-h-screen place-items-center px-4">
-        <div className="card max-w-md p-7 text-center"><h1 className="text-xl font-semibold">Registration is closed</h1><p className="mt-2 text-sm text-muted">Contact us to get a PROJEXA workspace for your company.</p><Link href="/login" className="btn-ghost mt-4 inline-flex">Sign in</Link></div>
+        <div className="card max-w-md p-7 text-center"><h1 className="text-xl font-semibold">Registration is closed</h1><p className="mt-2 text-sm text-muted">Contact us to get a SampTrek workspace for your company.</p><Link href="/login" className="btn-ghost mt-4 inline-flex">Sign in</Link></div>
       </main>
     );
   }
@@ -56,8 +56,8 @@ export default function RegisterPage() {
   }
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
-      <div className="text-sm font-semibold tracking-tight">PROJEXA <span className="font-normal text-muted">by Sampledge</span></div>
-      <h1 className="mt-2 text-2xl font-semibold tracking-tight">Get PROJEXA for your company</h1>
+      <div className="text-sm font-semibold tracking-tight">SampTrek <span className="font-normal text-muted">by Sampledge</span></div>
+      <h1 className="mt-2 text-2xl font-semibold tracking-tight">Get SampTrek for your company</h1>
       <p className="mt-1 text-sm text-muted">Research project management and fieldwork, on the web and on Android and iOS.{info.trialDays ? ` Start with a ${info.trialDays}-day free trial.` : ''}</p>
       <form onSubmit={submit} className="card mt-6 space-y-5 p-6">
         <ErrorBox error={error} />

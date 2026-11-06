@@ -224,9 +224,9 @@ describe('Payment exports and Zoho Books sync (e2e)', () => {
     const s = (await pm.get('/accounting/zoho-books').expect(200)).body;
     expect(s).toMatchObject({ configured: true, boundHere: true, dataCentre: 'in', apiHost: 'www.zohoapis.in' });
     expect(JSON.stringify(s)).not.toContain('refresh-abc');
-    // Another Projexa organisation cannot use this Zoho Books connection.
+    // Another SampTrek organisation cannot use this Zoho Books connection.
     expect((await other.get('/accounting/zoho-books').expect(200)).body).toMatchObject({ configured: true, boundHere: false, otherTenant: true });
-    expect((await other.post('/accounting/zoho-books/sync', {}).expect(400)).body.message).toMatch(/another Projexa organisation/);
+    expect((await other.post('/accounting/zoho-books/sync', {}).expect(400)).body.message).toMatch(/another SampTrek organisation/);
   });
 
   it('needs a start date before syncing', async () => {

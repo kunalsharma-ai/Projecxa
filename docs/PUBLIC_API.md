@@ -1,10 +1,10 @@
 # Public API and webhooks
 
-Milestone 12 lets other systems connect to PROJEXA: a data warehouse, a BI dashboard, a client's
+Milestone 12 lets other systems connect to SampTrek: a data warehouse, a BI dashboard, a client's
 own tracker, or an automation tool. There are two parts:
 
 1. A **REST API** that other systems call with an **API key**.
-2. **Event webhooks** that PROJEXA sends to your URL when something happens.
+2. **Event webhooks** that SampTrek sends to your URL when something happens.
 
 Both are managed by admins in **Settings → API and webhooks** (`/settings/developers`).
 

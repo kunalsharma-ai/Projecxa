@@ -111,7 +111,7 @@ describe('Single sign-on (e2e)', () => {
 
   it('refuses sign-in while the provider is off for the organization', async () => {
     const r = await signIn('google', { sub: 'g-pm', email: 'pm@acme.com', email_verified: true });
-    expect(error(r.location)).toMatch(/No PROJEXA account/);
+    expect(error(r.location)).toMatch(/No SampTrek account/);
     expect(session(r.cookies)).toBeUndefined();
   });
 
@@ -137,7 +137,7 @@ describe('Single sign-on (e2e)', () => {
 
   it('rejects unverified email, other domains, a bad state, a failed code exchange and a wrong nonce', async () => {
     expect(error((await signIn('google', { sub: 'g2', email: 'viewer@acme.com', email_verified: false })).location)).toMatch(/verified email/);
-    expect(error((await signIn('google', { sub: 'g3', email: 'admin@other.test', email_verified: true })).location)).toMatch(/No PROJEXA account/);
+    expect(error((await signIn('google', { sub: 'g3', email: 'admin@other.test', email_verified: true })).location)).toMatch(/No SampTrek account/);
     expect(error((await signIn('google', { sub: 'g4', email: 'viewer@acme.com', email_verified: true }, { tamper: true })).location)).toMatch(/could not be checked/);
     expect(error((await signIn('google', { sub: 'g4', email: 'viewer@acme.com', email_verified: true }, { code: 'bad' })).location)).toMatch(/invalid_grant/);
     expect(error((await signIn('google', { sub: 'g4', email: 'viewer@acme.com', email_verified: true, nonce: 'replayed' })).location)).toMatch(/could not be verified/);
@@ -149,7 +149,7 @@ describe('Single sign-on (e2e)', () => {
   it('Microsoft needs the organization tenant', async () => {
     await settings({ providers: { google: true, microsoft: true, zoho: false }, microsoftTenantId: TENANT.toUpperCase() }).expect(200);
     const wrong = await signIn('microsoft', { sub: 'x', oid: 'o-v', email: 'viewer@acme.com', tid: '99999999-2222-3333-4444-555555555555', iss: 'https://login.microsoftonline.com/99999999-2222-3333-4444-555555555555/v2.0' });
-    expect(error(wrong.location)).toMatch(/No PROJEXA account/);
+    expect(error(wrong.location)).toMatch(/No SampTrek account/);
     const ok = await signIn('microsoft', { sub: 'x', oid: 'o-v', preferred_username: 'Viewer@acme.com' });
     expect(session(ok.cookies)).toBeDefined();
     expect(await prisma.ssoIdentity.findFirst({ where: { provider: 'microsoft' } })).toMatchObject({ subject: `${TENANT}:o-v`, userId: users.VIEWER.id });
@@ -253,7 +253,7 @@ describe('Single sign-on (e2e)', () => {
 
     it('returns errors to the app, accepts Expo Go outside production, and asks for the code with two-step sign-in', async () => {
       const err = await phone('google', { sub: 'nobody', email: 'nobody@acme.com', email_verified: true });
-      expect(err.searchParams.get('error')).toMatch(/No PROJEXA account/);
+      expect(err.searchParams.get('error')).toMatch(/No SampTrek account/);
       expect(err.searchParams.get('code')).toBeNull();
       const dev = await phone('google', { sub: 'g-pm', email: 'pm@acme.com', email_verified: true }, { redirect: 'exp://192.168.1.5:8081/--/sso' });
       expect(dev.host).toBe('192.168.1.5:8081');

@@ -2,11 +2,11 @@
 
 > **Now set up in the app.** An admin adds the Gemini API key and models in **Settings → Integrations** (see `docs/INTEGRATIONS.md`). The environment variables are an optional fallback.
 
-PROJEXA's copilot answers questions about projects, fieldwork, tasks, the team and finance, and proposes changes that a person confirms. It talks to the model through a provider-independent gateway (`apps/api/src/ai/provider.ts`). Google Gemini is the first provider (`gemini.provider.ts`); another provider is a new class implementing `AiProvider`.
+SampTrek's copilot answers questions about projects, fieldwork, tasks, the team and finance, and proposes changes that a person confirms. It talks to the model through a provider-independent gateway (`apps/api/src/ai/provider.ts`). Google Gemini is the first provider (`gemini.provider.ts`); another provider is a new class implementing `AiProvider`.
 
 ## Setup
 
-1. Sign in to Google AI Studio (aistudio.google.com) with the Google account that should own the key, and create an API key in a Google Cloud project used only for PROJEXA.
+1. Sign in to Google AI Studio (aistudio.google.com) with the Google account that should own the key, and create an API key in a Google Cloud project used only for SampTrek.
 2. Put it in the API server environment, never in the database or the repo:
 
    ```
@@ -29,8 +29,8 @@ Without `GEMINI_API_KEY` the copilot says it is not set up and makes no calls.
 ## Models, limits and cost (checked 2026-11-02)
 
 - On Gemini's free tier the stable text models include `gemini-3.8-flash`, `gemini-3.6-flash`, `gemini-3.5-flash-lite` and `gemini-3.1-flash-lite`. The larger `gemini-4-argon` is paid only. `gemini-3.8-live` is the free Live (voice) model.
-- Google shows the exact free-tier rate limits only in AI Studio (aistudio.google.com/rate-limit). Limits apply per Google Cloud project; daily limits reset at midnight Pacific time. Over the limit Gemini answers 429, which PROJEXA shows as "The AI service is busy" after one try on the fallback model.
-- PROJEXA's own limits sit in front of Gemini (Settings → AI copilot): questions per person per minute (default 8) and per day (100), and per organisation per day (1000). Keep them under your Gemini plan. Tool follow-up rounds inside one question do not count against the person.
+- Google shows the exact free-tier rate limits only in AI Studio (aistudio.google.com/rate-limit). Limits apply per Google Cloud project; daily limits reset at midnight Pacific time. Over the limit Gemini answers 429, which SampTrek shows as "The AI service is busy" after one try on the fallback model.
+- SampTrek's own limits sit in front of Gemini (Settings → AI copilot): questions per person per minute (default 8) and per day (100), and per organisation per day (1000). Keep them under your Gemini plan. Tool follow-up rounds inside one question do not count against the person.
 - **Data use on the free tier:** Google's terms say free-tier prompts and answers may be used to improve Google's products. That includes the project, client and finance details the copilot looks up. Before using the copilot with confidential client work, turn on billing for the Google Cloud project (paid tier data is not used that way). The settings page shows this warning.
 
 ## What it can do
@@ -52,7 +52,7 @@ Actions (shown as a card; nothing changes until the person presses **Confirm**):
 
 A proposal expires after 30 minutes. Role and settings are checked again when it is confirmed. The audit log records `ai.action.proposed`, `ai.action.confirmed`, `ai.action.failed` and `ai.action.cancelled`, plus the normal entry of the change itself (for example `task.create.ai`).
 
-PROJEXA has no teams, departments, budgets or expenses. When asked about them the copilot says so rather than guessing; "the design team" is resolved to a named person.
+SampTrek has no teams, departments, budgets or expenses. When asked about them the copilot says so rather than guessing; "the design team" is resolved to a named person.
 
 ## Documents
 
@@ -71,7 +71,7 @@ The microphone button starts a spoken conversation.
 3. When Gemini wants data or an action, the browser forwards the call to `POST /api/v1/ai/voice/tool`, which runs the same server-side tools and confirmation cards as text chat.
 4. Each finished turn's transcript is saved with `POST /api/v1/ai/voice/turn`, so voice conversations appear in the history.
 
-If Live cannot start (no AudioWorklet, network, or Gemini refuses), PROJEXA falls back to the browser's speech recognition and speech synthesis with normal text chat, where the browser supports it (Chrome and Edge do; Firefox has no speech recognition).
+If Live cannot start (no AudioWorklet, network, or Gemini refuses), SampTrek falls back to the browser's speech recognition and speech synthesis with normal text chat, where the browser supports it (Chrome and Edge do; Firefox has no speech recognition).
 
 The phone app uses the same Live session and tools. Its fallback is **tap to talk**: the phone records one question, `POST /api/v1/ai/voice/transcribe` (multipart field `audio`, WAV/MP3/M4A/AAC/OGG/WebM, up to 4 MB) writes it down with the main model, the normal chat answers, and the phone reads the answer aloud. See docs/MOBILE_APP.md → Copilot voice.
 

@@ -10,6 +10,6 @@ async function main() {
   configureApp(app);
   const port = Number(process.env.PORT ?? 4000);
   await app.listen(port);
-  console.log(`PROJEXA API listening on http://localhost:${port}/api/v1`);
+  console.log(`SampTrek API listening on http://localhost:${port}/api/v1`);
 }
 main();

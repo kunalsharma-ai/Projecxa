@@ -109,7 +109,7 @@ export function smtpFrom(env: EnvMap): { host: string; port: number; secure: boo
 
 /**
  * Direct sync to Zoho Books (docs/ZOHO_BOOKS.md). A self-client refresh token for one Zoho Books
- * organisation, bound to one Projexa organisation by its slug. Null when any part is missing.
+ * organisation, bound to one SampTrek organisation by its slug. Null when any part is missing.
  */
 export function zohoBooksFrom(env: EnvMap): { clientId: string; clientSecret: string; refreshToken: string; organizationId: string; tenant: string; apiUrl: string; accountsUrl: string; dc: string } | null {
   const v = (k: string) => env[k]?.trim() || '';
@@ -134,7 +134,7 @@ export function zohoBooksMissingFrom(env: EnvMap): string[] {
 
 /**
  * Direct sync to Xero, QuickBooks Online and Tally Prime (docs/ACCOUNTING_SYNC.md). Xero and
- * QuickBooks use an OAuth app per PROJEXA server; each organisation signs in to its own company.
+ * QuickBooks use an OAuth app per SampTrek server; each organisation signs in to its own company.
  * The URL settings only change for testing.
  */
 export function ledgersFrom(env: EnvMap) {

@@ -29,7 +29,7 @@ export interface KindDef {
   group: 'Email' | 'Sign-in' | 'AI' | 'Accounting' | 'Bidzo' | 'Payments' | 'Mobile';
   label: string;
   summary: string;
-  /** platform = one per PROJEXA server, set by the organisation that runs it (sign-in and accounting apps). */
+  /** platform = one per SampTrek server, set by the organisation that runs it (sign-in and accounting apps). */
   scope: 'org' | 'platform';
   /** Only the organisation that runs the server may set it (reaches a private network). */
   ownerOnly?: boolean;
@@ -78,11 +78,11 @@ export const CATALOG: KindDef[] = [
       { key: 'SMTP_PORT', label: 'Port', type: 'select', default: '465', options: [{ value: '465', label: '465 (SSL, recommended)' }, { value: '587', label: '587 (STARTTLS)' }] },
       { key: 'SMTP_USER', label: 'Mailbox (username)', type: 'email', required: true, placeholder: 'reports@yourcompany.com', hint: 'The full email address of the Zoho mailbox that sends.' },
       { key: 'SMTP_PASS', label: 'App password', type: 'secret', required: true, hint: 'A Zoho application-specific password, not the mailbox password.' },
-      { key: 'MAIL_FROM', label: 'From address', type: 'text', placeholder: 'PROJEXA Reports <reports@yourcompany.com>', hint: 'Must be the mailbox above or one of its aliases. Empty = the mailbox.' },
+      { key: 'MAIL_FROM', label: 'From address', type: 'text', placeholder: 'SampTrek Reports <reports@yourcompany.com>', hint: 'Must be the mailbox above or one of its aliases. Empty = the mailbox.' },
     ],
     steps: [
       'Sign in to Zoho with the mailbox that will send (for example reports@yourcompany.com).',
-      'Open My Account → Security → App passwords, choose Generate new password, name it PROJEXA and copy it.',
+      'Open My Account → Security → App passwords, choose Generate new password, name it SampTrek and copy it.',
       'Pick the SMTP server for your Zoho data centre (smtp.zoho.in if you sign in at zoho.in) and keep port 465.',
       'Enter the mailbox and the app password here, save, then press Test. A test email is sent to you.',
     ],
@@ -195,7 +195,7 @@ export const CATALOG: KindDef[] = [
       { key: 'ZOHO_BOOKS_DC', label: 'Zoho data centre', type: 'select', default: 'com', options: ZOHO_DCS },
       { key: 'ZOHO_BOOKS_CLIENT_ID', label: 'Self client ID', type: 'text', required: true, placeholder: '1000.XXXXXXXX' },
       { key: 'ZOHO_BOOKS_CLIENT_SECRET', label: 'Self client secret', type: 'secret', required: true },
-      { key: 'ZOHO_BOOKS_GRANT_CODE', label: 'Grant code', type: 'secret', transient: true, hint: 'From Generate Code. PROJEXA swaps it for a lasting refresh token when you save. Only needed the first time.' },
+      { key: 'ZOHO_BOOKS_GRANT_CODE', label: 'Grant code', type: 'secret', transient: true, hint: 'From Generate Code. SampTrek swaps it for a lasting refresh token when you save. Only needed the first time.' },
       { key: 'ZOHO_BOOKS_REFRESH_TOKEN', label: 'Refresh token', type: 'secret', hint: 'Filled in for you from the grant code. Paste one only if you already have it.' },
       { key: 'ZOHO_BOOKS_ORGANIZATION_ID', label: 'Zoho Books organization ID', type: 'text', placeholder: '600000123', hint: 'Found for you when your Zoho login has one Books organisation. Otherwise see Zoho Books → Settings → Organisation profile.' },
     ],
@@ -203,7 +203,7 @@ export const CATALOG: KindDef[] = [
       'Open the Zoho API Console for your data centre (api-console.zoho.in for India) signed in as a Zoho Books admin.',
       'Choose Add client → Self Client → Create. Copy the client ID and secret here.',
       'In the Self Client, open Generate Code, enter the scope ZohoBooks.fullaccess.all, a duration of 10 minutes and any description, then Create.',
-      'Copy the code into Grant code and save within those 10 minutes. PROJEXA gets the refresh token and your organization ID.',
+      'Copy the code into Grant code and save within those 10 minutes. SampTrek gets the refresh token and your organization ID.',
       'Press Test, then pick what to sync on the Accounting page.',
     ],
     links: [
@@ -217,7 +217,7 @@ export const CATALOG: KindDef[] = [
     kind: 'xero',
     group: 'Accounting',
     label: 'Xero',
-    summary: 'The Xero app PROJEXA signs in with. Each organisation then connects its own Xero company.',
+    summary: 'The Xero app SampTrek signs in with. Each organisation then connects its own Xero company.',
     scope: 'platform',
     fields: [
       { key: 'XERO_CLIENT_ID', label: 'Client ID', type: 'text', required: true },
@@ -238,7 +238,7 @@ export const CATALOG: KindDef[] = [
     kind: 'quickbooks',
     group: 'Accounting',
     label: 'QuickBooks Online',
-    summary: 'The Intuit app PROJEXA signs in with. Each organisation then connects its own QuickBooks company.',
+    summary: 'The Intuit app SampTrek signs in with. Each organisation then connects its own QuickBooks company.',
     scope: 'platform',
     fields: [
       { key: 'QUICKBOOKS_ENVIRONMENT', label: 'Environment', type: 'select', default: '', options: [{ value: '', label: 'Production (real companies)' }, { value: 'sandbox', label: 'Sandbox (testing)' }] },
@@ -265,7 +265,7 @@ export const CATALOG: KindDef[] = [
     fields: [{ key: 'TALLY_URL', label: 'Tally XML server address', type: 'url', required: true, placeholder: 'http://10.0.0.5:9000' }],
     steps: [
       'In Tally Prime press F1 (Help) → Settings → Connectivity → Client/Server configuration. Set TallyPrime is acting as to Both and note the port (9000).',
-      'Make that computer reachable from the PROJEXA server over your VPN or private network. Never open the port to the internet: anyone reaching it can change your books.',
+      'Make that computer reachable from the SampTrek server over your VPN or private network. Never open the port to the internet: anyone reaching it can change your books.',
       'Enter the address, for example http://10.0.0.5:9000, save and press Test with Tally open.',
     ],
     links: [{ label: 'Tally integration help', href: 'https://help.tallysolutions.com/integration-capabilities-tallyprime/' }],
@@ -334,7 +334,7 @@ export const CATALOG: KindDef[] = [
     kind: 'push',
     group: 'Mobile',
     label: 'Push notifications',
-    summary: 'Alerts, request replies, task reminders and won bids on the PROJEXA phone app, sent through Expo’s free push service.',
+    summary: 'Alerts, request replies, task reminders and won bids on the SampTrek phone app, sent through Expo’s free push service.',
     scope: 'platform',
     fields: [
       { key: 'EXPO_PUSH', label: 'Push notifications', type: 'select', required: true, default: 'on', options: [{ value: 'on', label: 'On' }, { value: 'off', label: 'Off' }] },
