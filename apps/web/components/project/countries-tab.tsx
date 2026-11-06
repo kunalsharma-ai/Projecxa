@@ -289,9 +289,9 @@ export function CountriesTab({ project, editable, reload, security }: { project:
         )}
       </Section>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6">
         <Section title="Project settings">
-          <dl className="grid grid-cols-[140px_1fr] gap-y-2 text-sm">
+          <dl className="grid grid-cols-[140px_1fr] gap-y-2 text-sm md:grid-cols-[140px_1fr_140px_1fr] md:gap-x-6">
             <dt className="text-muted">Client</dt><dd>{project.client.name}</dd>
             <dt className="text-muted">Sales</dt><dd>{project.salesPerson?.name ?? '–'}</dd>
             <dt className="text-muted">Bid reference</dt><dd>{project.bidReference ? <Copyable text={project.bidReference} label="bid reference" /> : '–'}</dd>
@@ -301,14 +301,6 @@ export function CountriesTab({ project, editable, reload, security }: { project:
             <dt className="text-muted">Redirect mode</dt><dd>{project.redirectMode.toLowerCase()} (version {project.activeRedirectVersion?.version ?? '–'})</dd>
           </dl>
           {project.description && <p className="mt-4 whitespace-pre-wrap border-t border-line pt-4 text-sm text-muted">{project.description}</p>}
-        </Section>
-        <Section title="Client survey integration">
-          <p className="text-sm text-muted">At the end of the survey, send respondents to this URL with the status and the token SampTrek passed in:</p>
-          <div className="mt-2 flex items-start gap-1 rounded-lg bg-sunken p-3"><code className="min-w-0 flex-1 break-all text-xs">{project.outcomeEndpoints.browser}</code><CopyIcon text={project.outcomeEndpoints.browser} label="end-of-survey URL" /></div>
-          <p className="mt-2 text-xs text-muted">Statuses: {project.outcomeEndpoints.statuses.join(', ')}</p>
-          <p className="mt-4 text-sm text-muted">To confirm outcomes server to server (recommended before billing), POST a signed request to:</p>
-          <div className="mt-2 flex items-start gap-1 rounded-lg bg-sunken p-3"><code className="min-w-0 flex-1 break-all text-xs">{project.outcomeEndpoints.s2s}</code><CopyIcon text={project.outcomeEndpoints.s2s} label="server-to-server URL" /></div>
-          <p className="mt-2 text-xs text-muted">Body: token, status, timestamp (unix seconds) and signature = HMAC-SHA256(client secret, &quot;token.status.timestamp&quot;). See docs/SURVEY_INTEGRATION.md.</p>
         </Section>
       </div>
     </div>

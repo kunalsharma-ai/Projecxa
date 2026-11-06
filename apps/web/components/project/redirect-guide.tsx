@@ -72,7 +72,7 @@ export function RedirectGuide({ outcomeLinks }: { outcomeLinks: { status: string
         </div>
         <p className="mb-2 text-xs text-muted">
           The client replaces <code>[TOKEN]</code> with the value SampTrek adds to their survey link (<code>token</code>, or the parameter named in the survey link, e.g. <code>rid</code>).
-          For billing, a signed server-to-server postback is also accepted (see the Overview tab).
+          For billing, a signed server-to-server postback is also accepted (see Redirects at the top of the project).
         </p>
         <div className="-mx-5 overflow-x-auto">
           <table className="w-full min-w-[560px]">

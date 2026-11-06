@@ -40,7 +40,7 @@ export const HELP: Record<string, HelpEntry> = {
   'page:/projects': {
     title: 'Projects',
     what: 'Every project with its status, client, markets, completes against target and link status.',
-    how: 'Search or filter, sort by any column, and open a project to work on it. Tick Live or Hold boxes to change many projects at once. Export the list to CSV.',
+    how: 'Pick a coloured status tab (Live green, Hold orange, Test blue, Draft grey, Closed red), search or sort, and open a project. Tick Live projects to put them on hold, or Hold projects to set them live; Draft and Test cannot be ticked.',
     where: 'All projects you can see. Project managers and admins can change status; viewers can only look.',
   },
   'page:/projects/new': {
@@ -52,7 +52,7 @@ export const HELP: Record<string, HelpEntry> = {
   'page:/projects/[id]': {
     title: 'Project',
     what: 'One project and everything about its fieldwork: markets, vendors and links, quotas, security, respondent pages, redirects, monitoring and finance, each in its own tab.',
-    how: 'Use the buttons at the top to go live, hold or close. Pick a tab below for each part of the setup; every tab has its own "i" with more detail.',
+    how: 'Use the coloured status button at the top to go live, hold, close or move back to test or draft, and Redirects for the client return links with a worked example. Pick a tab below for each part of the setup; every tab has its own "i" with more detail.',
     where: 'Changes apply to this project only. While a market is live, most changes reach new respondents straight away.',
   },
   'page:/projects/board': {
@@ -355,10 +355,17 @@ export const HELP: Record<string, HelpEntry> = {
     how: 'Change a value and save; it applies to every market.',
     where: 'This project.',
   },
-  'section:Client survey integration': {
-    what: 'How the client\'s survey sends respondents back to SampTrek at the end, so outcomes are recorded.',
-    how: 'Give the client\'s programmer the end URL shown here. For billing, ask them to confirm outcomes with the signed server call.',
-    where: 'Every market of this project.',
+  'project.redirectsPopup': {
+    title: 'Redirects',
+    what: 'The prebuilt links the client\'s survey sends respondents back to, one per status, and a worked example that follows one respondent from the vendor, through the client\'s survey, back to SampTrek and on to the vendor.',
+    how: 'Copy all and send them to the client. Click a status to see its links filled in with an example token and respondent ID, and copy the snippet for the client\'s survey tool.',
+    where: 'Every market of this project. Where vendors are sent after SampTrek is set on the Redirects tab.',
+  },
+  'project.statusMenu': {
+    title: 'Project status',
+    what: 'Where the project is: Draft (grey), Test (blue), Live (green), Hold (orange), Closed (red) or Invoiced (purple).',
+    how: 'Click the coloured button and pick a status. Closed, Draft and Invoiced ask for a second click. Going live opens every ready market and tells you which are not ready.',
+    where: 'This project and all its entry links: Hold and Closed show the paused or closed page to new respondents.',
   },
   'project.vendorCard': {
     title: 'Vendor in this project',

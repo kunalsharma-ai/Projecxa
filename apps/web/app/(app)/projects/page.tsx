@@ -10,6 +10,8 @@ import { get, post } from '@/lib/api';
 import { flag } from '@/lib/countries';
 import { downloadCsv } from '@/lib/csv';
 import { CATEGORIES } from '@/lib/types';
+import { PROJECT_STATUS_STYLE, canBulkMove } from '@/lib/project-status';
+import clsx from 'clsx';
 import { useCustomOptions } from '@/components/form/option-select';
 
 interface Row {
@@ -24,12 +26,17 @@ interface Row {
 
 const day = (s: string | null) => (s ? new Date(s).toLocaleDateString() : '–');
 type Pick = { has: (id: string) => boolean; toggle: (id: string) => void };
+type Status = { id: string; status: string };
 const columns = (pick: Pick): GridColumn<Row>[] => [
   {
     id: 'project', header: 'Project', sortKey: 'name', pinned: true, width: 320,
     cell: (r) => (
       <div className="flex max-w-[340px] items-start gap-2.5">
-        <input type="checkbox" className="mt-1 shrink-0" aria-label={`Select ${r.name}`} checked={pick.has(r.id)} onChange={() => pick.toggle(r.id)} />
+        {canBulkMove(r.status) ? (
+          <input type="checkbox" className="mt-1 shrink-0" aria-label={`Select ${r.name}`} checked={pick.has(r.id)} onChange={() => pick.toggle(r.id)} />
+        ) : (
+          <input type="checkbox" className="mt-1 shrink-0 opacity-30" disabled aria-label={`${r.name} is ${r.status.toLowerCase()}: only Live and Hold projects can be changed together`} title="Only Live and Hold projects can be ticked" />
+        )}
         <div className="min-w-0">
           <Link href={`/projects/${r.id}`} className="block truncate font-medium text-brand hover:underline">{r.name}</Link>
           <div className="flex items-center text-xs text-muted"><span className="truncate">{r.projectCode}{r.workOrderNo ? ` · ${r.workOrderNo}` : ''} · {r.category} · {r.redirectMode.toLowerCase()}</span><CopyIcon text={r.projectCode} label={`${r.name} project ID`} /></div>
@@ -84,7 +91,7 @@ const columns = (pick: Pick): GridColumn<Row>[] => [
   { id: 'created', header: 'Created', sortKey: 'created', cell: (r) => <span className="whitespace-nowrap text-muted">{day(r.createdAt)}</span> },
 ];
 
-const STATUSES = ['DRAFT', 'TEST', 'LIVE', 'HOLD', 'CLOSED', 'INVOICED'];
+const STATUSES = ['LIVE', 'HOLD', 'TEST', 'DRAFT', 'CLOSED', 'INVOICED'];
 
 export default function ProjectsPage() {
   const [status, setStatus] = useState('');
@@ -92,23 +99,35 @@ export default function ProjectsPage() {
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<Sort | null>(null);
-  const [data, setData] = useState<{ total: number; items: Row[]; pageSize: number } | null>(null);
+  const [data, setData] = useState<{ total: number; items: Row[]; pageSize: number; counts?: Partial<Record<string, number>> } | null>(null);
   const [error, setError] = useState<unknown>(null);
-  const [picked, setPicked] = useState<string[]>([]);
+  const [pickedRows, setPickedRows] = useState<Status[]>([]);
+  const picked = pickedRows.map((r) => r.id);
   const [reloadKey, setReloadKey] = useState(0);
   const [bulk, setBulk] = useState<{ busy: boolean; note: string | null; failed: string[] }>({ busy: false, note: null, failed: [] });
-  const pick: Pick = { has: (id) => picked.includes(id), toggle: (id) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id])) };
+  const pick: Pick = {
+    has: (id) => picked.includes(id),
+    toggle: (id) => setPickedRows((p) => (p.some((x) => x.id === id) ? p.filter((x) => x.id !== id) : [...p, { id, status: data?.items.find((x) => x.id === id)?.status ?? '' }])),
+  };
+  const liveIds = pickedRows.filter((r) => r.status === 'LIVE').map((r) => r.id);
+  const holdIds = pickedRows.filter((r) => r.status === 'HOLD').map((r) => r.id);
 
-  /** Live ⇄ Hold for every ticked project; each is checked on its own (a project without a live link stays as it is). */
+  /**
+   * Live → Hold or Hold → Live for the ticked projects of that status; each is checked on its own
+   * (a project without a live link stays on hold). Draft and Test projects cannot be ticked.
+   */
   async function setStatusFor(status: 'LIVE' | 'HOLD') {
+    const ids = status === 'LIVE' ? holdIds : liveIds;
     setBulk({ busy: true, note: null, failed: [] });
     try {
-      const r = await post<{ changed: number; results: { id: string; ok: boolean; error?: string; issues?: string[]; notReady?: { market: string; problems: string[] }[] }[] }>('/projects/bulk-status', { ids: picked, status });
+      const r = await post<{ changed: number; results: { id: string; ok: boolean; error?: string; issues?: string[]; notReady?: { market: string; problems: string[] }[] }[] }>('/projects/bulk-status', { ids, status });
       const name = (id: string) => data?.items.find((x) => x.id === id)?.name ?? id;
       const failed = r.results.filter((x) => !x.ok).map((x) => `${name(x.id)}: ${x.error}${x.issues?.length ? ` (${x.issues.join('; ')})` : ''}`);
       const partial = r.results.filter((x) => x.ok && x.notReady?.length).map((x) => `${name(x.id)} is live, but not in ${x.notReady!.map((n) => `${n.market} (${n.problems.join(' and ')})`).join(', ')}`);
-      setBulk({ busy: false, note: `${r.changed} of ${picked.length} ${status === 'LIVE' ? 'set live' : 'put on hold'}.`, failed: [...failed, ...partial] });
-      setPicked(r.results.filter((x) => !x.ok).map((x) => x.id));
+      setBulk({ busy: false, note: `${r.changed} of ${ids.length} ${status === 'LIVE' ? 'set live' : 'put on hold'}.`, failed: [...failed, ...partial] });
+      // Keep the ones that failed ticked, and the other group untouched.
+      const failedIds = new Set(r.results.filter((x) => !x.ok).map((x) => x.id));
+      setPickedRows((rows) => rows.filter((x) => !ids.includes(x.id) || failedIds.has(x.id)));
       setReloadKey((k) => k + 1);
     } catch (e) {
       setBulk({ busy: false, note: null, failed: [] });
@@ -187,15 +206,26 @@ export default function ProjectsPage() {
           </>
         }
       />
-      <div className="card mb-4 grid grid-cols-1 gap-3 p-4 sm:grid-cols-[1fr_180px_220px]">
+      <div className="mb-3 flex flex-wrap gap-2" role="tablist" aria-label="Project status">
+        {['', ...STATUSES].map((s) => {
+          const st = PROJECT_STATUS_STYLE[s];
+          const n = s ? (data?.counts?.[s] ?? 0) : Object.values(data?.counts ?? {}).reduce<number>((a, b) => a + (b ?? 0), 0);
+          const on = status === s;
+          return (
+            <button key={s || 'all'} role="tab" aria-selected={on} onClick={() => { setStatus(s); setPage(1); }}
+              className={clsx('inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors', on ? (st ? clsx(st.solid, 'border-transparent shadow') : 'border-transparent bg-ink text-panel shadow') : st ? clsx('bg-panel', st.tab) : 'border-line bg-panel text-ink hover:bg-sunken')}>
+              {st && <span className={clsx('h-2 w-2 rounded-full', on ? 'bg-white' : st.dot)} aria-hidden />}
+              {st ? st.label : 'All'}
+              {data?.counts && <span className={clsx('rounded-full px-1.5 text-xs tabular-nums', on ? 'bg-white/25' : 'bg-sunken text-muted')}>{n}</span>}
+            </button>
+          );
+        })}
+      </div>
+      <div className="card mb-4 grid grid-cols-1 gap-3 p-4 sm:grid-cols-[1fr_220px]">
         <label className="relative block">
           <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted" />
           <input className="input pl-9" placeholder="Search name, project ID or work order" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} />
         </label>
-        <select className="input" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} aria-label="Project status">
-          <option value="">All statuses</option>
-          {STATUSES.map((s) => <option key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</option>)}
-        </select>
         <select className="input" value={category} onChange={(e) => { setCategory(e.target.value); setPage(1); }} aria-label="Category">
           <option value="">All categories</option>
           {[...CATEGORIES, ...ownCategories.filter((c) => !CATEGORIES.includes(c))].map((c) => <option key={c}>{c}</option>)}
@@ -208,9 +238,9 @@ export default function ProjectsPage() {
             {picked.length > 0 && (
               <>
                 <span className="font-medium">{picked.length} selected</span>
-                <button className="btn-primary px-3 py-1.5 text-xs" disabled={bulk.busy} onClick={() => setStatusFor('LIVE')}><Play className="h-3.5 w-3.5" /> Set live</button>
-                <button className="btn-ghost px-3 py-1.5 text-xs" disabled={bulk.busy} onClick={() => setStatusFor('HOLD')}><Pause className="h-3.5 w-3.5" /> Put on hold</button>
-                <button className="btn-ghost px-2 py-1.5 text-xs" onClick={() => setPicked([])}><X className="h-3.5 w-3.5" /> Clear</button>
+                {liveIds.length > 0 && <button className="inline-flex items-center gap-1.5 rounded-full bg-st-hold px-3 py-1.5 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-60" disabled={bulk.busy} onClick={() => setStatusFor('HOLD')}><Pause className="h-3.5 w-3.5" /> Put {liveIds.length} live on hold</button>}
+                {holdIds.length > 0 && <button className="inline-flex items-center gap-1.5 rounded-full bg-st-live px-3 py-1.5 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-60" disabled={bulk.busy} onClick={() => setStatusFor('LIVE')}><Play className="h-3.5 w-3.5" /> Set {holdIds.length} on hold live</button>}
+                <button className="btn-ghost px-2 py-1.5 text-xs" onClick={() => setPickedRows([])}><X className="h-3.5 w-3.5" /> Clear</button>
               </>
             )}
             {bulk.note && <span className="text-muted">{bulk.note}</span>}
@@ -231,7 +261,8 @@ export default function ProjectsPage() {
           sort={sort}
           onSort={(s) => { setSort(s); setPage(1); }}
           empty={<Empty>No projects match these filters.</Empty>}
-          toolbar={<span className="flex flex-wrap items-center gap-3 text-xs text-muted"><label className="flex items-center gap-1.5 text-ink"><input type="checkbox" checked={data.items.length > 0 && data.items.every((r) => picked.includes(r.id))} onChange={(e) => setPicked(e.target.checked ? [...new Set([...picked, ...data.items.map((r) => r.id)])] : picked.filter((id) => !data.items.some((r) => r.id === id)))} /> Select page</label><span>{data.total} project{data.total === 1 ? '' : 's'}{sort ? '' : ' · newest first'} · tick projects to set them live or on hold together</span></span>}
+          rowAccent={(r) => PROJECT_STATUS_STYLE[r.status]?.stripe}
+          toolbar={<span className="flex flex-wrap items-center gap-3 text-xs text-muted"><label className="flex items-center gap-1.5 text-ink"><input type="checkbox" disabled={!data.items.some((r) => canBulkMove(r.status))} checked={data.items.some((r) => canBulkMove(r.status)) && data.items.filter((r) => canBulkMove(r.status)).every((r) => picked.includes(r.id))} onChange={(e) => { const movable = data.items.filter((r) => canBulkMove(r.status)); setPickedRows((rows) => (e.target.checked ? [...rows.filter((x) => !movable.some((m) => m.id === x.id)), ...movable.map((m) => ({ id: m.id, status: m.status }))] : rows.filter((x) => !movable.some((m) => m.id === x.id)))); }} /> Select Live and Hold on this page</label><span>{data.total} project{data.total === 1 ? '' : 's'}{sort ? '' : ' · newest first'} · tick Live projects to put them on hold, or Hold projects to set them live</span></span>}
         />
       )}
       {data && pages > 1 && (

@@ -65,6 +65,7 @@ export function DataGrid<T>({
   toolbar,
   empty,
   maxHeight = '70vh',
+  rowAccent,
 }: {
   id: string;
   columns: GridColumn<T>[];
@@ -75,6 +76,8 @@ export function DataGrid<T>({
   toolbar?: ReactNode;
   empty?: ReactNode;
   maxHeight?: string;
+  /** Classes for a coloured stripe on the row's first cell, e.g. the project status colour. */
+  rowAccent?: (row: T) => string | undefined;
 }) {
   const [prefs, setPrefs] = usePrefs(id, columns as GridColumn<unknown>[]);
   const [localSort, setLocalSort] = useState<Sort | null>(null);
@@ -220,7 +223,7 @@ export function DataGrid<T>({
               {sorted.map((r) => (
                 <tr key={rowKey(r)} className="group/row">
                   {visible.map((c, i) => (
-                    <td key={c.id} className={clsx('border-b border-line bg-panel group-hover/row:bg-sunken', pad, c.align === 'right' && 'text-right tabular-nums', c.pinned && i === 0 && 'sticky left-0 z-[5] border-r')}>
+                    <td key={c.id} className={clsx('border-b border-line bg-panel group-hover/row:bg-sunken', pad, c.align === 'right' && 'text-right tabular-nums', c.pinned && i === 0 && 'sticky left-0 z-[5] border-r', i === 0 && rowAccent?.(r) && clsx('border-l-4', rowAccent(r)))}>
                       {c.cell(r)}
                     </td>
                   ))}
