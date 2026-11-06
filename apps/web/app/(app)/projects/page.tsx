@@ -59,6 +59,8 @@ const COLUMNS: GridColumn<Row>[] = [
   { id: 'created', header: 'Created', sortKey: 'created', cell: (r) => <span className="whitespace-nowrap text-muted">{day(r.createdAt)}</span> },
 ];
 
+const STATUSES = ['DRAFT', 'TEST', 'LIVE', 'HOLD', 'CLOSED', 'INVOICED'];
+
 export default function ProjectsPage() {
   const [status, setStatus] = useState('');
   const [category, setCategory] = useState('');
@@ -67,6 +69,11 @@ export default function ProjectsPage() {
   const [sort, setSort] = useState<Sort | null>(null);
   const [data, setData] = useState<{ total: number; items: Row[]; pageSize: number } | null>(null);
   const [error, setError] = useState<unknown>(null);
+  // Deep links such as /projects?status=LIVE (from the dashboard's project counts).
+  useEffect(() => {
+    const s = new URLSearchParams(window.location.search).get('status');
+    if (s && STATUSES.includes(s)) setStatus(s);
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams({ page: String(page), pageSize: '20' });
@@ -140,7 +147,7 @@ export default function ProjectsPage() {
         </label>
         <select className="input" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} aria-label="Project status">
           <option value="">All statuses</option>
-          {['DRAFT', 'TEST', 'LIVE', 'HOLD', 'CLOSED', 'INVOICED'].map((s) => <option key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</option>)}
+          {STATUSES.map((s) => <option key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</option>)}
         </select>
         <select className="input" value={category} onChange={(e) => { setCategory(e.target.value); setPage(1); }} aria-label="Category">
           <option value="">All categories</option>

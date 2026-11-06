@@ -1,5 +1,7 @@
 # Command center widgets (Milestone 29)
 
+> Since the dashboard overview change, these widgets live under **Detailed view → Show details** on the Dashboard. See docs/DASHBOARD_OVERVIEW_AND_MENU.md.
+
 The command center (`/`) is now a set of widgets that each person can arrange.
 
 ## Customize
