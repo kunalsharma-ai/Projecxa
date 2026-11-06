@@ -42,7 +42,7 @@ export const pageDesignSchema = z
     brandName: z.string().max(60).optional(),
     footer: z.string().max(200).optional(),
     confetti: z.boolean().default(true),
-    /** Show the platform logo (SampTrek by Sampledge, or the organisation's white-label logo) and its tab icon. */
+    /** Show the Sampledge logo (or the organisation's white-label logo) and its tab icon. */
     platformLogo: z.boolean().default(true),
     texts: z.object(Object.fromEntries(END_STATUSES.map((k) => [k, text.optional()])) as Record<EndStatus, z.ZodOptional<typeof text>>).strict().default({}),
     /** Show the end page first, then continue to the vendor's redirect after `seconds`. */
@@ -170,7 +170,7 @@ export function gateBackgroundCss(d: PageDesign, base: string) {
 }
 
 /**
- * The platform's brand on respondent pages: SampTrek by Sampledge, or the organisation's own
+ * The platform's brand on respondent pages: Sampledge, or the organisation's own
  * white-label name and logo. URLs are on the public API host so the pages' `img-src 'self'` allows them.
  */
 export interface PlatformBrand {
@@ -183,9 +183,9 @@ export interface PlatformBrand {
   icon: string | null;
 }
 
-/** SampTrek's own files, served by the API from apps/api/assets/brand (see BrandAssetsController). */
+/** Sampledge's logo files, served by the API from apps/api/assets/brand (PageDesignController.brandFile). */
 export function defaultPlatformBrand(base: string): PlatformBrand {
-  return { name: 'SampTrek by Sampledge', logo: `${base}/brand/samptrek-logo-light.png`, logoDark: `${base}/brand/samptrek-logo-dark.png`, icon: `${base}/brand/samptrek-icon-64.png` };
+  return { name: 'Sampledge', logo: `${base}/brand/sampledge-logo-on-light.png`, logoDark: `${base}/brand/sampledge-logo-on-dark.png`, icon: `${base}/brand/sampledge-icon-64.png` };
 }
 
 /** True when the page behind the header is dark enough that the light-on-dark logo reads better. */
@@ -307,7 +307,7 @@ h1{margin:0 0 10px;line-height:1.15;letter-spacing:-.02em;font-size:clamp(1.6rem
 ${css}</style></head><body>${layout}${confettiJs || countdownJs ? `<script nonce="${opts.nonce}">${confettiJs}${countdownJs}</script>` : ''}</body></html>`;
 }
 
-/** Platform brand for an organisation: its white-label name/logo when set, else SampTrek by Sampledge. */
+/** Platform brand for an organisation: its white-label name/logo when set, else Sampledge. */
 export function platformBrandOf(
   base: string,
   brand: { custom: boolean; appName: string; logoUrl: string | null; logoDarkUrl: string | null; iconUrl: string | null } | null,

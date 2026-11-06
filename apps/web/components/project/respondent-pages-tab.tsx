@@ -318,10 +318,10 @@ export function RespondentPagesTab({ project, editable }: { project: ProjectDeta
         <Section title="Brand and images">
           <div className="space-y-4">
             <div className="flex items-start gap-3 rounded-lg border border-line p-3">
-              <img src="/brand/samptrek-icon.svg" alt="" className="mt-0.5 h-6 w-6 shrink-0" />
+              <img src="/brand/sampledge-icon-64.png" alt="" className="mt-0.5 h-6 w-6 shrink-0" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 text-sm font-medium">Show the Sampledge logo<InfoTip id="respondent.platformLogo" /></div>
-                <div className="text-xs text-muted">The SampTrek by Sampledge logo (or your own logo from Settings → Branding) at the top of the gate and end pages, and as the browser-tab icon. With your own logo below, it moves to a small “Powered by” line at the bottom.</div>
+                <div className="text-xs text-muted">The Sampledge logo (or your own logo from Settings → Branding) at the top of the gate and end pages, and as the browser-tab icon. With your own logo below, it moves to a small “Powered by” line at the bottom.</div>
               </div>
               {editable ? <Toggle checked={design.platformLogo !== false} onChange={(v) => set({ platformLogo: v })} label="Show the Sampledge logo" /> : <span className="text-xs text-muted">{design.platformLogo !== false ? 'On' : 'Off'}</span>}
             </div>

@@ -63,7 +63,7 @@ export interface GateView {
   design: PageDesign;
   /** Public base URL, for image links. */
   base: string;
-  /** Platform logo and tab icon (SampTrek by Sampledge, or the organisation's white-label brand). */
+  /** Platform logo and tab icon (Sampledge, or the organisation's white-label brand). */
   platform?: PlatformBrand | null;
   /** Builder preview: renders the page but never submits. */
   preview?: boolean;
@@ -117,7 +117,7 @@ const ALLOCATION_INCLUDE = {
 
 type AllocationWithContext = Prisma.VendorAllocationGetPayload<{ include: typeof ALLOCATION_INCLUDE }>;
 
-/** The logo respondent pages show for an organisation (white-label first, else SampTrek by Sampledge). */
+/** The logo respondent pages show for an organisation (white-label first, else Sampledge). */
 export async function loadPlatformBrand(prisma: PrismaService, organizationId: string): Promise<PlatformBrand> {
   const o = await prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true, slug: true, branding: true, customDomain: true, customDomainVerifiedAt: true, brandAssets: { select: { kind: true, hash: true } } } });
   return platformBrandOf(appConfig.publicBaseUrl, o ? brandOf(o, o.brandAssets) : null);
@@ -726,7 +726,7 @@ export class SurveyService {
     return destination;
   }
 
-  /** The logo respondent pages show for an organisation (white-label first, else SampTrek by Sampledge). */
+  /** The logo respondent pages show for an organisation (white-label first, else Sampledge). */
   platformBrand(organizationId: string): Promise<PlatformBrand> {
     return loadPlatformBrand(this.prisma, organizationId);
   }

@@ -72,7 +72,7 @@ function renderHuman(h: NonNullable<GateView['human']>, imageUrl: string): strin
 }
 
 /**
- * Respondent gate page. Shows the project's logo, else the platform logo (SampTrek by Sampledge or the
+ * Respondent gate page. Shows the project's logo, else the platform logo (Sampledge or the
  * organisation's white-label logo) unless the project turns it off. Phone-first, needs JavaScript.
  * Steps, in order: consent notice → human check → gate survey → prescreener. Signals the project turned on
  * (language, time zone, fingerprint) and the background captcha are collected meanwhile.

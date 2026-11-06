@@ -357,6 +357,6 @@ Two Fieldwork pages from the mockup, per project and from real data: **Data proc
 
 ## Sampledge logo on respondent pages, notification reads, audience question sets
 
-- **Respondent pages** show the SampTrek by Sampledge logo and tab icon (gate and every end page); a project's own logo moves it to a "Powered by" line, and Respondent pages → Show the Sampledge logo turns it off. See [docs/BRAND.md](docs/BRAND.md).
+- **Respondent pages** show the Sampledge logo and tab icon (gate and every end page); a project's own logo moves it to a "Powered by" line, and Respondent pages → Show the Sampledge logo turns it off. See [docs/BRAND.md](docs/BRAND.md).
 - **Notifications**: opening the bell marks alerts read for that person; the badge counts only new ones. See [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md).
 - **Audience sets** in the gate survey builder: B2B, B2C, parents, teens, healthcare consumers, patients and caregivers; every question stays editable and organisations can save their own version. See [docs/GATE_QUESTION_SETS.md](docs/GATE_QUESTION_SETS.md).

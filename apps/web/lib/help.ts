@@ -459,7 +459,7 @@ export const HELP: Record<string, HelpEntry> = {
   },
   'respondent.platformLogo': {
     title: 'Show the Sampledge logo',
-    what: 'Puts the SampTrek by Sampledge logo on the gate page and every end page (complete, terminate, quota full and the rest), and its icon on the browser tab. If your organisation set its own name or logo in Settings → Branding, that is shown instead.',
+    what: 'Puts the Sampledge logo on the gate page and every end page (complete, terminate, quota full and the rest), and its icon on the browser tab. If your organisation set its own name or logo in Settings → Branding, that is shown instead.',
     how: 'On by default. With no project logo or brand name, the logo sits at the top. When you add a project logo or brand name, yours goes at the top and the Sampledge logo moves to a small “Powered by” line at the bottom. Turn it off for a fully neutral page.',
     where: 'Every respondent page of this project, including the countdown page before a vendor redirect.',
   },

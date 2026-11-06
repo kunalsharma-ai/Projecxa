@@ -143,7 +143,7 @@ export class PageDesignController {
     return res.end(Buffer.from(a.data));
   }
 
-  /** Public: SampTrek's own logo files for respondent pages (apps/api/assets/brand). Only the listed files. */
+  /** Public: Sampledge and SampTrek logo files for respondent pages (apps/api/assets/brand). Only the listed files. */
   @Public()
   @Get('brand/:file')
   brandFile(@Param('file') file: string, @Res() res: Response) {
@@ -158,7 +158,7 @@ export class PageDesignController {
   }
 }
 
-const BRAND_FILES = ['samptrek-logo-light.png', 'samptrek-logo-dark.png', 'samptrek-icon-64.png', 'samptrek-icon-512.png'];
+const BRAND_FILES = ['sampledge-logo-on-light.png', 'sampledge-logo-on-dark.png', 'sampledge-icon-64.png', 'samptrek-logo-light.png', 'samptrek-logo-dark.png', 'samptrek-icon-64.png', 'samptrek-icon-512.png'];
 const brandCache = new Map<string, Buffer | null>();
 function brandFile(name: string): Buffer | null {
   if (brandCache.has(name)) return brandCache.get(name)!;
