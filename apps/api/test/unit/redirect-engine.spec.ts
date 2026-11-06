@@ -167,12 +167,12 @@ describe('security policy', () => {
     expect(hostAllowed('ends.example.com.evil.org', ['*.ends.example.com'])).toBe(false);
   });
 
-  it('prevents redirect loops back into PROJEXA entry/outcome links', () => {
+  it('prevents redirect loops back into SampTrek entry/outcome links', () => {
     const r = checkDestination(`${BASE}/r/complete?token=x`, { allowedDomains: ['api.projexa.test'], selfHost: 'api.projexa.test' });
     expect(r.ok).toBe(false);
   });
 
-  it('technical error with no rule falls back safely to the PROJEXA end page', () => {
+  it('technical error with no rule falls back safely to the SampTrek end page', () => {
     const r = computeRedirect(input({ status: 'TECHNICAL_ERROR' }));
     expect(r.usedFallback).toBe(true);
     expect(r.destination).toBe(`${BASE}/end/technical_error`);

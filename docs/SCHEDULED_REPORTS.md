@@ -58,7 +58,7 @@ SMTP_HOST=smtp.zoho.com        # smtp.zoho.in for India, smtp.zoho.eu for EU acc
 SMTP_PORT=465                  # SSL; or 587 with SMTP_SECURE=false (STARTTLS)
 SMTP_USER=reports@yourcompany.com
 SMTP_PASS=<the app-specific password>
-MAIL_FROM="PROJEXA Reports <reports@yourcompany.com>"
+MAIL_FROM="SampTrek Reports <reports@yourcompany.com>"
 ```
 
 `MAIL_FROM` must be the same mailbox or an alias Zoho lets it send as. Use the host for the data

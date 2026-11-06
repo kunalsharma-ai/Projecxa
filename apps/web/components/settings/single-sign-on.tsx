@@ -50,7 +50,7 @@ export function SingleSignOn() {
     <Section id="sso" title="Single sign-on" className="mb-6" actions={<button className="btn-primary" onClick={save}>{saved ? 'Saved' : 'Save'}</button>}>
       <div className="space-y-5">
         <ErrorBox error={error} />
-        <p className="text-sm text-muted">Let staff sign in with their company Google, Microsoft or Zoho account. Only people you already added in PROJEXA can sign in. Their account links the first time, by email.</p>
+        <p className="text-sm text-muted">Let staff sign in with their company Google, Microsoft or Zoho account. Only people you already added in SampTrek can sign in. Their account links the first time, by email.</p>
         <div className="grid gap-3 md:grid-cols-3">
           {s.available.map((a) => (
             <div key={a.id} className="min-w-0 rounded-lg border border-line p-4" data-provider={a.id}>

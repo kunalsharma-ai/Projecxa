@@ -7,7 +7,7 @@ import { api, createApp, login, makeOrg, resetDb, tokenFrom } from './helpers';
 
 const BASE = 'http://api.projexa.test';
 
-describe('PROJEXA milestone 1 (e2e)', () => {
+describe('SampTrek milestone 1 (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaClient;
   let pm: ReturnType<typeof api>;
@@ -28,7 +28,7 @@ describe('PROJEXA milestone 1 (e2e)', () => {
     viewer = api(app, await login(app, a.users.VIEWER.email));
     other = api(app, await login(app, b.users.PROJECT_MANAGER.email));
 
-    clientId = (await pm.post('/clients', { name: 'Client One', code: 'C1', contacts: [{ name: 'Pat' }] }).expect(201)).body.id;
+    clientId = (await pm.post('/clients', { name: 'Client One', code: 'C1', contacts: [{ name: 'Pat', email: 'pat@client-one.example.com' }] }).expect(201)).body.id;
     vendorA = (await pm.post('/vendors', { name: 'Vendor A', code: 'VA', callbackUrlTemplate: 'https://vendor.example.com/cb?uid={uid}&s={status}' }).expect(201)).body.id;
     vendorB = (await pm.post('/vendors', { name: 'Vendor B', code: 'VB' }).expect(201)).body.id;
   });

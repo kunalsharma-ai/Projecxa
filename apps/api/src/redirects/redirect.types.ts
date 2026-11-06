@@ -106,3 +106,52 @@ export function defaultParamMappings(): ParamMapping[] {
     required: true,
   }));
 }
+
+/**
+ * Macro that stands for "this vendor's own saved redirect for the status" (Vendor.redirectUrls).
+ * It must be the whole URL of a rule. Prebuilt redirects use it so nothing has to be typed per project.
+ */
+export const VENDOR_REDIRECT_MACRO = '{vendor_redirect}';
+
+/** The four redirects every vendor gives; the other statuses reuse one of them unless set. */
+export const VENDOR_MAIN_STATUSES = ['COMPLETE', 'TERMINATE', 'QUOTA_FULL', 'SECURITY_REJECT'] as const;
+export const VENDOR_REDIRECT_FALLBACK: Partial<Record<OutcomeStatus, OutcomeStatus>> = {
+  QUALITY_FAIL: 'SECURITY_REJECT',
+  DUPLICATE: 'SECURITY_REJECT',
+  PARTIAL: 'TERMINATE',
+  TECHNICAL_ERROR: 'TERMINATE',
+};
+export type VendorRedirectUrls = Partial<Record<OutcomeStatus, string>>;
+
+/** The vendor's URL for a status, falling back to its main redirect for related statuses. */
+export function vendorRedirectFor(urls: VendorRedirectUrls | null | undefined, status: OutcomeStatus): string | null {
+  if (!urls) return null;
+  const own = urls[status]?.trim();
+  if (own) return own;
+  const fb = VENDOR_REDIRECT_FALLBACK[status];
+  return (fb && urls[fb]?.trim()) || null;
+}
+
+export function parseVendorRedirectUrls(raw: unknown): VendorRedirectUrls {
+  if (!raw || typeof raw !== 'object') return {};
+  const out: VendorRedirectUrls = {};
+  for (const s of OUTCOME_STATUSES) {
+    const v = (raw as Record<string, unknown>)[s];
+    if (typeof v === 'string' && v.trim()) out[s] = v.trim();
+  }
+  return out;
+}
+
+/** Ready-made status matrices for each mode, so a project starts with working redirects. */
+export function prebuiltRules(mode: RedirectModeT): RedirectRule[] {
+  // Hybrid: the statuses a vendor pays or counts get UID, vendor ID and country added; the rest go to the
+  // vendor's fixed security / terminate page as saved.
+  const dynamicInHybrid = new Set<OutcomeStatus>(['COMPLETE', 'TERMINATE', 'QUOTA_FULL']);
+  return OUTCOME_STATUSES.map((status) => ({
+    status,
+    type: mode === 'HYBRID' ? (dynamicInHybrid.has(status) ? 'DYNAMIC' : 'STATIC') : mode,
+    url: VENDOR_REDIRECT_MACRO,
+    enabled: true,
+    callbackRequired: status === 'COMPLETE',
+  }));
+}

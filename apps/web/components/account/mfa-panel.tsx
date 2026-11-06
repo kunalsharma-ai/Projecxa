@@ -55,7 +55,7 @@ export function MfaPanel({ email, onFinished }: { email: string; onFinished?: ()
   return (
     <Section title="Two-step sign-in">
       {status.setupRequired && !setup && !codes && (
-        <p className="mb-4 rounded-lg border border-brand/30 bg-brand/10 p-3 text-sm">Your organization requires two-step sign-in. Set it up below to keep using PROJEXA. It takes about a minute.</p>
+        <p className="mb-4 rounded-lg border border-brand/30 bg-brand/10 p-3 text-sm">Your organization requires two-step sign-in. Set it up below to keep using SampTrek. It takes about a minute.</p>
       )}
       <ErrorBox error={error} />
       {codes ? (
@@ -66,7 +66,7 @@ export function MfaPanel({ email, onFinished }: { email: string; onFinished?: ()
             <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-ok" />
             <div className="text-sm">
               <div className="font-medium">On since {when(status.enabledAt)}</div>
-              <div className="text-muted">After your password, PROJEXA asks for the 6-digit code from your authenticator app. {status.recoveryCodesLeft} recovery code{status.recoveryCodesLeft === 1 ? '' : 's'} left{status.recoveryCodesLeft <= 3 ? ': make new ones soon.' : '.'}</div>
+              <div className="text-muted">After your password, SampTrek asks for the 6-digit code from your authenticator app. {status.recoveryCodesLeft} recovery code{status.recoveryCodesLeft === 1 ? '' : 's'} left{status.recoveryCodesLeft <= 3 ? ': make new ones soon.' : '.'}</div>
               {status.required && <div className="mt-1 text-muted">Required by your organization, so it stays on. If you get a new phone, ask an admin to reset it.</div>}
             </div>
           </div>

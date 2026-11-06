@@ -73,7 +73,7 @@ function Assistant({ m, onAction }: { m: ChatMessage; onAction: (a: AiAction) =>
       {m.text.length > 280 && (
         <div className="flex gap-1">
           <button className="btn-ghost h-7 px-2 text-xs" onClick={() => { navigator.clipboard?.writeText(m.text); setCopied(true); setTimeout(() => setCopied(false), 1500); }}>{copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}{copied ? 'Copied' : 'Copy'}</button>
-          <button className="btn-ghost h-7 px-2 text-xs" onClick={() => download(`projexa-copilot-${new Date(m.createdAt).toISOString().slice(0, 10)}.md`, m.text)}><Download className="h-3.5 w-3.5" />Download</button>
+          <button className="btn-ghost h-7 px-2 text-xs" onClick={() => download(`samptrek-copilot-${new Date(m.createdAt).toISOString().slice(0, 10)}.md`, m.text)}><Download className="h-3.5 w-3.5" />Download</button>
         </div>
       )}
     </div>
@@ -193,7 +193,7 @@ export function CopilotChat({ conversationId, onConversation, compact, draft }: 
             <div className="py-6 text-center">
               <Sparkles className="mx-auto mb-2 h-7 w-7 text-brand" />
               <p className="font-medium">Ask about your projects, fieldwork, tasks, team or finances</p>
-              <p className="mt-1 text-sm text-muted">Answers come from PROJEXA records you can see. Changes are only made after you confirm them.</p>
+              <p className="mt-1 text-sm text-muted">Answers come from SampTrek records you can see. Changes are only made after you confirm them.</p>
               <div className="mt-4 flex flex-wrap justify-center gap-2">
                 {EXAMPLES.slice(0, compact ? 4 : 6).map((x) => <button key={x} className="chip bg-sunken px-3 py-1.5 text-sm text-ink hover:bg-line" onClick={() => send(x)}>{x}</button>)}
               </div>

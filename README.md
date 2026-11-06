@@ -1,4 +1,8 @@
-# PROJEXA by Sampledge
+# SampTrek by Sampledge
+
+<img src="apps/web/public/brand/samptrek-logo-light.svg" alt="SampTrek. Projects on track. by Sampledge" height="64">
+
+**Projects on track.** SampTrek was called PROJEXA until November 2026; see `docs/BRAND.md` for the logo files and the internal names that keep the old name on purpose.
 
 Research project management and fieldwork automation: multi-country projects, vendor allocation, secure survey links, hybrid redirects, callbacks and reconciliation.
 
@@ -122,7 +126,7 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 
 - **Sign-in page**: "Continue with Google / Microsoft / Zoho" buttons, shown for each provider set up on the server.
 - **Admins** (Settings → Single sign-on): turn each provider on, list the email domains allowed, add the Microsoft tenant ID, and optionally make single sign-on the only way in for staff (admins and portal users keep their password). See and unlink linked accounts.
-- Only people already added in PROJEXA can sign in; their account links on first sign-in by verified email, then by the provider's account ID. Two-step sign-in still asks for the code.
+- Only people already added in SampTrek can sign in; their account links on first sign-in by verified email, then by the provider's account ID. Two-step sign-in still asks for the code.
 - Client IDs and secrets are set in Settings → Integrations (milestone 35). Setup steps for Google Cloud, Microsoft Entra and the Zoho API console: `docs/SSO.md`.
 
 ## Milestone 16: accounting exports
@@ -152,7 +156,7 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 
 ## Milestone 20: AI copilot and voice assistant
 
-- **AI copilot** (`/copilot`, and the sparkle button in the header for a side panel on any page): ask about projects, fieldwork pace, delayed projects, tasks, workload, today's activity, performance reports, invoices, vendor bills and quota reallocation. Answers come from tools that read PROJEXA records as the signed-in person, scoped to their organisation and role; tables and charts are built from those records, never by the model.
+- **AI copilot** (`/copilot`, and the sparkle button in the header for a side panel on any page): ask about projects, fieldwork pace, delayed projects, tasks, workload, today's activity, performance reports, invoices, vendor bills and quota reallocation. Answers come from tools that read SampTrek records as the signed-in person, scoped to their organisation and role; tables and charts are built from those records, never by the model.
 - **Changes need confirmation**: creating or updating tasks, creating a project, pausing or closing a project or vendor link and running a fieldwork check are shown as cards with Confirm and Cancel. Every proposal, confirmation and result is in the audit log.
 - **Documents**: attach a PDF or text file (up to 10 MB) and ask for a summary, requirements or missing information.
 - **Voice**: talk to the copilot with Gemini Live (short-lived token, so the API key never reaches the browser; tool calls still run on the server). If Live is not available it falls back to the browser's own speech recognition and speech. Transcripts are saved as conversations.
@@ -192,7 +196,7 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 
 ## Milestone 25: dynamic redirect destinations
 
-- **API destinations**: in hybrid mode a status can be type API. PROJEXA asks the client's or vendor's endpoint where to send each respondent (a signed POST with status, UID, vendor, country and project), and sends them to the URL it answers. The endpoint and the answer must be on the allowed domains; a slow, broken or disallowed answer sends the respondent to the rule's fallback URL instead, and it is counted in the bell. QA studio asks the endpoint marked as a test.
+- **API destinations**: in hybrid mode a status can be type API. SampTrek asks the client's or vendor's endpoint where to send each respondent (a signed POST with status, UID, vendor, country and project), and sends them to the URL it answers. The endpoint and the answer must be on the allowed domains; a slow, broken or disallowed answer sends the respondent to the rule's fallback URL instead, and it is counted in the bell. QA studio asks the endpoint marked as a test.
 - **Scheduled activation**: approve a draft to go live at a set time (for example the start of a new wave). It is checked again when the time comes; if it no longer passes, it stays a draft and the bell says why.
 - **Compare versions**: see what changed between any two versions, rule by rule.
 - Details: `docs/REDIRECT_DESTINATIONS.md`.
@@ -265,7 +269,7 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 
 - **Settings → Integrations** (`/settings/integrations`, admins): email sending (Zoho Mail SMTP), sign in with Google, Microsoft and Zoho, the Gemini AI copilot, Zoho Books, Xero, QuickBooks Online, Tally Prime and the Bidzo link, all set up on screen. No server files to edit.
 - Each card has step-by-step help with links to where every key comes from, the redirect URI to copy, **Save and test**, and a status: Connected, Server settings, Check settings or Not set up.
-- Zoho Books needs no curl: paste the grant code and PROJEXA gets the refresh token and finds the organisation.
+- Zoho Books needs no curl: paste the grant code and SampTrek gets the refresh token and finds the organisation.
 - Secrets are encrypted at rest, never shown again and never written to the audit log. Old environment variables still work as a fallback, so existing servers keep running.
 - Only five values stay on the server (database, session key, master encryption key, the two addresses). Details: `docs/INTEGRATIONS.md`.
 

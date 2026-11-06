@@ -55,7 +55,7 @@ function Invoices() {
           <button
             className="btn-ghost"
             disabled={!rows?.length}
-            onClick={() => downloadCsv(`projexa-invoices-${new Date().toISOString().slice(0, 10)}.csv`,
+            onClick={() => downloadCsv(`samptrek-invoices-${new Date().toISOString().slice(0, 10)}.csv`,
               ['Number', 'Status', 'Client', 'Project', 'Project name', 'Currency', 'Total', 'Completes', 'Created', 'Issued', 'Due', 'Paid'],
               (rows ?? []).map((r) => [r.number, r.overdue ? 'OVERDUE' : r.status, r.client.name, r.project.projectCode, r.project.name, r.currency, r.total.toFixed(2), r.completes, r.createdAt.slice(0, 10), r.issuedAt?.slice(0, 10), r.dueAt?.slice(0, 10), r.paidAt?.slice(0, 10)]))}
           >

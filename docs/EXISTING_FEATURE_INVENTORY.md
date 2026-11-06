@@ -4,7 +4,7 @@
 The platform's source code was not available, so this inventory lists what the screens show, not what the backend does.
 Any item marked "not visible" may still exist in the backend.
 
-PROJEXA milestone 1 is a fresh codebase. Each item below says how milestone 1 treats it.
+SampTrek milestone 1 is a fresh codebase. Each item below says how milestone 1 treats it.
 
 ## PM dashboard (`/member/dashboard/pm`)
 
@@ -56,7 +56,7 @@ PROJEXA milestone 1 is a fresh codebase. Each item below says how milestone 1 tr
 
 ## Reports (`/member/report/*`)
 
-| Report | Visible content | Status in PROJEXA |
+| Report | Visible content | Status in SampTrek |
 |---|---|---|
 | Overall | Client, vendor, project and financial metrics | Milestone 3: Reports › Overall (totals, outcome mix, daily completes, top clients/vendors/projects). |
 | Conversion | UID, VID, status, revenue, payout, LOI, approval | Milestone 3: Reports › Conversion, respondent level with LOI (entry to complete), paging and CSV. |

@@ -1,4 +1,4 @@
-// PROJEXA data model, milestone 1.
+// SampTrek data model, milestone 1.
 // Hierarchy: Organization → Client → Project (master) → ProjectCountry → QuotaCell / VendorAllocation → RespondentSession
 // Every tenant-owned row carries organizationId so queries can always be scoped to one tenant.
 
@@ -116,7 +116,7 @@ model Organization {
   customDomainVerifiedAt DateTime?
   /// Integrations set up in Settings → Integrations (docs/INTEGRATIONS.md).
   integrations           IntegrationSetting[]
-  /// The organisation that runs this PROJEXA server. Its admins set the server-wide sign-in and accounting apps. Null on every org = the oldest one.
+  /// The organisation that runs this SampTrek server. Its admins set the server-wide sign-in and accounting apps. Null on every org = the oldest one.
   platformOwner          Boolean              @default(false)
   /// Super Admin (docs/SUPER_ADMIN.md): PENDING = registered, waiting for approval; SUSPENDED = nobody can use the app.
   status                 OrgStatus            @default(ACTIVE)
@@ -380,7 +380,7 @@ model User {
   lastLoginAt        DateTime?
   /// Sessions issued before this time are rejected (password reset, deactivation, sign out everywhere).
   sessionsValidAfter DateTime?
-  /// Runs the whole PROJEXA server (docs/SUPER_ADMIN.md). Honoured only in the platform owner organisation.
+  /// Runs the whole SampTrek server (docs/SUPER_ADMIN.md). Honoured only in the platform owner organisation.
   superAdmin         Boolean         @default(false)
   /// Super Admin: this person may use the Android and iOS app.
   mobileAccess       Boolean         @default(true)
@@ -429,6 +429,8 @@ model Client {
   /// Printed under "Bill to" on invoice PDFs.
   billingAddress   String?
   taxId            String?
+  /// Client website, normalised to https://host[/path].
+  website          String?
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
@@ -465,6 +467,13 @@ model Vendor {
   callbackUrlTemplate    String?
   /// Secret used to sign callbacks we send to this vendor.
   callbackSecret         String
+  /// The vendor's own redirect URL per outcome status ({ COMPLETE: "https://...", ... }); macros allowed.
+  /// Project rules use them through the {vendor_redirect} macro (docs/CLIENTS_VENDORS_EDITING.md).
+  redirectUrls           Json?
+  website                String?
+  contactName            String?
+  contactEmail           String?
+  contactPhone           String?
   createdAt              DateTime     @default(now())
   updatedAt              DateTime     @updatedAt
 
@@ -514,6 +523,8 @@ model Project {
   /// Reference to the won bid in Bidzo (Bidzo owns bids; we only keep the link).
   bidReference            String?
   name                    String
+  /// What vendors see instead of the internal name, which can reveal the client. Null = "Survey <code>".
+  vendorTitle             String?
   type                    ProjectType            @default(AD_HOC)
   category                String
   status                  ProjectStatus          @default(DRAFT)
@@ -1349,7 +1360,7 @@ model ReportRun {
   @@index([scheduleId, createdAt])
 }
 
-/// A Google, Microsoft or Zoho account linked to a PROJEXA user. After the first sign-in the
+/// A Google, Microsoft or Zoho account linked to a SampTrek user. After the first sign-in the
 /// provider's stable subject is used, never the email again.
 model SsoIdentity {
   id         String   @id @default(cuid())
@@ -1405,7 +1416,7 @@ model PasswordToken {
   @@index([userId, createdAt])
 }
 
-/// A Projexa record that exists in Zoho Books, so a sync never creates it twice.
+/// A SampTrek record that exists in Zoho Books, so a sync never creates it twice.
 model ZohoBooksLink {
   id             String       @id @default(cuid())
   organizationId String
@@ -1487,7 +1498,7 @@ model LedgerConnection {
   @@unique([organizationId, provider])
 }
 
-/// A Projexa record that reached Xero, QuickBooks or Tally, so a sync never creates it twice.
+/// A SampTrek record that reached Xero, QuickBooks or Tally, so a sync never creates it twice.
 model LedgerLink {
   id             String       @id @default(cuid())
   organizationId String
@@ -1999,10 +2010,10 @@ model MobileSsoCode {
 }
 
 /// An audience request this project has with SAMPLEON, the Sampledge audience and routing engine
-/// (SAMPLEON docs/ECOSYSTEM_ARCHITECTURE.md). PROJEXA owns the project, its targets and approved
+/// (SAMPLEON docs/ECOSYSTEM_ARCHITECTURE.md). SampTrek owns the project, its targets and approved
 /// changes; SAMPLEON owns targeting, feasibility, invitations, routing and live quota counting;
 /// SUPPLY360 owns the respondents. Progress here comes from SAMPLEON's signed events and is kept
-/// apart from ProjectCountry.completes, which counts respondents PROJEXA itself routed.
+/// apart from ProjectCountry.completes, which counts respondents SampTrek itself routed.
 model SampleonAudienceRequest {
   id                String    @id @default(cuid())
   organizationId    String

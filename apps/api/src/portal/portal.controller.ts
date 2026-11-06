@@ -10,6 +10,7 @@
  *   token the client survey received.
  * - Portal users never pass the staff endpoints (the global guard defaults to staff roles).
  */
+import { forVendor } from '../common/vendor-safe';
 import { BadRequestException, Body, Controller, ForbiddenException, Get, Module, NotFoundException, Param, Patch, Post, Query, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { Prisma } from '@prisma/client';
@@ -117,7 +118,7 @@ export class VendorPortalController {
         projectCountry: {
           select: {
             countryCode: true, language: true, targetGroup: true, loiMinutes: true, irPercent: true, currency: true, status: true,
-            project: { select: { id: true, projectCode: true, name: true, status: true, category: true, devices: true } },
+            project: { select: { id: true, projectCode: true, name: true, vendorTitle: true, status: true, category: true, devices: true } },
           },
         },
       },
@@ -142,7 +143,7 @@ export class VendorPortalController {
       const live = a.status === 'ACTIVE' && a.projectCountry.status === 'LIVE' && a.projectCountry.project.status === 'LIVE';
       return {
         id: a.id,
-        project: a.projectCountry.project,
+        project: forVendor(a.projectCountry.project),
         countryCode: a.projectCountry.countryCode,
         language: a.projectCountry.language,
         targetGroup: a.projectCountry.targetGroup,
@@ -175,7 +176,7 @@ export class VendorPortalController {
       if (!own) throw new NotFoundException('Allocation not found');
     }
     const st = status && status in emptyStats() ? (status as keyof ReturnType<typeof emptyStats>) : undefined;
-    return this.prisma.respondentSession.findMany({
+    const rows = await this.prisma.respondentSession.findMany({
       where: { vendorAllocation: { vendorId }, ...(allocationId ? { vendorAllocationId: allocationId } : {}), ...(st ? { status: st } : {}) },
       orderBy: { startedAt: 'desc' },
       take: 500,
@@ -188,10 +189,11 @@ export class VendorPortalController {
         payout: true,
         startedAt: true,
         outcomeAt: true,
-        project: { select: { projectCode: true, name: true } },
+        project: { select: { projectCode: true, name: true, vendorTitle: true } },
         projectCountry: { select: { countryCode: true, currency: true } },
       },
     });
+    return rows.map((r) => ({ ...r, project: forVendor(r.project) }));
   }
 
   @Get('callbacks')

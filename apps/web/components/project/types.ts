@@ -41,6 +41,8 @@ export interface ProjectDetail {
   workOrderNo: string | null;
   bidReference: string | null;
   name: string;
+  /** What vendors see instead of the name; null = "Survey <code>". */
+  vendorTitle?: string | null;
   status: string;
   category: string;
   description: string | null;

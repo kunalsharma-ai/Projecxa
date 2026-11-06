@@ -1,5 +1,5 @@
 /**
- * Talks to the PROJEXA API with the signed-in person's token (Authorization: Bearer).
+ * Talks to the SampTrek API with the signed-in person's token (Authorization: Bearer).
  * Every call says it comes from the mobile app (X-Client: mobile) so the server applies the
  * mobile subscription, and every answer is checked for X-Features-Version so a change made
  * by Super Admin reaches the app on the next request.

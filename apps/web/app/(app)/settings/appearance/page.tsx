@@ -127,7 +127,7 @@ export default function ThemeStudio() {
               <Slider label="Gradient intensity" value={prefs.gradientIntensity} onChange={set('gradientIntensity')} />
               <Slider label="Glass effect (top bar, menus, panels)" value={prefs.glass} onChange={set('glass')} />
             </div>
-            <p className="mt-4 text-xs text-muted">Text colours are checked against WCAG 2.2 AA. If a colour you pick would be hard to read, PROJEXA adjusts the text shade and tells you.</p>
+            <p className="mt-4 text-xs text-muted">Text colours are checked against WCAG 2.2 AA. If a colour you pick would be hard to read, SampTrek adjusts the text shade and tells you.</p>
           </Section>
 
           <Section title="Layout and comfort">
@@ -147,7 +147,7 @@ export default function ThemeStudio() {
             ]} />
             <p className="mt-3 text-sm text-muted">
               {prefs.motion === 'essential' ? 'No transitions or animations. Everything responds instantly.' : prefs.motion === 'refined' ? 'Short transitions on pages, menus and buttons. Nothing ever waits for an animation.' : 'Longer, richer transitions on pages, panels and charts. Typing and saving are never delayed.'}
-              {' '}If your device asks for reduced motion, PROJEXA follows it whatever you choose here.
+              {' '}If your device asks for reduced motion, SampTrek follows it whatever you choose here.
             </p>
           </Section>
         </div>
@@ -157,7 +157,7 @@ export default function ThemeStudio() {
             <div className="space-y-4">
               <div className="flex overflow-hidden border border-line" style={{ borderRadius: 'var(--radius)' }}>
                 <div className="w-24 space-y-1.5 bg-sidebar p-2.5 text-[11px] text-sidebar-muted">
-                  <div className="font-semibold text-sidebar-ink">PROJEXA</div>
+                  <div className="font-semibold text-sidebar-ink">SampTrek</div>
                   <div className="rounded bg-sidebar-ink/10 px-1.5 py-1 text-sidebar-ink">Projects</div>
                   <div className="px-1.5">Reports</div>
                   <div className="px-1.5">Vendors</div>

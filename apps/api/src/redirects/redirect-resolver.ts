@@ -224,7 +224,7 @@ export function checkDestination(raw: string, policy: DestinationPolicy): { ok: 
   }
   if (url.username || url.password) return { ok: false, reason: 'Credentials in URL are not allowed' };
   if (policy.selfHost && url.host.toLowerCase() === policy.selfHost.toLowerCase()) {
-    if (/^\/(s|r)\//.test(url.pathname)) return { ok: false, reason: 'Redirect loop: destination is a PROJEXA entry or outcome link' };
+    if (/^\/(s|r)\//.test(url.pathname)) return { ok: false, reason: 'Redirect loop: destination is a SampTrek entry or outcome link' };
   }
   if (!hostAllowed(url.hostname, policy.allowedDomains)) {
     return { ok: false, reason: `Domain ${url.hostname} is not on the allowlist` };
@@ -274,6 +274,12 @@ export function validateConfig(
     if (r.fallbackUrl || r.timeoutMs) issues.push({ level: 'warning', status: r.status, scope: r.scope, message: 'Fallback URL and timeout only apply to API destinations' });
     if (mode !== 'HYBRID' && r.type !== mode) {
       issues.push({ level: 'error', status: r.status, scope: r.scope, message: `${mode} mode only allows ${mode} rules` });
+    }
+    // The vendor's saved redirect is checked when the vendor is saved and again at runtime.
+    if (r.url.trim() === '{vendor_redirect}') continue;
+    if (r.url.includes('{vendor_redirect}')) {
+      issues.push({ level: 'error', status: r.status, scope: r.scope, message: '{vendor_redirect} must be the whole URL; it is replaced by the vendor’s saved redirect' });
+      continue;
     }
     const macros = macrosIn(r.url);
     if (type === 'STATIC' && /[{}]/.test(r.url)) {

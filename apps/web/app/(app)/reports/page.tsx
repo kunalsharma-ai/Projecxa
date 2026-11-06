@@ -73,6 +73,15 @@ function ReportsPage() {
     setFilters((f) => ({ ...f, clientId: pick('clientId'), vendorId: pick('vendorId'), projectId: pick('projectId') }));
     setTab(pick('vendorId') ? 'Vendors' : pick('clientId') ? 'Clients' : 'Overall');
   }, [params]);
+  // Deep links from the dashboard overview: /reports?from=YYYY-MM-DD&to=YYYY-MM-DD opens those exact days.
+  useEffect(() => {
+    const day = /^\d{4}-\d{2}-\d{2}$/;
+    const from = params.get('from') ?? '';
+    const to = params.get('to') ?? '';
+    if (!day.test(from) || !day.test(to) || from > to) return;
+    setPreset('custom');
+    setFilters((f) => ({ ...f, from, to }));
+  }, [params]);
 
   return (
     <>

@@ -37,7 +37,7 @@ describe('Team and password reset (e2e)', () => {
     expect(r).toMatchObject({ emailed: true, inviteUrl: expect.stringMatching(/^http:\/\/web\.projexa\.test\/set-password\?token=/) });
     const m = sent.pop()!;
     expect(m.to).toEqual(['new.person@team.test']);
-    expect(m.subject).toBe("You're invited to team on PROJEXA");
+    expect(m.subject).toBe("You're invited to team on SampTrek");
     expect(m.text).toContain('as Project manager');
     const token = tokenIn(m);
     expect(token).toBe(new URL(r.inviteUrl).searchParams.get('token'));
@@ -70,7 +70,7 @@ describe('Team and password reset (e2e)', () => {
     expect(unknown).toEqual(known);
     expect(sent.length).toBe(before + 1);
     const m = sent.pop()!;
-    expect(m.subject).toBe('Reset your PROJEXA password');
+    expect(m.subject).toBe('Reset your SampTrek password');
     const t = await prisma.passwordToken.findFirstOrThrow({ where: { userId: users.VIEWER.id, purpose: 'reset' } });
     expect(t.expiresAt.getTime() - Date.now()).toBeLessThanOrEqual(30 * 60_000);
 

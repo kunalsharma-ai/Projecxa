@@ -2,11 +2,11 @@
 
 > **Now set up in the app.** The Xero and QuickBooks apps and the Tally address are entered in **Settings → Integrations** by the organisation that runs the server (see `docs/INTEGRATIONS.md`). Each organisation still presses Connect on the Accounting page. The environment variables are an optional fallback.
 
-PROJEXA can send client invoices, vendor bills, their payments and voids straight into Xero, QuickBooks Online or Tally Prime, the same way it already does for Zoho Books (docs/ZOHO_BOOKS.md). It is on the **Accounting** page under **Xero, QuickBooks and Tally sync**. The CSV and XML exports stay available for every system.
+SampTrek can send client invoices, vendor bills, their payments and voids straight into Xero, QuickBooks Online or Tally Prime, the same way it already does for Zoho Books (docs/ZOHO_BOOKS.md). It is on the **Accounting** page under **Xero, QuickBooks and Tally sync**. The CSV and XML exports stay available for every system.
 
 ## What is sent
 
-| PROJEXA | Xero | QuickBooks Online | Tally Prime |
+| SampTrek | Xero | QuickBooks Online | Tally Prime |
 | --- | --- | --- | --- |
 | Client (per currency) | Contact | Customer (one per currency; "Name (EUR)" when multicurrency is on) | Ledger under Sundry Debtors |
 | Vendor | Contact | Vendor (a name already used by a customer gets " (vendor)") | Ledger under Sundry Creditors |
@@ -40,8 +40,8 @@ Account names, the Xero account codes and tax names, and the Tally voucher types
 Notes (checked 2026-11-02):
 
 - Scopes: `offline_access accounting.contacts accounting.invoices accounting.payments accounting.settings.read`. These are Xero's granular scopes, required for apps created from 2 March 2026. An app created earlier that still uses the broad scopes can set `XERO_SCOPES` (for example `offline_access accounting.contacts accounting.transactions accounting.settings.read`) until it moves over (Xero's deadline: 13 September 2027).
-- Access tokens last 30 minutes. Refresh tokens last 60 days and change on every refresh; PROJEXA saves each new one at once. If nobody syncs for 60 days, an admin has to connect again (the tab shows "Sign in again").
-- Limits: 60 calls a minute and 5,000 a day per Xero organisation. On Xero's free developer tier (Starter) the app gets 5 connections and 1,000 calls a day per organisation. PROJEXA spaces calls about a second apart and stops a run at 300 calls; the next run carries on.
+- Access tokens last 30 minutes. Refresh tokens last 60 days and change on every refresh; SampTrek saves each new one at once. If nobody syncs for 60 days, an admin has to connect again (the tab shows "Sign in again").
+- Limits: 60 calls a minute and 5,000 a day per Xero organisation. On Xero's free developer tier (Starter) the app gets 5 connections and 1,000 calls a day per organisation. SampTrek spaces calls about a second apart and stops a run at 300 calls; the next run carries on.
 - Foreign-currency documents need the currency added in Xero (Settings → Currencies), which needs a Xero plan with multi-currency. Xero applies its own daily exchange rate.
 - Taxed lines use the Xero tax rate with the document's tax name, then the names under Account names, then any rate with the same percentage. Untaxed lines use the "no tax" name from Account names.
 
@@ -62,10 +62,10 @@ Notes (checked 2026-11-02):
 Notes (checked 2026-11-02):
 
 - Calls use minor version 75 (the only one Intuit accepts since August 2025); `QUICKBOOKS_MINOR_VERSION` changes it.
-- Access tokens last an hour. Refresh tokens rotate and, since Intuit's 2026 change, have a maximum life of five years; Intuit emails a warning before one ends. PROJEXA saves every new token.
-- Limits: 500 calls a minute per company. PROJEXA stops a run at 2,000 calls.
-- Foreign currencies need **multicurrency** turned on in QuickBooks (it cannot be turned off again). The exchange rate is PROJEXA's (Settings → Finance) when both use the same home currency, otherwise QuickBooks's.
-- Taxed documents need a QuickBooks tax code with the same name as the tax in PROJEXA (for example "GST"). US companies with automated sales tax should leave tax off in PROJEXA and let QuickBooks calculate it.
+- Access tokens last an hour. Refresh tokens rotate and, since Intuit's 2026 change, have a maximum life of five years; Intuit emails a warning before one ends. SampTrek saves every new token.
+- Limits: 500 calls a minute per company. SampTrek stops a run at 2,000 calls.
+- Foreign currencies need **multicurrency** turned on in QuickBooks (it cannot be turned off again). The exchange rate is SampTrek's (Settings → Finance) when both use the same home currency, otherwise QuickBooks's.
+- Taxed documents need a QuickBooks tax code with the same name as the tax in SampTrek (for example "GST"). US companies with automated sales tax should leave tax off in SampTrek and let QuickBooks calculate it.
 - Document numbers longer than 21 characters are refused by QuickBooks.
 
 ## Tally Prime
@@ -73,20 +73,20 @@ Notes (checked 2026-11-02):
 Tally Prime has no cloud API. It answers XML on its own computer (port 9000 by default), with **no password**, so it must never be opened to the internet.
 
 1. In Tally Prime: F1 (Help) → Settings → Connectivity → "TallyPrime acts as" **Server** (or Both), port 9000. Keep the company open.
-2. Make that port reachable from the PROJEXA server only, for example over a site-to-site VPN or a private tunnel.
+2. Make that port reachable from the SampTrek server only, for example over a site-to-site VPN or a private tunnel.
 3. Set on the API server:
 
    ```
    TALLY_URL=http://10.0.0.15:9000
-   # the PROJEXA organisation (slug) that owns this Tally
+   # the SampTrek organisation (slug) that owns this Tally
    TALLY_TENANT=demo
    ```
 
 Notes:
 
-- Amounts are in PROJEXA's reporting currency, using the rates in Settings → Finance (the same as the Tally export). A document in a currency without a rate is reported, not sent.
+- Amounts are in SampTrek's reporting currency, using the rates in Settings → Finance (the same as the Tally export). A document in a currency without a rate is reported, not sent.
 - Party ledgers are created under the groups in Account names; ones that already exist are reused. Income, expense, tax and bank ledgers must already exist in Tally with the names in Account names.
-- Tally cannot be asked "is this voucher already here?" through this interface. PROJEXA relies on what it has sent, so do not also import the same documents from an exported file.
+- Tally cannot be asked "is this voucher already here?" through this interface. SampTrek relies on what it has sent, so do not also import the same documents from an exported file.
 - A voided document cancels the voucher by the id Tally reported when it was created.
 - **Test connection** lists the open companies and checks the one named in Account names.
 

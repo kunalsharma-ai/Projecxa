@@ -8,6 +8,8 @@ import { get, post } from '@/lib/api';
 import { flag } from '@/lib/countries';
 import { OUTCOME_STATUSES, OutcomeStatus, ParamMapping, RedirectConfig, RedirectMode, RedirectRule, RuleType, SECURITY_LABELS, STATUS_LABEL } from '@/lib/types';
 import { RedirectDiagram } from './redirect-diagram';
+import { RedirectGuide, VendorRedirectsSummary, type PolicyVendor } from './redirect-guide';
+import { VENDOR_FALLBACK, VENDOR_REDIRECT_MACRO } from '@/lib/contact-rules';
 import { RedirectSigning } from './redirect-signing';
 import { RedirectVersions, Version } from './redirect-versions';
 import type { ProjectDetail } from './types';
@@ -20,7 +22,8 @@ interface Policy {
   inherited: { clientTemplate: RedirectConfig | null; organizationDefault: RedirectConfig | null };
   allowedDomains: { organization: string[]; vendors: Record<string, { name: string; domains: string[] }> };
   countries: string[];
-  vendors: { id: string; name: string; code: string }[];
+  vendors: PolicyVendor[];
+  outcomeLinks: { status: string; url: string }[];
 }
 interface EffectiveRow { countryCode: string; vendor: { id: string; name: string }; status: OutcomeStatus; source: string | null; type: string | null; destination: string; usedFallback: boolean; blockedReason: string | null; callbackRequired: boolean; apiEndpoint: string | null }
 
@@ -29,6 +32,25 @@ const CANONICAL_LABEL: Record<string, string> = { respondent_uid: 'UID', vendor_
 const MACRO_HINT = '{respondent_uid} {vendor_id} {country_code} {project_code} {status} {session_token}';
 
 const isScoped = (r: { scope?: { countryCode?: string; vendorId?: string } }) => !!(r.scope?.countryCode || r.scope?.vendorId);
+const usesVendor = (r?: { url: string }) => r?.url.trim() === VENDOR_REDIRECT_MACRO;
+
+/** Same as the API's prebuiltRules: every status goes to the vendor's saved redirect. */
+const HYBRID_DYNAMIC = new Set<OutcomeStatus>(['COMPLETE', 'TERMINATE', 'QUOTA_FULL']);
+export function prebuiltRules(mode: RedirectMode): RedirectRule[] {
+  return OUTCOME_STATUSES.map((status) => ({
+    status,
+    type: (mode === 'HYBRID' ? (HYBRID_DYNAMIC.has(status) ? 'DYNAMIC' : 'STATIC') : mode) as RuleType,
+    url: VENDOR_REDIRECT_MACRO,
+    enabled: true,
+    callbackRequired: status === 'COMPLETE',
+  }));
+}
+
+const MODES = [
+  ['STATIC', 'Static', 'The vendor’s URL exactly as saved. Nothing is added; the vendor’s own {macros} are still filled.', 'Prebuilt: all 8 statuses → vendor’s saved URL, unchanged.'],
+  ['DYNAMIC', 'Dynamic', 'The URL gets uid, vid (vendor ID) and country added for every respondent. You can change any link.', 'Prebuilt: all 8 statuses → vendor’s saved URL + uid, vid, country.'],
+  ['HYBRID', 'Hybrid', 'Choose per status: static, dynamic, or API (asked live from an endpoint).', 'Prebuilt: complete, terminate and quota full dynamic; security, quality, duplicate, partial and error static.'],
+] as const;
 
 export function RedirectsTab({ project, editable, reload }: { project: ProjectDetail; editable: boolean; reload: () => void }) {
   const [policy, setPolicy] = useState<Policy | null>(null);
@@ -87,9 +109,23 @@ export function RedirectsTab({ project, editable, reload }: { project: ProjectDe
 
   function changeMode(m: RedirectMode) {
     setMode(m);
+    const projectLevel = config.rules.filter((r) => !isScoped(r));
+    // An empty or still-prebuilt matrix follows the mode's prebuilt set; anything typed by hand is kept.
+    if (projectLevel.every(usesVendor)) return usePrebuilt(m);
     // Static and dynamic modes force every rule to that type; hybrid keeps per-status choices.
     if (m !== 'HYBRID') edit({ ...config, rules: config.rules.map((r) => ({ ...r, type: m })) });
     else setDirty(true);
+  }
+  /** Replaces the project-level matrix with the prebuilt one; country and vendor overrides stay. */
+  function usePrebuilt(m: RedirectMode = mode) {
+    setMode(m);
+    edit({
+      rules: [...prebuiltRules(m), ...config.rules.filter(isScoped).map((r) => (m === 'HYBRID' ? r : { ...r, type: m as RuleType }))],
+      params: config.params.length ? config.params : [{ canonical: 'respondent_uid', alias: 'uid', required: true }, { canonical: 'vendor_id', alias: 'vid', required: true }, { canonical: 'country_code', alias: 'country', required: true }],
+    });
+  }
+  function missingFor(status: OutcomeStatus) {
+    return (policy?.vendors ?? []).filter((v) => !v.redirectUrls[status] && !(VENDOR_FALLBACK[status] && v.redirectUrls[VENDOR_FALLBACK[status]]));
   }
 
   async function saveDraft() {
@@ -202,23 +238,25 @@ export function RedirectsTab({ project, editable, reload }: { project: ProjectDe
         </div>
       )}
 
-      <Section title="Redirect mode">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3" role="radiogroup">
-          {([
-            ['STATIC', 'Static', 'Fixed destination URL per status.'],
-            ['DYNAMIC', 'Dynamic', 'URLs get UID, vendor ID and country code added at runtime.'],
-            ['HYBRID', 'Hybrid', 'Choose static, dynamic or API (asked live from an endpoint) for each status.'],
-          ] as const).map(([m, label, desc]) => (
+      {policy.outcomeLinks && <RedirectGuide outcomeLinks={policy.outcomeLinks} />}
+
+      <Section
+        title="Step 3 · Redirect mode"
+        actions={editable && <button className="btn-ghost px-2.5 py-1.5 text-xs" onClick={() => usePrebuilt()} title="Every status goes to each vendor's saved redirect">Reset to prebuilt {mode.toLowerCase()}</button>}
+      >
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3" role="radiogroup" aria-label="Redirect mode">
+          {MODES.map(([m, label, desc, pre]) => (
             <button key={m} role="radio" aria-checked={mode === m} disabled={ro} onClick={() => changeMode(m)} className={clsx('rounded-lg border p-4 text-left transition-colors', mode === m ? 'border-brand bg-brand/5 ring-2 ring-brand/20' : 'border-line hover:bg-sunken/50')}>
               <div className="text-sm font-semibold">{label}</div>
               <div className="mt-1 text-xs text-muted">{desc}</div>
+              <div className="mt-2 rounded-md bg-sunken/70 px-2 py-1 text-[11px] text-muted">{pre}</div>
             </button>
           ))}
         </div>
       </Section>
 
       <Section title="Status matrix (project level)">
-        <p className="mb-4 text-xs text-muted">Dynamic URLs may use macros: <code>{MACRO_HINT}</code>. Leave a URL empty to inherit from the client template or organization default.</p>
+        <p className="mb-4 text-xs text-muted">Each status is prebuilt to the vendor’s saved redirect. Switch a status to <b>Custom URL</b> to type your own link; dynamic URLs may use macros: <code>{MACRO_HINT}</code>. An empty custom URL inherits from the client template or organization default.</p>
         <div className="-mx-5 overflow-x-auto">
           <table className="w-full min-w-[860px]">
             <thead className="border-y border-line bg-sunken/60">
@@ -232,12 +270,27 @@ export function RedirectsTab({ project, editable, reload }: { project: ProjectDe
                   <tr key={s}>
                     <td className="td font-medium">{STATUS_LABEL[s]}</td>
                     <td className="td">
-                      <select className="input w-28 px-2 py-1" disabled={ro || mode !== 'HYBRID'} value={r ? (mode === 'HYBRID' ? r.type : mode) : mode === 'HYBRID' ? 'DYNAMIC' : mode} onChange={(e) => setProjectRule(s, { type: e.target.value as RuleType })}>
+                      <select className="input w-28 px-2 py-1" disabled={ro || mode !== 'HYBRID'} value={r ? (mode === 'HYBRID' ? r.type : mode) : mode === 'HYBRID' ? 'DYNAMIC' : mode} onChange={(e) => setProjectRule(s, { type: e.target.value as RuleType, ...(e.target.value === 'API' && usesVendor(r) ? { url: '' } : {}) })}>
                         <option value="STATIC">Static</option><option value="DYNAMIC">Dynamic</option>{mode === 'HYBRID' && <option value="API">API</option>}
                       </select>
                     </td>
                     <td className="td w-full">
-                      <input className="input px-2 py-1 font-mono text-xs" disabled={ro} value={r?.url ?? ''} aria-label={`${STATUS_LABEL[s]} ${r?.type === 'API' ? 'endpoint' : 'URL'}`} placeholder={r?.type === 'API' ? 'Endpoint, e.g. https://router.client.example.com/projexa' : inh ? `Inherited from ${inh}` : 'No rule: respondents see the PROJEXA end page'} onChange={(e) => (e.target.value || r ? setProjectRule(s, { url: e.target.value }) : null)} />
+                      {r?.type !== 'API' && (
+                        <div className="mb-1.5 flex rounded-lg border border-line p-0.5 text-xs sm:inline-flex" role="group" aria-label={`${STATUS_LABEL[s]} destination`}>
+                          {([['vendor', 'Vendor’s saved redirect'], ['custom', 'Custom URL']] as const).map(([k, l]) => {
+                            const on = k === 'vendor' ? usesVendor(r) : !!r && !usesVendor(r);
+                            return <button key={k} type="button" disabled={ro} aria-pressed={on} onClick={() => setProjectRule(s, { url: k === 'vendor' ? VENDOR_REDIRECT_MACRO : r && !usesVendor(r) ? r.url : '' })} className={clsx('rounded-md px-2 py-0.5', on ? 'bg-brand text-brand-ink' : 'text-muted hover:bg-sunken')}>{l}</button>;
+                          })}
+                        </div>
+                      )}
+                      {usesVendor(r) && r?.type !== 'API' ? (
+                        <div className="text-xs">
+                          <span className="text-muted">Each vendor’s saved {STATUS_LABEL[s].toLowerCase()} URL{(mode === 'HYBRID' ? r?.type : mode) === 'DYNAMIC' ? ', plus uid, vid and country' : ', unchanged'}.</span>
+                          {missingFor(s).length > 0 && <span className="ml-1 text-warn">Not saved yet for {missingFor(s).map((v) => v.name).join(', ')} (they see the SampTrek end page).</span>}
+                        </div>
+                      ) : (
+                      <input className="input px-2 py-1 font-mono text-xs" disabled={ro} value={r?.url ?? ''} aria-label={`${STATUS_LABEL[s]} ${r?.type === 'API' ? 'endpoint' : 'URL'}`} placeholder={r?.type === 'API' ? 'Endpoint, e.g. https://router.client.example.com/projexa' : inh ? `Inherited from ${inh}` : 'No rule: respondents see the SampTrek end page'} onChange={(e) => (e.target.value || r ? setProjectRule(s, { url: e.target.value }) : null)} />
+                      )}
                       {r?.type === 'API' && mode === 'HYBRID' && (
                         <div className="mt-1.5 grid gap-1.5 sm:grid-cols-[1fr_120px]">
                           <input className="input px-2 py-1 font-mono text-xs" disabled={ro} value={r.fallbackUrl ?? ''} aria-label={`${STATUS_LABEL[s]} fallback URL`} placeholder="Fallback URL if the endpoint fails (macros allowed)" onChange={(e) => setProjectRule(s, { fallbackUrl: e.target.value })} />
@@ -255,6 +308,8 @@ export function RedirectsTab({ project, editable, reload }: { project: ProjectDe
         </div>
       </Section>
 
+      <VendorRedirectsSummary vendors={policy.vendors} editable={editable} />
+
       <Section title={`Country and vendor overrides (${overrides.length})`}>
         <p className="mb-4 text-xs text-muted">Priority: vendor + country, then vendor, then country, then the project matrix. The domain allowlist always applies.</p>
         {overrides.length === 0 ? (
@@ -269,7 +324,12 @@ export function RedirectsTab({ project, editable, reload }: { project: ProjectDe
                     <td className="td">{[r.scope?.vendorId && vendorName[r.scope.vendorId], r.scope?.countryCode && `${flag(r.scope.countryCode)} ${r.scope.countryCode}`].filter(Boolean).join(' + ')}</td>
                     <td className="td">{STATUS_LABEL[r.status]}</td>
                     <td className="td">{(mode === 'HYBRID' ? r.type : mode).toLowerCase()}</td>
-                    <td className="td max-w-[360px] truncate font-mono text-xs" title={r.fallbackUrl ? `${r.url}\nFallback: ${r.fallbackUrl}` : r.url}>{r.url}{r.type === 'API' && r.fallbackUrl && <div className="truncate text-muted">fallback: {r.fallbackUrl}</div>}</td>
+                    <td className="td min-w-[280px]">
+                      {usesVendor(r) ? <span className="text-xs text-muted">Vendor’s saved redirect</span> : (
+                        <input className="input px-2 py-1 font-mono text-xs" disabled={ro} value={r.url} aria-label={`Override URL ${i + 1}`} title={r.url} onChange={(e) => edit({ ...config, rules: config.rules.map((x) => (x === r ? { ...x, url: e.target.value } : x)) })} />
+                      )}
+                      {r.type === 'API' && r.fallbackUrl && <div className="mt-1 truncate font-mono text-xs text-muted">fallback: {r.fallbackUrl}</div>}
+                    </td>
                     <td className="td">{r.callbackRequired ? 'yes' : 'no'}</td>
                     <td className="td">{editable && <button className="btn-ghost p-1.5" aria-label="Remove override" onClick={() => edit({ ...config, rules: config.rules.filter((x) => x !== r) })}><Trash2 className="h-3.5 w-3.5" /></button>}</td>
                   </tr>

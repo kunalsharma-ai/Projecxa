@@ -9,12 +9,12 @@ import {
   resolveParamMappings,
   resolveRule,
 } from './redirect-resolver';
-import { API_TIMEOUT_MS, OutcomeStatus, RedirectConfig, RedirectModeT, RuleSource, RuleType } from './redirect.types';
+import { API_TIMEOUT_MS, OutcomeStatus, RedirectConfig, RedirectModeT, RuleSource, RuleType, VENDOR_REDIRECT_MACRO, VendorRedirectUrls, vendorRedirectFor } from './redirect.types';
 
 export interface EngineInput {
   status: OutcomeStatus;
   countryCode: string;
-  vendor: { id: string; code: string; redirectAllowedDomains: string[] };
+  vendor: { id: string; code: string; name?: string; redirectAllowedDomains: string[]; redirectUrls?: VendorRedirectUrls | null };
   projectCode: string;
   vendorRespondentId?: string;
   sessionToken?: string;
@@ -52,7 +52,7 @@ export interface EngineResult {
   apiFallback?: boolean;
 }
 
-/** What PROJEXA sends to an API destination endpoint. */
+/** What SampTrek sends to an API destination endpoint. */
 export interface ApiPayload {
   status: string;
   respondent_uid: string | null;
@@ -81,7 +81,7 @@ export function computeRedirect(input: EngineInput): EngineResult {
       if (chk.ok) destination = input.organizationFallbackUrl;
       steps.push({ step: 'fallback', ok: chk.ok, detail: chk.ok ? 'Organization fallback URL' : `Organization fallback rejected: ${chk.reason}` });
     } else {
-      steps.push({ step: 'fallback', ok: true, detail: 'PROJEXA end page (no organization fallback configured)' });
+      steps.push({ step: 'fallback', ok: true, detail: 'SampTrek end page (no organization fallback configured)' });
     }
     return { destination, usedFallback: true, callbackRequired: false, params: {}, blockedReason: reason, steps, ...partial };
   };
@@ -102,6 +102,21 @@ export function computeRedirect(input: EngineInput): EngineResult {
   }
   const type = effectiveRuleType(input.mode, resolved.rule);
   steps.push({ step: 'resolve-rule', ok: true, detail: `${resolved.source} → ${type} rule` });
+
+  // {vendor_redirect}: use the vendor's own saved URL for this status (Vendors → Edit → Redirects).
+  let rule = resolved.rule;
+  let fromVendor = false;
+  if (type !== 'API' && rule.url.trim() === VENDOR_REDIRECT_MACRO) {
+    const saved = vendorRedirectFor(input.vendor.redirectUrls, input.status);
+    if (!saved) {
+      const msg = `${input.vendor.name ?? input.vendor.code} has no saved ${input.status.toLowerCase().replace('_', ' ')} redirect`;
+      steps.push({ step: 'vendor-redirect', ok: false, detail: msg });
+      return fallback(msg, { ruleSource: resolved.source, ruleType: type });
+    }
+    rule = { ...rule, url: saved };
+    fromVendor = true;
+    steps.push({ step: 'vendor-redirect', ok: true, detail: 'Vendor’s saved redirect' });
+  }
 
   const values = {
     respondent_uid: input.vendorRespondentId,
@@ -144,9 +159,10 @@ export function computeRedirect(input: EngineInput): EngineResult {
   }
 
   const mappings = type === 'DYNAMIC' ? resolveParamMappings(input.config.params, { countryCode: input.countryCode, vendorId: input.vendor.id }) : [];
+  // A vendor's saved URL may carry its own {macros}; static mode fills them but adds nothing else.
   const built = buildDestination(
-    resolved.rule,
-    type,
+    rule,
+    fromVendor && type === 'STATIC' && /[{}]/.test(rule.url) ? 'DYNAMIC' : type,
     values,
     mappings,
   );

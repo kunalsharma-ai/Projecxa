@@ -1,0 +1,164 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-7 -7 78 78" width="128" height="128" role="img" aria-label="SampTrek icon"><title>SampTrek icon</title><style>
+.m-flt{animation:mFlt 6s ease-in-out infinite}
+@keyframes mFlt{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.5px)}}
+.m-l{animation:mL 5s cubic-bezier(.3,1.4,.4,1) infinite}@keyframes mL{0%,4%{transform:translateX(-12px);opacity:0}20%,88%{transform:none;opacity:1}100%{transform:translateX(-12px);opacity:0}}
+.m-r{animation:mR 5s cubic-bezier(.3,1.4,.4,1) infinite}@keyframes mR{0%,8%{transform:translateX(12px);opacity:0}24%,88%{transform:none;opacity:1}100%{transform:translateX(12px);opacity:0}}
+.m-core{transform-box:fill-box;transform-origin:50% 50%;animation:mCore 1.8s ease-in-out infinite}@keyframes mCore{0%,100%{transform:scale(.8);opacity:.75}50%{transform:scale(1.15);opacity:1}}
+.m-up{transform-box:fill-box;transform-origin:50% 50%;animation:mUp 5s cubic-bezier(.3,1.6,.5,1) infinite}@keyframes mUp{0%,4%{transform:translateY(10px) scale(.4);opacity:0}20%,88%{transform:none;opacity:1}100%{transform:translateY(-6px) scale(.8);opacity:0}}
+.m-spark{transform-box:fill-box;transform-origin:50% 50%;animation:mSpk 2.5s ease-in-out infinite}@keyframes mSpk{0%,100%{transform:scale(.4) rotate(0);opacity:.3}50%{transform:scale(1.1) rotate(90deg);opacity:1}}
+.m-spin{transform-origin:32px 33px;animation:mSpin 14s linear infinite}@keyframes mSpin{to{transform:rotate(360deg)}}
+.m-gat{animation:mGat 5s cubic-bezier(.3,1.4,.4,1) infinite}@keyframes mGat{0%,4%{transform:translate(var(--x),var(--y));opacity:0}22%,88%{transform:none;opacity:1}100%{transform:translate(var(--x),var(--y));opacity:0}}
+.m-g1{animation:mG1 5s cubic-bezier(.3,1.4,.4,1) infinite}@keyframes mG1{0%,4%{transform:translateY(-12px);opacity:0}22%,88%{transform:none;opacity:1}100%{transform:translateY(-12px);opacity:0}}
+.m-g2{animation:mG2 5s cubic-bezier(.3,1.4,.4,1) infinite}@keyframes mG2{0%,8%{transform:translate(-11px,7px);opacity:0}26%,88%{transform:none;opacity:1}100%{transform:translate(-11px,7px);opacity:0}}
+.m-g3{animation:mG3 5s cubic-bezier(.3,1.4,.4,1) infinite}@keyframes mG3{0%,12%{transform:translate(11px,7px);opacity:0}30%,88%{transform:none;opacity:1}100%{transform:translate(11px,7px);opacity:0}}
+.m-dash{animation:mDash 1.6s cubic-bezier(.5,0,.3,1) infinite}@keyframes mDash{0%,40%{transform:translateX(0)}60%{transform:translateX(4px)}100%{transform:translateX(0)}}
+.m-dash2{animation:mDash 1.6s .12s cubic-bezier(.5,0,.3,1) infinite}
+.m-route{stroke-dasharray:60;animation:mRoute 5s cubic-bezier(.6,0,.3,1) infinite}@keyframes mRoute{0%,8%{stroke-dashoffset:60}48%,88%{stroke-dashoffset:0}100%{stroke-dashoffset:60}}
+.m-peak{transform-box:fill-box;transform-origin:50% 50%;animation:mPeak 5s cubic-bezier(.3,1.8,.5,1) infinite}@keyframes mPeak{0%,46%{transform:scale(0)}56%,88%{transform:scale(1)}100%{transform:scale(0)}}
+.m-arc{transform-origin:13px 51px;animation:mArc 2.4s ease-out infinite}@keyframes mArc{0%{transform:scale(.82);opacity:.35}35%{transform:scale(1);opacity:1}100%{transform:scale(1);opacity:.55}}
+.m-pct{transform-origin:32px 31px;animation:mPct 5s cubic-bezier(.5,0,.2,1.3) infinite}@keyframes mPct{0%,22%{transform:rotate(-90deg) scale(0);opacity:0}38%,88%{transform:none;opacity:1}100%{transform:rotate(90deg) scale(0);opacity:0}}
+
+.fa-bolt{transform-box:fill-box;transform-origin:50% 50%;animation:faBolt 3s steps(1) infinite,faPunch 3s cubic-bezier(.3,1.8,.5,1) infinite}
+@keyframes faBolt{0%,60%,70%,100%{opacity:1}62%{opacity:.35}64%{opacity:1}66%{opacity:.5}}
+@keyframes faPunch{0%,58%,80%,100%{transform:scale(1)}63%{transform:scale(1.1) rotate(-3deg)}}
+.fa-ring{transform-origin:32px 32px;animation:faRing 3s ease-out infinite}
+@keyframes faRing{0%,60%{transform:scale(.5);opacity:0}63%{transform:scale(.6);opacity:.9}100%{transform:scale(1.5);opacity:0}}
+.fb-bar{animation:fbBar 4.5s cubic-bezier(.3,1.5,.5,1) infinite}
+@keyframes fbBar{0%,6%{transform:translateY(22px);opacity:0}22%,86%{transform:none;opacity:1}100%{transform:translateY(22px);opacity:0}}
+.fb-head{animation:fbHead 4.5s cubic-bezier(.3,1.6,.5,1) infinite}
+@keyframes fbHead{0%,30%{transform:translateY(18px);opacity:0}42%{transform:translateY(-5px);opacity:1}50%,86%{transform:none;opacity:1}100%{transform:translateY(-20px);opacity:0}}
+.fb-thr{animation:fbThr .9s ease-in infinite}
+@keyframes fbThr{0%{transform:translateY(0);opacity:.9}100%{transform:translateY(10px);opacity:0}}
+.fc-dart{animation:fcDart 3.6s cubic-bezier(.5,0,.75,0) infinite}
+@keyframes fcDart{0%,10%{transform:translate(26px,-26px);opacity:0}14%{opacity:1}34%,88%{transform:none;opacity:1}100%{transform:none;opacity:0}}
+.fc-shake{transform-origin:32px 32px;animation:fcShake 3.6s ease infinite}
+@keyframes fcShake{0%,33%,48%,100%{transform:none}36%{transform:translate(-1.6px,1px)}39%{transform:translate(1.4px,-1px)}42%{transform:translate(-.8px,.5px)}}
+.fc-hit{transform-box:fill-box;transform-origin:50% 50%;animation:fcHit 3.6s ease-out infinite}
+@keyframes fcHit{0%,33%{transform:scale(.4);opacity:0}36%{transform:scale(1);opacity:1}60%,100%{transform:scale(2.4);opacity:0}}
+.gl-mer{transform-origin:32px 32px;animation:glMer 6s ease-in-out infinite}
+@keyframes glMer{0%,100%{transform:scaleX(1)}50%{transform:scaleX(.05)}}
+.gl-orb{animation:glOrb 5s linear infinite}
+@keyframes glOrb{to{transform:rotate(360deg)}}
+.gl-pin{transform-box:fill-box;transform-origin:50% 100%;animation:glPin 4.5s cubic-bezier(.3,1.8,.5,1) infinite}
+@keyframes glPin{0%,6%{transform:translateY(-10px) scale(.3);opacity:0}18%,86%{transform:none;opacity:1}100%{transform:translateY(-6px) scale(.5);opacity:0}}
+.gl-rip{transform-box:fill-box;transform-origin:50% 50%;animation:glRip 2.2s ease-out infinite}
+@keyframes glRip{0%{transform:scale(.3);opacity:.9}100%{transform:scale(2.2);opacity:0}}
+.gl-arc{stroke-dasharray:3 4;animation:glArc 1.2s linear infinite}
+@keyframes glArc{to{stroke-dashoffset:-14}}
+.gl-draw{stroke-dasharray:70;animation:glDraw 4.5s cubic-bezier(.6,0,.3,1) infinite}
+@keyframes glDraw{0%,8%{stroke-dashoffset:70}40%,88%{stroke-dashoffset:0}100%{stroke-dashoffset:70}}
+.gl-node{transform-box:fill-box;transform-origin:50% 50%;animation:glNode 1.8s ease-in-out infinite}
+@keyframes glNode{0%,100%{transform:scale(.7);opacity:.6}50%{transform:scale(1.25);opacity:1}}
+.gl-turn{transform-origin:32px 32px;animation:glTurn 24s linear infinite}
+@keyframes glTurn{to{transform:rotate(360deg)}}
+
+.fd-com{animation:fdCom 4s cubic-bezier(.2,.9,.3,1.2) infinite}
+@keyframes fdCom{0%,4%{transform:translate(-18px,18px);opacity:0}22%,86%{transform:none;opacity:1}100%{transform:translate(10px,-10px);opacity:0}}
+.fd-tail{animation:fdTail 1.2s ease-in-out infinite}@keyframes fdTail{0%,100%{opacity:.75}50%{opacity:1}}
+.fd-spk{transform-box:fill-box;transform-origin:50% 50%;animation:fdSpk 1.6s ease-in-out infinite}@keyframes fdSpk{0%,100%{transform:scale(.3) rotate(0);opacity:.2}50%{transform:scale(1) rotate(45deg);opacity:1}}
+.fe-out{transform-origin:32px 60px;animation:feOut 1.4s ease-in-out infinite}
+@keyframes feOut{0%,100%{transform:scale(1,1) skewX(0)}30%{transform:scale(.96,1.05) skewX(-3deg)}65%{transform:scale(1.03,.97) skewX(2deg)}}
+.fe-in{transform-origin:32px 60px;animation:feIn 1.1s ease-in-out infinite}
+@keyframes feIn{0%,100%{transform:scale(1,1) skewX(0)}40%{transform:scale(1.05,.92) skewX(4deg)}75%{transform:scale(.95,1.06) skewX(-3deg)}}
+.fe-emb{animation:feEmb 2s ease-out infinite}@keyframes feEmb{0%{transform:translateY(0);opacity:0}20%{opacity:1}100%{transform:translateY(-18px);opacity:0}}
+.ff-chev{animation:ffChev 3.6s ease infinite}
+@keyframes ffChev{0%,8%{opacity:.18;transform:translateY(4px)}20%,86%{opacity:1;transform:none}100%{opacity:.18;transform:translateY(4px)}}
+.ff-glow{transform-box:fill-box;transform-origin:50% 50%;animation:ffGlow 3.6s ease-out infinite}
+@keyframes ffGlow{0%,46%{transform:scale(.6);opacity:0}52%{opacity:.9}80%,100%{transform:scale(1.6);opacity:0}}
+
+.ta-sun{animation:taSun 5s cubic-bezier(.3,1.2,.5,1) infinite}
+@keyframes taSun{0%,4%{transform:translateY(20px);opacity:0}30%,86%{transform:none;opacity:1}100%{transform:translateY(20px);opacity:0}}
+.ta-ray{transform-origin:44px 28px;animation:taRay 8s linear infinite}@keyframes taRay{to{transform:rotate(360deg)}}
+.ta-flag{animation:taFlag 5s cubic-bezier(.3,1.8,.5,1) infinite}
+@keyframes taFlag{0%,34%{transform:translateY(-14px);opacity:0}46%,86%{transform:none;opacity:1}100%{transform:translateY(-14px);opacity:0}}
+.ta-wave{transform-box:fill-box;transform-origin:0 50%;animation:taWave 1.1s ease-in-out infinite}
+@keyframes taWave{0%,100%{transform:skewY(0) scaleX(1)}50%{transform:skewY(10deg) scaleX(.82)}}
+.tb-card{animation:tbCard 4.8s cubic-bezier(.6,0,.3,1.2) infinite}
+@keyframes tbCard{0%,12%{transform:translate(0,0)}30%,46%{transform:translate(18px,8px)}64%,90%{transform:translate(36px,0)}100%{transform:translate(0,0)}}
+.tb-chk{transform-box:fill-box;transform-origin:50% 50%;animation:tbChk 4.8s cubic-bezier(.3,1.8,.5,1) infinite}
+@keyframes tbChk{0%,64%{transform:scale(0)}72%,90%{transform:scale(1)}100%{transform:scale(0)}}
+.tc-road{stroke-dasharray:110;animation:tcRoad 5s cubic-bezier(.6,0,.3,1) infinite}
+@keyframes tcRoad{0%,4%{stroke-dashoffset:110}54%,88%{stroke-dashoffset:0}100%{stroke-dashoffset:110}}
+.tc-ms{transform-box:fill-box;transform-origin:50% 50%;animation:tcMs 5s cubic-bezier(.3,1.8,.5,1) infinite}
+@keyframes tcMs{0%,8%{transform:scale(0)}16%,88%{transform:scale(1)}100%{transform:scale(0)}}
+
+.fn-arrow{animation:fnArrow 3.6s cubic-bezier(.7,0,.2,1) infinite}
+@keyframes fnArrow{0%,8%{transform:translateX(-26px);opacity:0}12%{opacity:1}30%,86%{transform:none;opacity:1}100%{transform:translateX(8px);opacity:0}}
+.fn-blk{transform-box:fill-box;transform-origin:50% 50%;animation-duration:3.6s;animation-timing-function:cubic-bezier(.2,.8,.3,1);animation-iteration-count:infinite}
+.fn-b1{animation-name:fnB1}.fn-b2{animation-name:fnB2}.fn-b3{animation-name:fnB3}
+@keyframes fnB1{0%,26%{transform:none;opacity:1}46%{transform:translate(10px,-14px) rotate(40deg) scale(.72);opacity:.7}88%{transform:translate(10px,-14px) rotate(40deg) scale(.72);opacity:.7}100%{transform:none;opacity:1}}
+@keyframes fnB2{0%,26%{transform:none;opacity:1}46%{transform:translate(16px,0) rotate(-30deg) scale(.72);opacity:.7}88%{transform:translate(16px,0) rotate(-30deg) scale(.72);opacity:.7}100%{transform:none;opacity:1}}
+@keyframes fnB3{0%,26%{transform:none;opacity:1}46%{transform:translate(10px,14px) rotate(-45deg) scale(.72);opacity:.7}88%{transform:translate(10px,14px) rotate(-45deg) scale(.72);opacity:.7}100%{transform:none;opacity:1}}
+.fn-burst{transform-box:fill-box;transform-origin:50% 50%;animation:fnBurst 3.6s ease-out infinite}
+@keyframes fnBurst{0%,27%{transform:scale(.3);opacity:0}31%{opacity:1}55%,100%{transform:scale(1.8);opacity:0}}
+.tn-ndl{transform-origin:32px 32px;animation:tnNdl 5s cubic-bezier(.4,0,.3,1) infinite}
+@keyframes tnNdl{0%{transform:rotate(-130deg)}24%{transform:rotate(34deg)}34%{transform:rotate(-16deg)}44%{transform:rotate(7deg)}54%{transform:rotate(-2deg)}62%,86%{transform:rotate(0deg)}100%{transform:rotate(230deg)}}
+.tn-tick{transform-origin:32px 32px;animation:tnTick 30s linear infinite}@keyframes tnTick{to{transform:rotate(-360deg)}}
+.tn-lock{transform-origin:32px 32px;animation:tnLock 5s ease-out infinite}
+@keyframes tnLock{0%,60%{transform:scale(.85);opacity:0}64%{opacity:.9}86%,100%{transform:scale(1.25);opacity:0}}
+.an-scan{animation:anScan 3.2s cubic-bezier(.5,0,.5,1) infinite}
+@keyframes anScan{0%{transform:translateX(-34px)}100%{transform:translateX(34px)}}
+.an-dot{animation:anDot 2.4s ease-in-out infinite}@keyframes anDot{0%,100%{opacity:.3}50%{opacity:1}}
+.an-bub{transform-box:fill-box;transform-origin:20% 100%;animation:anBub 4.2s cubic-bezier(.3,1.7,.5,1) infinite}
+@keyframes anBub{0%,6%{transform:scale(0) translateY(4px);opacity:0}16%,70%{transform:none;opacity:1}86%,100%{transform:translateY(-6px);opacity:0}}
+
+.fv-seg{stroke-dasharray:40;animation:fvSeg 4.2s cubic-bezier(.6,0,.3,1) infinite}
+@keyframes fvSeg{0%,6%{stroke-dashoffset:40}26%,88%{stroke-dashoffset:0}100%{stroke-dashoffset:40}}
+.fv-head{transform-box:fill-box;transform-origin:30% 70%;animation:fvHead 4.2s cubic-bezier(.3,1.8,.5,1) infinite}
+@keyframes fvHead{0%,30%{transform:scale(0) translate(-4px,4px);opacity:0}42%,88%{transform:none;opacity:1}100%{transform:scale(0);opacity:0}}
+.fv-glint{animation:fvGlint 4.2s ease-in-out infinite}
+@keyframes fvGlint{0%,50%{transform:translate(-30px,30px);opacity:0}58%{opacity:1}76%,100%{transform:translate(30px,-30px);opacity:0}}
+.tv-route{stroke-dasharray:80;animation:tvRoute 4.6s cubic-bezier(.6,0,.3,1) infinite}
+@keyframes tvRoute{0%,4%{stroke-dashoffset:80}40%,88%{stroke-dashoffset:0}100%{stroke-dashoffset:80}}
+.tv-pin{animation:tvPin 4.6s cubic-bezier(.3,1.7,.5,1) infinite}
+@keyframes tvPin{0%,30%{transform:translateY(-22px);opacity:0}44%,88%{transform:none;opacity:1}100%{transform:translateY(-10px);opacity:0}}
+.tv-chk{stroke-dasharray:16;animation:tvChk 4.6s ease infinite}
+@keyframes tvChk{0%,46%{stroke-dashoffset:16}56%,88%{stroke-dashoffset:0}100%{stroke-dashoffset:16}}
+.tv-rip{transform-box:fill-box;transform-origin:50% 50%;animation:tvRip 4.6s ease-out infinite}
+@keyframes tvRip{0%,42%{transform:scale(.3);opacity:0}46%{opacity:1}76%,100%{transform:scale(1.8);opacity:0}}
+.av-o1{animation:avO 3.2s linear infinite}.av-o2{animation:avO 4.4s linear infinite reverse}
+@keyframes avO{to{transform:rotate(360deg)}}
+.av-glow{transform-box:fill-box;transform-origin:50% 50%;animation:avGlow 2.4s ease-in-out infinite}
+@keyframes avGlow{0%,100%{opacity:.45;transform:scale(1)}50%{opacity:.9;transform:scale(1.06)}}
+
+.p1-spin{transform-origin:32px 32px;animation:p1Spin 6s linear infinite}@keyframes p1Spin{to{transform:rotate(360deg)}}
+.p1-arc{stroke-dasharray:40;animation:p1Arc 4s cubic-bezier(.6,0,.3,1) infinite}
+@keyframes p1Arc{0%,4%{stroke-dashoffset:40}26%,88%{stroke-dashoffset:0}100%{stroke-dashoffset:40}}
+.p1-tile{transform-box:fill-box;transform-origin:50% 50%;animation:p1Tile 4s cubic-bezier(.3,1.7,.5,1) infinite}
+@keyframes p1Tile{0%,20%{transform:scale(0) rotate(-20deg)}34%,88%{transform:none}100%{transform:scale(0)}}
+.p1-chk{stroke-dasharray:18;animation:p1Chk 4s ease infinite}@keyframes p1Chk{0%,34%{stroke-dashoffset:18}46%,88%{stroke-dashoffset:0}100%{stroke-dashoffset:18}}
+.p2-bar{transform-box:fill-box;transform-origin:0 50%;animation:p2Bar 4.6s cubic-bezier(.3,1.3,.5,1) infinite}
+@keyframes p2Bar{0%,4%{transform:scaleX(0);opacity:0}20%,88%{transform:none;opacity:1}100%{transform:scaleX(0);opacity:0}}
+.p2-prog{transform-box:fill-box;transform-origin:0 50%;animation:p2Prog 4.6s cubic-bezier(.6,0,.3,1) infinite}
+@keyframes p2Prog{0%,22%{transform:scaleX(0)}58%,88%{transform:scaleX(1)}100%{transform:scaleX(0)}}
+.p2-dep{stroke-dasharray:30;animation:p2Dep 4.6s ease infinite}@keyframes p2Dep{0%,30%{stroke-dashoffset:30}50%,88%{stroke-dashoffset:0}100%{stroke-dashoffset:30}}
+.p3-ring{stroke-dasharray:151;transform-origin:32px 32px;transform:rotate(-90deg);animation:p3Ring 4.6s cubic-bezier(.6,0,.3,1) infinite}
+@keyframes p3Ring{0%,6%{stroke-dashoffset:151}62%,88%{stroke-dashoffset:0}100%{stroke-dashoffset:151}}
+.p3-tick{transform-box:fill-box;transform-origin:50% 50%;animation:p3Tick 4.6s cubic-bezier(.3,1.8,.5,1) infinite}
+@keyframes p3Tick{0%,10%{transform:scale(0)}20%,88%{transform:scale(1)}100%{transform:scale(0)}}
+.p3-done{transform-box:fill-box;transform-origin:50% 50%;animation:p3Done 4.6s ease-out infinite}
+@keyframes p3Done{0%,60%{transform:scale(.8);opacity:0}64%{opacity:.9}88%,100%{transform:scale(1.25);opacity:0}}
+
+.q1-line{stroke-dasharray:90;animation:q1Line 4.8s cubic-bezier(.6,0,.3,1) infinite}
+@keyframes q1Line{0%,4%{stroke-dashoffset:90}50%,88%{stroke-dashoffset:0}100%{stroke-dashoffset:90}}
+.q1-node{transform-box:fill-box;transform-origin:50% 50%;animation:q1Node 4.8s cubic-bezier(.3,1.8,.5,1) infinite}
+@keyframes q1Node{0%,6%{transform:scale(0)}14%,88%{transform:scale(1)}100%{transform:scale(0)}}
+.q1-halo{transform-box:fill-box;transform-origin:50% 50%;animation:q1Halo 2s ease-out infinite}
+@keyframes q1Halo{0%{transform:scale(.6);opacity:.9}100%{transform:scale(2.2);opacity:0}}
+.q1-star{transform-box:fill-box;transform-origin:50% 50%;animation:q1Star 4.8s cubic-bezier(.3,1.8,.5,1) infinite}
+@keyframes q1Star{0%,50%{transform:scale(0) rotate(-90deg)}60%,88%{transform:scale(1) rotate(0)}100%{transform:scale(0)}}
+.q1-twk{transform-box:fill-box;transform-origin:50% 50%;animation:q1Twk 1.6s ease-in-out infinite}
+@keyframes q1Twk{0%,100%{transform:scale(.4);opacity:.3}50%{transform:scale(1);opacity:1}}
+.q2-lay{animation:q2Lay 4.6s cubic-bezier(.3,1.5,.5,1) infinite}
+@keyframes q2Lay{0%,4%{transform:translateY(-18px);opacity:0}18%,88%{transform:none;opacity:1}100%{transform:translateY(-18px);opacity:0}}
+.q2-beam{animation:q2Beam 4.6s ease-in-out infinite}
+@keyframes q2Beam{0%,40%{opacity:0}55%{opacity:.75}88%,100%{opacity:0}}
+.q2-chk{stroke-dasharray:22;animation:q2Chk 4.6s ease infinite}@keyframes q2Chk{0%,46%{stroke-dashoffset:22}58%,88%{stroke-dashoffset:0}100%{stroke-dashoffset:22}}
+.q3-halo{transform-origin:32px 32px;animation:q3Halo 5s linear infinite}@keyframes q3Halo{to{transform:rotate(360deg)}}
+.q3-prog{transform-box:fill-box;transform-origin:0 50%;animation:q3Prog 4.4s cubic-bezier(.6,0,.3,1) infinite}
+@keyframes q3Prog{0%,8%{transform:scaleX(0)}60%,88%{transform:scaleX(1)}100%{transform:scaleX(0)}}
+.q3-tick{transform-box:fill-box;transform-origin:50% 50%;animation:q3Tick 4.4s cubic-bezier(.3,1.8,.5,1) infinite}
+@keyframes q3Tick{0%,10%{transform:scale(0)}20%,88%{transform:scale(1)}100%{transform:scale(0)}}
+.q3-spk{transform-box:fill-box;transform-origin:50% 50%;animation:q3Spk 2.2s ease-in-out infinite}
+@keyframes q3Spk{0%,100%{transform:scale(.3) rotate(0);opacity:.2}50%{transform:scale(1.1) rotate(90deg);opacity:1}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}</style><svg x="-7" y="-7" width="78" height="78" viewBox="-7 -7 78 78" overflow="visible"><defs><linearGradient id="gai" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FEE440"></stop><stop offset="1" stop-color="#F15BB5"></stop></linearGradient><linearGradient id="gbi" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F15BB5"></stop><stop offset="1" stop-color="#9B5DE5"></stop></linearGradient><linearGradient id="gci" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FEE440"></stop><stop offset="1" stop-color="#9B5DE5"></stop></linearGradient><linearGradient id="hli" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".65"></stop><stop offset=".55" stop-color="#fff" stop-opacity="0"></stop></linearGradient><filter id="mgi" x="-30%" y="-30%" width="160%" height="170%" color-interpolation-filters="sRGB"><feDropShadow dx="0" dy="3" stdDeviation="3.5" flood-color="#F15BB5" flood-opacity="0.45"></feDropShadow></filter><linearGradient id="bmi" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#FEE440" stop-opacity=".9"></stop><stop offset="1" stop-color="#FEE440" stop-opacity="0"></stop></linearGradient></defs><g class="m-flt" filter="url(#mgi)"><rect class="q2-beam" x="24" y="-6" width="16" height="30" fill="url(#bmi)"></rect><g class="q2-lay" style="animation-delay: 0s"><polygon points="32,34 58,46 32,58 6,46" fill="url(#gci)" opacity="0.95"></polygon><polygon points="6,46 32,58 32,62 6,50" fill="#9B5DE5" opacity="0.76"></polygon><polygon points="58,46 32,58 32,62 58,50" fill="#F15BB5" opacity="0.76"></polygon><polygon points="32,34 58,46 32,58 6,46" fill="url(#hli)" opacity=".7"></polygon></g><g class="q2-lay" style="animation-delay: 0.2s"><polygon points="32,22 58,34 32,46 6,34" fill="url(#gbi)" opacity="0.95"></polygon><polygon points="6,34 32,46 32,50 6,38" fill="#9B5DE5" opacity="0.76"></polygon><polygon points="58,34 32,46 32,50 58,38" fill="#F15BB5" opacity="0.76"></polygon><polygon points="32,22 58,34 32,46 6,34" fill="url(#hli)" opacity=".7"></polygon></g><g class="q2-lay" style="animation-delay: 0.4s"><polygon points="32,10 58,22 32,34 6,22" fill="url(#gai)" opacity="1"></polygon><polygon points="6,22 32,34 32,38 6,26" fill="#9B5DE5" opacity="0.80"></polygon><polygon points="58,22 32,34 32,38 58,26" fill="#F15BB5" opacity="0.80"></polygon><polygon points="32,10 58,22 32,34 6,22" fill="url(#hli)" opacity=".7"></polygon></g><polyline class="q2-chk" points="25,22 30.5,26.5 40,17" fill="none" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"></polyline><path class="q1-twk" style="animation-delay: 0s" d="M58 3 L58.8 5.2 L61 6 L58.8 6.8 L58 9 L57.2 6.8 L55 6 L57.2 5.2 Z" fill="#FEE440"></path><path class="q1-twk" style="animation-delay: 0.7s" d="M6 7 L6.8 9.2 L9 10 L6.8 10.8 L6 13 L5.2 10.8 L3 10 L5.2 9.2 Z" fill="#F15BB5"></path></g></svg></svg>

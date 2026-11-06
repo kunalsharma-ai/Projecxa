@@ -40,7 +40,7 @@ function Organizations() {
 
   return (
     <>
-      <PageHeader title="Organisations" subtitle="Each customer company on this server, its plan and how much it uses PROJEXA."
+      <PageHeader title="Organisations" subtitle="Each customer company on this server, its plan and how much it uses SampTrek."
         actions={<button className="btn-primary" onClick={() => setAdding(!adding)}><Plus className="h-4 w-4" />Add organisation</button>} />
       <ErrorBox error={error} />
       {made && (

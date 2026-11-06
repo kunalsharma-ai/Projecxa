@@ -2,7 +2,7 @@
 import clsx from 'clsx';
 import { CheckCircle2, Copy, Globe, ImageUp, Mail, RefreshCw, Trash2 } from 'lucide-react';
 import { ChangeEvent, useCallback, useEffect, useState } from 'react';
-import { BrandIcon, BrandLogo } from '@/components/brand-mark';
+import { BrandIcon, BrandLogo, ProductLogo } from '@/components/brand-mark';
 import { FormField } from '@/components/form/field';
 import { SmartForm, type FormSchema, type Values } from '@/components/form/smart-form';
 import { useMe } from '@/components/me';
@@ -28,11 +28,11 @@ const schema = (canEdit: boolean): FormSchema => ({
       title: 'Name and words',
       columns: 2,
       fields: [
-        { name: 'appName', type: 'text', label: 'Product name', placeholder: 'PROJEXA', minLength: 2, maxLength: 40, hint: 'Replaces “PROJEXA” in the app, sign-in pages, emails and authenticator apps. Leave empty to keep PROJEXA.' },
+        { name: 'appName', type: 'text', label: 'Product name', placeholder: 'SampTrek', minLength: 2, maxLength: 40, hint: 'Replaces “SampTrek” in the app, sign-in pages, emails and authenticator apps. Leave empty to keep SampTrek.' },
         { name: 'tagline', type: 'text', label: 'Tagline', maxLength: 80, placeholder: 'Fieldwork by Acme' },
         { name: 'loginMessage', type: 'textarea', label: 'Sign-in message', maxLength: 300, span: 'full', hint: 'Shown under “Sign in” on your custom domain.', props: { rows: 2 } },
         { name: 'supportEmail', type: 'email', label: 'Support email', hint: 'Shown in portal footers and at the end of invitation emails.' },
-        { name: 'hidePoweredBy', type: 'switch', label: 'Powered by', props: { switchLabel: 'Hide “Powered by Sampledge PROJEXA”', description: 'In the client and vendor portals.' } },
+        { name: 'hidePoweredBy', type: 'switch', label: 'Powered by', props: { switchLabel: 'Hide “Powered by SampTrek by Sampledge”', description: 'In the client and vendor portals.' } },
       ],
     },
     {
@@ -40,7 +40,7 @@ const schema = (canEdit: boolean): FormSchema => ({
       description: 'The starting theme and accent for everyone in your organisation. People can still choose their own in Theme Studio.',
       columns: 2,
       fields: [
-        { name: 'theme', type: 'select', label: 'Default theme', placeholder: 'Keep the PROJEXA default', options: THEMES.map((t) => ({ value: t.id, label: t.name, hint: t.mood })) },
+        { name: 'theme', type: 'select', label: 'Default theme', placeholder: 'Keep the SampTrek default', options: THEMES.map((t) => ({ value: t.id, label: t.name, hint: t.mood })) },
         { name: 'brandColor', type: 'color', label: 'Brand colour', hint: 'Buttons, links and highlights. Text colours are adjusted if needed so they stay readable.' },
       ],
     },
@@ -101,7 +101,7 @@ export default function BrandingPage() {
   const s = data.branding;
   const preview: Brand = {
     ...data.brand,
-    appName: (typeof live.appName === 'string' && live.appName.trim()) || 'PROJEXA',
+    appName: (typeof live.appName === 'string' && live.appName.trim()) || 'SampTrek',
     custom: typeof live.appName === 'string' ? !!live.appName.trim() : data.brand.custom,
     brandColor: (live.brandColor as string) || null,
   };
@@ -181,7 +181,7 @@ export default function BrandingPage() {
                       </div>
                     ))}
                   </dl>
-                  <p className="mt-2 text-xs text-muted">The CNAME sends visitors to PROJEXA; your server administrator also adds the domain to the HTTPS certificate. The TXT record proves the domain is yours. The domain is used only after it is verified.</p>
+                  <p className="mt-2 text-xs text-muted">The CNAME sends visitors to SampTrek; your server administrator also adds the domain to the HTTPS certificate. The TXT record proves the domain is yours. The domain is used only after it is verified.</p>
                 </div>
               </div>
             )}
@@ -194,8 +194,12 @@ export default function BrandingPage() {
               <div>
                 <p className="mb-1.5 text-xs font-medium text-muted">Sidebar</p>
                 <div className="flex items-center gap-2.5 rounded-lg bg-sidebar px-3 py-3 text-sidebar-ink">
-                  <BrandIcon brand={preview} />
-                  <span className="truncate font-semibold tracking-tight">{preview.custom ? preview.appName : <>PROJEXA <span className="text-xs font-normal text-sidebar-muted">by Sampledge</span></>}</span>
+                  {preview.custom ? (
+                    <>
+                      <BrandIcon brand={preview} />
+                      <span className="truncate font-semibold tracking-tight">{preview.appName}</span>
+                    </>
+                  ) : <ProductLogo surface="sidebar" className="h-11" />}
                 </div>
               </div>
               <div>
@@ -211,10 +215,10 @@ export default function BrandingPage() {
               <div>
                 <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted"><Mail className="h-3.5 w-3.5" /> Invitation email</p>
                 <div className="rounded-lg border border-line bg-white p-4 text-[13px] text-slate-900">
-                  <div className="text-slate-500">From: <strong className="text-slate-900">{(live.emailFromName as string) || (preview.custom ? preview.appName : 'PROJEXA')}</strong></div>
+                  <div className="text-slate-500">From: <strong className="text-slate-900">{(live.emailFromName as string) || (preview.custom ? preview.appName : 'SampTrek')}</strong></div>
                   <div className="mb-3 text-slate-500">Subject: You&apos;re invited to {data.brand.organization.name} on {preview.appName}</div>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  {data.assets.logo ? <img src={data.assets.logo} alt="" className="mb-3 h-7" /> : <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em]" style={{ color: color ?? '#1d4ed8' }}>{preview.custom ? preview.appName : 'Sampledge · PROJEXA'}</div>}
+                  {data.assets.logo ? <img src={data.assets.logo} alt="" className="mb-3 h-7" /> : preview.custom ? <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em]" style={{ color: color ?? '#1d4ed8' }}>{preview.appName}</div> : <img src="/brand/samptrek-logo-light.png" alt="SampTrek by Sampledge" className="mb-3 h-8" />}
                   <span className="inline-block rounded-md px-3 py-1.5 font-semibold text-white" style={{ background: color ?? '#1d4ed8' }}>Choose a password</span>
                   <div className="mt-2 break-all text-[11px] text-slate-500">{data.webBase}/set-password?token=…</div>
                 </div>

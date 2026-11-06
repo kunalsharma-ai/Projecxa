@@ -107,7 +107,7 @@ export class BillingAdminController {
   }
 }
 
-/** Gateways tell PROJEXA about payments here; each request is checked with the gateway's webhook secret. */
+/** Gateways tell SampTrek about payments here; each request is checked with the gateway's webhook secret. */
 @Controller('public/billing')
 @Public()
 export class BillingWebhookController {

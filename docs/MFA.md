@@ -1,6 +1,6 @@
 # Two-step sign-in (MFA)
 
-Milestone 13. After the password, PROJEXA asks for a 6-digit code from an authenticator app on
+Milestone 13. After the password, SampTrek asks for a 6-digit code from an authenticator app on
 the person's phone. It uses the open TOTP standard (RFC 6238), so any free app works: Google
 Authenticator, Microsoft Authenticator, Authy, 1Password, Bitwarden and others. There are no SMS
 or email costs and no third-party service.

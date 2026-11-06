@@ -178,6 +178,11 @@ body {
 .dark-show { display: none; }
 [data-mode='dark'] .dark-show { display: inline-block; }
 [data-mode='dark'] .dark-hide { display: none; }
+/* The product logo has a version for dark and one for light backgrounds; the sidebar follows its own tone. */
+.sb-dark-logo { display: inline-block; }
+.sb-light-logo { display: none; }
+[data-sidebar-tone='light'] .sb-dark-logo { display: none; }
+[data-sidebar-tone='light'] .sb-light-logo { display: inline-block; }
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Neon Command (docs/NEON_DESIGN.md). Everything below is scoped to the neon theme and

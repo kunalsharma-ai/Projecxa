@@ -142,6 +142,75 @@ export class DashboardController {
     };
   }
 
+  /**
+   * The simple overview at the top of the dashboard: project counts by status, clients and vendors, and clicks,
+   * completes and money for today, yesterday, the last 7 days and this month (UTC days, test traffic excluded),
+   * each compared with the window just before it. Money is in the reporting currency so currencies never mix.
+   */
+  @Get('dashboard/snapshot')
+  async snapshot(@CurrentUser() u: AuthUser) {
+    const org = u.organizationId;
+    const now = Date.now();
+    const today = iso(now);
+    const y = new Date(now);
+    const monthStart = iso(Date.UTC(y.getUTCFullYear(), y.getUTCMonth(), 1));
+    const dayOfMonth = y.getUTCDate();
+    const lastMonthStart = Date.UTC(y.getUTCFullYear(), y.getUTCMonth() - 1, 1);
+    const lastMonthDays = new Date(Date.UTC(y.getUTCFullYear(), y.getUTCMonth(), 0)).getUTCDate();
+    const windows = [
+      { id: 'today', label: 'Today', from: today, to: today, prevFrom: iso(now - DAY), prevTo: iso(now - DAY), compare: 'vs yesterday' },
+      { id: 'yesterday', label: 'Yesterday', from: iso(now - DAY), to: iso(now - DAY), prevFrom: iso(now - 2 * DAY), prevTo: iso(now - 2 * DAY), compare: 'vs the day before' },
+      { id: 'week', label: 'Last 7 days', from: iso(now - 6 * DAY), to: today, prevFrom: iso(now - 13 * DAY), prevTo: iso(now - 7 * DAY), compare: 'vs the 7 days before' },
+      {
+        id: 'month', label: 'This month', from: monthStart, to: today,
+        prevFrom: iso(lastMonthStart), prevTo: iso(lastMonthStart + (Math.min(dayOfMonth, lastMonthDays) - 1) * DAY), compare: 'vs the same days last month',
+      },
+    ] as const;
+    const [clients, vendors, projects, rates, ...rows] = await Promise.all([
+      this.prisma.client.groupBy({ by: ['status'], where: { organizationId: org }, _count: { _all: true } }),
+      this.prisma.vendor.groupBy({ by: ['status'], where: { organizationId: org }, _count: { _all: true } }),
+      this.prisma.project.groupBy({ by: ['status'], where: { organizationId: org }, _count: { _all: true } }),
+      this.reports.rateTable(org),
+      ...windows.flatMap((w) => [
+        this.reports.summary(org, { from: w.from, to: w.to }, null),
+        this.reports.summary(org, { from: w.prevFrom, to: w.prevTo }, null),
+      ]),
+    ]);
+    const pick = (r: SummaryRow | undefined) => ({
+      clicks: r?.clicks ?? 0,
+      completes: r?.completes ?? 0,
+      conversion: r?.clicks ? Math.round((r.completes / r.clicks) * 1000) / 10 : null,
+      revenue: r?.reporting.revenue ?? 0,
+      cost: r?.reporting.payout ?? 0,
+      profit: r?.reporting.profit ?? 0,
+      missing: r?.reporting.missing ?? [],
+    });
+    const byStatus = Object.fromEntries(projects.map((p) => [p.status, p._count._all])) as Record<string, number>;
+    return {
+      currency: rates.base,
+      projects: {
+        all: sum(projects),
+        live: byStatus.LIVE ?? 0,
+        test: byStatus.TEST ?? 0,
+        hold: byStatus.HOLD ?? 0,
+        closed: byStatus.CLOSED ?? 0,
+        draft: byStatus.DRAFT ?? 0,
+        invoiced: byStatus.INVOICED ?? 0,
+      },
+      clients: { total: sum(clients), active: count(clients, 'ACTIVE') },
+      vendors: { total: sum(vendors), active: count(vendors, 'ACTIVE') },
+      periods: windows.map((w, i) => {
+        const cur = pick(rows[i * 2][0]);
+        const prev = pick(rows[i * 2 + 1][0]);
+        return {
+          id: w.id, label: w.label, from: w.from, to: w.to, compare: w.compare,
+          ...cur,
+          trend: { clicks: trend(cur.clicks, prev.clicks), completes: trend(cur.completes, prev.completes), revenue: trend(cur.revenue, prev.revenue) },
+        };
+      }),
+    };
+  }
+
   /** All-time counts and fieldwork health. */
   private async overview(org: string) {
     const [clients, vendors, projectsByStatus, money, sessionsByStatus, recentRedirects, callbackStates] = await Promise.all([

@@ -105,6 +105,8 @@ export type CreateProjectInput = z.infer<typeof createProjectSchema>;
 
 export const updateProjectSchema = z.object({
   name: z.string().min(1).max(300).optional(),
+  /** What vendors see instead of the name (empty = "Survey <code>"). */
+  vendorTitle: z.preprocess((v) => (typeof v === 'string' && !v.trim() ? null : v), z.string().trim().max(200).nullable().optional()),
   category: z.string().min(1).max(100).optional(),
   description: z.string().max(20000).nullable().optional(),
   clientContactId: z.string().nullable().optional(),

@@ -29,7 +29,7 @@ export function openApiSpec() {
   return {
     openapi: '3.0.3',
     info: {
-      title: 'PROJEXA public API',
+      title: 'SampTrek public API',
       version: '1.0.0',
       description: `Read projects, fieldwork progress, sessions, quotas and finance, and change project, market and vendor link status. Authenticate with an API key from Settings → API and webhooks. Permissions: ${SCOPE_NAMES.map((s) => `${s} (${API_SCOPES[s]})`).join('; ')}. Webhook events: ${EVENT_NAMES.map((e) => `${e}: ${WEBHOOK_EVENTS[e]}`).join(' ')}`,
     },

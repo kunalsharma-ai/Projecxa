@@ -1,6 +1,6 @@
 # Super Admin: organisations, subscriptions, feature switches, activity and automation
 
-The **Super Admin** runs the whole PROJEXA server. Above every organisation's own admins, they:
+The **Super Admin** runs the whole SampTrek server. Above every organisation's own admins, they:
 
 - register organisations (or approve the ones that registered themselves), pause and reactivate them;
 - give each organisation a **plan**: a package of features for the web app and for the Android/iOS app, with user and project limits;

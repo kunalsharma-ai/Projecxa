@@ -6,7 +6,7 @@ import { WebhooksService } from '../webhooks/webhooks.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { computeRedirect, finishApiRedirect, internalEndPage } from '../redirects/redirect-engine';
 import { askApiDestination, redirectSigningSecret } from '../redirects/redirect-api';
-import { OutcomeStatus } from '../redirects/redirect.types';
+import { OutcomeStatus, parseVendorRedirectUrls } from '../redirects/redirect.types';
 import { fillCallbackTemplate, parseConfig } from '../redirects/redirects.service';
 import {
   CheckResult,
@@ -665,7 +665,7 @@ export class SurveyService {
     let result = computeRedirect({
       status,
       countryCode: session.projectCountry.countryCode,
-      vendor: session.vendorAllocation.vendor,
+      vendor: { ...session.vendorAllocation.vendor, redirectUrls: parseVendorRedirectUrls(session.vendorAllocation.vendor.redirectUrls) },
       projectCode: session.project.projectCode,
       vendorRespondentId: session.vendorRespondentId,
       sessionToken: session.token,

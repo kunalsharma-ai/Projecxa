@@ -126,7 +126,7 @@ export class BillingService {
 
   private async keys(p: Provider) {
     const r = await this.integrations.resolve(null, p);
-    if (!r.source || !configuredIn(p, r.env)) throw new BadRequestException(`${p === 'razorpay' ? 'Razorpay' : 'Stripe'} is not set up. Ask your PROJEXA provider.`);
+    if (!r.source || !configuredIn(p, r.env)) throw new BadRequestException(`${p === 'razorpay' ? 'Razorpay' : 'Stripe'} is not set up. Ask your SampTrek provider.`);
     return r.env as Record<string, string | undefined>;
   }
 
@@ -215,13 +215,13 @@ export class BillingService {
 
   async checkout(u: AuthUser, b: { planCode: string; interval: BillingInterval; provider: Provider }) {
     const s = await this.settings();
-    if (!s.onlineEnabled || !(await this.providers()).includes(b.provider)) throw new BadRequestException('Online payment is not available. Pay offline or ask your PROJEXA provider.');
+    if (!s.onlineEnabled || !(await this.providers()).includes(b.provider)) throw new BadRequestException('Online payment is not available. Pay offline or ask your SampTrek provider.');
     // Earlier unfinished checkouts are cancelled (a late payment for one is still honoured).
     await this.prisma.billingInvoice.updateMany({ where: { organizationId: u.organizationId, status: 'OPEN', method: { in: ['razorpay', 'stripe'] } }, data: { status: 'CANCELLED' } });
     const inv = await this.create(u.organizationId, b.planCode, b.interval, u, { data: { method: b.provider } });
     const env = await this.keys(b.provider);
     const total = num(inv.total)!;
-    const label = `PROJEXA ${inv.plan.name}, ${inv.interval === 'YEARLY' ? '1 year' : '1 month'}`;
+    const label = `SampTrek ${inv.plan.name}, ${inv.interval === 'YEARLY' ? '1 year' : '1 month'}`;
     const o = await this.org(u.organizationId);
     try {
       if (b.provider === 'razorpay') {
@@ -233,7 +233,7 @@ export class BillingService {
         const j = (await r.json().catch(() => ({}))) as { id?: string; error?: { description?: string } };
         if (!r.ok || !j.id) throw new Error(j.error?.description ?? `Razorpay answered ${r.status}`);
         await this.prisma.billingInvoice.update({ where: { id: inv.id }, data: { providerOrderId: j.id } });
-        return { provider: 'razorpay', invoiceId: inv.id, number: inv.number, keyId: env.RAZORPAY_KEY_ID!.trim(), orderId: j.id, amount: minor(total, inv.currency), currency: inv.currency, name: s.sellerName || 'PROJEXA', description: label, prefill: { name: u.name, email: u.email } };
+        return { provider: 'razorpay', invoiceId: inv.id, number: inv.number, keyId: env.RAZORPAY_KEY_ID!.trim(), orderId: j.id, amount: minor(total, inv.currency), currency: inv.currency, name: s.sellerName || 'SampTrek', description: label, prefill: { name: u.name, email: u.email } };
       }
       const web = webBaseOf(o);
       const form = new URLSearchParams({
@@ -323,7 +323,7 @@ export class BillingService {
 
   async submitOffline(u: AuthUser, b: { planCode: string; interval: BillingInterval; method: OfflineMethod; reference: string; paidOn: Date; note?: string | null }, file?: { originalname: string; mimetype: string; size: number; buffer: Buffer }) {
     const s = await this.settings();
-    if (!s.offlineEnabled) throw new BadRequestException('Offline payment is not available. Ask your PROJEXA provider.');
+    if (!s.offlineEnabled) throw new BadRequestException('Offline payment is not available. Ask your SampTrek provider.');
     if (!s.offlineMethods.includes(b.method)) throw new BadRequestException('That payment method is not accepted');
     if (b.paidOn.getTime() > Date.now() + 86_400_000) throw new BadRequestException('The payment date is in the future');
     if (file) {
@@ -434,7 +434,7 @@ export class BillingService {
       paymentReference: paid ? [METHOD_LABEL[inv.method ?? ''] ?? inv.method, inv.reference].filter(Boolean).join(' ') : null,
       client: { name: buyer.legalName || o.name, code: o.slug, billingAddress: buyer.address ?? null, taxId: buyer.taxId ?? null },
       project: { code: inv.plan.code, name: `${inv.plan.name} plan, ${inv.interval === 'YEARLY' ? 'yearly' : 'monthly'}`, workOrderNo: null },
-      lines: [{ description: `PROJEXA ${inv.plan.name} subscription (${period})`, countryCode: null, quantity: 1, unitPrice: num(inv.amount)!, amount: num(inv.amount)! }],
+      lines: [{ description: `SampTrek ${inv.plan.name} subscription (${period})`, countryCode: null, quantity: 1, unitPrice: num(inv.amount)!, amount: num(inv.amount)! }],
       subtotal: num(inv.amount)!, taxName: inv.taxName, taxPercent: num(inv.taxPercent)!, taxAmount: num(inv.taxAmount)!, total: num(inv.total)!,
       notes: inv.note,
     });
@@ -500,7 +500,7 @@ export class BillingService {
     return this.view(await this.prisma.billingInvoice.update({ where: { id }, data: { status: 'CANCELLED', reviewedById: u.id }, include: { plan: true } }));
   }
 
-  /** The Super Admin records a payment received outside PROJEXA (renews at once). */
+  /** The Super Admin records a payment received outside SampTrek (renews at once). */
   async record(u: AuthUser, b: { organizationId: string; planCode: string; interval: BillingInterval; amount?: number | null; method: string; reference?: string | null; paidOn?: Date | null; note?: string | null }) {
     const inv = await this.create(b.organizationId, b.planCode, b.interval, u, { amount: b.amount, anyPlan: true, data: { method: b.method, reference: b.reference ?? null, paidOn: b.paidOn ?? new Date(), note: b.note ?? null } });
     return this.view(await this.markPaid(inv.id, { method: b.method, reference: b.reference, paidOn: b.paidOn, by: u }));

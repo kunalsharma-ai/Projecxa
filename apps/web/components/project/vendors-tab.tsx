@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { AlertTriangle, Check, Copy, MessageSquareQuote, Pause, Pencil, Play, Plus, Save, Sparkles } from 'lucide-react';
 import { QuotesPanel } from './quotes-panel';
 import { VendorSuggestions } from './vendor-suggestions';
+import { VendorTitle } from './vendor-title';
 import { useEffect, useMemo, useState } from 'react';
 import { Combobox } from '@/components/form/combobox';
 import { Empty, ErrorBox, Field, Progress, Section, StatusChip, money } from '@/components/ui';
@@ -138,6 +139,7 @@ export function VendorsTab({ project, editable, reload }: { project: ProjectDeta
 
   return (
     <div className="space-y-6">
+      <VendorTitle project={project} editable={editable} reload={reload} />
       <ErrorBox error={error} />
       <Section
         title="Vendors per market"
