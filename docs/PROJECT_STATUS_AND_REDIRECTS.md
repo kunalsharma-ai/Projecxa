@@ -33,4 +33,4 @@ Used by the status chip everywhere, the status tabs and row stripe on the projec
 
 ## Branding of the return links
 
-The links are built from `PUBLIC_BASE_URL` on the API. If they show `projexa.sampledge.com`, set `PUBLIC_BASE_URL` to the SampTrek address (and point DNS/TLS at the API). No code change is needed.
+The links are built from `PUBLIC_BASE_URL` on the API. Sampledge's server moves from `projexa.sampledge.com` to `samptrek.sampledge.com`: the steps (DNS, settings, keeping old links working, provider redirect URIs) are in `docs/SAMPTREK_ADDRESS.md`. No code change is needed.

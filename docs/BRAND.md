@@ -55,6 +55,11 @@ sees the SampTrek logo or name: its own name, logo and icon replace them in the 
 emails and report PDFs, exactly as before. An organisation that only uploads a logo keeps the
 SampTrek name, with its own logo in emails and on sign-in pages.
 
+## Server address
+
+Sampledge's own server moves from `projexa.sampledge.com` to `samptrek.sampledge.com`. Links come from
+server settings, not code; see `docs/SAMPTREK_ADDRESS.md`.
+
 ## Names kept on purpose
 
 These still say `projexa` because changing them would break running servers, saved data or other

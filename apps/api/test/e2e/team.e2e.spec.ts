@@ -18,7 +18,7 @@ describe('Team and password reset (e2e)', () => {
   const later = () => new Promise((r) => setTimeout(r, 1100)); // older tokens are compared to the second
 
   beforeAll(async () => {
-    process.env.WEB_ORIGIN = 'http://web.projexa.test';
+    process.env.WEB_ORIGIN = 'http://web.samptrek.test';
     ({ app, prisma } = await createApp());
     await resetDb(prisma);
     ({ users } = await makeOrg(prisma, 'team'));
@@ -34,7 +34,7 @@ describe('Team and password reset (e2e)', () => {
 
   it('invites a staff member by email, who then chooses a password', async () => {
     const r = (await admin.post('/team', { email: 'New.Person@team.test', name: 'New Person', role: 'PROJECT_MANAGER' }).expect(201)).body;
-    expect(r).toMatchObject({ emailed: true, inviteUrl: expect.stringMatching(/^http:\/\/web\.projexa\.test\/set-password\?token=/) });
+    expect(r).toMatchObject({ emailed: true, inviteUrl: expect.stringMatching(/^http:\/\/web\.samptrek\.test\/set-password\?token=/) });
     const m = sent.pop()!;
     expect(m.to).toEqual(['new.person@team.test']);
     expect(m.subject).toBe("You're invited to team on SampTrek");

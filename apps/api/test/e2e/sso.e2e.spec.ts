@@ -35,7 +35,7 @@ describe('Single sign-on (e2e)', () => {
       process.env[`${k}_CLIENT_ID`] = `${v}-client`;
       process.env[`${k}_CLIENT_SECRET`] = `${v}-secret`;
     }
-    process.env.WEB_ORIGIN = 'http://web.projexa.test';
+    process.env.WEB_ORIGIN = 'http://web.samptrek.test';
     ({ app, prisma } = await createApp());
     await resetDb(prisma);
     ({ users } = await makeOrg(prisma, 'acme'));
@@ -95,7 +95,7 @@ describe('Single sign-on (e2e)', () => {
     expect((await http().get('/api/v1/auth/sso/providers').expect(200)).body.map((p: { id: string }) => p.id)).toEqual(['google', 'microsoft', 'zoho']);
     const s = (await admin.get('/organization/sso').expect(200)).body;
     expect(s.settings).toEqual({ providers: { google: false, microsoft: false, zoho: false }, domains: [], microsoftTenantId: null, ssoOnly: false });
-    expect(s.available[0]).toMatchObject({ id: 'google', configured: true, redirectUri: 'http://api.projexa.test/api/v1/auth/sso/google/callback' });
+    expect(s.available[0]).toMatchObject({ id: 'google', configured: true, redirectUri: 'http://api.samptrek.test/api/v1/auth/sso/google/callback' });
     await api(app, await login(app, users.PROJECT_MANAGER.email)).get('/organization/sso').expect(403);
   });
 
@@ -119,10 +119,10 @@ describe('Single sign-on (e2e)', () => {
     await settings({}).expect(200);
     const r = await signIn('google', { sub: 'g-pm', email: 'PM@acme.com', email_verified: true });
     expect(r.to.origin + r.to.pathname).toBe('https://accounts.google.com/authorize');
-    expect(r.to.searchParams.get('redirect_uri')).toBe('http://api.projexa.test/api/v1/auth/sso/google/callback');
+    expect(r.to.searchParams.get('redirect_uri')).toBe('http://api.samptrek.test/api/v1/auth/sso/google/callback');
     expect(r.to.searchParams.get('code_challenge_method')).toBe('S256');
     expect(createHash('sha256').update(seen.verifier!).digest('base64url')).toBe(seen.challenge);
-    expect(r.location).toBe('http://web.projexa.test/');
+    expect(r.location).toBe('http://web.samptrek.test/');
     const tok = session(r.cookies)!;
     expect((await http().get('/api/v1/auth/me').set('Cookie', tok).expect(200)).body.user.id).toBe(users.PROJECT_MANAGER.id);
     const linked = await prisma.ssoIdentity.findMany({ where: { userId: users.PROJECT_MANAGER.id } });
@@ -191,7 +191,7 @@ describe('Single sign-on (e2e)', () => {
     await prisma.user.update({ where: { id: users.VIEWER.id }, data: { mfaLastStep: null } });
     await settings({ providers: { google: true, microsoft: true, zoho: false }, microsoftTenantId: TENANT }).expect(200);
     const r = await signIn('microsoft', { sub: 'x', oid: 'o-v', email: 'viewer@acme.com' });
-    expect(r.location).toBe('http://web.projexa.test/login?step=code');
+    expect(r.location).toBe('http://web.samptrek.test/login?step=code');
     expect(session(r.cookies)).toBeUndefined();
     const mfa = r.cookies.find((c) => c.startsWith('projexa_mfa='))!.split(';')[0];
     await http().post('/api/v1/auth/login/mfa').send({ code: totp(s.secret) }).expect(401);
@@ -216,7 +216,7 @@ describe('Single sign-on (e2e)', () => {
       const q = new URLSearchParams({ client: 'mobile', redirect: o.redirect ?? 'projexa://sso', challenge: o.challenge ?? challenge });
       const start = await http().get(`/api/v1/auth/sso/${p}/start?${q}`).expect(302);
       const to = new URL(start.headers.location);
-      expect(to.searchParams.get('redirect_uri')).toBe(`http://api.projexa.test/api/v1/auth/sso/${p}/callback`);
+      expect(to.searchParams.get('redirect_uri')).toBe(`http://api.samptrek.test/api/v1/auth/sso/${p}/callback`);
       seen = { nonce: to.searchParams.get('nonce')!, challenge: to.searchParams.get('code_challenge')! };
       next = claims;
       const cookie = (start.headers['set-cookie'] as unknown as string[]).find((c) => c.startsWith('projexa_sso='))!.split(';')[0];
