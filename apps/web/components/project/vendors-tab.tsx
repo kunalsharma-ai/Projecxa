@@ -11,6 +11,8 @@ import { get, patch, post } from '@/lib/api';
 import { countryName, flag } from '@/lib/countries';
 import type { Option } from '@/lib/types';
 import { withPayoutCheck } from './payout';
+import { BulkFill } from './bulk-fill';
+import { CopyIcon, copyText } from '@/components/copy';
 import type { Allocation, Country, ProjectDetail } from './types';
 
 export function CopyButton({ text, label }: { text: string; label: string }) {
@@ -19,7 +21,7 @@ export function CopyButton({ text, label }: { text: string; label: string }) {
     <button
       className="btn-ghost px-2 py-1 text-xs"
       onClick={async () => {
-        await navigator.clipboard.writeText(text);
+        if (!(await copyText(text))) return;
         setDone(true);
         setTimeout(() => setDone(false), 1500);
       }}
@@ -126,6 +128,50 @@ export function VendorsTab({ project, editable, reload }: { project: ProjectDeta
     reload();
   }
 
+  /** "Apply to all" for vendor links: payout, target and link variable on every vendor link (or one vendor / one market). */
+  const [scope, setScope] = useState({ vendorId: '', countryId: '' });
+  const scoped = useMemo(
+    () => project.countries.flatMap((c) => (scope.countryId && c.id !== scope.countryId ? [] : c.allocations.filter((a) => !scope.vendorId || a.vendorId === scope.vendorId).map((a) => ({ c, a })))),
+    [project.countries, scope],
+  );
+  async function applyToLinks(v: Record<string, string>) {
+    setError(null);
+    let allowAbove = false;
+    try {
+      for (const { c, a } of scoped) {
+        const body: Record<string, unknown> = {};
+        if (v.cpi !== undefined) body.cpi = Number(v.cpi);
+        if (v.targetCompletes !== undefined) body.targetCompletes = Number(v.targetCompletes);
+        if (v.uidParam !== undefined) body.uidParam = v.uidParam.trim() || 'vid';
+        const done = await withPayoutCheck((allowAboveCpi) =>
+          patch(`/projects/${project.id}/countries/${c.id}/allocations/${a.id}`, { ...body, ...(body.cpi !== undefined ? { allowAboveCpi: allowAboveCpi || allowAbove } : {}) }).then((r) => {
+            if (allowAboveCpi) allowAbove = true; // asked once for the whole batch
+            return r;
+          }),
+        );
+        if (!done) break;
+      }
+    } catch (e) {
+      setError(e);
+    }
+    reload();
+  }
+  async function setLinksStatus(status: 'ACTIVE' | 'PAUSED') {
+    setError(null);
+    try {
+      for (const { c, a } of scoped) if (a.status !== status) await patch(`/projects/${project.id}/countries/${c.id}/allocations/${a.id}`, { status });
+    } catch (e) {
+      setError(e);
+    }
+    reload();
+  }
+  /** Every entry link as rows (market, vendor, live, test) that paste straight into Excel or an email. */
+  const allLinks = useMemo(
+    () =>
+      ['Market\tVendor\tLive link\tTest link', ...project.countries.flatMap((c) => c.allocations.map((a) => [marketName(c), a.vendor.name, a.uniqueLinksOnly ? 'Unique links only' : a.entryLink, a.testEntryLink].join('\t')))].join('\n'),
+    [project.countries],
+  );
+
   const byVendor = useMemo(() => {
     const m = new Map<string, { vendor: Allocation['vendor']; rows: { c: Country; a: Allocation }[] }>();
     for (const c of project.countries)
@@ -162,9 +208,48 @@ export function VendorsTab({ project, editable, reload }: { project: ProjectDeta
             </a>
           ))}
         </div>
-        <p className="mt-3 text-xs text-muted">
-          {project.countries.length} {project.countries.length === 1 ? 'market' : 'markets'}, {byVendor.length} {byVendor.length === 1 ? 'vendor' : 'vendors'}. Each vendor gets its own entry link per market. Replace <code className="rounded bg-sunken px-1">[UID]</code> with the vendor&apos;s respondent ID macro. Test links are never billed.
+        <p className="mt-3 flex flex-wrap items-center gap-x-2 text-xs text-muted">
+          <span>
+            {project.countries.length} {project.countries.length === 1 ? 'market' : 'markets'}, {byVendor.length} {byVendor.length === 1 ? 'vendor' : 'vendors'}. Each vendor gets its own entry link per market. Replace <code className="rounded bg-sunken px-1">[UID]</code> with the vendor&apos;s respondent ID macro. Test links are never billed.
+          </span>
+          {byVendor.length > 0 && <CopyButton text={allLinks} label="Copy all links" />}
         </p>
+        {editable && byVendor.length > 0 && (
+          <div className="mt-4">
+            <BulkFill
+              selected={0}
+              total={scoped.length}
+              onApply={applyToLinks}
+              noun={['vendor link', 'vendor links']}
+              hint="Fill in only what should change, then apply. Pick a vendor or market to change just those links."
+              fields={[
+                { key: 'cpi', label: `Payout (${project.countries[0]?.currency ?? ''})`, type: 'number', step: '0.01', width: 'w-24' },
+                { key: 'targetCompletes', label: 'Target completes', type: 'number', width: 'w-28' },
+                { key: 'uidParam', label: 'Link variable', width: 'w-24', placeholder: 'vid' },
+              ]}
+              extra={
+                <div className="flex flex-wrap items-end gap-1.5">
+                  <label className="block">
+                    <span className="mb-0.5 block text-[11px] font-medium text-muted">Vendor</span>
+                    <select className="input px-2 py-1 text-sm" aria-label="Apply to vendor" value={scope.vendorId} onChange={(e) => setScope({ ...scope, vendorId: e.target.value })}>
+                      <option value="">All vendors</option>
+                      {byVendor.map(({ vendor }) => <option key={vendor.id} value={vendor.id}>{vendor.name}</option>)}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="mb-0.5 block text-[11px] font-medium text-muted">Market</span>
+                    <select className="input px-2 py-1 text-sm" aria-label="Apply to market" value={scope.countryId} onChange={(e) => setScope({ ...scope, countryId: e.target.value })}>
+                      <option value="">All markets</option>
+                      {project.countries.map((c) => <option key={c.id} value={c.id}>{marketName(c)}</option>)}
+                    </select>
+                  </label>
+                  <button type="button" className="btn-ghost px-2.5 py-1.5 text-xs" disabled={!scoped.length} onClick={() => setLinksStatus('ACTIVE')}><Play className="h-3.5 w-3.5" /> Resume</button>
+                  <button type="button" className="btn-ghost px-2.5 py-1.5 text-xs" disabled={!scoped.length} onClick={() => setLinksStatus('PAUSED')}><Pause className="h-3.5 w-3.5" /> Pause</button>
+                </div>
+              }
+            />
+          </div>
+        )}
       </Section>
 
       {view === 'vendor' &&
@@ -267,7 +352,7 @@ export function VendorsTab({ project, editable, reload }: { project: ProjectDeta
                           </tr>
                         ) : (
                           <tr key={a.id}>
-                            <td className="td font-medium">{a.vendor.name} <span className="text-xs text-muted">{a.vendor.code}</span></td>
+                            <td className="td font-medium">{a.vendor.name} <span className="inline-flex items-center text-xs text-muted">{a.vendor.code}<CopyIcon text={a.vendor.code} label={`${a.vendor.name} vendor ID`} /></span></td>
                             <td className="td"><StatusChip status={a.status} /></td>
                             <td className="td"><Progress value={a.completes} max={a.targetCompletes} /></td>
                             <td className="td tabular-nums">{a.stats.TERMINATE}</td>

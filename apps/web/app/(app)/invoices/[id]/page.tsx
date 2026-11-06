@@ -1,4 +1,5 @@
 'use client';
+import { Copyable } from '@/components/copy';
 import { ArrowLeft, FileDown, Printer } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -82,7 +83,7 @@ export default function InvoicePage() {
           </div>
           <div className="text-right">
             <div className="text-2xl font-semibold tracking-tight">Invoice</div>
-            <div className="mt-1 font-mono text-sm">{inv.number}</div>
+            <div className="mt-1 font-mono text-sm"><Copyable text={inv.number} label="invoice number" /></div>
             <div className="mt-2"><InvoiceStatus status={inv.status} overdue={inv.overdue} /></div>
           </div>
         </header>
@@ -95,7 +96,7 @@ export default function InvoicePage() {
           </div>
           <div>
             <div className="text-xs font-medium uppercase tracking-wide text-muted">Project</div>
-            <div className="mt-1 font-medium">{inv.project.projectCode}</div>
+            <div className="mt-1 font-medium"><Copyable text={inv.project.projectCode} label="project ID" /></div>
             <div className="text-muted">{inv.project.name}</div>
             {inv.project.workOrderNo && <div className="text-muted">Work order {inv.project.workOrderNo}</div>}
           </div>
@@ -103,7 +104,7 @@ export default function InvoicePage() {
             <div className="flex justify-between gap-3"><dt className="text-muted">Issued</dt><dd>{inv.issuedAt ? date(inv.issuedAt) : 'Not sent yet'}</dd></div>
             <div className="flex justify-between gap-3"><dt className="text-muted">Due</dt><dd className={inv.overdue ? 'font-medium text-bad' : ''}>{date(inv.dueAt)}</dd></div>
             {inv.paidAt && <div className="flex justify-between gap-3"><dt className="text-muted">Paid</dt><dd>{date(inv.paidAt)}</dd></div>}
-            {inv.paymentReference && <div className="flex justify-between gap-3"><dt className="text-muted">Payment ref.</dt><dd className="font-mono text-xs">{inv.paymentReference}</dd></div>}
+            {inv.paymentReference && <div className="flex justify-between gap-3"><dt className="text-muted">Payment ref.</dt><dd className="font-mono text-xs"><Copyable text={inv.paymentReference} label="payment reference" /></dd></div>}
             {inv.voidedAt && <div className="flex justify-between gap-3"><dt className="text-muted">Voided</dt><dd>{date(inv.voidedAt)}</dd></div>}
           </dl>
         </section>

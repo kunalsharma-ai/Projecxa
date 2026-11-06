@@ -1,4 +1,5 @@
 'use client';
+import { CopyIcon, Copyable } from '@/components/copy';
 import { ChevronLeft, ChevronRight, Download, LayoutTemplate, Pause, Play, Plus, Search, Sparkles, X } from 'lucide-react';
 import Link from 'next/link';
 import { useBriefAvailability } from '@/components/project/brief-reader';
@@ -29,13 +30,13 @@ const columns = (pick: Pick): GridColumn<Row>[] => [
         <input type="checkbox" className="mt-1 shrink-0" aria-label={`Select ${r.name}`} checked={pick.has(r.id)} onChange={() => pick.toggle(r.id)} />
         <div className="min-w-0">
           <Link href={`/projects/${r.id}`} className="block truncate font-medium text-brand hover:underline">{r.name}</Link>
-          <div className="truncate text-xs text-muted">{r.projectCode}{r.workOrderNo ? ` · ${r.workOrderNo}` : ''} · {r.category} · {r.redirectMode.toLowerCase()}</div>
+          <div className="flex items-center text-xs text-muted"><span className="truncate">{r.projectCode}{r.workOrderNo ? ` · ${r.workOrderNo}` : ''} · {r.category} · {r.redirectMode.toLowerCase()}</span><CopyIcon text={r.projectCode} label={`${r.name} project ID`} /></div>
         </div>
       </div>
     ),
   },
   { id: 'status', header: 'Status', sortKey: 'status', cell: (r) => <StatusChip status={r.status} /> },
-  { id: 'code', header: 'Project ID', sortKey: 'code', defaultHidden: true, cell: (r) => <span className="font-mono text-xs">{r.projectCode}</span> },
+  { id: 'code', header: 'Project ID', sortKey: 'code', defaultHidden: true, cell: (r) => <Copyable text={r.projectCode} label="project ID" mono className="text-xs" /> },
   { id: 'client', header: 'Client', sortKey: 'client', cell: (r) => <span className="whitespace-nowrap">{r.client.name}</span> },
   {
     id: 'markets', header: 'Markets', title: 'Markets in this project',

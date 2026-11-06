@@ -4,6 +4,8 @@ import { Activity, CheckCircle2, Plus, Trash2, TriangleAlert } from 'lucide-reac
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Empty, ErrorBox, Field, Loading, Section, StatusChip, Toggle } from '@/components/ui';
+import { CopyIcon } from '@/components/copy';
+import { BulkFill } from './bulk-fill';
 import { get, post } from '@/lib/api';
 import { flag } from '@/lib/countries';
 import { OUTCOME_STATUSES, OutcomeStatus, ParamMapping, RedirectConfig, RedirectMode, RedirectRule, RuleType, SECURITY_LABELS, STATUS_LABEL } from '@/lib/types';
@@ -30,6 +32,9 @@ interface EffectiveRow { countryCode: string; vendor: { id: string; name: string
 const CANONICAL = ['respondent_uid', 'vendor_id', 'country_code', 'project_code', 'status', 'session_token'];
 const CANONICAL_LABEL: Record<string, string> = { respondent_uid: 'UID', vendor_id: 'Vendor ID', country_code: 'Country code', project_code: 'Project code', status: 'Status', session_token: 'Session token' };
 const MACRO_HINT = '{respondent_uid} {vendor_id} {country_code} {project_code} {status} {session_token}';
+
+/** Picker value meaning "one rule for each" (every market, vendor or status). */
+const EACH = '*each';
 
 const isScoped = (r: { scope?: { countryCode?: string; vendorId?: string } }) => !!(r.scope?.countryCode || r.scope?.vendorId);
 const usesVendor = (r?: { url: string }) => r?.url.trim() === VENDOR_REDIRECT_MACRO;
@@ -171,25 +176,44 @@ export function RedirectsTab({ project, editable, reload }: { project: ProjectDe
     }
   }
 
+  /** Adds one override, or one per market / vendor / status when "every" is picked ("apply to all"). Same-scope rules are replaced. */
   function addOverride() {
-    const scope = { ...(override.countryCode ? { countryCode: override.countryCode } : {}), ...(override.vendorId ? { vendorId: override.vendorId } : {}) };
-    if (!override.url || !Object.keys(scope).length) return;
+    if (!override.url || (!override.countryCode && !override.vendorId) || !policy) return;
+    const countries = override.countryCode === EACH ? policy.countries : [override.countryCode];
+    const vendorIds = override.vendorId === EACH ? policy.vendors.map((v) => v.id) : [override.vendorId];
+    const statuses = (override.status as string) === EACH ? OUTCOME_STATUSES : [override.status as OutcomeStatus];
+    const type = (mode === 'HYBRID' ? override.type : mode) as RuleType;
+    const added: RedirectRule[] = [];
+    for (const countryCode of countries)
+      for (const vendorId of vendorIds)
+        for (const status of statuses)
+          added.push({
+            status,
+            type,
+            url: override.url,
+            enabled: true,
+            callbackRequired: !!override.callbackRequired,
+            scope: { ...(countryCode ? { countryCode } : {}), ...(vendorId ? { vendorId } : {}) },
+            ...(type === 'API' ? { fallbackUrl: override.fallbackUrl ?? '' } : {}),
+          });
+    const same = (a: RedirectRule, b: RedirectRule) => a.status === b.status && (a.scope?.countryCode ?? '') === (b.scope?.countryCode ?? '') && (a.scope?.vendorId ?? '') === (b.scope?.vendorId ?? '');
+    edit({ ...config, rules: [...config.rules.filter((r) => !isScoped(r) || !added.some((x) => same(x, r))), ...added] });
+    setOverride({ status: 'COMPLETE', type: 'DYNAMIC' });
+  }
+
+  /** One custom URL (or the vendor's saved redirect) for every status of the project matrix. */
+  function everyStatus(url: string) {
     edit({
       ...config,
       rules: [
-        ...config.rules,
-        {
-          status: override.status as OutcomeStatus,
-          type: (mode === 'HYBRID' ? override.type : mode) as RuleType,
-          url: override.url,
-          enabled: true,
-          callbackRequired: !!override.callbackRequired,
-          scope,
-          ...((mode === 'HYBRID' ? override.type : mode) === 'API' ? { fallbackUrl: override.fallbackUrl ?? '' } : {}),
-        },
+        ...config.rules.filter((r) => isScoped(r)),
+        ...OUTCOME_STATUSES.map((status) => {
+          const cur = projectRule(status);
+          const type = (mode === 'HYBRID' ? (cur?.type === 'API' ? 'DYNAMIC' : cur?.type ?? 'DYNAMIC') : mode) as RuleType;
+          return { status, type, url, enabled: cur ? cur.enabled : true, callbackRequired: cur ? cur.callbackRequired : status === 'COMPLETE' };
+        }),
       ],
     });
-    setOverride({ status: 'COMPLETE', type: 'DYNAMIC' });
   }
 
   function setParam(i: number, patch: Partial<ParamMapping>) {
@@ -257,6 +281,16 @@ export function RedirectsTab({ project, editable, reload }: { project: ProjectDe
 
       <Section title="Status matrix (project level)">
         <p className="mb-4 text-xs text-muted">Each status is prebuilt to the vendor’s saved redirect. Switch a status to <b>Custom URL</b> to type your own link; dynamic URLs may use macros: <code>{MACRO_HINT}</code>. An empty custom URL inherits from the client template or organization default.</p>
+        {!ro && (
+          <BulkFill
+            selected={0}
+            total={OUTCOME_STATUSES.length}
+            noun={['status', 'statuses']}
+            hint="One custom URL for every status. In a dynamic URL, {status} becomes complete, terminate and so on. “Reset to prebuilt” puts every status back on the vendor’s saved redirect."
+            onApply={(v) => everyStatus(v.url.trim())}
+            fields={[{ key: 'url', label: 'Custom URL for every status', width: 'w-[min(32rem,80vw)]', placeholder: 'https://panel.example.com/end?st={status}&uid={respondent_uid}' }]}
+          />
+        )}
         <div className="-mx-5 overflow-x-auto">
           <table className="w-full min-w-[860px]">
             <thead className="border-y border-line bg-sunken/60">
@@ -326,9 +360,9 @@ export function RedirectsTab({ project, editable, reload }: { project: ProjectDe
                     <td className="td">{(mode === 'HYBRID' ? r.type : mode).toLowerCase()}</td>
                     <td className="td min-w-[280px]">
                       {usesVendor(r) ? <span className="text-xs text-muted">Vendor’s saved redirect</span> : (
-                        <input className="input px-2 py-1 font-mono text-xs" disabled={ro} value={r.url} aria-label={`Override URL ${i + 1}`} title={r.url} onChange={(e) => edit({ ...config, rules: config.rules.map((x) => (x === r ? { ...x, url: e.target.value } : x)) })} />
+                        <div className="flex items-center gap-1"><input className="input px-2 py-1 font-mono text-xs" disabled={ro} value={r.url} aria-label={`Override URL ${i + 1}`} title={r.url} onChange={(e) => edit({ ...config, rules: config.rules.map((x) => (x === r ? { ...x, url: e.target.value } : x)) })} /><CopyIcon text={r.url} label={`override URL ${i + 1}`} /></div>
                       )}
-                      {r.type === 'API' && r.fallbackUrl && <div className="mt-1 truncate font-mono text-xs text-muted">fallback: {r.fallbackUrl}</div>}
+                      {r.type === 'API' && r.fallbackUrl && <div className="mt-1 flex items-center gap-1 font-mono text-xs text-muted"><span className="truncate">fallback: {r.fallbackUrl}</span><CopyIcon text={r.fallbackUrl} label="fallback URL" /></div>}
                     </td>
                     <td className="td">{r.callbackRequired ? 'yes' : 'no'}</td>
                     <td className="td">{editable && <button className="btn-ghost p-1.5" aria-label="Remove override" onClick={() => edit({ ...config, rules: config.rules.filter((x) => x !== r) })}><Trash2 className="h-3.5 w-3.5" /></button>}</td>
@@ -339,20 +373,20 @@ export function RedirectsTab({ project, editable, reload }: { project: ProjectDe
           </div>
         )}
         {editable && (
-          <div className="grid grid-cols-1 gap-3 rounded-lg bg-sunken/60 p-4 md:grid-cols-[140px_180px_150px_110px_1fr_auto]">
+          <div className="grid grid-cols-1 gap-3 rounded-lg bg-sunken/60 p-4 md:grid-cols-[200px_200px_150px_110px_1fr_auto]">
             <Field label="Country">
               <select className="input" value={override.countryCode ?? ''} onChange={(e) => setOverride({ ...override, countryCode: e.target.value || undefined })}>
-                <option value="">Any</option>{policy.countries.map((c) => <option key={c} value={c}>{flag(c)} {c}</option>)}
+                <option value="">Any</option>{policy.countries.length > 1 && <option value={EACH}>Every market (one rule each)</option>}{policy.countries.map((c) => <option key={c} value={c}>{flag(c)} {c}</option>)}
               </select>
             </Field>
             <Field label="Vendor">
               <select className="input" value={override.vendorId ?? ''} onChange={(e) => setOverride({ ...override, vendorId: e.target.value || undefined })}>
-                <option value="">Any</option>{policy.vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                <option value="">Any</option>{policy.vendors.length > 1 && <option value={EACH}>Every vendor (one rule each)</option>}{policy.vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
               </select>
             </Field>
             <Field label="Status">
               <select className="input" value={override.status} onChange={(e) => setOverride({ ...override, status: e.target.value as OutcomeStatus })}>
-                {OUTCOME_STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
+                {OUTCOME_STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}<option value={EACH}>Every status</option>
               </select>
             </Field>
             <Field label="Type">
@@ -421,8 +455,11 @@ export function RedirectsTab({ project, editable, reload }: { project: ProjectDe
                     <td className="td">{r.vendor.name}</td>
                     <td className="td">{STATUS_LABEL[r.status]}</td>
                     <td className="td text-xs">{r.source ?? <span className="text-warn">fallback</span>}{r.type && <span className="text-muted"> · {r.type.toLowerCase()}</span>}</td>
-                    <td className="td max-w-[420px] truncate font-mono text-xs" title={r.blockedReason ?? (r.apiEndpoint ? `Asked from ${r.apiEndpoint}; fallback ${r.destination}` : r.destination)}>
-                      {r.usedFallback ? <span className="text-warn">{r.blockedReason}</span> : r.apiEndpoint ? <><span className="text-info">asks {r.apiEndpoint}</span><div className="truncate text-muted">fallback: {r.destination}</div></> : r.destination}
+                    <td className="td max-w-[440px] font-mono text-xs" title={r.blockedReason ?? (r.apiEndpoint ? `Asked from ${r.apiEndpoint}; fallback ${r.destination}` : r.destination)}>
+                      <div className="flex items-center gap-1">
+                        <div className="min-w-0 flex-1 truncate">{r.usedFallback ? <span className="text-warn">{r.blockedReason}</span> : r.apiEndpoint ? <><span className="text-info">asks {r.apiEndpoint}</span><div className="truncate text-muted">fallback: {r.destination}</div></> : r.destination}</div>
+                        {!r.usedFallback && <CopyIcon text={r.apiEndpoint ?? r.destination} label={`${STATUS_LABEL[r.status]} destination for ${r.vendor.name} ${r.countryCode}`} />}
+                      </div>
                     </td>
                   </tr>
                 ))}

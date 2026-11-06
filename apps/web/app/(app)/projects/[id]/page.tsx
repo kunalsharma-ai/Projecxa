@@ -1,4 +1,5 @@
 'use client';
+import { Copyable } from '@/components/copy';
 import clsx from 'clsx';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -114,8 +115,8 @@ export default function ProjectPage() {
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
             <StatusChip status={p.status} />
-            <span>{p.projectCode}</span>
-            {p.workOrderNo && <span>· {p.workOrderNo}</span>}
+            <Copyable text={p.projectCode} label="project ID" />
+            {p.workOrderNo && <span className="inline-flex items-center gap-1">· <Copyable text={p.workOrderNo} label="work order number" /></span>}
             <span>· {p.client.name}</span>
             <span>· {p.category}</span>
             <span>· PM {p.projectManager.name}</span>

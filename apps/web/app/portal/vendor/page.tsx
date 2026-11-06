@@ -1,4 +1,5 @@
 'use client';
+import { Copyable } from '@/components/copy';
 import clsx from 'clsx';
 import { Download } from 'lucide-react';
 import Link from 'next/link';
@@ -187,7 +188,7 @@ export default function VendorPortal() {
                 <tbody className="divide-y divide-line">
                   {sessions.map((s) => (
                     <tr key={s.id} className={s.isTest ? 'opacity-70' : undefined}>
-                      <td className="td font-mono text-xs">{s.vendorRespondentId}{s.isTest && <span className="chip ml-2 bg-info/15 text-info">test</span>}</td>
+                      <td className="td font-mono text-xs"><Copyable text={s.vendorRespondentId} label="respondent ID" />{s.isTest && <span className="chip ml-2 bg-info/15 text-info">test</span>}</td>
                       <td className="td">{s.project.projectCode}</td>
                       <td className="td">{flag(s.projectCountry.countryCode)} {s.projectCountry.countryCode}</td>
                       <td className="td"><OutcomeChip status={s.status} /></td>
@@ -213,7 +214,7 @@ export default function VendorPortal() {
                   {callbacks.map((c) => (
                     <tr key={c.id}>
                       <td className="td"><span className={clsx('chip', c.state === 'DELIVERED' ? 'bg-ok/15 text-ok' : ['FAILED', 'DEAD_LETTER'].includes(c.state) ? 'bg-bad/15 text-bad' : 'bg-warn/15 text-warn')}>{c.state.toLowerCase().replace('_', ' ')}</span></td>
-                      <td className="td max-w-[420px] truncate font-mono text-xs" title={c.url}>{c.url}</td>
+                      <td className="td max-w-[420px] font-mono text-xs" title={c.url}><Copyable text={c.url} label="URL" /></td>
                       <td className="td tabular-nums">{c.attempts}</td>
                       <td className="td text-xs">{c.lastStatusCode ?? c.lastError ?? '–'}</td>
                       <td className="td text-xs text-muted">{new Date(c.createdAt).toLocaleString()}</td>

@@ -1,6 +1,7 @@
 'use client';
+import { CopyIcon, Copyable } from '@/components/copy';
 import clsx from 'clsx';
-import { AlertTriangle, Copy, Pause, Pencil, Play, Plus, Save, Search, X } from 'lucide-react';
+import { AlertTriangle, CopyPlus, Pause, Pencil, Play, Plus, Save, Search, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { CountrySelect } from '@/components/form/combobox';
 import { saveCustomOption, useCustomOptions } from '@/components/form/option-select';
@@ -181,6 +182,7 @@ export function CountriesTab({ project, editable, reload, security }: { project:
                 { key: 'cpi', label: `CPI (${currency})`, type: 'number', step: '0.01', width: 'w-24' },
                 { key: 'targetCompletes', label: 'Completes', type: 'number', width: 'w-24' },
                 { key: 'liveSurveyUrl', label: 'Live link', width: 'w-64', placeholder: 'https://…' },
+                { key: 'testSurveyUrl', label: 'Test link', width: 'w-64', placeholder: 'https://…' },
               ]}
               extra={
                 <div className="flex gap-1.5">
@@ -248,12 +250,15 @@ export function CountriesTab({ project, editable, reload, security }: { project:
                     <td className="td tabular-nums">{c.irPercent}%</td>
                     <td className="td tabular-nums">{money(c.cpi, c.currency)}</td>
                     <td className="td">{c.allocations.length || <span className="text-warn">0</span>}</td>
-                    <td className="td max-w-[280px] truncate text-xs text-muted" title={c.liveSurveyUrl ?? ''}>{c.liveSurveyUrl ?? <span className="inline-flex items-center gap-1 font-medium text-warn"><AlertTriangle className="h-3 w-3" /> No live link</span>}</td>
+                    <td className="td max-w-[300px] text-xs text-muted" title={c.liveSurveyUrl ?? ''}>
+                      {c.liveSurveyUrl ? <Copyable text={c.liveSurveyUrl} label={`live link for ${marketName(c)}`} /> : <span className="inline-flex items-center gap-1 font-medium text-warn"><AlertTriangle className="h-3 w-3" /> No live link</span>}
+                      {c.testSurveyUrl && <div className="mt-0.5"><Copyable text={c.testSurveyUrl} label={`test link for ${marketName(c)}`}><span className="text-muted/80">Test: {c.testSurveyUrl}</span></Copyable></div>}
+                    </td>
                     <td className="td">
                       {editable && (
                         <div className="flex gap-1">
                           <button className="btn-ghost p-1.5" aria-label={`Edit ${marketName(c)}`} title="Edit" onClick={() => { setEditing(c.id); setDraft({}); }}><Pencil className="h-3.5 w-3.5" /></button>
-                          <button className="btn-ghost p-1.5" aria-label={`Copy ${marketName(c)}`} title="Copy to a new market (with vendors and quotas)" onClick={() => setClone({ from: c.id, code: c.countryCode, targetGroup: '' })}><Copy className="h-3.5 w-3.5" /></button>
+                          <button className="btn-ghost p-1.5" aria-label={`Copy ${marketName(c)}`} title="Copy to a new market (with vendors and quotas)" onClick={() => setClone({ from: c.id, code: c.countryCode, targetGroup: '' })}><CopyPlus className="h-3.5 w-3.5" /></button>
                         </div>
                       )}
                     </td>
@@ -283,7 +288,7 @@ export function CountriesTab({ project, editable, reload, security }: { project:
           <dl className="grid grid-cols-[140px_1fr] gap-y-2 text-sm">
             <dt className="text-muted">Client</dt><dd>{project.client.name}</dd>
             <dt className="text-muted">Sales</dt><dd>{project.salesPerson?.name ?? '–'}</dd>
-            <dt className="text-muted">Bid reference</dt><dd>{project.bidReference ?? '–'}</dd>
+            <dt className="text-muted">Bid reference</dt><dd>{project.bidReference ? <Copyable text={project.bidReference} label="bid reference" /> : '–'}</dd>
             <dt className="text-muted">CPI currency</dt><dd>{currency}</dd>
             <dt className="text-muted">Devices</dt><dd>{Object.entries(project.devices).filter(([, v]) => v).map(([k]) => k).join(', ')}</dd>
             <dt className="text-muted">Security</dt><dd>{security.length ? security.join(', ') : 'None'}</dd>
@@ -293,10 +298,10 @@ export function CountriesTab({ project, editable, reload, security }: { project:
         </Section>
         <Section title="Client survey integration">
           <p className="text-sm text-muted">At the end of the survey, send respondents to this URL with the status and the token SampTrek passed in:</p>
-          <code className="mt-2 block break-all rounded-lg bg-sunken p-3 text-xs">{project.outcomeEndpoints.browser}</code>
+          <div className="mt-2 flex items-start gap-1 rounded-lg bg-sunken p-3"><code className="min-w-0 flex-1 break-all text-xs">{project.outcomeEndpoints.browser}</code><CopyIcon text={project.outcomeEndpoints.browser} label="end-of-survey URL" /></div>
           <p className="mt-2 text-xs text-muted">Statuses: {project.outcomeEndpoints.statuses.join(', ')}</p>
           <p className="mt-4 text-sm text-muted">To confirm outcomes server to server (recommended before billing), POST a signed request to:</p>
-          <code className="mt-2 block break-all rounded-lg bg-sunken p-3 text-xs">{project.outcomeEndpoints.s2s}</code>
+          <div className="mt-2 flex items-start gap-1 rounded-lg bg-sunken p-3"><code className="min-w-0 flex-1 break-all text-xs">{project.outcomeEndpoints.s2s}</code><CopyIcon text={project.outcomeEndpoints.s2s} label="server-to-server URL" /></div>
           <p className="mt-2 text-xs text-muted">Body: token, status, timestamp (unix seconds) and signature = HMAC-SHA256(client secret, &quot;token.status.timestamp&quot;). See docs/SURVEY_INTEGRATION.md.</p>
         </Section>
       </div>
