@@ -33,7 +33,7 @@ export function CopyIcon({ text, label = 'value', className }: { text: string | 
   return (
     <button
       type="button"
-      className={clsx('inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md align-middle text-muted transition-colors hover:bg-sunken hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand', className)}
+      className={clsx('relative inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md align-middle text-muted transition-colors hover:bg-sunken hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand', className)}
       title={state === 'done' ? 'Copied' : state === 'failed' ? 'Could not copy' : `Copy ${label}`}
       aria-label={`Copy ${label}`}
       onClick={async (e) => {

@@ -151,10 +151,13 @@ export const bulkCountriesSchema = z.object({
   set: countrySettingsSchema.omit({ language: true, currency: true }).extend({ status: z.enum(['DRAFT', 'TEST', 'LIVE', 'HOLD', 'CLOSED']).optional() }),
 });
 
-/** Moves many projects between Live and Hold (or another status) at once. */
+/**
+ * Moves many projects between Live and Hold at once: LIVE sets Hold projects live again, HOLD puts
+ * Live projects on hold. Draft, Test, Closed and Invoiced projects are never changed from the list.
+ */
 export const bulkStatusSchema = z.object({
   ids: z.array(z.string().min(1)).min(1).max(200),
-  status: z.enum(['TEST', 'LIVE', 'HOLD', 'CLOSED']),
+  status: z.enum(['LIVE', 'HOLD']),
 });
 
 export const cloneProjectSchema = z.object({

@@ -10,7 +10,9 @@ import { FilesTab } from '@/components/project/files-tab';
 import { FinanceTab } from '@/components/project/finance-tab';
 import { HistoryTab } from '@/components/project/history-tab';
 import { SaveTemplate } from '@/components/project/save-template';
-import { AlertTriangle, BadgeCheck, CircleSlash, Clock, CopyPlus, Gauge, Hourglass, LayoutTemplate, Percent, Rabbit, ShieldAlert, X } from 'lucide-react';
+import { AlertTriangle, BadgeCheck, CircleSlash, Clock, CopyPlus, Gauge, Hourglass, LayoutTemplate, Percent, Rabbit, Route, ShieldAlert, X } from 'lucide-react';
+import { RedirectsPopup } from '@/components/project/redirects-popup';
+import { StatusMenu } from '@/components/project/status-menu';
 import { CloneProject } from '@/components/project/clone-project';
 import { MonitorTab } from '@/components/project/monitor-tab';
 import { QuotasTab } from '@/components/project/quotas-tab';
@@ -24,22 +26,14 @@ import { SessionsTab } from '@/components/project/sessions-tab';
 import { VendorsTab } from '@/components/project/vendors-tab';
 import { UniqueLinksTab } from '@/components/project/unique-links-tab';
 import type { ProjectDetail } from '@/components/project/types';
-import { ErrorBox, Loading, PageHeader, StatusChip, money } from '@/components/ui';
+import { ErrorBox, Loading, PageHeader, money } from '@/components/ui';
 import { InfoTip } from '@/components/help';
-import { helpForTab } from '@/lib/help';
+import { findHelp, helpForTab } from '@/lib/help';
 import { get, patch } from '@/lib/api';
 import { flag } from '@/lib/countries';
 import { SECURITY_LABELS } from '@/lib/types';
 
 const TABS = ['Overview', 'Vendors & links', 'Unique links', 'Quotas & monitor', 'SAMPLEON', 'Gate & security', 'Respondent pages', 'Redirects', 'QA studio', 'Respondents', 'Answers', 'Reconcile & invoice', 'Files & requests', 'History'] as const;
-const NEXT_STATUS: Record<string, string[]> = {
-  DRAFT: ['TEST', 'LIVE'],
-  TEST: ['LIVE', 'HOLD'],
-  LIVE: ['HOLD', 'CLOSED'],
-  HOLD: ['LIVE', 'CLOSED'],
-  CLOSED: ['INVOICED', 'LIVE'],
-  INVOICED: [],
-};
 
 export default function ProjectPage() {
   const { id } = useParams<{ id: string }>();
@@ -50,6 +44,7 @@ export default function ProjectPage() {
   const [error, setError] = useState<unknown>(null);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [cloning, setCloning] = useState(false);
+  const [redirectsOpen, setRedirectsOpen] = useState(false);
   const [launch, setLaunch] = useState<ProjectDetail['launch'] | null>(null);
   const [skipped, setSkipped] = useState<string[]>([]);
   useEffect(() => {
@@ -139,7 +134,6 @@ export default function ProjectPage() {
         title={p.name}
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
-            <StatusChip status={p.status} />
             <Copyable text={p.projectCode} label="project ID" />
             {p.workOrderNo && <span className="inline-flex items-center gap-1">· <Copyable text={p.workOrderNo} label="work order number" /></span>}
             <span>· {p.client.name}</span>
@@ -151,17 +145,15 @@ export default function ProjectPage() {
           </span>
         }
         actions={
-          editable && (
-            <>
-              <button className="btn-ghost" onClick={() => { setCloning(!cloning); setSavingTemplate(false); }}><CopyPlus className="h-4 w-4" /> Clone project</button>
-              <button className="btn-ghost" onClick={() => { setSavingTemplate(!savingTemplate); setCloning(false); }}><LayoutTemplate className="h-4 w-4" /> Save as template</button>
-              {NEXT_STATUS[p.status]?.map((s) => (
-                <button key={s} className={s === 'LIVE' ? 'btn-primary' : 'btn-ghost'} onClick={() => setStatus(s)}>
-                  {s === 'LIVE' ? 'Go live' : `Set ${s.toLowerCase()}`}
-                </button>
-              ))}
-            </>
-          )
+          <>
+            {editable && <button className="btn-ghost" onClick={() => { setCloning(!cloning); setSavingTemplate(false); }}><CopyPlus className="h-4 w-4" /> Clone project</button>}
+            {editable && <button className="btn-ghost" onClick={() => { setSavingTemplate(!savingTemplate); setCloning(false); }}><LayoutTemplate className="h-4 w-4" /> Save as template</button>}
+            <button className="btn-ghost" onClick={() => setRedirectsOpen(true)}><Route className="h-4 w-4" /> Redirects</button>
+            <span className="inline-flex items-center gap-1">
+              <StatusMenu status={p.status} editable={editable} onChange={setStatus} />
+              <InfoTip entry={findHelp('project.statusMenu')} />
+            </span>
+          </>
         }
       />
       <div className="mb-4"><ErrorBox error={error} /></div>
@@ -182,6 +174,7 @@ export default function ProjectPage() {
           <button className="btn-ghost p-1" aria-label="Dismiss" onClick={() => setLaunch(null)}><X className="h-3.5 w-3.5" /></button>
         </div>
       )}
+      {redirectsOpen && <RedirectsPopup project={p} onClose={() => setRedirectsOpen(false)} openTab={(t) => { setRedirectsOpen(false); setTab(t); }} />}
       {savingTemplate && <SaveTemplate project={p} onClose={() => setSavingTemplate(false)} />}
       {cloning && <CloneProject project={p} onClose={() => setCloning(false)} />}
 

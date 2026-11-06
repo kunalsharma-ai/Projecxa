@@ -238,8 +238,11 @@ export class ProjectsService {
       keys.sort((x, y) => f * text(x).localeCompare(text(y), 'en', { sensitivity: 'base', numeric: true }) || y.createdAt.getTime() - x.createdAt.getTime() || y.id.localeCompare(x.id));
       pageIds = keys.slice((q.page - 1) * q.pageSize, q.page * q.pageSize).map((k) => k.id);
     }
-    const [total, found] = await Promise.all([
+    const { status: _status, ...withoutStatus } = where;
+    const [total, byStatus, found] = await Promise.all([
       this.prisma.project.count({ where }),
+      // Count per status with the other filters applied, for the coloured status tabs.
+      this.prisma.project.groupBy({ by: ['status'], where: withoutStatus, _count: { _all: true } }),
       this.prisma.project.findMany({
         where: pageIds ? { id: { in: pageIds }, organizationId: u.organizationId } : where,
         orderBy: projectOrder(q.sort, q.dir),
@@ -256,6 +259,7 @@ export class ProjectsService {
     const [stats, metrics] = await Promise.all([this.sessionStats(rows.map((r) => r.id)), fieldMetrics(this.prisma, rows.map((r) => r.id))]);
     return {
       total,
+      counts: Object.fromEntries(byStatus.map((b) => [b.status, b._count._all])) as Partial<Record<string, number>>,
       page: q.page,
       pageSize: q.pageSize,
       items: rows.map((r) => {
@@ -432,7 +436,17 @@ export class ProjectsService {
   /** Moves many projects to one status. Each is checked on its own; the result lists what happened to each. */
   async bulkStatus(u: AuthUser, body: z.infer<typeof bulkStatusSchema>) {
     const results: { id: string; projectCode?: string; ok: boolean; error?: string; issues?: string[]; notReady?: { market: string; problems: string[] }[] }[] = [];
+    // Only Hold → Live and Live → Hold; anything else (Draft, Test, Closed, Invoiced) is left alone.
+    const from = body.status === 'LIVE' ? 'HOLD' : 'LIVE';
+    const current = new Map(
+      (await this.prisma.project.findMany({ where: { id: { in: body.ids }, organizationId: u.organizationId }, select: { id: true, status: true } })).map((p) => [p.id, p.status]),
+    );
     for (const id of [...new Set(body.ids)]) {
+      const now = current.get(id);
+      if (now && now !== from) {
+        results.push({ id, ok: false, error: `Only ${from === 'HOLD' ? 'Hold' : 'Live'} projects can be ${body.status === 'LIVE' ? 'set live' : 'put on hold'} here; this one is ${now.charAt(0) + now.slice(1).toLowerCase()}` });
+        continue;
+      }
       try {
         const r = (await this.update(u, id, { status: body.status })) as { projectCode: string; launch?: { notReady: { market: string; problems: string[] }[] } };
         results.push({ id, projectCode: r.projectCode, ok: true, notReady: r.launch?.notReady ?? [] });

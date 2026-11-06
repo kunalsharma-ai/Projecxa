@@ -4,6 +4,7 @@ import { AlertTriangle, Loader2 } from 'lucide-react';
 import { ReactNode } from 'react';
 import { STATUS_LABEL } from '@/lib/types';
 import { FieldHelp, PageHelp, SectionHelp } from './help';
+import { PROJECT_STATUS_STYLE } from '@/lib/project-status';
 
 /** `help` is an id in lib/help.ts; without it the page's entry is found from the URL. */
 export function PageHeader({ title, subtitle, actions, help }: { title: string; subtitle?: ReactNode; actions?: ReactNode; help?: string }) {
@@ -51,6 +52,8 @@ const PROJECT_TONE: Record<string, string> = {
   SCHEDULED: 'bg-info/15 text-info',
 };
 export function StatusChip({ status }: { status: string }) {
+  const st = PROJECT_STATUS_STYLE[status];
+  if (st) return <span className={clsx('chip', st.chip)} title={st.hint}><span className={clsx('h-1.5 w-1.5 rounded-full', st.dot)} aria-hidden />{st.label}</span>;
   return <span className={clsx('chip', PROJECT_TONE[status] ?? 'bg-sunken text-muted')}>{status.charAt(0) + status.slice(1).toLowerCase()}</span>;
 }
 
