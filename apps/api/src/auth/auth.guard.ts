@@ -26,7 +26,7 @@ export class AuthGuard implements CanActivate {
     const token = this.extractToken(req);
     if (!token) throw new UnauthorizedException('Not signed in');
 
-    let payload: { sub: string; purpose?: string; iat?: number };
+    let payload: { sub: string; purpose?: string; iat?: number; at?: number };
     try {
       payload = await this.jwt.verifyAsync(token, { secret: config.jwtSecret });
     } catch {
@@ -38,7 +38,9 @@ export class AuthGuard implements CanActivate {
     const user = await this.prisma.user.findUnique({ where: { id: payload.sub }, include: { organization: { select: { id: true, mfaRequired: true, status: true, platformOwner: true, ...ORG_FEATURES_INCLUDE } } } });
     if (!user || !user.active) throw new UnauthorizedException('Account is not active');
     // Password changed or reset, or signed out everywhere: older sessions stop working.
-    if (user.sessionsValidAfter && (payload.iat ?? 0) < Math.floor(user.sessionsValidAfter.getTime() / 1000)) throw new UnauthorizedException('Session expired, sign in again');
+    // Compared in milliseconds (`at`); older tokens without it fall back to `iat` in seconds.
+    const issuedAt = typeof payload.at === 'number' ? payload.at : (payload.iat ?? 0) * 1000;
+    if (user.sessionsValidAfter && issuedAt <= user.sessionsValidAfter.getTime()) throw new UnauthorizedException('Session expired, sign in again');
     const superAdmin = user.superAdmin && user.organization.platformOwner;
     req.user = { id: user.id, organizationId: user.organizationId, role: user.role, email: user.email, name: user.name, ...(superAdmin ? { superAdmin: true } : {}) };
 

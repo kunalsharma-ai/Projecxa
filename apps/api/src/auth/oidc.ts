@@ -2,8 +2,12 @@
  * Minimal OpenID Connect client for Google, Microsoft (Entra ID) and Zoho: discovery, PKCE and
  * id_token verification (RS256 against the provider's published keys). No extra libraries.
  */
-import { createHash, createPublicKey, JsonWebKey, verify as verifySig } from 'crypto';
+import { createHash, createPublicKey, verify as verifySig } from 'crypto';
+import type { webcrypto } from 'crypto';
 import { randomToken } from '../common/crypto';
+
+// Recent @types/node (26) no longer exports JsonWebKey from the top of 'crypto'.
+type JsonWebKey = webcrypto.JsonWebKey;
 
 export const SSO_PROVIDERS = ['google', 'microsoft', 'zoho'] as const;
 export type SsoProvider = (typeof SSO_PROVIDERS)[number];

@@ -2,6 +2,9 @@
   "name": "@projexa/mobile",
   "version": "0.1.0",
   "main": "expo-router/entry",
+  "engines": {
+    "node": ">=26"
+  },
   "dependencies": {
     "@expo/metro-runtime": "~58.0.17",
     "@expo/vector-icons": "^15.1.1",

@@ -311,7 +311,7 @@ See `INSTALL.md`: server settings, database, `pnpm create-admin` for the first a
 
 ## Run it locally
 
-Requirements: Node 20+, pnpm 10, PostgreSQL 16 (or Docker).
+Requirements: Node 26 (LTS, see `.nvmrc`), pnpm 10 (`npm install -g pnpm@10.28.0`), PostgreSQL 16 (or Docker).
 
 ```bash
 docker compose up -d                 # Postgres + Redis (or use your own Postgres)
