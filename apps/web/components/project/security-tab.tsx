@@ -202,7 +202,7 @@ export function SecurityTab({ project, editable, reload }: { project: ProjectDet
 
         <Section title="Gate survey questions">
           {!security.gateSurvey && <p className="mb-3 text-sm text-warn">The gate survey is off; these questions are saved but not asked.</p>}
-          <QuestionBuilder value={gate} onChange={setGate} editable={editable} templatesCurrency={currency} emptyText="No gate questions yet. Add the standard profile questions (age, gender, income, employment, education) from the library, or build your own." />
+          <QuestionBuilder value={gate} onChange={setGate} editable={editable} templatesCurrency={currency} emptyText="No gate questions yet. Pick an audience set (B2B, B2C, parents, teens, healthcare consumers, patients or caregivers), add single profile questions from the library, or build your own." />
         </Section>
 
         <Section title="Prescreener questions">

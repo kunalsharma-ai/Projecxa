@@ -449,7 +449,7 @@ export const HELP: Record<string, HelpEntry> = {
   'section:Human check style': { what: 'Which free captcha respondents solve to prove they are human.', how: 'Pick a style; only free options are offered.', where: 'Shown on the gate page of this project.' },
   'section:Gate survey questions': {
     what: 'Short questions SampTrek asks before the client survey, for example age, gender or region.',
-    how: 'Add questions with the builder and set which answers qualify. Those who do not qualify get the Terminate page.',
+    how: 'Start from an audience set (B2B, B2C, parents, teens, healthcare consumers, patients, caregivers) or single questions from the library, then edit, remove or add questions and set which answers qualify. Those who do not qualify get the Terminate page.',
     where: 'Every respondent of this project. Answers can drive quota cells.',
   },
   'section:Prescreener questions': {
@@ -466,7 +466,25 @@ export const HELP: Record<string, HelpEntry> = {
   'section:What the checks caught': { what: 'How many respondents each check stopped.', how: 'Use it to see if a vendor sends poor traffic.', where: 'This project.' },
   'project.respondentTemplate': { title: 'Template', what: 'The overall look of respondent pages.', how: 'Pick a template; colours and words can still be changed.', where: 'All respondent pages of this project.' },
   'project.respondentType': { title: 'Type and shape', what: 'Fonts and corner roundness of respondent pages.', how: 'Pick a font and shape.', where: 'All respondent pages of this project.' },
-  'section:Brand and images': { what: 'Brand name and images on respondent pages.', how: 'Add a brand name and images, or leave neutral.', where: 'All respondent pages of this project.' },
+  'section:Brand and images': { what: 'Brand name, logo and images on respondent pages.', how: 'Keep the Sampledge logo on, add your own brand name and images, or turn both off for a neutral page.', where: 'All respondent pages of this project.' },
+  'shell.notifications': {
+    title: 'Notifications',
+    what: 'Alerts that need someone to act: failed callbacks, markets close to target or with no traffic, expiring vendor documents, scheduled changes that failed and your own task reminders.',
+    how: 'The red number counts only alerts you have not seen yet. Opening this menu marks them read for you. They stay listed until fixed, and count as new again if they change (3 failed callbacks become 5).',
+    where: 'Read marks are per person: a colleague still sees the alert as new until they open their own menu. The phone app shares the same read marks.',
+  },
+  'question.sets': {
+    title: 'Audience question sets',
+    what: 'Ready-made demographic questions for B2B decision makers, B2C consumers, parents, teens (13 to 17, with a parent or guardian check), healthcare consumers, patients and caregivers. Each set already marks which answers qualify and which screen out.',
+    how: 'Add to project adds the whole set (questions already there are skipped). Then edit, delete or add questions. To change a set for everyone, use Save this project’s questions as this set; Reset to standard undoes it.',
+    where: 'The gate survey of this project (and of Create project). Saved sets are shared by everyone in your organisation; changing a set never changes projects that already use its questions.',
+  },
+  'respondent.platformLogo': {
+    title: 'Show the Sampledge logo',
+    what: 'Puts the Sampledge logo on the gate page and every end page (complete, terminate, quota full and the rest), and its icon on the browser tab. If your organisation set its own name or logo in Settings → Branding, that is shown instead.',
+    how: 'On by default. With no project logo or brand name, the logo sits at the top. When you add a project logo or brand name, yours goes at the top and the Sampledge logo moves to a small “Powered by” line at the bottom. Turn it off for a fully neutral page.',
+    where: 'Every respondent page of this project, including the countdown page before a vendor redirect.',
+  },
   'section:/projects/[id]::Colours': { what: 'Colours of the respondent pages.', how: 'Pick colours and check the preview.', where: 'All respondent pages of this project.' },
   'section:/settings/appearance::Colours': { what: 'Accent and surface colours of the app for you.', how: 'Pick colours and check the live preview.', where: 'Only your own view.' },
   'section:Words on each page': { what: 'Heading, message and button for each status page.', how: 'Pick a status and write what respondents should read.', where: 'This project.' },
@@ -507,7 +525,7 @@ export const HELP: Record<string, HelpEntry> = {
   },
   'section:Devices': { what: 'Which devices respondents may use.', how: 'Untick devices that are not allowed.', where: 'Every market of this project.' },
   'section:Security and respondent quality': { what: 'The checks respondents pass before the survey.', how: 'Turn checks on or off; change them later in Gate & security.', where: 'Every market.' },
-  'section:/projects/new::Gate survey questions': { what: 'Questions asked before the survey, such as age or gender.', how: 'Add questions now or later in Gate & security.', where: 'Every market.' },
+  'section:/projects/new::Gate survey questions': { what: 'Questions asked before the survey, such as age or gender.', how: 'Pick an audience set (B2B, B2C, parents, teens, healthcare) or add questions one by one, now or later in Gate & security. Every question stays editable.', where: 'Every market.' },
   'section:Survey redirects': { what: 'Where respondents go after the survey for each status.', how: 'Keep the vendor defaults or set your own. Change later on the Redirects tab.', where: 'Every market and vendor.' },
   'create.vendors': { title: 'Vendors', what: 'Vendors to add to every market when the project is created.', how: 'Pick vendors and set payout CPI and target.', where: 'All markets; adjust later on Vendors & links.' },
 

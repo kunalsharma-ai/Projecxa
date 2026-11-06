@@ -354,3 +354,9 @@ The web CRM's default look (violet and blue glass, indigo navigation, lifecycle 
 ## Data processing and analytics
 
 Two Fieldwork pages from the mockup, per project and from real data: **Data processing** (pipeline from intake to billing, validation, cleaning by vendor, quota balance, clean data CSV) and **Analytics** (KPIs, charts, crosstabs, answer analysis, rule-based insights, deliverables). Super Admin features `data_processing` and `analytics`. See [docs/DATA_PROCESSING_AND_ANALYTICS.md](docs/DATA_PROCESSING_AND_ANALYTICS.md).
+
+## Sampledge logo on respondent pages, notification reads, audience question sets
+
+- **Respondent pages** show the Sampledge logo and tab icon (gate and every end page); a project's own logo moves it to a "Powered by" line, and Respondent pages → Show the Sampledge logo turns it off. See [docs/BRAND.md](docs/BRAND.md).
+- **Notifications**: opening the bell marks alerts read for that person; the badge counts only new ones. See [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md).
+- **Audience sets** in the gate survey builder: B2B, B2C, parents, teens, healthcare consumers, patients and caregivers; every question stays editable and organisations can save their own version. See [docs/GATE_QUESTION_SETS.md](docs/GATE_QUESTION_SETS.md).

@@ -53,6 +53,10 @@ function buckets(from: string, to: string, interval: 'day' | 'week' | 'month') {
 }
 
 const domain = z.string().regex(/^(\*\.)?[a-z0-9.-]+\.[a-z]{2,}$|^localhost$/i, 'Use a hostname like example.com or *.example.com');
+const readSchema = z
+  .object({ items: z.array(z.object({ id: z.string().min(1).max(200), title: z.string().max(400) }).strict()).min(1).max(50) })
+  .strict();
+
 const orgSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   redirectAllowedDomains: z.array(domain).max(500).optional(),
@@ -355,12 +359,43 @@ export class DashboardController {
     for (const t of await this.tasks.reminders(u)) items.push({ id: `task-${t.id}`, severity: t.overdue ? 'bad' : 'warn', title: t.overdue ? `Overdue: ${t.title}` : `Reminder: ${t.title}`, detail: [t.project?.projectCode, t.dueAt ? `due ${t.dueAt.toISOString().slice(0, 10)}` : null].filter(Boolean).join(' · ') || 'Task assigned to you', href: '/tasks' });
     const rank = { bad: 0, warn: 1, info: 2 } as const;
     items.sort((a, b) => rank[a.severity] - rank[b.severity]);
+    // Read state is per person: an item is new until this person opens it, or again once its wording changes.
+    const shown = items.slice(0, 20);
+    const reads = await this.prisma.notificationRead.findMany({ where: { userId: u.id, key: { in: shown.map((i) => i.id) } }, select: { key: true, title: true } });
+    const readTitle = new Map(reads.map((r) => [r.key, r.title]));
+    const withRead = shown.map((i) => ({ ...i, read: readTitle.get(i.id) === i.title }));
+    const unread = withRead.filter((i) => !i.read && i.severity !== 'info').length;
     return {
-      items: items.slice(0, 20),
-      alerts: items.filter((i) => i.severity !== 'info').length,
+      items: withRead,
+      /** Bell badge: alerts this person has not read yet. */
+      alerts: unread,
+      unread,
+      /** Every alert (read or not), for screens that show the overall count. */
+      alertsTotal: items.filter((i) => i.severity !== 'info').length,
       wonBidsNew,
       activity: activity.map((a) => ({ id: a.id, action: a.action, entityType: a.entityType, entityId: a.entityId, at: a.createdAt, actor: actors.find((x) => x.id === a.actorId)?.name ?? 'System' })),
     };
+  }
+
+  /**
+   * Marks notifications read for the signed-in person (opening the bell, or the notifications screen
+   * on the phone). The title is stored so a changed notification shows as new again.
+   */
+  @Post('insights/read')
+  async markRead(@CurrentUser() u: AuthUser, @Body(new ZodPipe(readSchema)) body: z.infer<typeof readSchema>) {
+    const now = new Date();
+    await this.prisma.$transaction(
+      body.items.map((i) =>
+        this.prisma.notificationRead.upsert({
+          where: { userId_key: { userId: u.id, key: i.id } },
+          create: { organizationId: u.organizationId, userId: u.id, key: i.id, title: i.title, readAt: now },
+          update: { title: i.title, readAt: now },
+        }),
+      ),
+    );
+    // Keep the table small: reads older than 60 days are for notifications long gone.
+    await this.prisma.notificationRead.deleteMany({ where: { userId: u.id, readAt: { lt: new Date(now.getTime() - 60 * 86_400_000) } } });
+    return { marked: body.items.length };
   }
 
   @Get('organization')

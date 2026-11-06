@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { useEffect } from 'react';
 import { FeatureGate } from '@/components/gate';
 import { Card, LoadState, Muted, Pill, Row, Screen, SectionTitle, statusTone } from '@/components/ui';
 import { ago } from '@/lib/format';
@@ -18,8 +19,13 @@ export default function NotificationsScreen() {
 }
 
 function Notifications() {
-  const { access } = useSession();
+  const { access, api } = useSession();
   const ins = useLoad<Insights>('/insights');
+  // Opening this screen marks what it shows as read, so the bell on Home counts only new ones.
+  useEffect(() => {
+    const unread = (ins.data?.items ?? []).filter((i) => !i.read).slice(0, 50);
+    if (unread.length) api.post('/insights/read', { items: unread.map((i) => ({ id: i.id, title: i.title })) }).catch(() => undefined);
+  }, [ins.data]); // eslint-disable-line react-hooks/exhaustive-deps
   const open = (href: string) => {
     const r = appRoute(href);
     const f = featureForRoute(r);
@@ -32,7 +38,7 @@ function Notifications() {
         <Card>
           <SectionTitle>Needs attention</SectionTitle>
           {ins.data.items.map((i) => (
-            <Row key={i.id} title={i.title} subtitle={i.detail} onPress={() => open(i.href)} right={<Pill tone={statusTone(i.severity)}>{i.severity === 'bad' ? 'Urgent' : i.severity === 'warn' ? 'Check' : 'Info'}</Pill>} />
+            <Row key={i.id} title={i.read ? i.title : `● ${i.title}`} subtitle={i.detail} onPress={() => open(i.href)} right={<Pill tone={statusTone(i.severity)}>{i.severity === 'bad' ? 'Urgent' : i.severity === 'warn' ? 'Check' : 'Info'}</Pill>} />
           ))}
         </Card>
       )}

@@ -1,9 +1,10 @@
 'use client';
 import clsx from 'clsx';
-import { ArrowDown, ArrowUp, ChevronDown, ClipboardPaste, Copy, Library, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronDown, ClipboardPaste, Copy, Library, Plus, Trash2, Users } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Field, Toggle } from '@/components/ui';
 import { get } from '@/lib/api';
+import { QuestionSetsDialog } from './question-sets';
 import { QUESTION_TYPE_LABELS, TEXT_FORMAT_LABELS, type OptionAction, type Question, type QuestionOption, type QuestionType, type TextFormat } from '@/lib/types';
 
 const ACTION_LABELS: Record<OptionAction, string> = { accept: 'Accept', qualify: 'Must pick one of these', terminate: 'Screen out' };
@@ -77,6 +78,7 @@ export function QuestionBuilder({
 }) {
   const [open, setOpen] = useState<string | null>(null);
   const [menu, setMenu] = useState<'add' | 'library' | null>(null);
+  const [setsOpen, setSetsOpen] = useState(false);
   const [library, setLibrary] = useState<{ group: string; question: Question }[] | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -144,6 +146,7 @@ export function QuestionBuilder({
       {editable && (
         <div ref={menuRef} className="relative mt-3 flex flex-wrap gap-2">
           <button type="button" className="btn-ghost" aria-expanded={menu === 'add'} onClick={() => setMenu(menu === 'add' ? null : 'add')}><Plus className="h-4 w-4" /> Add question</button>
+          {templatesCurrency && <button type="button" className="btn-ghost" aria-haspopup="dialog" onClick={() => { setMenu(null); setSetsOpen(true); }}><Users className="h-4 w-4" /> Audience sets</button>}
           {templatesCurrency && <button type="button" className="btn-ghost" aria-expanded={menu === 'library'} onClick={() => setMenu(menu === 'library' ? null : 'library')}><Library className="h-4 w-4" /> Add from library</button>}
           {menu === 'add' && (
             <div className="absolute left-0 top-full z-20 mt-1 w-56 rounded-lg border border-line bg-panel p-1 shadow-lg" role="menu">
@@ -173,6 +176,7 @@ export function QuestionBuilder({
           )}
         </div>
       )}
+      {setsOpen && templatesCurrency && <QuestionSetsDialog currency={templatesCurrency} value={value} onChange={onChange} onClose={() => setSetsOpen(false)} canManage={editable} />}
     </div>
   );
 }
