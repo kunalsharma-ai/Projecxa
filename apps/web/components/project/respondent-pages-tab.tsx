@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ErrorBox, Field, Loading, Section, Toggle } from '@/components/ui';
 import { api, API_URL, ApiError, get, post } from '@/lib/api';
 import type { ProjectDetail } from './types';
-import { Label } from '@/components/help';
+import { InfoTip, Label } from '@/components/help';
 
 type Status = 'complete' | 'terminate' | 'quota_full' | 'quality_fail' | 'duplicate' | 'security_reject' | 'partial' | 'technical_error';
 type Colors = { primary: string; accent: string; background: string; surface: string; text: string };
@@ -20,6 +20,7 @@ interface Design {
   brandName?: string;
   footer?: string;
   confetti: boolean;
+  platformLogo?: boolean;
   texts: Partial<Record<Status, StatusText>>;
   interstitial: { enabled: boolean; seconds: number };
 }
@@ -316,6 +317,14 @@ export function RespondentPagesTab({ project, editable }: { project: ProjectDeta
 
         <Section title="Brand and images">
           <div className="space-y-4">
+            <div className="flex items-start gap-3 rounded-lg border border-line p-3">
+              <img src="/brand/sampledge-icon-64.png" alt="" className="mt-0.5 h-6 w-6 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 text-sm font-medium">Show the Sampledge logo<InfoTip id="respondent.platformLogo" /></div>
+                <div className="text-xs text-muted">The Sampledge logo (or your own logo from Settings → Branding) at the top of the gate and end pages, and as the browser-tab icon. With your own logo below, it moves to a small “Powered by” line at the bottom.</div>
+              </div>
+              {editable ? <Toggle checked={design.platformLogo !== false} onChange={(v) => set({ platformLogo: v })} label="Show the Sampledge logo" /> : <span className="text-xs text-muted">{design.platformLogo !== false ? 'On' : 'Off'}</span>}
+            </div>
             <Field label="Brand name" hint="Shown at the top of every page, next to the logo.">
               <input className="input" maxLength={60} disabled={!editable} value={design.brandName ?? ''} placeholder="e.g. Opinion Circle" onChange={(e) => set({ brandName: e.target.value })} />
             </Field>

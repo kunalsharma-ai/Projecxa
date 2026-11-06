@@ -73,6 +73,6 @@ describe('Insights (e2e)', () => {
     expect(r.alerts).toBe(1);
     expect(r.activity.length).toBeGreaterThan(0);
     const o = (await other.get('/insights').expect(200)).body;
-    expect(o).toEqual({ items: [], alerts: 0, wonBidsNew: 0, activity: [] });
+    expect(o).toEqual({ items: [], alerts: 0, unread: 0, alertsTotal: 0, wonBidsNew: 0, activity: [] });
   });
 });

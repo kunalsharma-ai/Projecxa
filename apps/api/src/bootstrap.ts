@@ -16,6 +16,7 @@ export function configureApp(app: INestApplication) {
       { path: 'g/:token/human', method: RequestMethod.POST },
       { path: 'g/:token/captcha.svg', method: RequestMethod.GET },
       { path: 'pa/:id', method: RequestMethod.GET },
+      { path: 'brand/:file', method: RequestMethod.GET },
     ],
   });
   app.enableCors({ origin: config.webOrigins, credentials: true, exposedHeaders: ['Content-Disposition', 'X-Features-Version'] });
