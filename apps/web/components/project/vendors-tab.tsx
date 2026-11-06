@@ -5,7 +5,10 @@ import { QuotesPanel } from './quotes-panel';
 import { VendorSuggestions } from './vendor-suggestions';
 import { VendorTitle } from './vendor-title';
 import { useEffect, useMemo, useState } from 'react';
-import { Combobox } from '@/components/form/combobox';
+import { AddableSelect } from '@/components/form/option-select';
+import { PartyLogo } from '@/components/parties/logo';
+import { maskEmail } from '@/lib/mask';
+import { PartyPicker, type PartyOpt } from '@/components/parties/quick-add';
 import { Empty, ErrorBox, Field, Progress, Section, StatusChip, money } from '@/components/ui';
 import { get, patch, post } from '@/lib/api';
 import { countryName, flag } from '@/lib/countries';
@@ -36,7 +39,7 @@ const marketName = (c: Pick<Country, 'countryCode' | 'targetGroup'>) => `${count
 const EMPTY_FORM = { vendorId: '', cpi: '', targetCompletes: '', uidParam: 'vid', applyToAll: false };
 
 export function VendorsTab({ project, editable, reload }: { project: ProjectDetail; editable: boolean; reload: () => void }) {
-  const [vendors, setVendors] = useState<Option[]>([]);
+  const [vendors, setVendors] = useState<PartyOpt[]>([]);
   const [adding, setAdding] = useState<string | null>(null);
   const [suggesting, setSuggesting] = useState<string | null>(null);
   const [asking, setAsking] = useState<string | null>(null);
@@ -46,7 +49,8 @@ export function VendorsTab({ project, editable, reload }: { project: ProjectDeta
   const [error, setError] = useState<unknown>(null);
 
   useEffect(() => {
-    get<Option[]>('/vendors').then(setVendors).catch(setError);
+    // Only active vendors can be added; inactive ones already on the project stay.
+    get<PartyOpt[]>('/vendors?status=ACTIVE').then(setVendors).catch(setError);
   }, []);
 
   async function add(countryId: string) {
@@ -311,12 +315,12 @@ export function VendorsTab({ project, editable, reload }: { project: ProjectDeta
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
                     <div className="sm:col-span-2">
                       <Field label="Vendor">
-                        <Combobox options={vendors.filter((v) => !c.allocations.some((a) => a.vendorId === v.id)).map((v) => ({ value: v.id, label: v.name, hint: v.code }))} value={form.vendorId || null} onChange={(v) => setForm({ ...form, vendorId: v ?? '' })} placeholder="Search vendors" />
+                        <PartyPicker<PartyOpt> kind="vendor" parties={vendors} value={form.vendorId} exclude={c.allocations.map((a) => a.vendorId)} taken={vendors.map((v) => v.code)} onChange={(id) => setForm((f) => ({ ...f, vendorId: id }))} onAdded={(v) => setVendors((vs) => [...vs, v].sort((a, b) => a.name.localeCompare(b.name)))} />
                       </Field>
                     </div>
                     <Field label={`Payout CPI (${c.currency})`}><input className={clsx('input', high && 'border-bad')} type="number" step="0.01" min={0} value={form.cpi} onChange={(e) => setForm({ ...form, cpi: e.target.value })} /></Field>
                     <Field label="Target completes"><input className="input" type="number" placeholder={String(c.targetCompletes)} value={form.targetCompletes} onChange={(e) => setForm({ ...form, targetCompletes: e.target.value })} /></Field>
-                    <Field label="Link variable"><input className="input" value={form.uidParam} onChange={(e) => setForm({ ...form, uidParam: e.target.value })} /></Field>
+                    <Field label="Link variable"><AddableSelect field="uidParam" base={['vid', 'uid', 'rid', 'pid', 'id']} value={form.uidParam} onChange={(v) => setForm((f) => ({ ...f, uidParam: v }))} placeholder="vid" /></Field>
                   </div>
                   {high && <p className="mt-2 flex items-center gap-1.5 text-xs text-bad"><AlertTriangle className="h-3.5 w-3.5" /> The payout is higher than the client CPI ({money(c.cpi, c.currency)}). You will be asked to confirm.</p>}
                   <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -355,7 +359,15 @@ export function VendorsTab({ project, editable, reload }: { project: ProjectDeta
                           </tr>
                         ) : (
                           <tr key={a.id}>
-                            <td className="td font-medium">{a.vendor.name} <span className="inline-flex items-center text-xs text-muted">{a.vendor.code}<CopyIcon text={a.vendor.code} label={`${a.vendor.name} vendor ID`} /></span></td>
+                            <td className="td font-medium">
+                              <span className="flex items-center gap-2">
+                                <PartyLogo url={a.vendor.logoUrl} name={a.vendor.name} size={24} />
+                                <span>
+                                  {a.vendor.name} <span className="inline-flex items-center text-xs text-muted">{a.vendor.code}<CopyIcon text={a.vendor.code} label={`${a.vendor.name} vendor ID`} /></span>
+                                  {a.vendor.contactName && <span className="block text-xs font-normal text-muted">{a.vendor.contactName}{a.vendor.contactEmail ? ` · ${maskEmail(a.vendor.contactEmail)}` : ''}</span>}
+                                </span>
+                              </span>
+                            </td>
                             <td className="td"><StatusChip status={a.status} /></td>
                             <td className="td"><Progress value={a.completes} max={a.targetCompletes} /></td>
                             <td className="td tabular-nums">{a.stats.TERMINATE}</td>
@@ -364,7 +376,7 @@ export function VendorsTab({ project, editable, reload }: { project: ProjectDeta
                             <td className="td"><code className="rounded bg-sunken px-1 text-xs">{a.uidParam}</code></td>
                             <td className="td">
                               <div className="flex gap-1.5">
-                                {a.uniqueLinksOnly ? <span className="chip bg-sunken text-muted" title="This market only accepts one-time unique links. Generate them on the Unique links tab.">Unique links only</span> : <CopyButton text={a.entryLink} label="Live link" />}
+                                {a.uniqueLinksOnly ? <span className="chip bg-sunken text-muted" title="This market only accepts one-time unique links. Generate them on the Vendor unique links tab.">Unique links only</span> : <CopyButton text={a.entryLink} label="Live link" />}
                                 <CopyButton text={a.testEntryLink} label="Test link" />
                               </div>
                             </td>

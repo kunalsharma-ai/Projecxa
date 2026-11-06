@@ -8,8 +8,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { canEdit, useMe } from '@/components/me';
 import { BulkImport, type ImportColumn } from '@/components/parties/bulk-import';
 import { VendorForm, type VendorDetail } from '@/components/parties/vendor-form';
+import { LogoPicker, LogoUpload, PartyLogo, uploadLogo } from '@/components/parties/logo';
+import { StatusSwitch } from '@/components/parties/status-switch';
 import { VENDOR_REDIRECTS } from '@/lib/contact-rules';
-import { Empty, ErrorBox, Loading, PageHeader, Section, StatusChip } from '@/components/ui';
+import { Empty, ErrorBox, Loading, PageHeader, Section } from '@/components/ui';
 import { hostOf } from '@/lib/suggest';
 import { get, patch, post } from '@/lib/api';
 
@@ -49,6 +51,7 @@ export default function VendorsPage() {
   const [status, setStatus] = useState('');
   const [error, setError] = useState<unknown>(null);
   const [scores, setScores] = useState<Map<string, ScoreRow>>(new Map());
+  const [newLogo, setNewLogo] = useState<File | null>(null);
   const load = () => {
     get<VendorRow[]>('/vendors').then(setRows).catch(setError);
     get<{ vendors: ScoreRow[] }>('/vendors/scores').then((r) => setScores(new Map(r.vendors.map((x) => [x.id, x])))).catch(() => undefined);
@@ -76,7 +79,9 @@ export default function VendorsPage() {
   async function create(body: Record<string, unknown>) {
     setError(null);
     try {
-      await post('/vendors', body);
+      const v = await post<{ id: string }>('/vendors', body);
+      if (newLogo) await uploadLogo('vendor', v.id, newLogo).catch(setError);
+      setNewLogo(null);
       setPanel(null);
       load();
     } catch (e) {
@@ -99,16 +104,18 @@ export default function VendorsPage() {
 
   return (
     <>
-      <PageHeader title="Vendors" subtitle="Scores come from the last 180 days of traffic. Open a vendor for its scorecard and the markets it covers." actions={<div className="flex flex-wrap gap-2"><Link href="/vendors/applications" className="btn-ghost"><UserPlus className="h-4 w-4" /> Applications</Link>{canEdit(me) && <button className="btn-ghost" onClick={() => { setEditing(null); setPanel(panel === 'import' ? null : 'import'); }}><Upload className="h-4 w-4" /> Bulk add</button>}{canEdit(me) && <button className="btn-primary" onClick={() => { setEditing(null); setPanel(panel === 'new' ? null : 'new'); }}><Plus className="h-4 w-4" /> Add vendor</button>}</div>} />
+      <PageHeader title="Vendors" subtitle="Scores come from the last 180 days of traffic. Open a vendor for its scorecard. Only active vendors can be added to projects." actions={<div className="flex flex-wrap gap-2"><Link href="/vendors/applications" className="btn-ghost"><UserPlus className="h-4 w-4" /> Applications</Link>{canEdit(me) && <button className="btn-ghost" onClick={() => { setEditing(null); setPanel(panel === 'import' ? null : 'import'); }}><Upload className="h-4 w-4" /> Bulk add</button>}{canEdit(me) && <button className="btn-primary" onClick={() => { setEditing(null); setPanel(panel === 'new' ? null : 'new'); }}><Plus className="h-4 w-4" /> Add vendor</button>}</div>} />
       <div className="mb-4"><ErrorBox error={error} /></div>
       {panel === 'new' && (
         <Section title="New vendor" className="mb-6">
-          <VendorForm taken={taken} onSubmit={create} onCancel={() => setPanel(null)} />
+          <div className="mb-4"><LogoPicker name="" file={newLogo} onChange={setNewLogo} /></div>
+          <VendorForm taken={taken} onSubmit={create} onCancel={() => { setNewLogo(null); setPanel(null); }} />
         </Section>
       )}
       {panel === 'import' && <BulkImport kind="vendors" columns={VENDOR_IMPORT_COLUMNS} onDone={load} onClose={() => setPanel(null)} />}
       {editing && (
         <Section title={`Edit vendor · ${editing.name}`} className="mb-6">
+          <div className="mb-4"><LogoUpload key={editing.id} kind="vendor" id={editing.id} name={editing.name} url={editing.logoUrl ?? null} onChange={(url) => setRows((rs) => rs?.map((r) => (r.id === editing.id ? { ...r, logoUrl: url } : r)) ?? rs)} /></div>
           <VendorForm vendor={editing} taken={taken} onSubmit={save} onCancel={() => setEditing(null)} />
         </Section>
       )}
@@ -130,7 +137,7 @@ export default function VendorsPage() {
             <tbody className="divide-y divide-line">
               {shown.map((v) => (
                 <tr key={v.id} className={editing?.id === v.id ? 'bg-brand/5' : undefined}>
-                  <td className="td font-medium"><Link className="hover:text-brand hover:underline" href={`/vendors/${v.id}`}>{v.name}</Link></td><td className="td"><Copyable text={v.code} label={`${v.name} vendor ID`} /></td><td className="td"><StatusChip status={v.status} /></td>
+                  <td className="td font-medium"><span className="flex items-center gap-2"><PartyLogo url={v.logoUrl} name={v.name} size={28} /><Link className="hover:text-brand hover:underline" href={`/vendors/${v.id}`}>{v.name}</Link></span></td><td className="td"><Copyable text={v.code} label={`${v.name} vendor ID`} /></td><td className="td"><StatusSwitch kind="vendor" id={v.id} name={v.name} status={v.status} editable={canEdit(me)} onError={setError} onChange={(st) => setRows((rs) => rs?.map((r) => (r.id === v.id ? { ...r, status: st } : r)) ?? rs)} /></td>
                   <td className="td"><Link href={`/vendors/${v.id}`}><ScoreBadge score={scores.get(v.id)?.score ?? null} grade={scores.get(v.id)?.grade ?? null} /></Link></td>
                   <td className="td text-sm" title={scores.get(v.id)?.markets.join(', ')}>{scores.get(v.id)?.markets.length ? scores.get(v.id)!.markets.slice(0, 6).map(flag).join(' ') + (scores.get(v.id)!.markets.length > 6 ? ` +${scores.get(v.id)!.markets.length - 6}` : '') : <span className="text-muted">–</span>}</td>
                   <td className="td text-right tabular-nums">{scores.get(v.id)?.committed ?? 0}</td>

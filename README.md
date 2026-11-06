@@ -295,6 +295,13 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - **Unique links only** per vendor and market closes the shared vendor link. Vendors can download their unused links in the vendor portal.
 - Details: `docs/UNIQUE_LINKS.md`.
 
+## Clients, vendors, work orders and client unique links
+
+- Clients and vendors: one-click **Active / Inactive**; only active ones can be chosen for new projects. Logos in any image format up to 200 KB (bigger pictures are made smaller in the browser), shown next to names across the app. Bulk add from **Excel or CSV** with templates. Details: `docs/CLIENTS_VENDORS_LOGOS_AND_STATUS.md`.
+- Projects show the client's logo and contact person with the email masked (`p•••••e@client.com`). On Create project and Vendors & links, type a new client, contact or vendor name and choose **+ Add** to save it in place; Settings → **Dropdown options** manages everything added with + Add.
+- **Work orders** get your prefix and the next number automatically (e.g. FR9132), or can be typed by hand, never twice; the last one given is shown and they can be edited later. A **UID prefix** brands every respondent ID sent to client surveys. Details: `docs/WORK_ORDERS_AND_UID_PREFIX.md`.
+- **Client unique links**: upload the client's per-respondent survey links per market (Excel, CSV or paste); each respondent gets the next unused one, never twice. The older tab is now **Vendor unique links**. Details: `docs/CLIENT_UNIQUE_LINKS.md`.
+
 ## Mobile app for Android and iOS
 
 `apps/mobile` is one Expo (React Native) app for Android and iOS in the Neon (dark) and Aurora (light) looks from the design mockups. Staff get the command center, projects (with markets, vendors, quotas, share links, go live / hold / close, pause vendors), fieldwork monitor and alerts, AI copilot with confirm cards, tasks, requests, won bids, reports, invoices, vendor payables, clients, vendors, redirect health and notifications; client and vendor users get their portal. Settings-heavy screens open the web app. What each person sees follows the Super Admin feature switches for mobile and changes live (next API call, opening More, returning to the app, or within 30 seconds). Contract, store builds with EAS and limits: [docs/MOBILE_APP.md](docs/MOBILE_APP.md).

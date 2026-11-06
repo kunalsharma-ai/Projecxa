@@ -1,10 +1,14 @@
 import { INestApplication, RequestMethod } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import { config } from './common/config';
 
 /** Shared app setup used by main.ts and the e2e tests. */
 export function configureApp(app: INestApplication) {
   app.use(cookieParser());
+  // Bulk imports (up to 1000 clients or vendors) and pasted client links are bigger than
+  // Express's default 100 KB. Files go as multipart with their own limits.
+  (app as NestExpressApplication).useBodyParser('json', { limit: '2mb' });
   app.setGlobalPrefix('api/v1', {
     exclude: [
       { path: 's/:code', method: RequestMethod.GET },

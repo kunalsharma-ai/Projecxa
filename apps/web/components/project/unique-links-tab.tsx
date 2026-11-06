@@ -101,7 +101,7 @@ export function UniqueLinksTab({ project, editable }: { project: ProjectDetail; 
         ...(form.label.trim() ? { label: form.label.trim() } : {}),
         ...(form.expiresAt ? { expiresAt: new Date(form.expiresAt).toISOString() } : {}),
       });
-      setNotice(`${r.created.toLocaleString()} unique links created. Download them below and give one link to each respondent.`);
+      setNotice(`${r.created.toLocaleString()} vendor unique links created. Download them below and give one link to each respondent.`);
       setForm({ ...form, label: '', expiresAt: '' });
       setFilter({ allocationId: '', batchId: r.batch.id, status: '', q: '' });
       setPage(0);
@@ -145,12 +145,13 @@ export function UniqueLinksTab({ project, editable }: { project: ProjectDetail; 
       <ErrorBox error={error} />
       {notice && <p role="status" className="rounded-lg bg-ok/10 px-4 py-2.5 text-sm text-ok">{notice}</p>}
       <p className="text-sm text-muted">
-        Unique links give every respondent their own entry link with its own random key. A link works <strong className="text-ink">once</strong>: the first person to open it enters the survey,
+        Vendor unique links give every respondent their own entry link with its own random key, for vendors who need one link per respondent. A link works <strong className="text-ink">once</strong>: the first person to open it enters the survey,
         and anyone who opens it again, in another tab or on another device, is sent to the Duplicate page. Links opened while the project or vendor is paused are not used up.
+        Links the client made for each respondent go on the Client unique links tab.
       </p>
 
       {editable && (
-        <Section help="project.uniqueLinks.generate" title={<span className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-brand" /> Generate unique links</span>}>
+        <Section help="project.uniqueLinks.generate" title={<span className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-brand" /> Generate vendor unique links</span>}>
           {allocations.length === 0 ? (
             <Empty>Add a vendor on the Vendors &amp; links tab first. Unique links belong to a vendor in a market, so completes, payouts and callbacks are counted correctly.</Empty>
           ) : (

@@ -11,7 +11,7 @@ https://projexa.example/u/{key}?uid=ABC    optional: the vendor's own respondent
 
 ## Where
 
-Project → **Unique links** tab (editors generate and revoke; viewers can look and download).
+Project → **Vendor unique links** tab (editors generate and revoke; viewers can look and download). Links the client made for each respondent are a different feature: see [CLIENT_UNIQUE_LINKS.md](CLIENT_UNIQUE_LINKS.md).
 
 - **Generate**: choose the vendor and market, how many links (1 to 50,000 at a time, 500,000 per project), an optional batch name and an optional time after which unused links stop working.
 - **By vendor and market**: links, unused, used, completes, revoked or expired, and the **Unique links only** switch.

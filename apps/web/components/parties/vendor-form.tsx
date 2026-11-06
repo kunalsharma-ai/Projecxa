@@ -6,7 +6,7 @@ import { hostOf, suggestCode } from '@/lib/suggest';
 export interface VendorDetail {
   id: string; name: string; code: string; status: string; website: string | null;
   contactName: string | null; contactEmail: string | null; contactPhone: string | null;
-  redirectAllowedDomains: string[]; callbackUrlTemplate: string | null; redirectUrls: Record<string, string> | null;
+  redirectAllowedDomains: string[]; callbackUrlTemplate: string | null; redirectUrls: Record<string, string> | null; logoUrl?: string | null;
 }
 
 const DOMAIN = /^(\*\.)?[a-z0-9.-]+\.[a-z]{2,}$|^localhost$/i;

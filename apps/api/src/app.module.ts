@@ -28,6 +28,9 @@ import { PrismaModule } from './prisma/prisma.service';
 import { PushModule } from './push/push';
 import { ProjectsModule } from './projects/projects.controller';
 import { CustomOptionsModule } from './custom-options/custom-options';
+import { PartyLogosModule } from './parties/logos';
+import { ClientLinksModule } from './client-links/client-links';
+import { NumberingModule } from './numbering/numbering';
 import { RedirectsModule } from './redirects/redirects.controller';
 import { RequestsModule } from './requests/requests.controller';
 import { PrivacyModule } from './privacy/privacy';
@@ -56,6 +59,9 @@ import { VendorsModule } from './vendors/vendors.controller';
     VendorsModule,
     ProjectsModule,
     CustomOptionsModule,
+    PartyLogosModule,
+    ClientLinksModule,
+    NumberingModule,
     RedirectsModule,
     SurveyModule,
     CallbacksModule,
