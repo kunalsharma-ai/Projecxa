@@ -94,6 +94,7 @@ model Organization {
   tasks                  Task[]
   aiConversations        AiConversation[]
   aiActions              AiAction[]
+  customOptions          CustomOption[]
   aiUsage                AiUsage[]
   aiDocuments            AiDocument[]
   tickets                Ticket[]
@@ -579,6 +580,20 @@ enum CountryStatus {
   CLOSED
 }
 
+/// Options people add themselves to a dropdown ("Add +"), e.g. a project category or target group.
+/// `field` names the dropdown; `defaultVendor` rows list the vendors preselected on Create project.
+model CustomOption {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  field          String
+  value          String
+  createdById    String?
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, field, value])
+}
+
 model ProjectCountry {
   id                String        @id @default(cuid())
   projectId         String
@@ -609,7 +624,9 @@ model ProjectCountry {
   sessions      RespondentSession[]
   quoteRequests QuoteRequest[]
 
-  @@unique([projectId, countryCode, language])
+  /// The same country may appear more than once (one market per target group); the app keeps
+  /// country + language + target group unique within a project.
+  @@index([projectId])
 }
 
 model QuotaCell {

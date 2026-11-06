@@ -59,5 +59,9 @@ export interface ProjectDetail {
   autopilot: { pauseOnQuality?: boolean; closeOnTarget?: boolean } | null;
   countries: Country[];
   stats: Stats;
+  /** Money per CPI currency: client CPI range, value at target, and earned / owed for completes so far. */
+  finance?: { currency: string; minCpi: number; maxCpi: number; avgCpi: number; plannedRevenue: number; plannedCost: number; revenue: number; cost: number; margin: number }[];
+  /** Only on the response to going live: how many markets opened and which were not ready. */
+  launch?: { opened: number; notReady: { id: string; market: string; problems: string[] }[] };
   outcomeEndpoints: { browser: string; s2s: string; statuses: string[] };
 }

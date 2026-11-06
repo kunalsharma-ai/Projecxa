@@ -165,8 +165,8 @@ describe('Vendor scoring, capacity and suggestions (e2e)', () => {
     const us = live.countries.find((c) => c.countryCode === 'US')!;
     const r = (await pm.get(`/projects/${live.id}/countries/${us.id}/vendor-suggestions`).expect(200)).body;
     expect(r.suggestions.map((s: { code: string }) => s.code)).toEqual(['BAD', 'COVERS']);
-    // Fully allocated: a 10% backup target is suggested.
-    await pm.post(`/projects/${live.id}/countries/${us.id}/allocations`, { vendorId: v.bad, cpi: 2.5, targetCompletes: 40 }).expect(201);
+    // Fully allocated: a 10% backup target is suggested. (Its payout is above the 2.20 client CPI, so it is confirmed on purpose.)
+    await pm.post(`/projects/${live.id}/countries/${us.id}/allocations`, { vendorId: v.bad, cpi: 2.5, targetCompletes: 40, allowAboveCpi: true }).expect(201);
     const full = (await pm.get(`/projects/${live.id}/countries/${us.id}/vendor-suggestions`).expect(200)).body;
     expect(full.needed).toBe(0);
     expect(full.suggestions).toEqual([expect.objectContaining({ code: 'COVERS', suggested: { cpi: 2.5, targetCompletes: 10 } })]);
