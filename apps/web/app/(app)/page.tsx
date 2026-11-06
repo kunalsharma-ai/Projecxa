@@ -1,11 +1,12 @@
 'use client';
 import clsx from 'clsx';
-import { MousePointerClick, TrendingUp, Activity, ArrowDownRight, Banknote, Check, HandCoins, LayoutDashboard, Receipt, RotateCcw, ArrowUpRight, BadgeCheck, Building2, CircleDollarSign, Clock3, FileText, FolderKanban, Hourglass, Minus, Truck, X } from 'lucide-react';
+import { BarChart3, ChevronDown, ChevronUp, MousePointerClick, TrendingUp, Activity, ArrowDownRight, Banknote, Check, HandCoins, LayoutDashboard, Receipt, RotateCcw, ArrowUpRight, BadgeCheck, Building2, CircleDollarSign, Clock3, FileText, FolderKanban, Hourglass, Minus, Truck, X } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Empty, ErrorBox, Loading, OutcomeChip, PageHeader, Progress, Section } from '@/components/ui';
 import { canEdit, useMe } from '@/components/me';
 import { CommandHero } from '@/components/dashboard/hero';
+import { Overview, type Snapshot } from '@/components/dashboard/overview';
 import { BudgetDonut, CoverageGlobe, GanttTimeline, HealthRadar, KanbanBoard, QuickActions, RecentActivity, SupplierBars, type Board } from '@/components/dashboard/board';
 import { api, get } from '@/lib/api';
 import { TrafficHeatmap, type Heat } from '@/components/dashboard/heatmap';
@@ -111,7 +112,7 @@ function TopList({ title, rows, href }: { title: string; rows: TopRow[]; href: (
   );
 }
 
-export default function DashboardPage() {
+function DetailedPanels() {
   const me = useMe();
   const [preset, setPreset] = useState<string>('30d');
   const [range, setRange] = useState(PRESETS[1].range());
@@ -194,7 +195,7 @@ export default function DashboardPage() {
   }, [range, interval]);
 
   if (error && !d) return <ErrorBox error={error} />;
-  if (!d || !layout) return <Loading />;
+  if (!d || !layout) return <Loading label="Loading detailed panels" />;
 
   const c = d.period.current;
   const cv = d.period.converted;
@@ -377,24 +378,17 @@ export default function DashboardPage() {
 
   return (
     <>
-      <PageHeader
-        title="Command center"
-        subtitle="Live numbers from your projects; test traffic is excluded."
-        actions={
-          editing ? (
-            <div className="flex flex-wrap gap-2">
-              {layout.custom && <button type="button" className="btn-ghost" onClick={resetLayout}><RotateCcw className="h-4 w-4" /> Reset</button>}
-              <button type="button" className="btn-ghost" onClick={() => setDraft(null)}><X className="h-4 w-4" /> Cancel</button>
-              <button type="button" className="btn-primary" disabled={saving} onClick={saveLayout}><Check className="h-4 w-4" /> Done</button>
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              <button type="button" className="btn-ghost" onClick={() => setDraft(layout.widgets)}><LayoutDashboard className="h-4 w-4" /> Customize</button>
-              <Link href="/reports" className="btn-ghost">Open reports</Link>
-            </div>
-          )
-        }
-      />
+      <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
+        {editing ? (
+          <>
+            {layout.custom && <button type="button" className="btn-ghost" onClick={resetLayout}><RotateCcw className="h-4 w-4" /> Reset</button>}
+            <button type="button" className="btn-ghost" onClick={() => setDraft(null)}><X className="h-4 w-4" /> Cancel</button>
+            <button type="button" className="btn-primary" disabled={saving} onClick={saveLayout}><Check className="h-4 w-4" /> Done</button>
+          </>
+        ) : (
+          <button type="button" className="btn-ghost" onClick={() => setDraft(layout.widgets)}><LayoutDashboard className="h-4 w-4" /> Customize panels</button>
+        )}
+      </div>
 
       <CommandHero
         firstName={me?.user.name.split(' ')[0] ?? ''}
@@ -421,6 +415,50 @@ export default function DashboardPage() {
       <ErrorBox error={error} />
 
       <WidgetGrid layout={draft ?? layout.widgets} editing={editing} onChange={setDraft} render={(id) => widget(id)} />
+    </>
+  );
+}
+
+const DETAILS_KEY = 'samptrek.dashboard.details';
+
+/**
+ * Dashboard: a simple overview first (project counts by status, clients, vendors, and clicks / completes / revenue
+ * for today, yesterday, the last 7 days and this month), then the detailed panels (charts, top lists, finance,
+ * map, board) behind one button. Whether the details are open is remembered in this browser.
+ */
+export default function DashboardPage() {
+  const [snap, setSnap] = useState<Snapshot | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  const [details, setDetails] = useState(false);
+  useEffect(() => {
+    try { setDetails(localStorage.getItem(DETAILS_KEY) === '1'); } catch { /* storage unavailable: start folded */ }
+    get<Snapshot>('/dashboard/snapshot').then(setSnap).catch(setError);
+  }, []);
+  const toggle = () => {
+    const next = !details;
+    setDetails(next);
+    try { localStorage.setItem(DETAILS_KEY, next ? '1' : '0'); } catch { /* not remembered */ }
+  };
+
+  return (
+    <>
+      <PageHeader
+        title="Dashboard"
+        subtitle="Your projects, clients, vendors and traffic at a glance. Test traffic is never counted."
+        actions={<Link href="/reports" className="btn-ghost"><BarChart3 className="h-4 w-4" /> Open reports</Link>}
+      />
+      {snap ? <Overview s={snap} /> : error ? <ErrorBox error={error} /> : <div className="space-y-4"><div className="skeleton h-28" /><div className="skeleton h-40" /></div>}
+
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+        <div>
+          <h2 className="text-sm font-semibold">Detailed view</h2>
+          <p className="text-xs text-muted">Revenue charts, top clients, vendors and projects, invoicing, payables, markets map, project board and fieldwork health.</p>
+        </div>
+        <button type="button" className="btn-ghost" aria-expanded={details} aria-controls="dashboard-details" onClick={toggle}>
+          {details ? <><ChevronUp className="h-4 w-4" /> Hide details</> : <><ChevronDown className="h-4 w-4" /> Show details</>}
+        </button>
+      </div>
+      <div id="dashboard-details" className="mt-4">{details && <DetailedPanels />}</div>
     </>
   );
 }

@@ -7,7 +7,7 @@ import { canEdit, useMe } from '@/components/me';
 import { BrandIcon } from '@/components/brand-mark';
 import { DEFAULT_BRAND } from '@/lib/branding';
 import { useTheme } from '@/components/theme';
-import { isActive, NAV_GROUPS, visibleNav, type NavItem } from './nav';
+import { isActive, NAV_GROUP_LABEL, NAV_GROUPS, visibleNav, type NavItem } from './nav';
 
 /** Collapsible navigation with favorites and recent projects. Compact mode shows icons with labels on hover/focus. */
 export function Sidebar({ mobileOpen, onClose, badges = {} }: { mobileOpen: boolean; onClose: () => void; badges?: Record<string, number> }) {
@@ -57,7 +57,7 @@ export function Sidebar({ mobileOpen, onClose, badges = {} }: { mobileOpen: bool
             aria-pressed={starred}
             className={clsx(
               'absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-sidebar-muted hover:text-sidebar-ink focus-visible:opacity-100',
-              starred && !fav ? 'opacity-100' : 'opacity-0 group-hover/item:opacity-100',
+              starred && !fav ? 'opacity-100' : 'opacity-0 group-hover/item:opacity-100 max-lg:opacity-60',
             )}
           >
             <Star className={clsx('h-3.5 w-3.5', starred && 'fill-current text-sidebar-active')} />
@@ -94,18 +94,21 @@ export function Sidebar({ mobileOpen, onClose, badges = {} }: { mobileOpen: bool
       </div>
 
       <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
-        {favorites.length > 0 && (
-          <>
-            <Heading>Favorites</Heading>
-            <div className="space-y-0.5">{favorites.map((n) => <Item key={`f-${n.href}`} n={n} fav />)}</div>
-          </>
+        <Heading>Favorites</Heading>
+        {favorites.length > 0 ? (
+          <div className="space-y-0.5">{favorites.map((n) => <Item key={`f-${n.href}`} n={n} fav />)}</div>
+        ) : (
+          <p className={clsx('flex items-center gap-1.5 px-3 pb-1 text-xs text-sidebar-muted', compact && 'lg:hidden')}>
+            <Star className="h-3 w-3 shrink-0" aria-hidden /> Click the star next to any page to pin it here.
+          </p>
         )}
         {NAV_GROUPS.map((g) => {
           const list = items.filter((n) => n.group === g);
           if (!list.length) return null;
+          const label = NAV_GROUP_LABEL[g];
           return (
-            <div key={g}>
-              <Heading>{g}</Heading>
+            <div key={g} className={clsx(!label && 'pt-3')}>
+              {label && <Heading>{label}</Heading>}
               <div className="space-y-0.5">{list.map((n) => <Item key={n.href} n={n} />)}</div>
             </div>
           );
