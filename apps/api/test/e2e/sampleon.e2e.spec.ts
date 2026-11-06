@@ -15,6 +15,12 @@ import { api, createApp, login, makeOrg, resetDb } from './helpers';
 
 const SECRET = 'projexa-client-secret-at-sampleon';
 const AR = 'AR-01JC9Y3V8Q6K2N4R7T0W5X1PRJ';
+const AR2 = 'AR-01JC9Y3V8Q6K2N4R7T0W5X1QTA';
+const ATTRIBUTES = [
+  { key: 'hcp.specialty', label: 'Medical specialty', type: 'enum', values: ['cardiology', 'oncology'], sensitivity: 'standard' },
+  { key: 'b2b.years_experience', label: 'Years of professional experience', type: 'number', sensitivity: 'standard' },
+];
+let created = 0;
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 const mac = (k: string, m: string) => createHmac('sha256', k).update(m).digest('hex');
 
@@ -33,6 +39,7 @@ describe('SAMPLEON integration', () => {
   let other: ReturnType<typeof api>;
   let project: { id: string; projectCode: string };
   let recordId: string;
+  let clientId: string;
   const http = () => request(app.getHttpServer());
 
   function event(type: string, payload: Record<string, unknown>, over: { eventId?: string; secret?: string; projectId?: string } = {}) {
@@ -56,10 +63,11 @@ describe('SAMPLEON integration', () => {
         const h = { method: req.method!, url: req.url!, headers: req.headers, body };
         hits.push(h);
         if (!signedOk(h)) return res.writeHead(401).end('{}');
+        if (h.method === 'GET' && h.url === '/api/v1/attributes') return res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ attributes: ATTRIBUTES }));
         const b = JSON.parse(body);
         if (h.method === 'POST' && h.url === '/api/v1/audience-requests') {
           if (b.source.platform !== 'PROJEXA') return res.writeHead(403).end('{}');
-          return res.writeHead(201, { 'content-type': 'application/json' }).end(JSON.stringify({ audienceRequestId: AR, status: 'submitted', source: b.source }));
+          return res.writeHead(201, { 'content-type': 'application/json' }).end(JSON.stringify({ audienceRequestId: created++ ? AR2 : AR, status: 'submitted', source: b.source }));
         }
         if (h.method === 'PATCH' && h.url === `/api/v1/audience-requests/${AR}`) {
           return res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ audienceRequestId: AR, status: 'live', requiredCompletes: b.requiredCompletes }));
@@ -78,7 +86,7 @@ describe('SAMPLEON integration', () => {
     pm = api(app, await login(app, a.users.PROJECT_MANAGER.email));
     viewer = api(app, await login(app, a.users.VIEWER.email));
     other = api(app, await login(app, b.users.PROJECT_MANAGER.email));
-    const clientId = (await pm.post('/clients', { name: 'Client One', code: 'C1', contacts: [{ name: 'Pat' }] }).expect(201)).body.id;
+    clientId = (await pm.post('/clients', { name: 'Client One', code: 'C1', contacts: [{ name: 'Pat' }] }).expect(201)).body.id;
     project = (await pm.post('/projects', {
       name: 'Cardiologist tracker', category: 'Healthcare', clientId, fieldStartAt: '2026-11-10', fieldEndAt: '2026-12-10',
       defaults: { language: 'en', loiMinutes: 15, irPercent: 20, cpi: 40, targetCompletes: 500 },
@@ -138,7 +146,8 @@ describe('SAMPLEON integration', () => {
     const res = await pm.post(`/projects/${project.id}/sampleon/${recordId}/sync`).expect(200);
     expect(res.body.record.requiredCompletes).toBe(1700);
     const hit = hits.find((h) => h.method === 'PATCH')!;
-    expect(JSON.parse(hit.body)).toEqual({ requiredCompletes: 1700, completesByCountry: { US: 700, GB: 500, DE: 500 }, fieldwork: { start: '2026-11-10', end: '2026-12-10' } });
+    // Sent with the project's quota cells (none here), so SAMPLEON's quotas follow PROJEXA's.
+    expect(JSON.parse(hit.body)).toEqual({ requiredCompletes: 1700, quotas: [], completesByCountry: { US: 700, GB: 500, DE: 500 }, fieldwork: { start: '2026-11-10', end: '2026-12-10' } });
   });
 
   it('follows the request through SAMPLEON’s signed events, once per event', async () => {
@@ -165,5 +174,60 @@ describe('SAMPLEON integration', () => {
     expect((await event('project.closed', {}, { projectId: 'PRX-OTHER' }).expect(200)).body).toEqual({ status: 'ignored' });
     await event('project.closed', { reason: 'target reached' }).expect(200);
     expect((await row()).status).toBe('closed');
+  });
+  it('translates the project’s quota cells into SUPPLY360 attribute quotas once the questions are mapped', async () => {
+    const p2 = (await pm.post('/projects', {
+      name: 'Specialist quotas', category: 'Healthcare', clientId, fieldStartAt: '2026-11-10', fieldEndAt: '2026-12-10',
+      defaults: { language: 'en', loiMinutes: 10, irPercent: 30, cpi: 40, targetCompletes: 100 },
+      countries: [{ countryCode: 'US' }, { countryCode: 'CA' }, { countryCode: 'CA', language: 'fr' }],
+    }).expect(201)).body;
+    await pm.patch(`/projects/${p2.id}`, {
+      gateQuestions: [
+        { id: 'spec', type: 'single', text: 'What is your medical specialty?', options: [{ id: 'card', label: 'Cardiology' }, { id: 'onc', label: 'Oncology' }, { id: 'oth', label: 'Other' }] },
+        { id: 'yrs', type: 'number', text: 'How many years of experience do you have?' },
+      ],
+    }).expect(200);
+    const full = (await pm.get(`/projects/${p2.id}`).expect(200)).body;
+    const market = (code: string, lang = 'en') => full.countries.find((c: { countryCode: string; language: string }) => c.countryCode === code && c.language === lang).id;
+    await pm.put(`/projects/${p2.id}/countries/${market('US')}/quotas`, { cells: [
+      { group: 'Specialty', name: 'Cardiology, 10+ years', target: 40, conditions: [{ source: 'gate', questionId: 'spec', values: ['card'] }, { source: 'gate', questionId: 'yrs', min: 10 }] },
+      { group: 'Specialty', name: 'Other', target: 20, conditions: [{ source: 'gate', questionId: 'spec', values: ['oth'] }] },
+      { group: 'Device', name: 'Mobile', target: 30, conditions: [{ source: 'device', values: ['mobile'] }] },
+    ] }).expect(200);
+    for (const m of [market('CA'), market('CA', 'fr')]) {
+      await pm.put(`/projects/${p2.id}/countries/${m}/quotas`, { cells: [{ group: 'Specialty', name: 'Oncology', target: 25, conditions: [{ source: 'gate', questionId: 'spec', values: ['onc'] }] }] }).expect(200);
+    }
+
+    // Before mapping: the question is suggested, nothing is sent.
+    const before = (await viewer.get(`/projects/${p2.id}/sampleon/quotas`).expect(200)).body;
+    expect(before.attributes.map((a: { key: string }) => a.key)).toEqual(['hcp.specialty', 'b2b.years_experience']);
+    expect(before.quotas).toEqual([]);
+    expect(before.questions.find((q: { key: string }) => q.key === 'gate:spec')).toMatchObject({ attribute: 'hcp.specialty', suggested: true });
+
+    await viewer.put(`/projects/${p2.id}/sampleon/quotas`, { map: {} }).expect(403);
+    await other.put(`/projects/${p2.id}/sampleon/quotas`, { map: {} }).expect(404);
+    const bad = await pm.put(`/projects/${p2.id}/sampleon/quotas`, { map: { 'gate:spec': { attribute: 'hcp.specialty', values: { oth: 'dentistry' } }, 'gate:yrs': { attribute: 'hcp.nope' } } }).expect(400);
+    expect(bad.body.issues).toEqual(['gate:spec.oth: "dentistry" is not a value of Medical specialty', 'gate:yrs: SUPPLY360 has no attribute hcp.nope']);
+
+    // "Other" is not a SUPPLY360 value: map it explicitly; Cardiology and Oncology match by label.
+    const saved = (await pm.put(`/projects/${p2.id}/sampleon/quotas`, {
+      map: { 'gate:spec': { attribute: 'hcp.specialty', values: { oth: 'oncology' } }, 'gate:yrs': { attribute: 'b2b.years_experience' } },
+    }).expect(200)).body;
+    expect(saved.skipped).toEqual([expect.objectContaining({ name: 'Mobile', country: 'US', reason: 'Device is only known when the respondent opens the survey' })]);
+
+    const res = await pm.post(`/projects/${p2.id}/sampleon/audience-requests`, body).expect(201);
+    expect(res.body.record).toMatchObject({ audienceRequestId: AR2, usesProjectQuotas: true });
+    expect(res.body.quotas.skipped).toHaveLength(1);
+    const sent = JSON.parse(hits.filter((h) => h.method === 'POST' && h.url === '/api/v1/audience-requests').at(-1)!.body);
+    const withoutId = (qs: { id: string }[]) => qs.map(({ id: _id, ...rest }) => rest);
+    expect(sent.quotas).toHaveLength(3);
+    expect(withoutId(sent.quotas)).toEqual(expect.arrayContaining([
+      { label: 'Specialty: Cardiology, 10+ years', country: 'US', target: 40, hard: true, conditions: [
+        { attribute: 'hcp.specialty', op: 'in', values: ['cardiology'] }, { attribute: 'b2b.years_experience', op: 'gte', value: 10 }] },
+      { label: 'Specialty: Other', country: 'US', target: 20, hard: true, conditions: [{ attribute: 'hcp.specialty', op: 'in', values: ['oncology'] }] },
+      // The English and French Canada cells are one SAMPLEON quota.
+      { label: 'Specialty: Oncology', country: 'CA', target: 50, hard: true, conditions: [{ attribute: 'hcp.specialty', op: 'in', values: ['oncology'] }] },
+    ]));
+    expect(sent.quotas.every((q: { id: string }) => /^pjx-/.test(q.id))).toBe(true);
   });
 });

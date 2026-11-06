@@ -37,15 +37,44 @@ same secret and the webhook URL `{PROJEXA_API}/api/v1/integrations/sampleon/even
 The launch URL comes from ZAPX (`POST /api/surveys/{id}/sampleon/connect`). PROJEXA fills in the
 rest from the project: countries, target completes per country (languages of one country add up),
 the longest LOI, the IR weighted by target, the fieldwork dates (or `fieldwork` in the body), the
-project code as `source.projectId`, and the organisation. `targeting.criteria`, `quotas` (in
-SAMPLEON's format, on SUPPLY360 attributes) and `hostId` are optional. PROJEXA's own quota cells
-are not translated. Nothing reaches a respondent until a person approves the audience in SAMPLEON.
+project code as `source.projectId`, and the organisation. `targeting.criteria` and `hostId` are
+optional. Quotas are the project's own quota cells, translated as described below, unless
+`quotas` (in SAMPLEON's format) are given or `useProjectQuotas` is `false`. The answer lists the
+quotas sent and the cells left out. Nothing reaches a respondent until a person approves the
+audience in SAMPLEON.
+
+In the web app the same is on the project's **SAMPLEON** tab: the requests with their status and
+SAMPLEON completes, a form to request an audience, **Send changes** for approved changes, and the
+quota mapping.
+
+## Quota cells as SUPPLY360 quotas
+
+PROJEXA cells count respondents by gate or prescreener answers; SAMPLEON counts its respondents by
+their SUPPLY360 profile. Each question a cell uses is therefore mapped once to a SUPPLY360 profile
+attribute (read from SAMPLEON's `GET /api/v1/attributes`), and each answer to one of the
+attribute's values. Answers whose label matches a value or one of its synonyms are matched
+automatically; yes/no answers match boolean attributes. Number questions map to number
+attributes, and a cell's range becomes `between`, `gte` or `lte`.
+
+- `GET /api/v1/projects/{id}/sampleon/quotas`: the catalogue, the saved map, each used question
+  with its attribute (saved, or **suggested** from the question and answer wording), the quotas that
+  would be sent, and the cells that would not, with the reason.
+- `PUT /api/v1/projects/{id}/sampleon/quotas` `{ map: { "gate:<questionId>": { attribute, values: { <answerId>: value } } } }`
+  (admins and project managers) saves the map after checking every attribute and value against
+  the catalogue.
+
+A suggestion is never sent until a person saves it. Cells are left out when they use device (known
+only when the respondent opens the survey), a question or answer that is not mapped, a removed
+question, or when they are closed. Cells of the languages of one country with the same conditions
+are added up into one SAMPLEON quota (`pjx-<cellId>`). PROJEXA keeps counting its own cells for the
+respondents it routes itself; SAMPLEON counts its quotas for the respondents it invites.
 
 ## Approved changes
 
 After changing targets or fieldwork dates in PROJEXA,
 `POST /api/v1/projects/{id}/sampleon/{requestId}/sync` sends them to SAMPLEON
-(`PATCH /api/v1/audience-requests/{AR-id}`), where quota targets update in place.
+(`PATCH /api/v1/audience-requests/{AR-id}`), where quota targets update in place. A request sent
+with the project's quota cells also re-sends them, translated with the current map.
 
 ## Progress
 
@@ -58,5 +87,6 @@ the latest per-country snapshot.
 
 ## Tests
 
-`apps/api/test/e2e/sampleon.e2e.spec.ts`, and SAMPLEON's `e2e/ecosystem/run.mjs`, which runs the
+`apps/api/test/e2e/sampleon.e2e.spec.ts`, `apps/api/test/unit/sampleon-quotas.spec.ts` (the
+translation), and SAMPLEON's `e2e/ecosystem/run.mjs`, which runs the
 workflow with PROJEXA, SAMPLEON, SUPPLY360 and ZAPX together.

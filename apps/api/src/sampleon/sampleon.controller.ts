@@ -10,7 +10,7 @@
  * SAMPLEON's, shown next to (not added into) the completes PROJEXA routed itself.
  */
 import {
-  BadGatewayException, BadRequestException, Body, ConflictException, Controller, Get, HttpCode, HttpException, Module, NotFoundException, Param, Post, Req,
+  BadGatewayException, BadRequestException, Body, ConflictException, Controller, Get, HttpCode, HttpException, Module, NotFoundException, Param, Post, Put, Req,
   ServiceUnavailableException, UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -22,6 +22,8 @@ import { CurrentUser, EDITORS, Public, Roles } from '../auth/decorators';
 import { AuthUser } from '../auth/auth.types';
 import { hmacSha256, safeEqualHex, sha256 } from '../common/crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { questionsOf } from '../survey/questions';
+import { quotaMapSchema, translateCells, type AttributeDef, type QuotaMap, type Translation } from './quota-translate';
 
 const WINDOW_SECONDS = 300;
 
@@ -61,8 +63,10 @@ const submitSchema = z
     targeting: z
       .object({ naturalLanguage: z.string().max(2000).optional(), criteria: z.array(z.record(z.string(), z.unknown())).max(100).default([]) })
       .default({ criteria: [] }),
-    /** Quotas in SAMPLEON's format (SUPPLY360 attributes). PROJEXA quota cells stay in PROJEXA. */
+    /** Quotas in SAMPLEON's format (SUPPLY360 attributes). Left empty, the project's quota cells are translated. */
     quotas: z.array(z.record(z.string(), z.unknown())).max(200).default([]),
+    /** Translate the project's quota cells with the saved question map (default true when `quotas` is empty). */
+    useProjectQuotas: z.boolean().optional(),
     rewardPoints: z.number().int().min(0).max(1_000_000),
     fieldwork: z.object({ start: IsoDate, end: IsoDate }).optional(),
     allowRouting: z.boolean().default(true),
@@ -111,17 +115,17 @@ export class SampleonController {
   }
 
   /** Signed call to SAMPLEON. Its 4xx answers are passed on; anything else is a 502. */
-  private async call(method: 'POST' | 'PATCH', path: string, body: unknown, idempotencyKey?: string): Promise<Record<string, unknown>> {
+  private async call(method: 'GET' | 'POST' | 'PATCH', path: string, body: unknown, idempotencyKey?: string): Promise<Record<string, unknown>> {
     const cfg = sampleonConfig();
-    const text = JSON.stringify(body);
+    const text = method === 'GET' ? '' : JSON.stringify(body);
     let res: Response;
     try {
       res = await fetch(cfg.url + path, {
         method,
         redirect: 'manual',
         signal: AbortSignal.timeout(15_000),
-        headers: { 'content-type': 'application/json', ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}), ...sampledgeHeaders(cfg.clientId, cfg.secret, method, path, text) },
-        body: text,
+        headers: { ...(method === 'GET' ? {} : { 'content-type': 'application/json' }), ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}), ...sampledgeHeaders(cfg.clientId, cfg.secret, method, path, text) },
+        ...(method === 'GET' ? {} : { body: text }),
       });
     } catch (e) {
       throw new BadGatewayException(`SAMPLEON could not be reached: ${(e as Error).message}`.slice(0, 300));
@@ -134,6 +138,26 @@ export class SampleonController {
     throw new BadGatewayException({ message: `SAMPLEON answered ${res.status}`, sampleon: parsed });
   }
 
+  /** SUPPLY360's attribute catalogue, read through SAMPLEON. */
+  private async catalogue(): Promise<AttributeDef[]> {
+    const r = await this.call('GET', '/api/v1/attributes', undefined);
+    return Array.isArray(r.attributes) ? (r.attributes as AttributeDef[]) : [];
+  }
+
+  /** The project's quota cells translated with the saved map. */
+  private async translation(organizationId: string, projectId: string, catalogue?: AttributeDef[]): Promise<Translation & { map: QuotaMap; cells: number }> {
+    const p = await this.prisma.project.findFirstOrThrow({
+      where: { id: projectId, organizationId },
+      select: { gateQuestions: true, prescreen: true, sampleonQuotaMap: true, countries: { select: { countryCode: true, quotas: { orderBy: { sortOrder: 'asc' } } } } },
+    });
+    const saved = quotaMapSchema.safeParse(p.sampleonQuotaMap ?? {});
+    const map = saved.success ? saved.data : {};
+    const cells = p.countries.flatMap((c) => c.quotas.map((q) => ({ id: q.id, group: q.group, name: q.name, target: q.target, isOpen: q.isOpen, country: c.countryCode, conditions: q.conditions })));
+    if (!cells.length) return { quotas: [], skipped: [], questions: [], map, cells: 0 };
+    const t = translateCells({ cells, gate: questionsOf(p.gateQuestions), prescreen: questionsOf(p.prescreen), catalogue: catalogue ?? (await this.catalogue()), map });
+    return { ...t, map, cells: cells.length };
+  }
+
   // ───────────── Staff ─────────────
 
   @Get('projects/:id/sampleon')
@@ -141,6 +165,40 @@ export class SampleonController {
     const p = await this.project(u, id);
     const requests = await this.prisma.sampleonAudienceRequest.findMany({ where: { organizationId: u.organizationId, projectId: p.id }, orderBy: { createdAt: 'desc' } });
     return { configured: sampleonConfig().configured, requests };
+  }
+
+  /** How the project's quota cells would be sent to SAMPLEON, and the question → attribute map. */
+  @Get('projects/:id/sampleon/quotas')
+  async quotas(@CurrentUser() u: AuthUser, @Param('id') id: string) {
+    if (!sampleonConfig().configured) throw new ServiceUnavailableException('The SAMPLEON integration is not configured');
+    const p = await this.project(u, id);
+    const attributes = await this.catalogue();
+    return { ...(await this.translation(u.organizationId, p.id, attributes)), attributes };
+  }
+
+  /** Save the question → attribute map. Answers left out are matched to attribute values by label. */
+  @Put('projects/:id/sampleon/quotas')
+  @Roles(...EDITORS)
+  async saveQuotaMap(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body() body: unknown) {
+    if (!sampleonConfig().configured) throw new ServiceUnavailableException('The SAMPLEON integration is not configured');
+    const input = z.object({ map: quotaMapSchema }).strict().safeParse(body);
+    if (!input.success) throw new BadRequestException({ message: 'Invalid map', issues: input.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`) });
+    const p = await this.project(u, id);
+    const attributes = await this.catalogue();
+    const known = new Map(attributes.map((a) => [a.key, a]));
+    const issues: string[] = [];
+    for (const [key, m] of Object.entries(input.data.map)) {
+      const a = known.get(m.attribute);
+      if (!a) { issues.push(`${key}: SUPPLY360 has no attribute ${m.attribute}`); continue; }
+      for (const [answer, v] of Object.entries(m.values)) {
+        const ok = a.type === 'boolean' ? typeof v === 'boolean' : a.type === 'number' ? typeof v === 'number' : a.type === 'enum' ? (a.values ?? []).includes(String(v)) : typeof v === 'string';
+        if (!ok) issues.push(`${key}.${answer}: ${JSON.stringify(v)} is not a value of ${a.label}`);
+      }
+    }
+    if (issues.length) throw new BadRequestException({ message: 'The map does not fit the SUPPLY360 attributes', issues });
+    await this.prisma.project.update({ where: { id: p.id }, data: { sampleonQuotaMap: input.data.map as Prisma.InputJsonValue } });
+    await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'sampleon.quota-map.saved', entityType: 'Project', entityId: p.id, detail: { questions: Object.keys(input.data.map) } });
+    return { ...(await this.translation(u.organizationId, p.id, attributes)), attributes };
   }
 
   /** Send the project's approved requirements to SAMPLEON. Invitations wait for approval in SAMPLEON. */
@@ -157,6 +215,9 @@ export class SampleonController {
     const { byCountry, required } = SampleonController.targets(p);
     if (required < 1) throw new BadRequestException({ message: 'Set the target completes first', issues: ['targetCompletes'] });
     // Expected incidence: the project's IR weighted by each country's target.
+    const useProject = v.useProjectQuotas ?? v.quotas.length === 0;
+    if (useProject && v.quotas.length) throw new BadRequestException({ message: 'Send quotas or use the project’s quota cells, not both', issues: ['quotas'] });
+    const translated = useProject ? await this.translation(u.organizationId, p.id) : null;
     const ir = p.countries.reduce((s, c) => s + c.irPercent * c.targetCompletes, 0) / Math.max(1, required) / 100;
     const request = {
       source: { platform: 'PROJEXA', projectId: p.projectCode, surveyId: v.surveyId },
@@ -166,7 +227,7 @@ export class SampleonController {
       targeting: v.targeting,
       requiredCompletes: required,
       completesByCountry: byCountry,
-      quotas: v.quotas,
+      quotas: translated ? translated.quotas : v.quotas,
       expectedIncidence: Math.min(1, Math.max(0.01, ir || 0.5)),
       loiMinutes: Math.max(...p.countries.map((c) => c.loiMinutes)),
       reward: { points: v.rewardPoints },
@@ -181,11 +242,11 @@ export class SampleonController {
     const row = await this.prisma.sampleonAudienceRequest.create({
       data: {
         organizationId: u.organizationId, projectId: p.id, audienceRequestId, surveyId: v.surveyId,
-        status: String(ar.status ?? 'submitted'), requiredCompletes: required, remaining: required, createdById: u.id,
+        status: String(ar.status ?? 'submitted'), requiredCompletes: required, remaining: required, createdById: u.id, usesProjectQuotas: !!translated,
       },
     });
-    await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'sampleon.audience-request.submitted', entityType: 'Project', entityId: p.id, detail: { audienceRequestId: row.audienceRequestId } });
-    return { audienceRequest: ar, record: row };
+    await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'sampleon.audience-request.submitted', entityType: 'Project', entityId: p.id, detail: { audienceRequestId: row.audienceRequestId, quotas: translated?.quotas.length ?? v.quotas.length } });
+    return { audienceRequest: ar, record: row, quotas: { sent: translated?.quotas ?? v.quotas, skipped: translated?.skipped ?? [] } };
   }
 
   /** Send approved project changes (targets per country, fieldwork dates) to SAMPLEON. */
@@ -198,8 +259,10 @@ export class SampleonController {
     const row = await this.prisma.sampleonAudienceRequest.findFirst({ where: { id: requestId, projectId: p.id, organizationId: u.organizationId } });
     if (!row) throw new NotFoundException('Audience request not found');
     const { byCountry, required } = SampleonController.targets(p);
+    const translated = row.usesProjectQuotas ? await this.translation(u.organizationId, p.id) : null;
     const change = {
       requiredCompletes: required,
+      ...(translated ? { quotas: translated.quotas } : {}),
       completesByCountry: byCountry,
       ...(p.fieldStartAt && p.fieldEndAt ? { fieldwork: { start: day(p.fieldStartAt), end: day(p.fieldEndAt) } } : {}),
     };
@@ -209,7 +272,7 @@ export class SampleonController {
       data: { requiredCompletes: required, remaining: Math.max(0, required - row.completes) },
     });
     await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'sampleon.audience-request.changed', entityType: 'Project', entityId: p.id, detail: { audienceRequestId: row.audienceRequestId, ...change } });
-    return { audienceRequest: ar, record: updated };
+    return { audienceRequest: ar, record: updated, ...(translated ? { quotas: { sent: translated.quotas, skipped: translated.skipped } } : {}) };
   }
 
   // ───────────── Events from SAMPLEON (public, signed) ─────────────
