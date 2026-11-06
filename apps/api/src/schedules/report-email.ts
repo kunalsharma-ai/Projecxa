@@ -40,7 +40,7 @@ export interface EmailInput {
   rows: SummaryRow[];
   rowLabel: string;
   appUrl: string;
-  /** White-label: product name and logo (defaults to PROJEXA). */
+  /** White-label: product name and logo (defaults to SampTrek). */
   appName?: string;
   logoUrl?: string | null;
   schedule: string;
@@ -62,7 +62,7 @@ export function renderEmail(e: EmailInput): { subject: string; html: string; tex
   const html = `<!doctype html><html><body style="margin:0;background:#f6f7f9;font-family:Arial,Helvetica,sans-serif;color:#111827">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f7f9;padding:24px 12px"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:720px;background:#ffffff;border:1px solid #e5e7eb;border-radius:8px">
-<tr><td style="padding:20px 24px 4px">${e.logoUrl ? `<img src="${esc(e.logoUrl)}" alt="${esc(e.appName ?? 'PROJEXA')}" height="28" style="height:28px;max-width:180px;border:0;display:block;margin-bottom:8px">` : ''}<div style="font-size:12px;color:#6b7280;letter-spacing:1px;text-transform:uppercase">${esc(e.org)} · ${esc(e.appName ?? 'PROJEXA')}</div>
+<tr><td style="padding:20px 24px 4px">${e.logoUrl ? `<img src="${esc(e.logoUrl)}" alt="${esc(e.appName ?? 'SampTrek')}" height="28" style="height:28px;max-width:180px;border:0;display:block;margin-bottom:8px">` : ''}<div style="font-size:12px;color:#6b7280;letter-spacing:1px;text-transform:uppercase">${esc(e.org)} · ${esc(e.appName ?? 'SampTrek')}</div>
 <h1 style="margin:6px 0 2px;font-size:20px">${esc(e.name)}</h1>
 <div style="font-size:13px;color:#6b7280">${esc(e.reportLabel)} · ${esc(range)}${e.filters.length ? ` · ${esc(e.filters.join(', '))}` : ''}</div></td></tr>
 ${tiles.length ? `<tr><td style="padding:12px 24px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${tiles.map(([k, v]) => `<td style="padding:8px;border:1px solid #e5e7eb;border-radius:6px;vertical-align:top"><div style="font-size:11px;color:#6b7280;text-transform:uppercase">${k}</div><div style="font-size:15px;font-weight:bold;margin-top:4px">${esc(v)}</div></td>`).join('<td width="6"></td>')}</tr></table></td></tr>` : ''}
@@ -73,7 +73,7 @@ ${shown.map((r) => `<tr><td style="${td}">${esc(r.label)}${r.sublabel ? ` <span 
 ${e.rows.length > MAX_ROWS ? `<p style="font-size:12px;color:#6b7280">Showing ${MAX_ROWS} of ${e.rows.length} rows. All rows are in the attached CSV.</p>` : ''}`
       : '<p style="font-size:14px;color:#6b7280">No respondent traffic in this period.</p>'
   }</td></tr>
-<tr><td style="padding:12px 24px 20px;font-size:12px;color:#6b7280">Amounts are in each market&#39;s currency; converted totals use the exchange rates in Settings. Full detail is in the attached CSV and in <a href="${esc(e.appUrl)}/reports" style="color:#2563eb">${esc(e.appName ?? 'PROJEXA')} Reports</a>.<br>${esc(e.schedule)}. Manage it in <a href="${esc(e.appUrl)}/reports/schedules" style="color:#2563eb">Scheduled reports</a>.</td></tr>
+<tr><td style="padding:12px 24px 20px;font-size:12px;color:#6b7280">Amounts are in each market&#39;s currency; converted totals use the exchange rates in Settings. Full detail is in the attached CSV and in <a href="${esc(e.appUrl)}/reports" style="color:#2563eb">${esc(e.appName ?? 'SampTrek')} Reports</a>.<br>${esc(e.schedule)}. Manage it in <a href="${esc(e.appUrl)}/reports/schedules" style="color:#2563eb">Scheduled reports</a>.</td></tr>
 </table></td></tr></table></body></html>`;
   const text = [
     `${e.name} (${e.org})`,

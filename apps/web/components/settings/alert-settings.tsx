@@ -76,7 +76,7 @@ export function AlertSettings() {
           <div className="rounded-lg border border-line p-4">
             <div className="mb-2 font-medium">Alert webhook</div>
             <p className="mb-3 text-xs text-muted">We POST each new alert as JSON, signed with <code className="font-mono">X-Projexa-Signature: sha256=HMAC(secret, timestamp.body)</code>. See docs/FIELDWORK_MONITOR.md.</p>
-            <Field label="HTTPS URL"><input className="input font-mono text-xs" placeholder="https://hooks.example.com/projexa" value={url} onChange={(e) => setUrl(e.target.value)} /></Field>
+            <Field label="HTTPS URL"><input className="input font-mono text-xs" placeholder="https://hooks.example.com/samptrek" value={url} onChange={(e) => setUrl(e.target.value)} /></Field>
             {secret && (
               <div className="mt-3 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm">
                 <div className="mb-1 font-medium">Signing secret (shown once)</div>

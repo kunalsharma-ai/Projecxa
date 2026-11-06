@@ -5,7 +5,7 @@ import { Check, Ledger, LedgerContext, LedgerDoc, LedgerError, Party, Remote } f
 /**
  * Xero Accounting API (docs/ACCOUNTING_SYNC.md). Sales invoices are ACCREC invoices and vendor bills
  * are ACCPAY invoices; payments go to the bank account named in the accounting settings. Exchange
- * rates are left to Xero (its daily rate), because Xero and PROJEXA may use different base currencies.
+ * rates are left to Xero (its daily rate), because Xero and SampTrek may use different base currencies.
  */
 
 /** Granular scopes, required for Xero apps created from March 2026. XERO_SCOPES overrides for older apps. */
@@ -144,7 +144,7 @@ export class XeroLedger implements Ledger {
     const body = {
       Type: sale ? 'ACCREC' : 'ACCPAY',
       Contact: { ContactID: contactId },
-      // For bills Xero shows InvoiceNumber as the bill's reference; PROJEXA's number keeps them findable.
+      // For bills Xero shows InvoiceNumber as the bill's reference; SampTrek's number keeps them findable.
       InvoiceNumber: doc.number,
       ...(sale && doc.reference ? { Reference: doc.reference } : {}),
       Date: this.ctx.day(doc.date),

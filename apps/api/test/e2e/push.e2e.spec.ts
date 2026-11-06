@@ -95,7 +95,7 @@ describe('Push notifications to the phone app (e2e)', () => {
     expect(saved.status.state).toBe('connected');
     expect(JSON.stringify(saved)).not.toContain('expo-secret-token');
     // The admin's test sends to the admin's own phones.
-    expect((await admin.post('/integrations/settings/push/test').expect(200)).body).toMatchObject({ ok: false, message: expect.stringMatching(/Sign in to the PROJEXA phone app/) });
+    expect((await admin.post('/integrations/settings/push/test').expect(200)).body).toMatchObject({ ok: false, message: expect.stringMatching(/Sign in to the SampTrek phone app/) });
     await admin.post('/push/devices', { token: tok('admin'), platform: 'android' }).expect(200);
     expect((await admin.post('/integrations/settings/push/test').expect(200)).body).toMatchObject({ ok: true });
     expect(auth.at(-1)).toBe('expo-secret-token');
@@ -103,7 +103,7 @@ describe('Push notifications to the phone app (e2e)', () => {
 
   it('sends a test to one phone, and forgets phones Expo says are gone', async () => {
     await pm.post('/push/test', { token: tok('pm') }).expect(200);
-    expect(all()).toMatchObject([{ to: tok('pm'), title: 'PROJEXA', data: { path: '/' } }]);
+    expect(all()).toMatchObject([{ to: tok('pm'), title: 'SampTrek', data: { path: '/' } }]);
     await viewer.post('/push/test', { token: tok('pm') }).expect(404);
     answer = () => ({ status: 'error', message: 'gone', details: { error: 'DeviceNotRegistered' } });
     await admin.post('/push/test', { token: tok('admin') }).expect(400);

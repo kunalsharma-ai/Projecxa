@@ -1,6 +1,6 @@
-# PROJEXA frontend design system
+# SampTrek frontend design system
 
-This document answers the design deliverables in Kunal's "PROJEXA frontend design prompt" (November 2026). It covers what milestone 4 builds and how the rest is phased. Scope is the signed-in application only: the staff workspace and the client and vendor portals. There are no marketing pages.
+This document answers the design deliverables in Kunal's "SampTrek frontend design prompt" (November 2026). It covers what milestone 4 builds and how the rest is phased. Scope is the signed-in application only: the staff workspace and the client and vendor portals. There are no marketing pages.
 
 The order of priority is the one the prompt sets: **usability, then speed, then clarity, then accessibility, then visual sophistication.**
 
@@ -137,7 +137,7 @@ Numbers stay exact: charts show the same values as the reports API.
 
 ## 8. Bid Creation Studio
 
-**Decided (Kunal, 2026-11-01): bids stay in Bidzo.** PROJEXA links to Bidzo from Quick Create and the command palette (`NEXT_PUBLIC_BIDZO_URL`). PROJEXA does not get its own bid model. If the Bid Studio below is built, it is built in Bidzo using this design system.
+**Decided (Kunal, 2026-11-01): bids stay in Bidzo.** SampTrek links to Bidzo from Quick Create and the command palette (`NEXT_PUBLIC_BIDZO_URL`). SampTrek does not get its own bid model. If the Bid Studio below is built, it is built in Bidzo using this design system.
 
 The design is ready either way:
 

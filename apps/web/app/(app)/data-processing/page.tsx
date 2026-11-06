@@ -153,7 +153,7 @@ export default function DataProcessingPage() {
             <Kpi icon={Users} tone="tone-violet" value={counts.entrants - counts.finished} label="Still in the survey" sub="No outcome yet" />
           </div>
           <Panel title="Why entrants were removed or screened out">
-            {data.reasons.length === 0 ? <Empty>No entrant has been removed or screened out by PROJEXA’s checks.</Empty> : (
+            {data.reasons.length === 0 ? <Empty>No entrant has been removed or screened out by SampTrek’s checks.</Empty> : (
               <ul className="space-y-2">{data.reasons.map((r, i) => <HBar key={r.code} label={r.label} count={r.count} percent={r.percent} i={i + 4} />)}</ul>
             )}
             <p className="mt-3 text-xs text-muted">Turn checks on or off in the project’s <Link className="text-brand hover:underline" href={`/projects/${p.id}?tab=gate`}>Gate & security</Link> tab.</p>
@@ -235,7 +235,7 @@ export default function DataProcessingPage() {
 
       {tab === 'quotas' && (
         <Panel title="Quota balance" icon={<Gauge className="h-4 w-4 text-brand" aria-hidden />} action={<Link href={`/projects/${p.id}?tab=quotas`} className="text-xs text-brand hover:underline">Edit quotas</Link>}>
-          <p className="mb-4 text-sm text-muted">PROJEXA balances the sample while in field with quota cells (respondents over a full cell go to quota full). It does not weight data after fieldwork; do that in your analysis tool with the clean data file.</p>
+          <p className="mb-4 text-sm text-muted">SampTrek balances the sample while in field with quota cells (respondents over a full cell go to quota full). It does not weight data after fieldwork; do that in your analysis tool with the clean data file.</p>
           {data.quotas.length === 0 ? <Empty>No quota cells or market targets.</Empty> : (
             <ul className="space-y-3">
               {data.quotas.map((q, i) => (

@@ -179,7 +179,7 @@ function SettingsForm({ value, onSaved }: { value: Settings; onSaved: (s: Settin
               <label className="block"><span className="label">Tax ID (GSTIN, VAT…)</span><input className="input" {...text('sellerTaxId')} /></label>
               <label className="block"><span className="label">Billing email</span><input className="input" type="email" {...text('sellerEmail')} /></label>
             </div>
-            <label className="block"><span className="label">Footer</span><input className="input" {...text('invoiceFooter')} placeholder="Thank you for choosing PROJEXA." /></label>
+            <label className="block"><span className="label">Footer</span><input className="input" {...text('invoiceFooter')} placeholder="Thank you for choosing SampTrek." /></label>
           </div>
         </div>
         <div className="mt-5"><button className="btn-primary"><Save className="h-4 w-4" />Save billing settings</button></div>
@@ -212,7 +212,7 @@ function RecordForm({ onClose, onDone }: { onClose: () => void; onDone: (i: Bill
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="record-title" onClick={onClose}>
       <form onSubmit={submit} className="card max-h-[92vh] w-full max-w-xl overflow-y-auto p-5" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-4 flex items-start justify-between"><div><h2 id="record-title" className="text-lg font-semibold">Record a payment</h2><p className="text-sm text-muted">Money you received outside PROJEXA. The subscription renews at once and they get a receipt.</p></div>
+        <div className="mb-4 flex items-start justify-between"><div><h2 id="record-title" className="text-lg font-semibold">Record a payment</h2><p className="text-sm text-muted">Money you received outside SampTrek. The subscription renews at once and they get a receipt.</p></div>
           <button type="button" className="btn-ghost px-2" aria-label="Close" onClick={onClose}><X className="h-4 w-4" /></button></div>
         <ErrorBox error={error} />
         {!orgs || !plans ? <Loading /> : (

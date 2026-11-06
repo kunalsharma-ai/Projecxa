@@ -68,7 +68,7 @@ export class AuthGuard implements CanActivate {
       const billing = feature === 'billing';
       if (g.block && !minimal && !(billing && g.block === 'SUBSCRIPTION_INACTIVE')) throw new ForbiddenException({ statusCode: 403, code: g.block, message: BLOCK_MESSAGE[g.block] });
       const mobile = String(req.headers['x-client'] ?? '').toLowerCase() === 'mobile';
-      if (mobile && !g.mobileEnabled && !minimal && !billing) throw new ForbiddenException({ statusCode: 403, code: 'MOBILE_DISABLED', message: 'The mobile app is not part of your access. Use PROJEXA in a web browser, or ask your admin.' });
+      if (mobile && !g.mobileEnabled && !minimal && !billing) throw new ForbiddenException({ statusCode: 403, code: 'MOBILE_DISABLED', message: 'The mobile app is not part of your access. Use SampTrek in a web browser, or ask your admin.' });
       if (feature && !billing && !(mobile ? g.mobile : g.web).has(feature)) {
         throw new ForbiddenException({ statusCode: 403, code: 'FEATURE_DISABLED', feature, message: 'This feature is not part of your plan or was turned off for you.' });
       }

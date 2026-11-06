@@ -242,7 +242,7 @@ export class LedgerService {
     const pace = { ...this.pace[provider], sleep: this.sleep };
     if (provider === 'tally') {
       const t = await this.tallyBound(org);
-      if (!t) throw new BadRequestException((await this.integrations.tally(org)).otherTenant ? 'Tally Prime is connected to another PROJEXA organisation' : 'Tally Prime is not set up yet. Add its address in Settings → Integrations.');
+      if (!t) throw new BadRequestException((await this.integrations.tally(org)).otherTenant ? 'Tally Prime is connected to another SampTrek organisation' : 'Tally Prime is not set up yet. Add its address in Settings → Integrations.');
       return { ledger: new TallyLedger(new PacedClient(this.http, null, pace), t.url, ctx), conn: null };
     }
     const app = await this.app(provider);

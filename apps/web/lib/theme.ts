@@ -1,5 +1,5 @@
 /**
- * PROJEXA theme engine.
+ * SampTrek theme engine.
  *
  * A theme is a pair of palettes (light and dark). Personal preferences adjust it: accent
  * colours, surfaces, border and gradient intensity, glass, font size, density, radius,
@@ -210,7 +210,7 @@ export function resolve(p: Preferences, dark: boolean): Resolved {
   };
   return {
     vars,
-    attrs: { 'data-mode': dark ? 'dark' : 'light', 'data-density': p.density, 'data-motion': p.motion, 'data-theme': theme.id },
+    attrs: { 'data-mode': dark ? 'dark' : 'light', 'data-sidebar-tone': sidebarInk === '#ffffff' ? 'dark' : 'light', 'data-density': p.density, 'data-motion': p.motion, 'data-theme': theme.id },
     adjusted,
   };
 }

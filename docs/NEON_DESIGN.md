@@ -1,7 +1,7 @@
 # Neon Command design (2026-11)
 
 The whole web CRM now uses the **Neon Command** look from Kunal's two mockups
-(*PROJEXA Research Command Centre* and *PROJEXA Neon Project Management Suite*):
+(*SampTrek Research Command Centre* and *SampTrek Neon Project Management Suite*):
 violet and electric-blue gradients, frosted glass cards and a deep indigo navigation rail.
 The mockups were used as visual direction only; every number on screen is real data.
 

@@ -5,10 +5,10 @@ import { useState } from 'react';
 /** Recovery codes, shown once, with copy and download. */
 export function RecoveryCodes({ codes, account, onDone }: { codes: string[]; account: string; onDone: () => void }) {
   const [saved, setSaved] = useState(false);
-  const text = `PROJEXA recovery codes for ${account}\nEach code works once. Keep them somewhere safe, away from your phone.\n\n${codes.join('\n')}\n`;
+  const text = `SampTrek recovery codes for ${account}\nEach code works once. Keep them somewhere safe, away from your phone.\n\n${codes.join('\n')}\n`;
   const download = () => {
     const url = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
-    const a = Object.assign(document.createElement('a'), { href: url, download: 'projexa-recovery-codes.txt' });
+    const a = Object.assign(document.createElement('a'), { href: url, download: 'samptrek-recovery-codes.txt' });
     a.click();
     URL.revokeObjectURL(url);
     setSaved(true);

@@ -12,7 +12,7 @@ interface Info { purpose: 'invite' | 'reset'; name: string; email: string; organ
 /** Opened from an invitation or password-reset email. */
 export default function SetPasswordPage() {
   const brand = useBrandedPage();
-  const appName = brand?.appName ?? 'PROJEXA';
+  const appName = brand?.appName ?? 'SampTrek';
   const [token, setToken] = useState<string | null>(null);
   const [info, setInfo] = useState<Info | null>(null);
   const [password, setPassword] = useState('');

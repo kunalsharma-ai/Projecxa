@@ -20,7 +20,7 @@ import { randomToken, sha256 } from '../common/crypto';
 import { ZodPipe } from '../common/zod.pipe';
 import { PrismaService } from '../prisma/prisma.service';
 
-export const DEFAULT_APP_NAME = 'PROJEXA';
+export const DEFAULT_APP_NAME = 'SampTrek';
 export const ASSET_KINDS = ['logo', 'logoDark', 'icon'] as const;
 export type AssetKind = (typeof ASSET_KINDS)[number];
 export const MAX_ASSET_BYTES = 512 * 1024;
@@ -105,10 +105,19 @@ export function brandOf(o: OrgForBrand, assets: { kind: string; hash: string }[]
 }
 
 const escHtml = (v: string) => v.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+/** SampTrek's own logo as a PNG on the web app (apps/web/public/brand), for emails. */
+export const PRODUCT_EMAIL_LOGO_PATH = '/brand/samptrek-logo-light.png';
+/** The logo an email shows: the organisation's upload, else SampTrek's logo unless the organisation uses its own name. */
+export function emailLogoUrl(b: Pick<Brand, 'logoUrl' | 'custom' | 'webBase'>): string | null {
+  if (b.logoUrl) return b.logoUrl;
+  return !b.custom && /^https?:\/\//.test(b.webBase) ? `${b.webBase.replace(/\/$/, '')}${PRODUCT_EMAIL_LOGO_PATH}` : null;
+}
+
 /** Top line of an email: the logo, or the product name in small capitals. */
 export function emailHeader(b: Brand, color = '#1d4ed8') {
-  if (b.logoUrl) return `<p style="margin:0 0 16px"><img src="${escHtml(b.logoUrl)}" alt="${escHtml(b.appName)}" height="32" style="height:32px;max-width:200px;border:0"></p>`;
-  return `<p style="font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:${b.brandColor ?? color};font-weight:600">${escHtml(b.custom ? b.appName : 'Sampledge · PROJEXA')}</p>`;
+  const logo = emailLogoUrl(b);
+  if (logo) return `<p style="margin:0 0 16px"><img src="${escHtml(logo)}" alt="${escHtml(b.custom ? b.appName : 'SampTrek by Sampledge')}" height="32" style="height:32px;max-width:200px;border:0"></p>`;
+  return `<p style="font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:${b.brandColor ?? color};font-weight:600">${escHtml(b.custom ? b.appName : 'SampTrek by Sampledge')}</p>`;
 }
 
 /** The image type from its first bytes, or null when it is not a PNG, JPEG or WebP. */

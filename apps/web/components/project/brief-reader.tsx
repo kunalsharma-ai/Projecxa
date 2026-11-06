@@ -119,7 +119,7 @@ export function BriefBanner({ brief, clientChosen, onAddClient, addingClient, on
           )}
           {!clientChosen && brief.clientName && !brief.client && (
             <div className="flex flex-wrap items-center gap-2">
-              <span>Client “{brief.clientName}” is not in PROJEXA yet.</span>
+              <span>Client “{brief.clientName}” is not in SampTrek yet.</span>
               <button type="button" className="btn-ghost px-2.5 py-1 text-xs" onClick={() => onAddClient(brief.clientName!)} disabled={addingClient}>{addingClient ? 'Adding…' : 'Add it as a client'}</button>
               <span className="text-muted">or choose an existing client below.</span>
             </div>

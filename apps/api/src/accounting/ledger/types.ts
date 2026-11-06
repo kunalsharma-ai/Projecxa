@@ -40,7 +40,7 @@ export interface Check { label: string; ok: boolean; detail: string }
 
 export interface LedgerContext {
   cfg: AccountingConfig;
-  /** PROJEXA's reporting currency and a rate from each currency to it (Settings → Finance). */
+  /** SampTrek's reporting currency and a rate from each currency to it (Settings → Finance). */
   baseCurrency: string;
   rate: (currency: string) => number | null;
   /** Day in the organisation's time zone, YYYY-MM-DD. */

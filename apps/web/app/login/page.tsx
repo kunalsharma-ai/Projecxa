@@ -13,7 +13,7 @@ interface LoginResult { home?: string; mfaRequired?: boolean; mfaToken?: string;
 
 export default function LoginPage() {
   const brand = useBrandedPage();
-  const appName = brand?.appName ?? 'PROJEXA';
+  const appName = brand?.appName ?? 'SampTrek';
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

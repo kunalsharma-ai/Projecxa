@@ -81,7 +81,7 @@ describe('Accounting exports (e2e)', () => {
     await pm.post('/accounting/exports', f({ format: 'tally', onlyNew: false })).expect(400);
     await admin.put('/organization/finance-settings', { baseCurrency: 'USD', rates: [{ currency: 'EUR', rate: 1.1 }] }).expect(200);
     const e = (await pm.post('/accounting/exports', f({ format: 'tally', onlyNew: false })).expect(201)).body;
-    expect(e).toMatchObject({ invoiceCount: 2, billCount: 1, fileName: 'projexa-tally-both-2026-10-01_to_2026-10-31.xml' });
+    expect(e).toMatchObject({ invoiceCount: 2, billCount: 1, fileName: 'samptrek-tally-both-2026-10-01_to_2026-10-31.xml' });
     const res = await pm.get(`/accounting/exports/${e.id}/download`).expect(200);
     expect(res.headers['content-disposition']).toContain('attachment');
     const x = res.text;

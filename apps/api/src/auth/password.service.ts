@@ -149,7 +149,7 @@ export class PasswordController {
   @HttpCode(200)
   async forgot(@Body(new ZodPipe(forgotSchema)) body: z.infer<typeof forgotSchema>) {
     await this.passwords.forgot(body.email, body.organization || undefined);
-    return { ok: true, message: 'If that email has a PROJEXA account, a reset link is on its way. It works for 30 minutes.' };
+    return { ok: true, message: 'If that email has a SampTrek account, a reset link is on its way. It works for 30 minutes.' };
   }
 
   @Public()

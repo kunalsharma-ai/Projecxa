@@ -2,7 +2,7 @@
  * Push notifications through Expo's push service (free; Android delivery uses the Firebase key and
  * iOS the Apple key that are uploaded once to the Expo project, see docs/MOBILE_APP.md).
  *
- * The phone gets an Expo push token and gives it to the PROJEXA server with the categories the
+ * The phone gets an Expo push token and gives it to the SampTrek server with the categories the
  * person wants. The server sends a push when a fieldwork alert opens, a request gets a reply, a
  * task reminder is due or a won bid arrives. Each push carries the screen to open in `data.path`.
  */
@@ -43,7 +43,7 @@ export async function getPushToken(): Promise<PushTokenResult> {
   if (!Device.isDevice) return { error: 'Push notifications need a real phone, not a simulator.' };
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
-      name: 'PROJEXA',
+      name: 'SampTrek',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 200, 120, 200],
       lightColor: '#8B5CF6',
@@ -51,7 +51,7 @@ export async function getPushToken(): Promise<PushTokenResult> {
   }
   let { status } = await Notifications.getPermissionsAsync();
   if (status !== 'granted') status = (await Notifications.requestPermissionsAsync()).status;
-  if (status !== 'granted') return { error: 'Notifications are turned off for PROJEXA in your phone settings.' };
+  if (status !== 'granted') return { error: 'Notifications are turned off for SampTrek in your phone settings.' };
   const projectId = (Constants.expoConfig?.extra as { eas?: { projectId?: string } } | undefined)?.eas?.projectId ?? Constants.easConfig?.projectId;
   if (!projectId) return { error: 'This build has no Expo project ID yet (see “Android test build” in docs/MOBILE_APP.md).' };
   try {

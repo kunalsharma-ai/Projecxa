@@ -1,6 +1,6 @@
-# PROJEXA mobile app (Android and iOS)
+# SampTrek mobile app (Android and iOS)
 
-`apps/mobile` is one Expo (React Native) app that builds for Android and iOS from the same code. It signs in to the same PROJEXA API as the web app and shows only the features Super Admin has switched on for the person, live.
+`apps/mobile` is one Expo (React Native) app that builds for Android and iOS from the same code. It signs in to the same SampTrek API as the web app and shows only the features Super Admin has switched on for the person, live.
 
 ## What is in the app
 
@@ -75,7 +75,7 @@ The app asks for permission after sign-in and registers the phone (`POST /push/d
 
 API: `POST /api/v1/push/devices { token, platform, name?, categories? }`, `POST /api/v1/push/devices/remove { token }`, `POST /api/v1/push/test { token }` (any signed-in role, own phones only).
 
-Expo needs the platform keys once (done in the Expo account, not in PROJEXA):
+Expo needs the platform keys once (done in the Expo account, not in SampTrek):
 
 - **Android:** create a Firebase project, add an Android app with package `com.sampledge.projexa`, download the service account key (Project settings → Service accounts → Generate new private key) and upload it in expo.dev → your project → Credentials → Android → FCM V1 service account key.
 - **iOS:** needs an Apple Developer account; `eas build --platform ios` offers to create the push key.
