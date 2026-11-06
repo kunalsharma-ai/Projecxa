@@ -10,7 +10,8 @@ import { AuthUser } from '../auth/auth.types';
 import { config } from '../common/config';
 import { randomToken } from '../common/crypto';
 import { PrismaService } from '../prisma/prisma.service';
-import { defaultParamMappings, RedirectConfig } from '../redirects/redirect.types';
+import { defaultParamMappings, prebuiltRules, RedirectConfig } from '../redirects/redirect.types';
+import { parseConfig } from '../redirects/redirects.service';
 import {
   allocationSchema,
   cloneCountrySchema,
@@ -140,7 +141,10 @@ export class ProjectsService {
         await tx.projectTemplate.update({ where: { id: template.id }, data: { useCount: { increment: 1 }, lastUsedAt: new Date() } });
       }
       if (input.draftId) await tx.projectDraft.deleteMany({ where: { id: input.draftId, ownerId: u.id } });
-      const initial: RedirectConfig = input.redirectConfig ?? fromTemplate ?? { rules: [], params: defaultParamMappings() };
+      // Statuses the client template or organization default do not set start prebuilt for the mode:
+      // they go to each vendor's own saved redirect ({vendor_redirect}). Inherited statuses keep inheriting.
+      const inherited = new Set([...parseConfig(client.redirectTemplate).rules, ...parseConfig(org.defaultRedirectConfig).rules].filter((r) => !r.scope?.vendorId && !r.scope?.countryCode).map((r) => r.status));
+      const initial: RedirectConfig = input.redirectConfig ?? fromTemplate ?? { rules: prebuiltRules(input.redirectMode).filter((r) => !inherited.has(r.status)), params: defaultParamMappings() };
       if (!input.redirectConfig?.params?.length) initial.params = defaultParamMappings();
       const v1 = await tx.redirectPolicyVersion.create({
         data: {

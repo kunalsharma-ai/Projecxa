@@ -1,3 +1,4 @@
+import { forVendor } from '../common/vendor-safe';
 import { BadRequestException, Body, Controller, Delete, Get, Module, NotFoundException, Param, Patch, Post, Query, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
@@ -247,11 +248,11 @@ export class PortalDisputableController {
     const taken = new Set(open.flatMap((t) => t.sessionIds));
     const rows = await this.prisma.respondentSession.findMany({
       where: { organizationId: u.organizationId, isTest: false, status: 'COMPLETE', approval: 'REJECTED', invoiceId: null, vendorAllocation: { vendorId: p.vendorId }, ...(projectId ? { projectId } : {}) },
-      select: { id: true, vendorRespondentId: true, approvalAt: true, outcomeAt: true, project: { select: { id: true, projectCode: true, name: true } }, projectCountry: { select: { countryCode: true } } },
+      select: { id: true, vendorRespondentId: true, approvalAt: true, outcomeAt: true, project: { select: { id: true, projectCode: true, name: true, vendorTitle: true } }, projectCountry: { select: { countryCode: true } } },
       orderBy: { approvalAt: 'desc' },
       take: 1000,
     });
-    return rows.filter((r) => !taken.has(r.id)).map((r) => ({ id: r.id, uid: r.vendorRespondentId, rejectedAt: r.approvalAt, completedAt: r.outcomeAt, countryCode: r.projectCountry.countryCode, project: r.project }));
+    return rows.filter((r) => !taken.has(r.id)).map((r) => ({ id: r.id, uid: r.vendorRespondentId, rejectedAt: r.approvalAt, completedAt: r.outcomeAt, countryCode: r.projectCountry.countryCode, project: forVendor(r.project) }));
   }
 }
 

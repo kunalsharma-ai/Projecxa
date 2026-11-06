@@ -86,7 +86,7 @@ describe('SAMPLEON integration', () => {
     pm = api(app, await login(app, a.users.PROJECT_MANAGER.email));
     viewer = api(app, await login(app, a.users.VIEWER.email));
     other = api(app, await login(app, b.users.PROJECT_MANAGER.email));
-    clientId = (await pm.post('/clients', { name: 'Client One', code: 'C1', contacts: [{ name: 'Pat' }] }).expect(201)).body.id;
+    clientId = (await pm.post('/clients', { name: 'Client One', code: 'C1', contacts: [{ name: 'Pat', email: 'pat@client-one.example.com' }] }).expect(201)).body.id;
     project = (await pm.post('/projects', {
       name: 'Cardiologist tracker', category: 'Healthcare', clientId, fieldStartAt: '2026-11-10', fieldEndAt: '2026-12-10',
       defaults: { language: 'en', loiMinutes: 15, irPercent: 20, cpi: 40, targetCompletes: 500 },

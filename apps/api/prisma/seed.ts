@@ -55,8 +55,9 @@ async function main() {
       organizationId: org.id,
       name: 'Acme Insights',
       code: 'ACME',
+      website: 'https://acme.example.com',
       s2sSecret: token(32),
-      contacts: { create: [{ name: 'Alex Client', email: 'alex@acme.example.com' }] },
+      contacts: { create: [{ name: 'Alex Client', email: 'alex@acme.example.com', phone: '+1 212 555 0100' }] },
     },
     include: { contacts: true },
   });
@@ -70,10 +71,22 @@ async function main() {
       callbackSecret: token(32),
       redirectAllowedDomains: ['panel-alpha.example.com'],
       callbackUrlTemplate: `${WEB}/mock/callback?vendor=PALPHA&uid={uid}&status={status}`,
+      contactName: 'Priya Ops', contactEmail: 'ops@panel-alpha.example.com', website: 'https://panel-alpha.example.com',
+      // Every redirect the vendor gave us (local mock pages); projects use them through {vendor_redirect}.
+      redirectUrls: {
+        COMPLETE: `${WEB}/mock/vendor/PALPHA?state=complete&uid={respondent_uid}`,
+        TERMINATE: `${WEB}/mock/vendor/PALPHA?state=terminate&uid={respondent_uid}`,
+        QUOTA_FULL: `${WEB}/mock/vendor/PALPHA?state=quotafull&uid={respondent_uid}`,
+        SECURITY_REJECT: `${WEB}/mock/vendor/PALPHA?state=security&uid={respondent_uid}`,
+      },
     },
   });
   const beta = await prisma.vendor.create({
-    data: { organizationId: org.id, name: 'Sample Beta', code: 'SBETA', callbackSecret: token(32), redirectAllowedDomains: ['sample-beta.example.com'] },
+    data: {
+      organizationId: org.id, name: 'Sample Beta', code: 'SBETA', callbackSecret: token(32), redirectAllowedDomains: ['sample-beta.example.com'],
+      contactEmail: 'pm@sample-beta.example.com',
+      redirectUrls: { COMPLETE: `${WEB}/mock/vendor/SBETA?state=complete&rid={respondent_uid}`, TERMINATE: `${WEB}/mock/vendor/SBETA?state=terminate&rid={respondent_uid}` },
+    },
   });
 
   // Portal logins (milestone 2)

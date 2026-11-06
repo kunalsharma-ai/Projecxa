@@ -275,6 +275,12 @@ export function validateConfig(
     if (mode !== 'HYBRID' && r.type !== mode) {
       issues.push({ level: 'error', status: r.status, scope: r.scope, message: `${mode} mode only allows ${mode} rules` });
     }
+    // The vendor's saved redirect is checked when the vendor is saved and again at runtime.
+    if (r.url.trim() === '{vendor_redirect}') continue;
+    if (r.url.includes('{vendor_redirect}')) {
+      issues.push({ level: 'error', status: r.status, scope: r.scope, message: '{vendor_redirect} must be the whole URL; it is replaced by the vendor’s saved redirect' });
+      continue;
+    }
     const macros = macrosIn(r.url);
     if (type === 'STATIC' && /[{}]/.test(r.url)) {
       issues.push({ level: 'error', status: r.status, scope: r.scope, message: 'Static URLs cannot contain {macros}' });

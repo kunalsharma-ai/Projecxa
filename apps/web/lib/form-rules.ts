@@ -109,6 +109,7 @@ export function validateAll(schema: FormSchema, values: Values): Record<string, 
       if (d.type === 'group') {
         const items = (v as Values[]) ?? [];
         if (d.minItems && items.length < d.minItems) errors[path] = `Add at least ${d.minItems}.`;
+        else { const ge = d.validate?.(v, scope); if (ge) errors[path] = ge; }
         items.forEach((item, i) => walk(d.fields ?? [], item, `${path}.${i}.`));
         continue;
       }

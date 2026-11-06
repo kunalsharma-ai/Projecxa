@@ -1,3 +1,4 @@
+import { forVendor } from '../common/vendor-safe';
 import { BrandingService } from '../branding/branding';
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, PayloadTooLargeException } from '@nestjs/common';
 import { Prisma, SharedFileKind, TicketKind, TicketStatus } from '@prisma/client';
@@ -47,7 +48,7 @@ function bytesMatch(ext: string, b: Buffer) {
 
 export const ticketRef = (n: number) => `REQ-${n}`;
 
-type TicketWithParties = Prisma.TicketGetPayload<{ include: { client: { select: { id: true; name: true } }; vendor: { select: { id: true; name: true } }; project: { select: { id: true; projectCode: true; name: true } } } }>;
+type TicketWithParties = Prisma.TicketGetPayload<{ include: { client: { select: { id: true; name: true } }; vendor: { select: { id: true; name: true } }; project: { select: { id: true; projectCode: true; name: true; vendorTitle: true } } } }>;
 
 @Injectable()
 export class RequestsService {
@@ -92,7 +93,7 @@ export class RequestsService {
       },
       orderBy: [{ lastMessageAt: 'desc' }],
       take: 300,
-      include: { client: { select: { id: true, name: true } }, vendor: { select: { id: true, name: true } }, project: { select: { id: true, projectCode: true, name: true } }, _count: { select: { messages: p.kind === 'staff' ? true : { where: { internal: false } } } } },
+      include: { client: { select: { id: true, name: true } }, vendor: { select: { id: true, name: true } }, project: { select: { id: true, projectCode: true, name: true, vendorTitle: true } }, _count: { select: { messages: p.kind === 'staff' ? true : { where: { internal: false } } } } },
     });
     const people = await this.names(orgId, rows.flatMap((r) => [r.createdById, r.assigneeId]));
     return rows.map((r) => ({ ...this.shape(r, p, people), messages: r._count.messages }));
@@ -109,7 +110,8 @@ export class RequestsService {
       // A portal never learns the other side's company; it already knows its own.
       client: p.kind === 'staff' ? r.client : undefined,
       vendor: p.kind === 'staff' ? r.vendor : undefined,
-      project: r.project,
+      // Vendors see the vendor-facing title, never the internal project name.
+      project: r.project ? (p.kind === 'vendor' ? forVendor(r.project) : (({ vendorTitle: _v, ...x }) => x)(r.project)) : null,
       createdBy: people.get(r.createdById) ?? 'Someone',
       assignee: p.kind === 'staff' && r.assigneeId ? { id: r.assigneeId, name: people.get(r.assigneeId) ?? 'Someone' } : null,
       disputedCompletes: r.sessionIds.length,
@@ -128,7 +130,7 @@ export class RequestsService {
   private async find(orgId: string, p: Party, id: string) {
     const t = await this.prisma.ticket.findFirst({
       where: { id, organizationId: orgId, ...this.partyWhere(p) },
-      include: { client: { select: { id: true, name: true } }, vendor: { select: { id: true, name: true } }, project: { select: { id: true, projectCode: true, name: true } } },
+      include: { client: { select: { id: true, name: true } }, vendor: { select: { id: true, name: true } }, project: { select: { id: true, projectCode: true, name: true, vendorTitle: true } } },
     });
     if (!t) throw new NotFoundException('Request not found');
     return t;
