@@ -428,6 +428,8 @@ model Client {
   /// Printed under "Bill to" on invoice PDFs.
   billingAddress   String?
   taxId            String?
+  /// Client website, normalised to https://host[/path].
+  website          String?
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
@@ -464,6 +466,13 @@ model Vendor {
   callbackUrlTemplate    String?
   /// Secret used to sign callbacks we send to this vendor.
   callbackSecret         String
+  /// The vendor's own redirect URL per outcome status ({ COMPLETE: "https://...", ... }); macros allowed.
+  /// Project rules use them through the {vendor_redirect} macro (docs/CLIENTS_VENDORS_EDITING.md).
+  redirectUrls           Json?
+  website                String?
+  contactName            String?
+  contactEmail           String?
+  contactPhone           String?
   createdAt              DateTime     @default(now())
   updatedAt              DateTime     @updatedAt
 
@@ -513,6 +522,8 @@ model Project {
   /// Reference to the won bid in Bidzo (Bidzo owns bids; we only keep the link).
   bidReference            String?
   name                    String
+  /// What vendors see instead of the internal name, which can reveal the client. Null = "Survey <code>".
+  vendorTitle             String?
   type                    ProjectType            @default(AD_HOC)
   category                String
   status                  ProjectStatus          @default(DRAFT)

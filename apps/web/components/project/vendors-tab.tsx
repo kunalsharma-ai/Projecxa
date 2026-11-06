@@ -2,6 +2,7 @@
 import { Check, Copy, MessageSquareQuote, Pause, Play, Plus, Sparkles } from 'lucide-react';
 import { QuotesPanel } from './quotes-panel';
 import { VendorSuggestions } from './vendor-suggestions';
+import { VendorTitle } from './vendor-title';
 import { useEffect, useState } from 'react';
 import { Empty, ErrorBox, Field, Progress, Section, StatusChip, money } from '@/components/ui';
 import { get, patch, post } from '@/lib/api';
@@ -68,6 +69,7 @@ export function VendorsTab({ project, editable, reload }: { project: ProjectDeta
 
   return (
     <div className="space-y-6">
+      <VendorTitle project={project} editable={editable} reload={reload} />
       <ErrorBox error={error} />
       <p className="text-sm text-muted">
         Each vendor gets its own entry link per country. Replace <code className="rounded bg-sunken px-1">[UID]</code> with the vendor&apos;s respondent ID macro. Test links create test sessions that are never billed. To give every respondent their own one-time link, use the Unique links tab.

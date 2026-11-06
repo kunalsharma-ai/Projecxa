@@ -9,7 +9,7 @@ import { askApiDestination, redirectSigningSecret } from './redirect-api';
 import { diffConfigs } from './redirect-diff';
 import { computeRedirect, EngineResult, finishApiRedirect } from './redirect-engine';
 import { validateConfig } from './redirect-resolver';
-import { OUTCOME_STATUSES, OutcomeStatus, RedirectConfig, redirectConfigSchema, RedirectModeT } from './redirect.types';
+import { OUTCOME_STATUSES, OutcomeStatus, parseVendorRedirectUrls, RedirectConfig, redirectConfigSchema, RedirectModeT, VENDOR_REDIRECT_MACRO, vendorRedirectFor } from './redirect.types';
 
 export function parseConfig(raw: unknown): RedirectConfig {
   const r = redirectConfigSchema.safeParse(raw ?? {});
@@ -54,7 +54,16 @@ export class RedirectsService {
     });
     const knownVendors = new Set(project.countries.flatMap((c) => c.allocations.map((a) => a.vendorId)));
     const knownCountries = new Set(project.countries.map((c) => c.countryCode));
+    const vendors = new Map(project.countries.flatMap((c) => c.allocations.map((a) => [a.vendorId, a.vendor] as const)));
     for (const r of config.rules) {
+      if (r.url.trim() === VENDOR_REDIRECT_MACRO && r.enabled) {
+        for (const v of vendors.values()) {
+          if (r.scope?.vendorId && r.scope.vendorId !== v.id) continue;
+          if (!vendorRedirectFor(parseVendorRedirectUrls(v.redirectUrls), r.status)) {
+            issues.push({ level: 'warning', status: r.status, scope: { vendorId: v.id }, message: `${v.name} has no saved redirect for this status yet, so respondents see the SampTrek end page. Add it under Vendors → ${v.name} → Edit.` });
+          }
+        }
+      }
       if (r.scope?.vendorId && !knownVendors.has(r.scope.vendorId)) {
         issues.push({ level: 'warning', status: r.status, scope: r.scope, message: 'Vendor is not allocated to this project yet' });
       }
@@ -104,7 +113,8 @@ export class RedirectsService {
         ),
       },
       countries: project.countries.map((c) => c.countryCode),
-      vendors: [...new Map(project.countries.flatMap((c) => c.allocations.map((a) => [a.vendorId, { id: a.vendorId, name: a.vendor.name, code: a.vendor.code }]))).values()],
+      vendors: [...new Map(project.countries.flatMap((c) => c.allocations.map((a) => [a.vendorId, { id: a.vendorId, name: a.vendor.name, code: a.vendor.code, redirectUrls: parseVendorRedirectUrls(a.vendor.redirectUrls), callbackUrlTemplate: a.vendor.callbackUrlTemplate }]))).values()],
+      outcomeLinks: outcomeLinks(appConfig.publicBaseUrl),
     };
   }
 
@@ -375,14 +385,14 @@ export class RedirectsService {
     cfg: RedirectConfig,
     status: OutcomeStatus,
     countryCode: string,
-    vendor: { id: string; code: string; redirectAllowedDomains: string[] },
+    vendor: { id: string; code: string; name?: string; redirectAllowedDomains: string[]; redirectUrls?: unknown },
     uid: string,
     token: string,
   ) {
     return computeRedirect({
       status,
       countryCode,
-      vendor,
+      vendor: { ...vendor, redirectUrls: parseVendorRedirectUrls(vendor.redirectUrls) },
       projectCode: project.projectCode,
       vendorRespondentId: uid,
       sessionToken: token,
@@ -396,6 +406,14 @@ export class RedirectsService {
       allowHttp: appConfig.allowHttpRedirects,
     });
   }
+}
+
+/**
+ * The links the client survey sends respondents back to, one per status. The client replaces
+ * [TOKEN] with the value SampTrek passed in (the token / rid parameter on the survey link).
+ */
+export function outcomeLinks(base: string) {
+  return OUTCOME_STATUSES.map((status) => ({ status, url: `${base}/r/${status.toLowerCase()}?token=[TOKEN]` }));
 }
 
 /** Callback URL templates support {uid}, {status}, {vendor_id}, {country_code}, {project_code}. */

@@ -1,3 +1,4 @@
+import { forVendor } from '../common/vendor-safe';
 /**
  * Quote requests (spec module 9: feasibility and CPI quotes). Staff ask vendors what they can deliver
  * in a project market and at what CPI; vendors answer in their portal; staff compare the answers with
@@ -153,12 +154,12 @@ export class QuotesService {
       where: { organizationId: u.organizationId, vendorId, ...(status ? { status } : {}) },
       orderBy: [{ updatedAt: 'desc' }],
       take: 300,
-      include: { projectCountry: { select: { countryCode: true, language: true, project: { select: { projectCode: true, name: true, category: true } } } } },
+      include: { projectCountry: { select: { countryCode: true, language: true, project: { select: { projectCode: true, name: true, vendorTitle: true, category: true } } } } },
     });
     return rows.map((q) => ({
       id: q.id,
       status: q.status,
-      project: q.projectCountry.project,
+      project: forVendor(q.projectCountry.project),
       countryCode: q.projectCountry.countryCode,
       language: q.projectCountry.language,
       completesWanted: q.completesWanted,
