@@ -303,10 +303,10 @@ export const HELP: Record<string, HelpEntry> = {
     how: 'Set up cells at the top, then field dates and autopilot below. Check alerts and the live markets table while fieldwork runs.',
     where: 'This project. Old links to the Quotas or Monitor tab open this tab. The organisation-wide view is Fieldwork monitor.',
   },
-  'tab:SAMPLEON': {
-    what: 'Sends this project to the SAMPLEON panel to find respondents.',
+  'tab:SampAudience': {
+    what: 'Sends this project to the SampAudience panel to find respondents.',
     how: 'Describe who should take part, set the reward and quota cells, and request an audience.',
-    where: 'Markets where SAMPLEON is offered.',
+    where: 'Markets where SampAudience is offered.',
   },
   'tab:Gate & security': {
     what: 'Checks respondents pass before they reach the client\'s survey: duplicate and fraud checks, a human check (captcha), gate and prescreener questions.',
@@ -527,9 +527,9 @@ export const HELP: Record<string, HelpEntry> = {
   'section:Reconciliation history': { what: 'Every reconciliation done on this project.', how: 'Check what changed and when.', where: 'This project.' },
   'section:Files': { what: 'Files for this project.', how: 'Upload and choose who can see each file.', where: 'Shared files appear in portals.' },
   'section:Requests about this project': { what: 'Requests linked to this project.', how: 'Open one to reply.', where: 'This project.' },
-  'section:Audience requests': { what: 'Audiences you asked SAMPLEON for.', how: 'Check the status of each request.', where: 'This project.' },
-  'section:Request an audience': { what: 'Asks SAMPLEON to find respondents for this project.', how: 'Describe who should take part and the reward, then send.', where: 'This project.' },
-  'section:Quota cells for SAMPLEON': { what: 'Quota cells shared with SAMPLEON.', how: 'Check they match your Quotas tab.', where: 'This project.' },
+  'section:Audience requests': { what: 'Audiences you asked SampAudience for.', how: 'Check the status of each request.', where: 'This project.' },
+  'section:Request an audience': { what: 'Asks SampAudience to find respondents for this project.', how: 'Describe who should take part and the reward, then send.', where: 'This project.' },
+  'section:Quota cells for SampAudience': { what: 'Quota cells shared with SampAudience.', how: 'Check they match your Quotas tab.', where: 'This project.' },
   'section:Clone project': { what: 'Copies this project into a new one.', how: 'Give the new project a name and choose what to copy.', where: 'Survey links are not copied.' },
   'section:Save as template': { what: 'Saves this project\'s setup as a template.', how: 'Name it and choose what to include.', where: 'Shared with your organisation.' },
 

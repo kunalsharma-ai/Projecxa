@@ -34,7 +34,7 @@ import { get, patch } from '@/lib/api';
 import { flag } from '@/lib/countries';
 import { SECURITY_LABELS } from '@/lib/types';
 
-const TABS = ['Overview', 'Vendors & links', 'Vendor unique links', 'Client unique links', 'Quotas & monitor', 'SAMPLEON', 'Gate & security', 'Respondent pages', 'Redirects', 'QA studio', 'Respondents', 'Answers', 'Reconcile & invoice', 'Files & requests', 'History'] as const;
+const TABS = ['Overview', 'Vendors & links', 'Vendor unique links', 'Client unique links', 'Quotas & monitor', 'SampAudience', 'Gate & security', 'Respondent pages', 'Redirects', 'QA studio', 'Respondents', 'Answers', 'Reconcile & invoice', 'Files & requests', 'History'] as const;
 
 export default function ProjectPage() {
   const { id } = useParams<{ id: string }>();
@@ -63,7 +63,7 @@ export default function ProjectPage() {
   useEffect(() => {
     const raw = new URLSearchParams(window.location.search).get('tab')?.replace(/-/g, ' ');
     // Quotas and Monitor are one tab now, and old links said ?tab=unique (the tab was "Unique links").
-    const want = raw && /^(quotas|monitor)/i.test(raw) ? 'quotas & monitor' : raw;
+    const want = raw && /^(quotas|monitor)/i.test(raw) ? 'quotas & monitor' : raw?.toLowerCase() === 'sampleon' ? 'sampaudience' : raw; // old SAMPLEON links keep working
     const t = want && (TABS.find((x) => x.toLowerCase().startsWith(want.toLowerCase())) ?? (want.toLowerCase().startsWith('unique') ? 'Vendor unique links' : undefined));
     if (t) setTab(t);
   }, []);
@@ -232,7 +232,14 @@ export default function ProjectPage() {
         {TABS.map((t) => (
           <div key={t} className={clsx('-mb-px flex shrink-0 items-center border-b-2', tab === t ? 'border-brand' : 'border-transparent')}>
             <button role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={clsx('whitespace-nowrap py-2.5 text-sm', tab === t ? 'pl-4 pr-1 font-medium text-brand' : 'px-4 text-muted hover:text-ink')}>
-              {t}
+              {t === 'SampAudience' ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <img src="/brand/sampaudience/sampaudience-icon.svg" alt="" aria-hidden width={18} height={18} className="-my-1 h-[18px] w-[18px]" />
+                  {t}
+                </span>
+              ) : (
+                t
+              )}
             </button>
             {/* The active tab shows its "i"; the words are in lib/help.ts under tab:<name>. */}
             {tab === t && <span className="pr-2"><InfoTip entry={helpForTab(t)} /></span>}
@@ -254,7 +261,7 @@ export default function ProjectPage() {
           <section id="monitor" className="scroll-mt-24"><MonitorTab key={p.id} project={p} editable={editable} reload={reload} /></section>
         </div>
       )}
-      {tab === 'SAMPLEON' && <SampleonTab key={p.id} project={p} editable={editable} />}
+      {tab === 'SampAudience' && <SampleonTab key={p.id} project={p} editable={editable} />}
       {tab === 'Redirects' && <RedirectsTab project={p} editable={editable} reload={reload} />}
       {tab === 'QA studio' && <QaStudio project={p} />}
       {tab === 'Respondents' && <SessionsTab project={p} editable={editable} />}
