@@ -18,7 +18,7 @@ and every icon changes. No other file holds help text.
 | Key | Where the icon shows | Example |
 | --- | --- | --- |
 | `page:<route>` | Next to the page title (found from the URL; ids written as `[id]`) | `page:/projects/[id]` |
-| `tab:<name>` | Next to the active project tab | `tab:Quotas` |
+| `tab:<name>` | Next to the active project tab | `tab:Quotas & monitor` |
 | `section:<title>` | Next to a card title that is plain text, on any page | `section:Field dates` |
 | `section:<route>::<title>` | Same title, only on that page (wins over the general one) | `section:/projects/new::Gate survey questions` |
 | `field:<label>` | Next to a field label. A trailing `*` and a final `(…)` are ignored, so `Client CPI (USD) *` uses `field:Client CPI` | `field:Payout CPI` |
@@ -49,8 +49,11 @@ stay clean.
 - a `help="…"` id in the code has no entry,
 - an entry is missing what/how/where, or a line is longer than 260 characters.
 
+## Apply to all, copy and phone systems
+
+The Apply to all boxes (`bulk.*`, set with `help=` on `BulkFill`), Copy all links (`vendors.copyAll`), redirect override pickers (`redirect.override.*`), Android/iOS device choices (`device.*`) and device quota conditions (`quota.device`) have their own entries.
+
 ## Not covered yet
 
-- New fields from open PRs (#53 mobile app, #54 apply-to-all and copy icons) are added after they merge.
 - The Android/iOS app has no help icons.
 - Sign-in, registration and respondent-facing pages have no icons on purpose.

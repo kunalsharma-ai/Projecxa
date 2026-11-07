@@ -10,6 +10,8 @@ import { get, patch } from '@/lib/api';
 import type { CaptchaStyle, Question } from '@/lib/types';
 import { cleanQuestion, QuestionBuilder, questionProblems } from './question-builder';
 import type { ProjectDetail } from './types';
+import { InfoTip } from '@/components/help';
+import { SpeederCheck } from './speeder-check';
 
 interface Status { geolocation: { configured: boolean; header: string | null }; tor: { nodes: number; updatedAt: string | null } }
 interface CaptchaInfo { providers: Record<'turnstile' | 'hcaptcha', { configured: boolean; siteKey: string | null }> }
@@ -155,7 +157,7 @@ export function SecurityTab({ project, editable, reload }: { project: ProjectDet
               </div>
             ))}
             <div>
-              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted"><MonitorSmartphone className="h-3.5 w-3.5" /> Devices allowed</div>
+              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted"><MonitorSmartphone className="h-3.5 w-3.5" /> Devices allowed<InfoTip id="device.allowed" /></div>
               <div className="flex flex-wrap gap-4 rounded-lg border border-line p-3">
                 {(['desktop', 'mobile', 'tablet'] as const).map((d) => (
                   <label key={d} className="flex items-center gap-2 text-sm capitalize">
@@ -171,6 +173,8 @@ export function SecurityTab({ project, editable, reload }: { project: ProjectDet
             </div>
           </div>
         </Section>
+
+        <SpeederCheck key={`${project.speederCheck?.enabled}-${project.speederCheck?.fraction}`} project={project} editable={editable} reload={reload} />
 
         <Section title="Human check style">
           {!humanOn && <p className="mb-3 text-sm text-muted">Turn on the gate survey or captcha to use a human check.</p>}
@@ -198,7 +202,7 @@ export function SecurityTab({ project, editable, reload }: { project: ProjectDet
 
         <Section title="Gate survey questions">
           {!security.gateSurvey && <p className="mb-3 text-sm text-warn">The gate survey is off; these questions are saved but not asked.</p>}
-          <QuestionBuilder value={gate} onChange={setGate} editable={editable} templatesCurrency={currency} emptyText="No gate questions yet. Add the standard profile questions (age, gender, income, employment, education) from the library, or build your own." />
+          <QuestionBuilder value={gate} onChange={setGate} editable={editable} templatesCurrency={currency} emptyText="No gate questions yet. Pick an audience set (B2B, B2C, parents, teens, healthcare consumers, patients or caregivers), add single profile questions from the library, or build your own." />
         </Section>
 
         <Section title="Prescreener questions">

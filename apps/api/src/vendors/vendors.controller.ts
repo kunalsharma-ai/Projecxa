@@ -1,6 +1,6 @@
 import { VendorInsightsController } from './vendor-insights.controller';
 import { VendorScoringService } from './vendor-scoring';
-import { Body, ConflictException, Controller, Get, Module, NotFoundException, Param, Patch, Post } from '@nestjs/common';
+import { Body, ConflictException, Controller, Get, Module, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { CurrentUser, EDITORS, Roles } from '../auth/decorators';
@@ -11,6 +11,7 @@ import { randomToken } from '../common/crypto';
 import { ZodPipe } from '../common/zod.pipe';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { LOGO_SELECT, withLogoUrl } from '../parties/logos';
 import { isKnownMacro, macrosIn } from '../redirects/redirect-resolver';
 import { OUTCOME_STATUSES, parseVendorRedirectUrls, VendorRedirectUrls } from '../redirects/redirect.types';
 
@@ -84,11 +85,12 @@ const importRowSchema = z.object({
   security_url: optional(redirectUrl),
   redirect_domains: optional(z.string().max(2000)),
 });
+const statusSchema = z.object({ status: z.enum(['ACTIVE', 'INACTIVE']) });
 const importSchema = z.object({ rows: z.array(z.record(z.string(), z.unknown())).min(1).max(1000), dryRun: z.boolean().default(false) });
 
 const PUBLIC_FIELDS = {
   id: true, name: true, code: true, status: true, website: true, contactName: true, contactEmail: true, contactPhone: true,
-  redirectAllowedDomains: true, callbackUrlTemplate: true, redirectUrls: true, createdAt: true,
+  redirectAllowedDomains: true, callbackUrlTemplate: true, redirectUrls: true, createdAt: true, ...LOGO_SELECT,
 } as const;
 
 function cleanUrls(raw: Record<string, string | null | undefined> | undefined): VendorRedirectUrls {
@@ -113,20 +115,32 @@ function withRedirectHosts(domains: string[], urls: VendorRedirectUrls): string[
 export class VendorsController {
   constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
 
+  /** ?status=ACTIVE lists only active vendors (what project forms offer). */
   @Get()
-  list(@CurrentUser() u: AuthUser) {
-    return this.prisma.vendor.findMany({
-      where: { organizationId: u.organizationId },
+  async list(@CurrentUser() u: AuthUser, @Query('status') status?: string) {
+    const rows = await this.prisma.vendor.findMany({
+      where: { organizationId: u.organizationId, ...(status === 'ACTIVE' || status === 'INACTIVE' ? { status } : {}) },
       orderBy: { name: 'asc' },
       select: { ...PUBLIC_FIELDS, _count: { select: { allocations: true } } },
     });
+    return rows.map((r) => withLogoUrl('vendor', r));
   }
 
   @Get(':id')
   async get(@CurrentUser() u: AuthUser, @Param('id') id: string) {
     const v = await this.prisma.vendor.findFirst({ where: { id, organizationId: u.organizationId }, select: PUBLIC_FIELDS });
     if (!v) throw new NotFoundException();
-    return v;
+    return withLogoUrl('vendor', v);
+  }
+
+  /** Quick Active / Inactive switch from the list. Inactive vendors cannot be added to projects. */
+  @Patch(':id/status')
+  @Roles(...EDITORS)
+  async setStatus(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body(new ZodPipe(statusSchema)) body: z.infer<typeof statusSchema>) {
+    const r = await this.prisma.vendor.updateMany({ where: { id, organizationId: u.organizationId }, data: { status: body.status } });
+    if (!r.count) throw new NotFoundException();
+    await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'vendor.status', entityType: 'Vendor', entityId: id, detail: body });
+    return { id, status: body.status };
   }
 
   @Post()
@@ -145,7 +159,7 @@ export class VendorsController {
       select: PUBLIC_FIELDS,
     });
     await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'vendor.create', entityType: 'Vendor', entityId: v.id });
-    return v;
+    return withLogoUrl('vendor', v);
   }
 
   /** Bulk add from the CSV template on the Vendors page. Each row is checked on its own; dryRun only reports. */

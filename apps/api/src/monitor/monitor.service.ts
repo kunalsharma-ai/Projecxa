@@ -7,7 +7,8 @@ import { config } from '../common/config';
 import { PushService } from '../push/push';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { allocationRules, autopilotOf, Candidate, marketRules, Metrics, pace, Pace, settingsOf } from './monitor.rules';
+import { allocationRules, autoPauseStateOf, autopilotOf, Candidate, marketRules, Metrics, pace, Pace, settingsOf } from './monitor.rules';
+import { runAutoPause } from './auto-pause';
 
 type Fetcher = (url: string, init: RequestInit) => Promise<{ status: number }>;
 
@@ -120,16 +121,33 @@ export class MonitorService {
   async evaluate(org: string, now = new Date()) {
     const orgRow = await this.prisma.organization.findUniqueOrThrow({ where: { id: org }, select: { alertSettings: true, alertWebhookUrl: true, alertWebhookSecret: true } });
     const s = settingsOf(orgRow.alertSettings);
+    // Auto-pause checkpoints first: they change market and link statuses the rules below look at.
+    const pauseActions: string[] = [];
+    for (const p of await this.prisma.project.findMany({ where: { organizationId: org, status: 'LIVE' }, select: { id: true, autopilot: true } })) {
+      if (autopilotOf(p.autopilot).autoPause.enabled) pauseActions.push(...(await runAutoPause(this.prisma, p.id, now)).actions);
+    }
     const markets = await this.markets(org, undefined, now);
-    const autopilots = new Map(
-      (await this.prisma.project.findMany({ where: { id: { in: [...new Set(markets.map((m) => m.project.id))] } }, select: { id: true, autopilot: true } })).map((p) => [p.id, autopilotOf(p.autopilot)]),
-    );
+    const projectRows = await this.prisma.project.findMany({ where: { id: { in: [...new Set(markets.map((m) => m.project.id))] } }, select: { id: true, autopilot: true, autopilotState: true } });
+    const autopilots = new Map(projectRows.map((p) => [p.id, autopilotOf(p.autopilot)]));
+    const pauseStates = new Map(projectRows.map((p) => [p.id, autoPauseStateOf(p.autopilotState, autopilotOf(p.autopilot).autoPause)]));
 
     type Found = Candidate & { projectId?: string; projectCountryId?: string; vendorAllocationId?: string; autoAction?: string };
     const found: Found[] = [];
-    const actions: string[] = [];
+    const actions: string[] = [...pauseActions];
     for (const mk of markets) {
       const label = `${mk.project.projectCode} ${mk.country.countryCode}`;
+      // Held or paused by the auto-pause checkpoint: an info alert until someone resumes it.
+      const done = pauseStates.get(mk.project.id)?.done ?? {};
+      const held = done[`m:${mk.country.id}`];
+      if (held?.reason === 'paused' && mk.country.status === 'HOLD') {
+        found.push({ dedupeKey: `m:${mk.country.id}:auto_paused`, rule: 'auto_paused', severity: 'info', title: `${label} is on hold at the auto-pause checkpoint`, detail: `${held.completes} of ${held.target} completes. Check the data, then set the market live again; the checkpoint will not pause it again.`, projectId: mk.project.id, projectCountryId: mk.country.id, autoAction: `Put ${mk.country.countryCode} on hold at ${held.completes} of ${held.target} completes` });
+      }
+      for (const a of mk.allocations) {
+        const d = done[`a:${a.id}`];
+        if (d?.reason === 'paused' && a.status === 'PAUSED') {
+          found.push({ dedupeKey: `a:${a.id}:auto_paused`, rule: 'auto_paused', severity: 'info', title: `${label} · ${a.vendor.name} is paused at the auto-pause checkpoint`, detail: `${d.completes} of ${d.target} completes. Check the data, then reactivate the link; the checkpoint will not pause it again.`, projectId: mk.project.id, projectCountryId: mk.country.id, vendorAllocationId: a.id, autoAction: `Paused ${a.vendor.name} at ${d.completes} of ${d.target} completes` });
+        }
+      }
       // Pausing every vendor link does not hide a market that is stalled or behind.
       const live = mk.country.status === 'LIVE';
       for (const c of marketRules(`m:${mk.country.id}`, label, mk.metrics, mk.pace, mk.country, s, live, now)) found.push({ ...c, projectId: mk.project.id, projectCountryId: mk.country.id });

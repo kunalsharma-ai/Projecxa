@@ -1,9 +1,16 @@
-export type Stats = Record<'STARTED' | 'COMPLETE' | 'TERMINATE' | 'QUOTA_FULL' | 'QUALITY_FAIL' | 'DUPLICATE' | 'SECURITY_REJECT' | 'PARTIAL' | 'TECHNICAL_ERROR', number>;
+/** SPEEDER counts quality fails from the speeder check; QUALITY_FAIL leaves them out. */
+export type Stats = Record<'STARTED' | 'COMPLETE' | 'TERMINATE' | 'QUOTA_FULL' | 'QUALITY_FAIL' | 'DUPLICATE' | 'SECURITY_REJECT' | 'PARTIAL' | 'TECHNICAL_ERROR' | 'SPEEDER', number>;
+
+/** Actual figures from live sessions (docs/FIELD_METRICS.md). */
+export interface FieldMetrics { avgLoiMinutes: number | null; irPercent: number | null; completes: number; terminates: number; speeders: number }
+
+export interface AutoPause { enabled: boolean; by: 'percent' | 'completes'; value: number; scope: 'market' | 'vendor' }
+export interface AutoPauseState { config: string; done: Record<string, { reason: 'paused' | 'target'; at: string; completes: number; target: number }>; switchedOffAt?: string }
 
 export interface Allocation {
   id: string;
   vendorId: string;
-  vendor: { id: string; name: string; code: string };
+  vendor: { id: string; name: string; code: string; status?: string; logoUrl?: string | null; contactName?: string | null; contactEmail?: string | null };
   status: string;
   cpi: string;
   targetCompletes: number;
@@ -32,6 +39,10 @@ export interface Country {
   liveSurveyUrl: string | null;
   testSurveyUrl: string | null;
   allocations: Allocation[];
+  metrics?: FieldMetrics;
+  /** Client unique links (docs/CLIENT_UNIQUE_LINKS.md): on/off and how many are left. */
+  useClientLinks?: boolean;
+  clientLinks?: { total: number; unused: number };
   quotas: { id: string; group: string; name: string; target: number; completes: number; isOpen: boolean }[];
 }
 
@@ -47,7 +58,8 @@ export interface ProjectDetail {
   category: string;
   description: string | null;
   redirectMode: 'STATIC' | 'DYNAMIC' | 'HYBRID';
-  client: { id: string; name: string };
+  client: { id: string; name: string; code?: string; status?: string; website?: string | null; logoUrl?: string | null; contacts?: { id: string; name: string; email: string | null; phone: string | null }[] };
+  clientContact?: { id: string; name: string; email: string | null; phone: string | null } | null;
   projectManager: { name: string };
   salesPerson: { name: string } | null;
   devices: Record<string, boolean>;
@@ -58,7 +70,11 @@ export interface ProjectDetail {
   activeRedirectVersion: { id: string; version: number; mode: string } | null;
   fieldStartAt: string | null;
   fieldEndAt: string | null;
-  autopilot: { pauseOnQuality?: boolean; closeOnTarget?: boolean } | null;
+  autopilot: { pauseOnQuality?: boolean; closeOnTarget?: boolean; autoPause?: AutoPause } | null;
+  autopilotState?: { autoPause?: AutoPauseState } | null;
+  /** Speeder check: completes faster than fraction × planned LOI become speeders. */
+  speederCheck?: { enabled: boolean; fraction: string } | null;
+  metrics?: FieldMetrics;
   countries: Country[];
   stats: Stats;
   /** Money per CPI currency: client CPI range, value at target, and earned / owed for completes so far. */

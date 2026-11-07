@@ -7,6 +7,7 @@ import { Empty, ErrorBox, Loading, Progress, Section, StatusChip } from '@/compo
 import { api, get, patch } from '@/lib/api';
 import { flag } from '@/lib/countries';
 import { Label } from '@/components/help';
+import { InfoTip } from '@/components/help';
 
 type Source = 'device' | 'gate' | 'prescreen';
 export interface Condition { source: Source; questionId?: string; values?: string[]; min?: number; max?: number }
@@ -234,6 +235,7 @@ function CellEditor({ view, project, country, onClose, onSaved }: { view: QuotaV
                       {!q && <option value={keyOf(c)}>{c.questionId} (missing)</option>}
                       {fields.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
                     </select>
+                    {c.source === 'device' && <InfoTip id="quota.device" />}
                     {q?.type === 'number' ? (
                       <span className="flex items-center gap-1 text-sm">
                         <input className="input w-20 py-1" type="number" placeholder="min" aria-label="Minimum" value={c.min ?? ''} onChange={(e) => setCond(i, j, { ...c, values: undefined, min: e.target.value === '' ? undefined : Number(e.target.value) })} />

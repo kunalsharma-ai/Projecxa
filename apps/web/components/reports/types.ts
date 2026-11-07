@@ -11,6 +11,8 @@ export interface SummaryRow {
   clicks: number; completes: number; terminates: number; quotaFull: number; qualityFail: number; partial: number; inProgress: number;
   approved: number; pending: number; rejected: number;
   revenue: number; payout: number; profit: number; margin: number | null; conversion: number; medianLoiMinutes: number | null;
+  /** LOI: mean minutes of completes; IR: completes ÷ (completes + terminates); speeders are left out of qualityFail. */
+  loiMinutes?: number | null; ir?: number | null; speeders?: number;
   currencies: string[];
   money: { currency: string; revenue: number; payout: number; profit: number }[];
   /** The same money converted into the reporting currency with the manual rates. */

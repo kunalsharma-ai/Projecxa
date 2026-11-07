@@ -8,7 +8,7 @@
  *
  * Keys:
  *   page:<route>              a page, by route; ids are written as [id], e.g. page:/projects/[id]
- *   tab:<project tab>         a tab on the project page, e.g. tab:Quotas
+ *   tab:<project tab>         a tab on the project page, e.g. tab:Quotas & monitor
  *   section:<title>           a section (card) by its title, anywhere in the app
  *   section:<route>::<title>  the same title, but only on that page (wins over the general one)
  *   field:<label>             a field by its label; a trailing * and a "(…)" ending are ignored
@@ -40,7 +40,7 @@ export const HELP: Record<string, HelpEntry> = {
   'page:/projects': {
     title: 'Projects',
     what: 'Every project with its status, client, markets, completes against target and link status.',
-    how: 'Search or filter, sort by any column, and open a project to work on it. Tick Live or Hold boxes to change many projects at once. Export the list to CSV.',
+    how: 'Pick a coloured status tab (Live green, Hold orange, Test blue, Draft grey, Closed red), search or sort, and open a project. Tick Live projects to put them on hold, or Hold projects to set them live; Draft and Test cannot be ticked.',
     where: 'All projects you can see. Project managers and admins can change status; viewers can only look.',
   },
   'page:/projects/new': {
@@ -52,7 +52,7 @@ export const HELP: Record<string, HelpEntry> = {
   'page:/projects/[id]': {
     title: 'Project',
     what: 'One project and everything about its fieldwork: markets, vendors and links, quotas, security, respondent pages, redirects, monitoring and finance, each in its own tab.',
-    how: 'Use the buttons at the top to go live, hold or close. Pick a tab below for each part of the setup; every tab has its own "i" with more detail.',
+    how: 'Use the coloured status button at the top to go live, hold, close or move back to test or draft, and Redirects for the client return links with a worked example. Pick a tab below for each part of the setup; every tab has its own "i" with more detail.',
     where: 'Changes apply to this project only. While a market is live, most changes reach new respondents straight away.',
   },
   'page:/projects/board': {
@@ -76,14 +76,14 @@ export const HELP: Record<string, HelpEntry> = {
   'page:/clients': {
     title: 'Clients',
     what: 'The companies you run research for, with their contacts, billing details and redirect settings.',
-    how: 'Add a client, edit details inline, or bulk import from CSV. Open one to see its projects and invoices.',
-    where: 'Clients are picked on every project and appear on reports and invoices.',
+    how: 'Add a client with its logo, edit details, switch it Active or Inactive, or bulk add from Excel or CSV.',
+    where: 'Only active clients can be picked for new projects. All appear on reports and invoices.',
   },
   'page:/vendors': {
     title: 'Vendors',
     what: 'The panel companies that send you respondents, with a score from the last 180 days of traffic, their redirects and markets.',
-    how: 'Add a vendor, bulk import from CSV, or open one for its scorecard, capacity and saved redirects.',
-    where: 'Vendors are added to projects per market on the Vendors & links tab.',
+    how: 'Add a vendor with its logo, switch it Active or Inactive, bulk add from Excel or CSV, or open one for its scorecard.',
+    where: 'Only active vendors can be added to projects (Vendors & links tab).',
   },
   'page:/vendors/[id]': {
     title: 'Vendor',
@@ -288,25 +288,25 @@ export const HELP: Record<string, HelpEntry> = {
     how: 'Add a vendor to a market, set payout and target completes, then copy the entry link and send it to the vendor. Pause a vendor to stop their traffic.',
     where: 'Per vendor per market. Payout above the client CPI is blocked unless allowed.',
   },
-  'tab:Unique links': {
-    what: 'Single-use entry links for vendors who need one link per respondent instead of one shared link.',
+  'tab:Vendor unique links': {
+    what: 'Single-use entry links you make for vendors who need one link per respondent instead of one shared link.',
     how: 'Pick vendor and market, choose how many links, generate, then download the CSV for the vendor. Revoke or expire links you no longer want.',
     where: 'Each link works once. A second open shows the Duplicate page. Opens while a market is paused do not use up a link.',
   },
-  'tab:Quotas': {
-    what: 'Quota cells that cap completes by device or by answers to the gate and prescreener questions (for example 50% female, 18–34).',
-    how: 'Add a cell or use Quick add to make one cell per answer, then set the limit. Respondents in a full cell get the Over quota page.',
-    where: 'Per market. Cells can interlock (age × gender). Only completes count toward a cell.',
+  'tab:Client unique links': {
+    what: 'Survey links your client made, one per respondent, uploaded per market. Each respondent is sent to the next unused one.',
+    how: 'Upload the client\'s Excel, CSV or pasted links, check them, add them, then turn on Use client unique links for the market.',
+    where: 'Per market, for every vendor. No link is given twice. A market cannot go live with none left.',
+  },
+  'tab:Quotas & monitor': {
+    what: 'Quota cells and live fieldwork health in one place: cell targets, field dates, autopilot (including auto-pause), alerts and each market\'s pace.',
+    how: 'Set up cells at the top, then field dates and autopilot below. Check alerts and the live markets table while fieldwork runs.',
+    where: 'This project. Old links to the Quotas or Monitor tab open this tab. The organisation-wide view is Fieldwork monitor.',
   },
   'tab:SampAudience': {
     what: 'Sends this project to the SampAudience panel to find respondents.',
     how: 'Describe who should take part, set the reward and quota cells, and request an audience.',
     where: 'Markets where SampAudience is offered.',
-  },
-  'tab:Monitor': {
-    what: 'Live fieldwork health for this project: pace against field dates, alerts and autopilot.',
-    how: 'Set field start and end dates, check each market\'s pace, act on alerts, and choose what autopilot may do on its own.',
-    where: 'Live markets of this project. The organisation-wide view is Fieldwork monitor.',
   },
   'tab:Gate & security': {
     what: 'Checks respondents pass before they reach the client\'s survey: duplicate and fraud checks, a human check (captcha), gate and prescreener questions.',
@@ -360,10 +360,17 @@ export const HELP: Record<string, HelpEntry> = {
     how: 'Change a value and save; it applies to every market.',
     where: 'This project.',
   },
-  'section:Client survey integration': {
-    what: 'How the client\'s survey sends respondents back to SampTrek at the end, so outcomes are recorded.',
-    how: 'Give the client\'s programmer the end URL shown here. For billing, ask them to confirm outcomes with the signed server call.',
-    where: 'Every market of this project.',
+  'project.redirectsPopup': {
+    title: 'Redirects',
+    what: 'The prebuilt links the client\'s survey sends respondents back to, one per status, and a worked example that follows one respondent from the vendor, through the client\'s survey, back to SampTrek and on to the vendor.',
+    how: 'Copy all and send them to the client. Click a status to see its links filled in with an example token and respondent ID, and copy the snippet for the client\'s survey tool.',
+    where: 'Every market of this project. Where vendors are sent after SampTrek is set on the Redirects tab.',
+  },
+  'project.statusMenu': {
+    title: 'Project status',
+    what: 'Where the project is: Draft (grey), Test (blue), Live (green), Hold (orange), Closed (red) or Invoiced (purple).',
+    how: 'Click the coloured button and pick a status. Closed, Draft and Invoiced ask for a second click. Going live opens every ready market and tells you which are not ready.',
+    where: 'This project and all its entry links: Hold and Closed show the paused or closed page to new respondents.',
   },
   'project.vendorCard': {
     title: 'Vendor in this project',
@@ -378,7 +385,7 @@ export const HELP: Record<string, HelpEntry> = {
     how: 'Add a vendor, set payout and target, copy the entry link for the vendor, or pause a vendor here.',
     where: 'This market only. Each vendor gets its own entry link per market.',
   },
-  'project.uniqueLinks.list': { title: 'Links', what: 'Every unique link with its status: Unused, Used, Expired or Revoked.', how: 'Filter by batch or status, find a key, revoke links, or download the CSV.', where: 'This project.' },
+  'project.uniqueLinks.list': { title: 'Links', what: 'Every vendor unique link with its status: Unused, Used, Expired or Revoked.', how: 'Filter by batch or status, find a key, revoke links, or download the CSV.', where: 'This project.' },
   'project.respondentPreview': { title: 'Live preview', what: 'How each respondent page will look.', how: 'Switch status and device to check each page before saving.', where: 'This project.' },
   'project.invoices': { title: 'Invoices', what: 'Client invoices made from this project.', how: 'Create an invoice after reconciling, then send it.', where: 'This project; all invoices are under Invoices.' },
   'section:Step 3 · Redirect mode': {
@@ -394,8 +401,13 @@ export const HELP: Record<string, HelpEntry> = {
     how: 'Add rows, use Apply to all to copy a value to every market, or Paste from Excel.',
     where: 'Each row becomes one market of the project.',
   },
+  'project.clientLinks.markets': { title: 'Markets', what: 'For each market: whether client unique links are on, and how many are unused or given out.', how: 'Turn a market on once its links are uploaded. Upload more when it says low.', where: 'This project.' },
+  'project.clientLinks.upload': { title: 'Upload client links', what: 'Adds the client\'s per-respondent survey links to one market.', how: 'Choose the market, pick the file or paste the links, press Check links, then Add.', where: 'Only the chosen market. Repeats and lines that are not links are skipped.' },
+  'project.clientLinks.list': { title: 'Client links', what: 'Every uploaded client link: unused or given out, to which respondent and with what outcome.', how: 'Filter by market or status, search part of a link, or download the CSV.', where: 'This project.' },
+  'settings.numbering': { title: 'Work orders and UID prefix', what: 'How work order numbers are made, and the prefix on respondent IDs sent to client surveys.', how: 'Set the prefix and the next number; check the last one given. Add a UID prefix for your brand.', where: 'Every new project and new respondents. Admins can change it.' },
+  'page:/settings/options': { title: 'Dropdown options', what: 'Every option your team added with “Add +”: categories, target groups, languages and link variables.', how: 'Add an option, fix a typo, or remove one you no longer use.', where: 'The dropdowns across SampTrek. Projects keep the values they already use.' },
   'project.uniqueLinks.generate': {
-    title: 'Generate unique links',
+    title: 'Generate vendor unique links',
     what: 'Makes a batch of single-use links for one vendor in one market.',
     how: 'Choose vendor and market, how many links (up to 50,000), an optional name and expiry, then Generate and download.',
     where: 'Only the chosen vendor and market.',
@@ -417,6 +429,33 @@ export const HELP: Record<string, HelpEntry> = {
     how: 'Tick only the actions you are comfortable with. Each one is logged and raised as an alert.',
     where: 'Live markets of this project.',
   },
+  'project.autoPause': {
+    title: 'Auto-pause at a checkpoint',
+    what: 'A soft-launch stop: the autopilot pauses each market (or vendor link) once it reaches a share of its target or a number of completes, so you can check the data.',
+    how: 'Choose market or vendor link, then a % of target or a number of completes. Resume when the data looks right; it will not pause that one again.',
+    where: 'Live markets of this project. Once every market or link was paused or reached its target, the autopilot switches the checkpoint off.',
+  },
+  'project.speederCheck': {
+    title: 'Speeder check',
+    what: 'Catches respondents who rush the survey: a complete faster than the chosen share of the planned LOI (1/4, 1/3, 2/4, 3/4…) becomes a quality fail with the reason Speeder.',
+    how: 'Turn it on and pick the share before launch. The list shows the minimum minutes per market. Speeders are not counted, billed or paid.',
+    where: 'Every market of this project, timed from when the respondent reaches the client survey. Shows as Speeders in the fieldwork status and reports.',
+  },
+  'project.fieldStatus': {
+    title: 'Fieldwork status',
+    what: 'Live counts for this project: completes, in survey, terminates, quota full, speeders and other quality fails, plus Avg LOI and Avg IR.',
+    how: 'Avg LOI is the mean minutes of live completes; Avg IR is completes ÷ (completes + terminates). Planned values from the bid are shown beside them.',
+    where: 'Live traffic only (test links are left out). A live project refreshes every 30 seconds.',
+  },
+  'project.liveMoney': {
+    title: 'Revenue, cost and profit',
+    what: 'Money earned and owed so far: revenue is client CPI × completes, cost is the vendor payout for those completes, profit is the difference.',
+    how: 'Watch profit while fieldwork runs. Expected revenue shows the value at target. Rejected completes drop out after reconciliation.',
+    where: 'This project, per CPI currency. Live projects refresh every 30 seconds.',
+  },
+  'field:Avg LOI': { title: 'Avg LOI', what: 'Average minutes live completes actually took, from reaching the client survey to completing.', how: 'Compare it with the planned LOI; much shorter suggests speeders, much longer means drop-outs.', where: 'Project list and fieldwork status. Reports call it LOI.' },
+  'field:Avg IR': { title: 'Avg IR', what: 'Actual incidence: completes ÷ (completes + terminates).', how: 'Compare it with the planned IR; a big drop raises the real cost per complete.', where: 'Project list and fieldwork status. Reports call it IR.' },
+  'field:Speeders': { what: 'Completes rejected by the speeder check because they were too fast.', how: 'Set the check in Gate & security. A high count points at a vendor or a survey that is easy to rush.', where: 'Fieldwork status, project list and reports.' },
   'project.alerts': { title: 'Active alerts', what: 'Problems the monitor found: low pace, stalls, low incidence, high drop-out or poor quality.', how: 'Open an alert, fix the cause, then dismiss it.', where: 'This project.' },
   'project.security': {
     title: 'Respondent security',
@@ -427,7 +466,7 @@ export const HELP: Record<string, HelpEntry> = {
   'section:Human check style': { what: 'Which free captcha respondents solve to prove they are human.', how: 'Pick a style; only free options are offered.', where: 'Shown on the gate page of this project.' },
   'section:Gate survey questions': {
     what: 'Short questions SampTrek asks before the client survey, for example age, gender or region.',
-    how: 'Add questions with the builder and set which answers qualify. Those who do not qualify get the Terminate page.',
+    how: 'Start from an audience set (B2B, B2C, parents, teens, healthcare consumers, patients, caregivers) or single questions from the library, then edit, remove or add questions and set which answers qualify. Those who do not qualify get the Terminate page.',
     where: 'Every respondent of this project. Answers can drive quota cells.',
   },
   'section:Prescreener questions': {
@@ -444,7 +483,25 @@ export const HELP: Record<string, HelpEntry> = {
   'section:What the checks caught': { what: 'How many respondents each check stopped.', how: 'Use it to see if a vendor sends poor traffic.', where: 'This project.' },
   'project.respondentTemplate': { title: 'Template', what: 'The overall look of respondent pages.', how: 'Pick a template; colours and words can still be changed.', where: 'All respondent pages of this project.' },
   'project.respondentType': { title: 'Type and shape', what: 'Fonts and corner roundness of respondent pages.', how: 'Pick a font and shape.', where: 'All respondent pages of this project.' },
-  'section:Brand and images': { what: 'Brand name and images on respondent pages.', how: 'Add a brand name and images, or leave neutral.', where: 'All respondent pages of this project.' },
+  'section:Brand and images': { what: 'Brand name, logo and images on respondent pages.', how: 'Keep the Sampledge logo on, add your own brand name and images, or turn both off for a neutral page.', where: 'All respondent pages of this project.' },
+  'shell.notifications': {
+    title: 'Notifications',
+    what: 'Alerts that need someone to act: failed callbacks, markets close to target or with no traffic, expiring vendor documents, scheduled changes that failed and your own task reminders.',
+    how: 'The red number counts only alerts you have not seen yet. Opening this menu marks them read for you. They stay listed until fixed, and count as new again if they change (3 failed callbacks become 5).',
+    where: 'Read marks are per person: a colleague still sees the alert as new until they open their own menu. The phone app shares the same read marks.',
+  },
+  'question.sets': {
+    title: 'Audience question sets',
+    what: 'Ready-made demographic questions for B2B decision makers, B2C consumers, parents, teens (13 to 17, with a parent or guardian check), healthcare consumers, patients and caregivers. Each set already marks which answers qualify and which screen out.',
+    how: 'Add to project adds the whole set (questions already there are skipped). Then edit, delete or add questions. To change a set for everyone, use Save this project’s questions as this set; Reset to standard undoes it.',
+    where: 'The gate survey of this project (and of Create project). Saved sets are shared by everyone in your organisation; changing a set never changes projects that already use its questions.',
+  },
+  'respondent.platformLogo': {
+    title: 'Show the Sampledge logo',
+    what: 'Puts the Sampledge logo on the gate page and every end page (complete, terminate, quota full and the rest), and its icon on the browser tab. If your organisation set its own name or logo in Settings → Branding, that is shown instead.',
+    how: 'On by default. With no project logo or brand name, the logo sits at the top. When you add a project logo or brand name, yours goes at the top and the Sampledge logo moves to a small “Powered by” line at the bottom. Turn it off for a fully neutral page.',
+    where: 'Every respondent page of this project, including the countdown page before a vendor redirect.',
+  },
   'section:/projects/[id]::Colours': { what: 'Colours of the respondent pages.', how: 'Pick colours and check the preview.', where: 'All respondent pages of this project.' },
   'section:/settings/appearance::Colours': { what: 'Accent and surface colours of the app for you.', how: 'Pick colours and check the live preview.', where: 'Only your own view.' },
   'section:Words on each page': { what: 'Heading, message and button for each status page.', how: 'Pick a status and write what respondents should read.', where: 'This project.' },
@@ -485,13 +542,14 @@ export const HELP: Record<string, HelpEntry> = {
   },
   'section:Devices': { what: 'Which devices respondents may use.', how: 'Untick devices that are not allowed.', where: 'Every market of this project.' },
   'section:Security and respondent quality': { what: 'The checks respondents pass before the survey.', how: 'Turn checks on or off; change them later in Gate & security.', where: 'Every market.' },
-  'section:/projects/new::Gate survey questions': { what: 'Questions asked before the survey, such as age or gender.', how: 'Add questions now or later in Gate & security.', where: 'Every market.' },
+  'section:/projects/new::Gate survey questions': { what: 'Questions asked before the survey, such as age or gender.', how: 'Pick an audience set (B2B, B2C, parents, teens, healthcare) or add questions one by one, now or later in Gate & security. Every question stays editable.', where: 'Every market.' },
   'section:Survey redirects': { what: 'Where respondents go after the survey for each status.', how: 'Keep the vendor defaults or set your own. Change later on the Redirects tab.', where: 'Every market and vendor.' },
   'create.vendors': { title: 'Vendors', what: 'Vendors to add to every market when the project is created.', how: 'Pick vendors and set payout CPI and target.', where: 'All markets; adjust later on Vendors & links.' },
 
   // ───────────────────────── Project fields ─────────────────────────
-  'field:LOI': { title: 'LOI', what: 'Length of interview: how many minutes the survey takes.', how: 'Enter the median minutes from the client or your test.', where: 'Per market. Used for pricing, pace and speeder checks.' },
+  'field:LOI': { title: 'LOI', what: 'Length of interview: how many minutes the survey takes. In reports, LOI is the average of live completes.', how: 'Enter the planned minutes from the client or your test.', where: 'Per market. Used for pricing, pace and the speeder check.' },
   'field:IR %': { title: 'IR %', what: 'Incidence rate: the share of people who qualify.', how: 'Enter the expected percentage, for example 30.', where: 'Per market. The monitor warns when the real IR is lower.' },
+  'field:IR': { title: 'IR', what: 'Incidence rate. In reports: completes ÷ (completes + terminates) for the rows shown.', how: 'Compare it with the planned IR of the project.', where: 'Reports and the market table.' },
   'field:Completes': { what: 'How many completed interviews the client wants.', how: 'Enter the target number.', where: 'Per market. When reached, the market closes to new respondents.' },
   'field:Client CPI': { title: 'Client CPI', what: 'Cost per interview: what the client pays you for each complete.', how: 'Enter the price in the project\'s CPI currency.', where: 'Per market. Drives revenue and invoices.' },
   'field:Payout CPI': { title: 'Payout CPI', what: 'What you pay the vendor for each accepted complete.', how: 'Enter the price per complete. It cannot be higher than the client CPI unless allowed.', where: 'Per vendor per market. Drives vendor payables.' },
@@ -507,14 +565,18 @@ export const HELP: Record<string, HelpEntry> = {
   'field:Field start': { what: 'The first day of fieldwork.', how: 'Pick a date.', where: 'Whole project.' },
   'field:Field end': { what: 'The last day of fieldwork.', how: 'Pick a date; the monitor sets daily pace from it.', where: 'Whole project.' },
   'field:Bid reference (Bidzo)': { what: 'The Bidzo bid this project came from.', how: 'Pick the bid to link it.', where: 'Reports and won bids.' },
-  'field:Work order no.': { what: 'The client\'s PO or work order number.', how: 'Type it; it appears on invoices.', where: 'Whole project.' },
+  'field:Work order no.': { what: 'Your work order number for the project. Generated with your prefix (e.g. FR9132), or typed by hand.', how: 'Leave Generate ticked for the next number, or type one. It must not be used by another project. Edit it later on the Overview tab.', where: 'Whole project, invoices and reports. Prefix and next number: Settings → Work orders and UID prefix.' },
+  'field:Work order prefix': { what: 'The letters every generated work order starts with, e.g. FR or WO-.', how: 'Type 1 to 12 letters or digits; - _ and / are allowed after the first one.', where: 'New work orders only. Existing projects keep theirs.' },
+  'field:Next number': { what: 'The number the next generated work order gets.', how: 'Set it to continue your old numbering. It cannot be one already used.', where: 'Next projects with Generate ticked.' },
+  'field:Last work order given': { what: 'The work order the latest project got, generated or typed.', how: 'Use it to check the numbering continues where you expect.', where: 'Read only.' },
+  'field:UID prefix': { what: 'Letters put in front of every respondent ID (UID) sent to client surveys, for your branding, e.g. SMP-.', how: 'Type up to 12 letters, digits, - or _. Leave empty for none.', where: 'Respondents who enter from now on, in every project.' },
   'field:Project manager': { what: 'Who runs this project day to day.', how: 'Pick a team member.', where: 'Shown in lists and reports.' },
   'field:Sales person': { what: 'Who sold this project.', how: 'Pick a team member.', where: 'Used in reports.' },
   'field:Project name': { what: 'The name your team uses for this project.', how: 'Keep it short and clear. Vendors can be shown a different vendor title instead.', where: 'Lists, reports and invoices.' },
   'field:Category': { what: 'The study category, for example B2B or Healthcare.', how: 'Pick or add a category.', where: 'Used for filtering and reports.' },
   'field:Project type': { what: 'The kind of study, for example ad-hoc or tracker.', how: 'Pick a type.', where: 'Used for filtering and reports.' },
-  'field:Client': { what: 'The client this project is for.', how: 'Pick the client, or add one first under Clients.', where: 'Reports, invoices and the client portal.' },
-  'field:Client contact': { what: 'The person at the client you work with.', how: 'Pick or type a name.', where: 'This project.' },
+  'field:Client': { what: 'The client this project is for, shown with its logo. Only active clients are listed.', how: 'Search by name, or type a new name and choose “+ Add” to save a new client without leaving the form.', where: 'Reports, invoices and the client portal. Make a client active again on the Clients page.' },
+  'field:Client contact': { what: 'The person at the client you work with. Their email shows masked, e.g. p•••e@client.com.', how: 'Pick a contact, or type a new name and choose “+ Add” to save one to the client.', where: 'This project. Full details are on the Clients page.' },
   'field:Vendor': { what: 'The panel company that sends respondents.', how: 'Pick a vendor.', where: 'The chosen market or project.' },
   'field:How many links': { what: 'How many single-use links to create.', how: 'Enter up to 50,000 per batch.', where: 'The chosen vendor and market.' },
   'field:Stop working after (optional)': { what: 'A date after which these links stop working.', how: 'Leave empty for no expiry.', where: 'This batch only.' },
@@ -536,6 +598,86 @@ export const HELP: Record<string, HelpEntry> = {
   'check:timezoneTracking': { what: 'The device time zone must belong to the survey country.', how: 'Turn on with Geolocation for stronger location checks.', where: 'Each market checks its own country.' },
   'check:torDetection': { what: 'Blocks connections through the TOR network.', how: 'Turn on to stop anonymous traffic.', where: 'Whole project.' },
   'check:cookieValidation': { what: 'Needs cookies on, and catches the same browser coming back.', how: 'Turn on as an extra duplicate check.', where: 'Whole project.' },
+
+  // ───────────── Apply to all, copy, Android/iOS (follow-up to the first help PR) ─────────────
+  'bulk.markets': {
+    title: 'Apply to all markets',
+    what: 'Changes LOI, IR, CPI, completes or survey links for many markets in one go.',
+    how: 'Fill in only the boxes that should change and press Apply. Tick rows first to change just those markets.',
+    where: 'All markets shown, or only the ticked ones. Empty boxes leave values as they are.',
+  },
+  'bulk.vendorLinks': {
+    title: 'Apply to all vendor links',
+    what: 'Changes payout, target completes or link variable on many vendor links at once, and pauses or resumes them together.',
+    how: 'Pick a vendor and/or market (or leave All), fill only what should change, then Apply. Use Pause or Resume to stop or restart those links.',
+    where: 'Every vendor link that matches the vendor and market you picked on this project.',
+  },
+  'bulk.everyStatus': {
+    title: 'One URL for every status',
+    what: 'Sends every status (Complete, Terminate, Over quota, Security…) to one custom URL.',
+    how: 'Paste one URL and Apply. Put {status} in it to pass the outcome. Reset to prebuilt puts every status back on the vendor\'s saved redirect.',
+    where: 'The project status matrix. Country and vendor overrides still win.',
+  },
+  'bulk.createVendors': {
+    title: 'Apply to all vendors',
+    what: 'Gives every vendor on the new project the same payout or link variable.',
+    how: 'Fill in the payout or link variable and Apply; change single vendors after.',
+    where: 'All vendors listed on Create project, in every market.',
+  },
+  'vendors.copyAll': {
+    title: 'Copy all links',
+    what: 'Copies every vendor\'s live and test entry links for every market in one go.',
+    how: 'Click, then paste into an email or sheet. Small copy icons next to a single link or ID copy just that one.',
+    where: 'All vendors and markets of this project.',
+  },
+  'vendors.addEveryMarket': {
+    title: 'Add to every market',
+    what: 'Adds this vendor to all markets of the project at once, with the same payout and target.',
+    how: 'Tick it before saving; change one market later if needed.',
+    where: 'Every market of this project.',
+  },
+  'redirect.override.country': {
+    title: 'Override: country',
+    what: 'Which market this override is for.',
+    how: 'Pick one country, Any, or Every market to make one rule for each market at once.',
+    where: 'Overrides beat the project matrix: vendor + country first, then vendor, then country.',
+  },
+  'redirect.override.vendor': {
+    title: 'Override: vendor',
+    what: 'Which vendor this override is for.',
+    how: 'Pick one vendor, Any, or Every vendor to make one rule for each vendor at once.',
+    where: 'This project\'s redirects for that vendor.',
+  },
+  'redirect.override.status': {
+    title: 'Override: status',
+    what: 'Which outcome this override is for, such as Complete or Terminate.',
+    how: 'Pick one status, or Every status to make one rule for each status at once.',
+    where: 'Only respondents who end with that status.',
+  },
+  'device.allowed': {
+    title: 'Devices allowed',
+    what: 'Which devices may take this survey: desktop, mobile and tablet, and for mobile, Android and/or iPhone.',
+    how: 'Switch a device off to stop it. Under Mobile, untick Android or iOS to allow only one kind of phone.',
+    where: 'Every market and vendor of this project. Blocked devices get the Terminate page.',
+  },
+  'device.mobileOs': {
+    title: 'Android and iOS',
+    what: 'Which phone systems are let in when Mobile is allowed.',
+    how: 'Keep both ticked for all phones. Untick one to allow only Android phones or only iPhones. At least one must stay ticked.',
+    where: 'Phones only, for every market of this project. Other phone systems get in only when both are ticked.',
+  },
+  'quota.device': {
+    title: 'Device quota',
+    what: 'Limits completes by device: Desktop, Mobile, Tablet, Android phone or iPhone (iOS).',
+    how: 'Pick the devices this cell counts. Android phone and iPhone are kinds of Mobile, so do not mix them with Mobile in one split.',
+    where: 'This market. Quick add on Device makes Desktop / Mobile / Tablet cells only.',
+  },
+  'field:Quick add: one cell per answer of': {
+    title: 'Quick add',
+    what: 'Makes one quota cell for each answer of a question or for each device, with the market target shared evenly.',
+    how: 'Pick the question or Device, then adjust each cell\'s limit.',
+    where: 'This market.',
+  },
 
   // ───────────────────────── Other sections ─────────────────────────
   'section:Finance: currency and tax': { what: 'Your reporting currency, FX rates and default tax.', how: 'Pick the reporting currency and keep exchange rates up to date.', where: 'Reports, dashboard and invoices.' },

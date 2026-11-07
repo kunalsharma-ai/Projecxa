@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { canEdit, useMe } from '@/components/me';
 import { FilesPanel } from '@/components/requests/files-panel';
 import { Empty, ErrorBox, Loading, PageHeader, Section, StatusChip } from '@/components/ui';
+import { LogoUpload, PartyLogo } from '@/components/parties/logo';
 import { PART_LABELS, PartBar, ScoreBadge, WEIGHTS, type Grade, type ScoreParts, type VendorStats } from '@/components/vendors/score';
 import { api, get, patch } from '@/lib/api';
 import { VendorForm, type VendorDetail } from '@/components/parties/vendor-form';
@@ -93,7 +94,7 @@ export default function VendorScorecard() {
       <Link href="/vendors" className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"><ArrowLeft className="h-4 w-4" /> Vendors</Link>
       <PageHeader
         title={card.name}
-        subtitle={<span className="flex flex-wrap items-center gap-2"><StatusChip status={card.status} /><Copyable text={card.code} label="vendor ID" /></span>}
+        subtitle={<span className="flex flex-wrap items-center gap-2"><PartyLogo url={detail?.logoUrl} name={card.name} size={24} /><StatusChip status={card.status} /><Copyable text={card.code} label="vendor ID" /></span>}
         actions={
           <label className="flex items-center gap-2 text-sm text-muted">
             Period
@@ -143,6 +144,7 @@ export default function VendorScorecard() {
           className="mb-6"
           actions={canEdit(me) && !editing && <button className="btn-ghost px-2.5 py-1.5 text-xs" onClick={startEdit}><Pencil className="h-3.5 w-3.5" /> Edit</button>}
         >
+          <div className="mb-4"><LogoUpload kind="vendor" id={detail.id} name={detail.name} url={detail.logoUrl ?? null} editable={canEdit(me)} onChange={(url) => setDetail({ ...detail, logoUrl: url })} /></div>
           {editing ? (
             <VendorForm vendor={detail} taken={codes} onSubmit={saveDetail} onCancel={() => setEditing(false)} />
           ) : (

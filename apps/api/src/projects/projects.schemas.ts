@@ -1,4 +1,5 @@
 import { autopilotSchema } from '../monitor/monitor.rules';
+import { speederCheckSchema } from './field-metrics';
 import { z } from 'zod';
 import { redirectConfigSchema, REDIRECT_MODES } from '../redirects/redirect.types';
 import { CAPTCHA_STYLES } from '../survey/captcha';
@@ -77,7 +78,7 @@ export const createVendorSchema = z.object({
 
 export const createProjectSchema = z.object({
   name: z.string().min(1).max(300),
-  workOrderNo: z.string().max(50).optional(),
+  workOrderNo: z.string().trim().max(50).optional(),
   generateWorkOrder: z.boolean().default(false),
   bidReference: z.string().max(100).optional(),
   /** Set when the project is created from a won bid; links them, at most once. */
@@ -102,6 +103,7 @@ export const createProjectSchema = z.object({
   /** One CPI currency for the whole project; it replaces any per-market currency. */
   currency: z.string().regex(/^[A-Z]{3}$/).optional(),
   gateQuestions: questionListSchema.optional(),
+  speederCheck: speederCheckSchema.optional(),
   vendors: z.array(createVendorSchema).max(50).default([]),
   fieldStartAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').optional(),
   fieldEndAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').optional(),
@@ -110,6 +112,8 @@ export type CreateProjectInput = z.infer<typeof createProjectSchema>;
 
 export const updateProjectSchema = z.object({
   name: z.string().min(1).max(300).optional(),
+  /** Editable later; must not be used by another project. */
+  workOrderNo: z.preprocess((v) => (typeof v === 'string' && !v.trim() ? null : v), z.string().trim().max(50).nullable().optional()),
   /** What vendors see instead of the name (empty = "Survey <code>"). */
   vendorTitle: z.preprocess((v) => (typeof v === 'string' && !v.trim() ? null : v), z.string().trim().max(200).nullable().optional()),
   category: z.string().min(1).max(100).optional(),
@@ -127,6 +131,8 @@ export const updateProjectSchema = z.object({
   fieldStartAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').nullable().optional(),
   fieldEndAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').nullable().optional(),
   autopilot: autopilotSchema.optional(),
+  /** Completes faster than this share of the planned LOI become speeders (docs/FIELD_METRICS.md). */
+  speederCheck: speederCheckSchema.optional(),
 }).refine((b) => !b.fieldStartAt || !b.fieldEndAt || b.fieldStartAt <= b.fieldEndAt, { message: 'The field end date must be on or after the start date', path: ['fieldEndAt'] });
 
 export const updateCountrySchema = countrySettingsSchema.extend({
@@ -147,10 +153,13 @@ export const bulkCountriesSchema = z.object({
   set: countrySettingsSchema.omit({ language: true, currency: true }).extend({ status: z.enum(['DRAFT', 'TEST', 'LIVE', 'HOLD', 'CLOSED']).optional() }),
 });
 
-/** Moves many projects between Live and Hold (or another status) at once. */
+/**
+ * Moves many projects between Live and Hold at once: LIVE sets Hold projects live again, HOLD puts
+ * Live projects on hold. Draft, Test, Closed and Invoiced projects are never changed from the list.
+ */
 export const bulkStatusSchema = z.object({
   ids: z.array(z.string().min(1)).min(1).max(200),
-  status: z.enum(['TEST', 'LIVE', 'HOLD', 'CLOSED']),
+  status: z.enum(['LIVE', 'HOLD']),
 });
 
 export const cloneProjectSchema = z.object({

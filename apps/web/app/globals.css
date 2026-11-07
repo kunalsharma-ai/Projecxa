@@ -48,6 +48,10 @@
   --fin-3: #1baf7a;
   color-scheme: light;
 }
+/* Project status colours (same in every theme so Live always reads green, Hold orange, Closed red). */
+:root { --st-live: 22 163 74; --st-hold: 234 88 12; --st-closed: 220 38 38; --st-test: 37 99 235; --st-draft: 100 116 139; --st-invoiced: 124 58 237; }
+[data-mode='dark'] { --st-live: 74 222 128; --st-hold: 251 146 60; --st-closed: 248 113 113; --st-test: 96 165 250; --st-draft: 148 163 184; --st-invoiced: 167 139 250; }
+@media (prefers-color-scheme: dark) { :root:not([data-mode]) { --st-live: 74 222 128; --st-hold: 251 146 60; --st-closed: 248 113 113; --st-test: 96 165 250; --st-draft: 148 163 184; --st-invoiced: 167 139 250; } }
 [data-mode='dark'] { --fin-1: #3987e5; --fin-2: #d95926; --fin-3: #199e70; }
 @media (prefers-color-scheme: dark) { :root:not([data-mode]) { --fin-1: #3987e5; --fin-2: #d95926; --fin-3: #199e70; } }
 

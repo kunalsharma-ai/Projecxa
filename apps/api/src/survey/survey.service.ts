@@ -4,6 +4,8 @@ import { config as appConfig } from '../common/config';
 import { hmacSha256, randomToken, safeEqualHex, sha256 } from '../common/crypto';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { claimClientLink, peekClientLink } from '../client-links/client-links';
+import { newSessionToken } from '../numbering/numbering';
 import { computeRedirect, finishApiRedirect, internalEndPage } from '../redirects/redirect-engine';
 import { askApiDestination, redirectSigningSecret } from '../redirects/redirect-api';
 import { OutcomeStatus, parseVendorRedirectUrls } from '../redirects/redirect.types';
@@ -22,11 +24,14 @@ import {
   REASON_LABELS,
 } from './respondent-checks';
 import { captchaSvg, CaptchaStyle, CAPTCHA_STYLES, HUMAN_MAX_ATTEMPTS, humanChallenge, normaliseAnswer, ProviderStyle, providerKeysOf, verifyProvider } from './captcha';
-import { DEFAULT_DESIGN, designOf, END_STATUSES, EndStatus, PageDesign } from './page-design';
+import { DEFAULT_DESIGN, defaultPlatformBrand, designOf, END_STATUSES, EndStatus, PageDesign, PlatformBrand, platformBrandOf } from './page-design';
+import { brandOf } from '../branding/branding';
 import { evaluate, Question, questionsOf } from './questions';
 import { TorService } from './tor.service';
 import { matchCells, Respondent } from '../quotas/quota.rules';
 import { consentFor } from '../privacy/privacy';
+import { isSpeeder, SPEEDER_DETAIL, speederOf } from '../projects/field-metrics';
+import { runAutoPause } from '../monitor/auto-pause';
 
 /** Toggles that need the respondent's browser, so they run on the gate page before the survey. */
 const GATE_KEYS = ['gateSurvey', 'captcha', 'browserFingerprinting', 'browserLanguage', 'timezoneTracking', 'cookieValidation'] as const;
@@ -62,6 +67,8 @@ export interface GateView {
   design: PageDesign;
   /** Public base URL, for image links. */
   base: string;
+  /** Platform logo and tab icon (Sampledge, or the organisation's white-label brand). */
+  platform?: PlatformBrand | null;
   /** Builder preview: renders the page but never submits. */
   preview?: boolean;
 }
@@ -113,6 +120,12 @@ const ALLOCATION_INCLUDE = {
 } as const;
 
 type AllocationWithContext = Prisma.VendorAllocationGetPayload<{ include: typeof ALLOCATION_INCLUDE }>;
+
+/** The logo respondent pages show for an organisation (white-label first, else Sampledge). */
+export async function loadPlatformBrand(prisma: PrismaService, organizationId: string): Promise<PlatformBrand> {
+  const o = await prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true, slug: true, branding: true, customDomain: true, customDomainVerifiedAt: true, brandAssets: { select: { kind: true, hash: true } } } });
+  return platformBrandOf(appConfig.publicBaseUrl, o ? brandOf(o, o.brandAssets) : null);
+}
 
 /** Unique link keys are 22+ url-safe characters (128 bits of randomness). */
 export const UNIQUE_KEY_RE = /^[A-Za-z0-9_-]{16,64}$/;
@@ -270,14 +283,23 @@ export class SurveyService {
     // Quota cells known at entry (device). Answer-based cells are judged after the gate page.
     const cells = matchCells(country.quotas, { device: device.note ?? null, os: deviceOs(req.userAgent), answers: null });
     if (!initial && !isTest && cells.full) initial = { status: 'QUOTA_FULL', detail: 'CELL_FULL' };
-    const surveyUrl = isTest ? country.testSurveyUrl ?? country.liveSurveyUrl : country.liveSurveyUrl;
-    if (!initial && !surveyUrl) initial = { status: 'TECHNICAL_ERROR', detail: 'NO_SURVEY_LINK' };
+    // Client unique links: live respondents get the next unused link (claimed below); tests borrow one.
+    const clientLinks = country.useClientLinks;
+    const surveyUrl = isTest
+      ? country.testSurveyUrl ?? (clientLinks ? await peekClientLink(this.prisma, country.id) : null) ?? country.liveSurveyUrl
+      : clientLinks ? null : country.liveSurveyUrl;
+    if (!initial && !clientLinks && !surveyUrl) initial = { status: 'TECHNICAL_ERROR', detail: 'NO_SURVEY_LINK' };
+    if (!initial && !isTest && clientLinks && !(await this.prisma.clientUniqueLink.count({ where: { projectCountryId: country.id, status: 'UNUSED' } }))) {
+      initial = { status: 'TECHNICAL_ERROR', detail: 'NO_CLIENT_LINK' };
+    }
+    if (!initial && isTest && !surveyUrl) initial = { status: 'TECHNICAL_ERROR', detail: 'NO_SURVEY_LINK' };
 
     // A consent notice for the market sends the respondent through the gate page to agree first.
     const consent = initial ? null : await consentFor(this.prisma, project.organizationId, country.countryCode);
     const gateRequired = !initial && (gateNeeded(security) || !!consent);
     const ttl = country.sessionTtlMinutes ?? Math.max(60, country.loiMinutes * 4);
-    const token = randomToken();
+    // The organisation's UID prefix (Settings → Numbering) brands the ID the client survey sees.
+    const token = newSessionToken(project.organization.uidPrefix);
     let session: SessionWithContext;
     try {
       session = await this.prisma.respondentSession.create({
@@ -332,7 +354,7 @@ export class SurveyService {
 
     if (initial) return { location: await this.redirectFor(session, initial.status as OutcomeStatus) };
     if (gateRequired) return { location: `${appConfig.publicBaseUrl}/g/${encodeURIComponent(token)}` };
-    return { location: buildSurveyLink(surveyUrl!, { token, countryCode: country.countryCode, projectCode: project.projectCode }) };
+    return { location: await this.surveyLink(session) };
   }
 
   /** Browser outcome: /r/{status}?token=... (not authoritative for billing). */
@@ -387,7 +409,8 @@ export class SurveyService {
     let detail: string | undefined = reason;
 
     if (session.status !== 'STARTED') {
-      const same = session.status === requested || (session.statusDetail === 'OVERQUOTA' && requested === 'COMPLETE');
+      // An overquota or a speeder was a complete on the client side; repeating it is not a conflict.
+      const same = session.status === requested || ((session.statusDetail === 'OVERQUOTA' || session.statusDetail === SPEEDER_DETAIL) && requested === 'COMPLETE');
       if (source === 'S2S' && same && !session.outcomeVerified) {
         await this.prisma.respondentSession.update({ where: { id: session.id }, data: { outcomeVerified: true } });
       }
@@ -400,6 +423,11 @@ export class SurveyService {
     if (session.expiresAt < new Date() && source === 'BROWSER') {
       status = 'SECURITY_REJECT';
       detail = 'EXPIRED';
+    }
+    // Speeder check: a complete faster than the chosen share of the planned LOI is a quality fail.
+    if (status === 'COMPLETE' && isSpeeder(speederOf(session.project.speederCheck), session.projectCountry.loiMinutes, session.gatePassedAt ?? session.startedAt, new Date())) {
+      status = 'QUALITY_FAIL';
+      detail = SPEEDER_DETAIL;
     }
 
     const changed = await this.prisma.$transaction(async (tx) => {
@@ -467,6 +495,8 @@ export class SurveyService {
         market: { countryCode: session.projectCountry.countryCode, currency: session.projectCountry.currency, targetCompletes: session.projectCountry.targetCompletes },
         vendor: { code: session.vendorAllocation.vendor.code, name: session.vendorAllocation.vendor.name },
       });
+      // Auto-pause checkpoint: act on the complete that reaches it, not minutes later.
+      await runAutoPause(this.prisma, session.projectId).catch((e) => this.log.warn(`Auto-pause check failed: ${(e as Error).message}`));
     }
     return { effectiveStatus: status as OutcomeStatus, conflict: false, changed: true };
   }
@@ -478,7 +508,7 @@ export class SurveyService {
     const session = await this.prisma.respondentSession.findUnique({ where: { token }, include: SESSION_INCLUDE });
     if (!session) return { location: internalEndPage(appConfig.publicBaseUrl, 'SECURITY_REJECT') };
     if (session.status !== 'STARTED') return { location: await this.redirectFor(session, session.status as OutcomeStatus) };
-    if (!session.gateRequired || session.gatePassedAt) return { location: this.surveyLink(session) };
+    if (!session.gateRequired || session.gatePassedAt) return { location: await this.surveyLink(session) };
     const security = (session.project.security ?? {}) as Record<string, boolean>;
     const consent = await consentFor(this.prisma, session.organizationId, session.projectCountry.countryCode);
     return {
@@ -492,6 +522,7 @@ export class SurveyService {
         consent: consent ? { title: consent.title, body: consent.body, privacyUrl: consent.privacyUrl, version: consent.version } : null,
         design: designOf(session.project.pageDesign),
         base: appConfig.publicBaseUrl,
+        platform: await this.platformBrand(session.organizationId),
       },
     };
   }
@@ -571,7 +602,7 @@ export class SurveyService {
     const session = await this.prisma.respondentSession.findUnique({ where: { token }, include: SESSION_INCLUDE });
     if (!session) return { location: internalEndPage(appConfig.publicBaseUrl, 'SECURITY_REJECT') };
     if (session.status !== 'STARTED') return { location: await this.redirectFor(session, session.status as OutcomeStatus) };
-    if (!session.gateRequired || session.gatePassedAt) return { location: this.surveyLink(session) };
+    if (!session.gateRequired || session.gatePassedAt) return { location: await this.surveyLink(session) };
     if (session.expiresAt < new Date()) return this.fail(session, 'SECURITY_REJECT', 'EXPIRED');
 
     const security = (session.project.security ?? {}) as Record<string, boolean>;
@@ -643,7 +674,7 @@ export class SurveyService {
 
     // Guarded so two submits cannot both release the link with different results.
     await this.prisma.respondentSession.updateMany({ where: { id: session.id, gatePassedAt: null }, data: { gatePassedAt: new Date() } });
-    return { location: this.surveyLink(session) };
+    return { location: await this.surveyLink(session) };
   }
 
   private async fail(session: SessionWithContext, status: OutcomeStatus, reason: string) {
@@ -652,9 +683,18 @@ export class SurveyService {
     return { location: await this.redirectFor(fresh, r.effectiveStatus) };
   }
 
-  private surveyLink(session: SessionWithContext) {
+  /**
+   * Where the respondent starts the client survey. With client unique links on, a live respondent
+   * gets their own link (the same one again on reload); none left = technical error, recorded.
+   */
+  private async surveyLink(session: SessionWithContext): Promise<string> {
     const c = session.projectCountry;
-    const url = session.isTest ? c.testSurveyUrl ?? c.liveSurveyUrl : c.liveSurveyUrl;
+    let url: string | null;
+    if (session.isTest) url = c.testSurveyUrl ?? (c.useClientLinks ? await peekClientLink(this.prisma, c.id) : null) ?? c.liveSurveyUrl;
+    else if (c.useClientLinks) {
+      url = await claimClientLink(this.prisma, session);
+      if (!url) return (await this.fail(session, 'TECHNICAL_ERROR', 'NO_CLIENT_LINK')).location;
+    } else url = c.liveSurveyUrl;
     if (!url) return internalEndPage(appConfig.publicBaseUrl, 'TECHNICAL_ERROR');
     return buildSurveyLink(url, { token: session.token, countryCode: c.countryCode, projectCode: session.project.projectCode });
   }
@@ -716,19 +756,26 @@ export class SurveyService {
     return destination;
   }
 
+  /** The logo respondent pages show for an organisation (white-label first, else Sampledge). */
+  platformBrand(organizationId: string): Promise<PlatformBrand> {
+    return loadPlatformBrand(this.prisma, organizationId);
+  }
+
   /** Data for a designed end page. Status comes from the recorded redirect, not the URL, when a token is known. */
-  async endView(slug: string, token: string | undefined): Promise<{ design: PageDesign; status: EndStatus; continueUrl?: string; seconds?: number }> {
+  async endView(slug: string, token: string | undefined): Promise<{ design: PageDesign; status: EndStatus; continueUrl?: string; seconds?: number; platform: PlatformBrand }> {
     const fallback = (END_STATUSES as readonly string[]).includes(slug) ? (slug as EndStatus) : 'technical_error';
-    if (!token || token.length > 200) return { design: DEFAULT_DESIGN, status: fallback };
-    const session = await this.prisma.respondentSession.findUnique({ where: { token }, select: { id: true, project: { select: { pageDesign: true } } } });
-    if (!session) return { design: DEFAULT_DESIGN, status: fallback };
+    const platform = defaultPlatformBrand(appConfig.publicBaseUrl);
+    if (!token || token.length > 200) return { design: DEFAULT_DESIGN, status: fallback, platform };
+    const session = await this.prisma.respondentSession.findUnique({ where: { token }, select: { id: true, organizationId: true, project: { select: { pageDesign: true } } } });
+    if (!session) return { design: DEFAULT_DESIGN, status: fallback, platform };
     const design = designOf(session.project.pageDesign);
+    const brand = await this.platformBrand(session.organizationId);
     const last = await this.prisma.redirectExecution.findFirst({ where: { sessionId: session.id }, orderBy: { createdAt: 'desc' }, select: { status: true, destination: true } });
-    if (!last) return { design, status: fallback };
+    if (!last) return { design, status: fallback, platform: brand };
     const status = (END_STATUSES as readonly string[]).includes(last.status.toLowerCase()) ? (last.status.toLowerCase() as EndStatus) : fallback;
     const external = !last.destination.startsWith(`${appConfig.publicBaseUrl}/end/`);
-    if (design.interstitial.enabled && external) return { design, status, continueUrl: last.destination, seconds: design.interstitial.seconds };
-    return { design, status };
+    if (design.interstitial.enabled && external) return { design, status, continueUrl: last.destination, seconds: design.interstitial.seconds, platform: brand };
+    return { design, status, platform: brand };
   }
 
   private async enqueueVendorCallback(session: SessionWithContext, status: OutcomeStatus) {

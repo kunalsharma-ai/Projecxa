@@ -13,6 +13,7 @@
  * - Dates are UTC calendar days; `to` is inclusive.
  */
 import { Injectable } from '@nestjs/common';
+import { SPEEDER_DETAIL, SURVEY_START_SQL } from '../projects/field-metrics';
 import { Prisma, RespondentStatus } from '@prisma/client';
 import { z } from 'zod';
 import { PrismaService } from '../prisma/prisma.service';
@@ -68,6 +69,12 @@ export interface SummaryRow {
   conversion: number;
   /** Median minutes from entry to complete; null without completes. */
   medianLoiMinutes: number | null;
+  /** LOI: mean minutes from survey start (after the gate) to complete; null without completes. */
+  loiMinutes: number | null;
+  /** IR: completes ÷ (completes + terminates), in percent; null when nobody qualified or screened out. */
+  ir: number | null;
+  /** Completes turned into quality fails by the speeder check (not counted in qualityFail). */
+  speeders: number;
   currencies: string[];
   /** Revenue, payout and profit per currency (the honest view while sums mix currencies). */
   money: { currency: string; revenue: number; payout: number; profit: number }[];
@@ -198,7 +205,8 @@ export class ReportsService {
         COUNT(*) FILTER (WHERE s.status = 'COMPLETE')::int AS completes,
         COUNT(*) FILTER (WHERE s.status = 'TERMINATE')::int AS terminates,
         COUNT(*) FILTER (WHERE s.status = 'QUOTA_FULL')::int AS "quotaFull",
-        COUNT(*) FILTER (WHERE s.status IN ('QUALITY_FAIL', 'DUPLICATE', 'SECURITY_REJECT'))::int AS "qualityFail",
+        COUNT(*) FILTER (WHERE s.status IN ('QUALITY_FAIL', 'DUPLICATE', 'SECURITY_REJECT') AND s."statusDetail" IS DISTINCT FROM ${SPEEDER_DETAIL})::int AS "qualityFail",
+        COUNT(*) FILTER (WHERE s.status = 'QUALITY_FAIL' AND s."statusDetail" = ${SPEEDER_DETAIL})::int AS speeders,
         COUNT(*) FILTER (WHERE s.status IN ('PARTIAL', 'TECHNICAL_ERROR'))::int AS partial,
         COUNT(*) FILTER (WHERE s.status = 'STARTED')::int AS "inProgress",
         COUNT(*) FILTER (WHERE s.status = 'COMPLETE' AND s.approval = 'APPROVED')::int AS approved,
@@ -208,6 +216,8 @@ export class ReportsService {
         COALESCE(SUM(s.payout) FILTER (WHERE ${billable}), 0)::float8 AS payout,
         (percentile_cont(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (s."outcomeAt" - s."startedAt")))
           FILTER (WHERE s.status = 'COMPLETE' AND s."outcomeAt" IS NOT NULL))::float8 AS "loiSeconds",
+        (AVG(EXTRACT(EPOCH FROM (s."outcomeAt" - ${SURVEY_START_SQL})))
+          FILTER (WHERE s.status = 'COMPLETE' AND s."outcomeAt" IS NOT NULL))::float8 AS "avgLoiSeconds",
         array_agg(DISTINCT pc.currency) AS currencies
       FROM "RespondentSession" s
       JOIN "Project" p ON p.id = s."projectId"
@@ -265,6 +275,9 @@ export class ReportsService {
         margin: revenue > 0 && (money.get(String(r.key))?.length ?? 0) === 1 ? pct(revenue - payout, revenue) : null,
         conversion: pct(completes, clicks),
         medianLoiMinutes: r.loiSeconds == null ? null : round(Number(r.loiSeconds) / 60),
+        loiMinutes: r.avgLoiSeconds == null ? null : round(Number(r.avgLoiSeconds) / 60),
+        ir: completes + Number(r.terminates) > 0 ? pct(completes, completes + Number(r.terminates)) : null,
+        speeders: Number(r.speeders),
         currencies: ((r.currencies as string[] | null) ?? []).filter(Boolean).sort(),
         money: money.get(String(r.key)) ?? [],
         reporting: convertMoney(money.get(String(r.key)) ?? [], fx),
@@ -444,7 +457,7 @@ export const CURRENCY_NOTE = 'Converted figures use today’s exchange rates fro
 function emptyRow(currency = ''): SummaryRow {
   return {
     key: 'total', label: 'Total', sublabel: null, clicks: 0, completes: 0, terminates: 0, quotaFull: 0, qualityFail: 0, partial: 0, inProgress: 0,
-    approved: 0, pending: 0, rejected: 0, revenue: 0, payout: 0, profit: 0, margin: null, conversion: 0, medianLoiMinutes: null, currencies: [], money: [],
+    approved: 0, pending: 0, rejected: 0, revenue: 0, payout: 0, profit: 0, margin: null, conversion: 0, medianLoiMinutes: null, loiMinutes: null, ir: null, speeders: 0, currencies: [], money: [],
     reporting: { currency, revenue: 0, payout: 0, profit: 0, margin: null, missing: [] },
   };
 }

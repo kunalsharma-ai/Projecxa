@@ -40,9 +40,24 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
             ))}
           </ul>
         </div>
-        <div className="text-xs text-sidebar-muted">© {new Date().getFullYear()} {name}</div>
+        <div className="flex items-center justify-between gap-4 text-xs text-sidebar-muted">
+          <span>© {new Date().getFullYear()} {name}</span>
+          {!custom && <span className="flex items-center gap-2">A product of <img src="/brand/sampledge-logo-on-dark.svg" alt="Sampledge" className="h-6 w-auto" /></span>}
+        </div>
       </section>
-      <div className="grid place-items-center px-4 py-10">{children}</div>
+      <div className="grid place-items-center px-4 py-10">
+        <div className="flex w-full max-w-md flex-col items-center">
+          {children}
+          {/* The company behind the product, on every signed-out page (not on white-labelled addresses). */}
+          {brand && !custom && (
+            <p className="mt-6 flex items-center justify-center gap-2 text-xs text-muted">
+              Powered by
+              <img src="/brand/sampledge-logo-on-light.svg" alt="Sampledge" className="h-6 w-auto dark:hidden" />
+              <img src="/brand/sampledge-logo-on-dark.svg" alt="Sampledge" className="hidden h-6 w-auto dark:block" />
+            </p>
+          )}
+        </div>
+      </div>
     </main>
   );
 }

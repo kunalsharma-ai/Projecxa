@@ -3,7 +3,7 @@ import { computeRedirect, EngineInput, finishApiRedirect } from '../../src/redir
 import { checkDestination, hostAllowed, resolveRule, validateConfig } from '../../src/redirects/redirect-resolver';
 import { OUTCOME_STATUSES, OutcomeStatus, RedirectConfig, RedirectRule } from '../../src/redirects/redirect.types';
 
-const BASE = 'https://api.projexa.test';
+const BASE = 'https://api.samptrek.test';
 const vendorA = { id: 'vA', code: 'VA', redirectAllowedDomains: ['va.example.com'] };
 const vendorB = { id: 'vB', code: 'VB', redirectAllowedDomains: [] };
 
@@ -168,7 +168,7 @@ describe('security policy', () => {
   });
 
   it('prevents redirect loops back into SampTrek entry/outcome links', () => {
-    const r = checkDestination(`${BASE}/r/complete?token=x`, { allowedDomains: ['api.projexa.test'], selfHost: 'api.projexa.test' });
+    const r = checkDestination(`${BASE}/r/complete?token=x`, { allowedDomains: ['api.samptrek.test'], selfHost: 'api.samptrek.test' });
     expect(r.ok).toBe(false);
   });
 

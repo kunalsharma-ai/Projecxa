@@ -1,5 +1,5 @@
 import { PROVIDERS } from './captcha';
-import { brandHtml, designCss, gateBackgroundCss } from './page-design';
+import { brandHtml, designCss, faviconHtml, gateBackgroundCss, inkOn, PlatformBrand, poweredByHtml } from './page-design';
 import { Question } from './questions';
 import type { GateView } from './survey.service';
 
@@ -72,7 +72,8 @@ function renderHuman(h: NonNullable<GateView['human']>, imageUrl: string): strin
 }
 
 /**
- * Respondent gate page. Neutral (no SampTrek or client branding), phone-first, needs JavaScript.
+ * Respondent gate page. Shows the project's logo, else the platform logo (Sampledge or the
+ * organisation's white-label logo) unless the project turns it off. Phone-first, needs JavaScript.
  * Steps, in order: consent notice → human check → gate survey → prescreener. Signals the project turned on
  * (language, time zone, fingerprint) and the background captcha are collected meanwhile.
  * Everything is posted to /g/:token, which runs every check and returns where to go next.
@@ -112,7 +113,7 @@ export function renderGatePage(view: GateView, nonce: string): string {
     .join('');
 
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex"><title>Survey</title>
+<meta name="robots" content="noindex"><title>Survey</title>${faviconHtml(view.design, view.platform)}
 <style nonce="${nonce}">
 ${designCss(view.design)}
 ${gateBackgroundCss(view.design, view.base)}
@@ -126,7 +127,7 @@ fieldset{border:0;margin:0 0 22px;padding:0;min-width:0}legend{font-weight:600;m
 input[type=text],input[type=number],input[type=email],select{width:100%;font:inherit;color:inherit;background:transparent;border:1px solid var(--line);border-radius:min(var(--ctl),12px);padding:10px 12px}
 input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 .grow{border-top:1px solid var(--line);padding:10px 0}.glabel{font-size:.95rem;margin-bottom:6px}.gopts{display:flex;flex-wrap:wrap;gap:6px}
-.foot{font-size:.8rem;color:var(--page-ink);opacity:.75;text-align:center;margin:16px 0 0}
+.foot{font-size:.8rem;color:var(--page-ink);opacity:.75;text-align:center;margin:16px 0 0}.shell>.powered{color:var(--page-ink)}
 .pill{display:flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:999px;padding:6px 10px;font-size:.875rem;cursor:pointer}
 button{width:100%;border:0;border-radius:var(--ctl);padding:12px 16px;font:inherit;font-weight:600;background:var(--brand);color:var(--brand-ink);cursor:pointer}
 button:disabled{opacity:.6;cursor:progress}.spin{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--brand);border-radius:50%;animation:s 1s linear infinite;margin:8px auto 16px}
@@ -135,7 +136,7 @@ button:disabled{opacity:.6;cursor:progress}.spin{width:28px;height:28px;border:3
 .notice{max-height:45vh;overflow:auto;border:1px solid var(--line);border-radius:min(var(--ctl),12px);padding:4px 14px;margin:0 0 16px;font-size:.925rem}.notice a{color:var(--brand)}
 button.ghost{margin-top:8px;background:transparent;color:var(--muted);border:1px solid var(--line)}
 .qerr,.err{color:var(--bad);font-size:.875rem;margin:6px 0 0}.q.bad legend{color:var(--bad)}[hidden]{display:none!important}
-</style></head><body><div class="shell">${brandHtml(view.design, view.base)}<main>
+</style></head><body><div class="shell">${brandHtml(view.design, view.base, view.design.template === 'spotlight' || view.design.template === 'bold', view.platform)}<main>
 <noscript><h1>Please turn on JavaScript</h1><p class="intro">This survey needs JavaScript to start.</p></noscript>
 <form id="f" hidden novalidate>
 ${stepHtml}
@@ -208,5 +209,5 @@ var dec=document.getElementById('cdecline');if(dec)dec.addEventListener('click',
 f.addEventListener('submit',function(e){e.preventDefault();next()});
 if(!cfg.steps.length)submit();else show(cfg.steps[0]);
 })();
-</script></main>${view.design.footer ? `<p class="foot">${esc(view.design.footer)}</p>` : ''}</div></body></html>`;
+</script></main>${view.design.footer ? `<p class="foot">${esc(view.design.footer)}</p>` : ''}${poweredByHtml(view.design, view.platform, view.design.template === 'spotlight' || inkOn(view.design.colors.background) === '#ffffff')}</div></body></html>`;
 }

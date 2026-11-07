@@ -4,11 +4,12 @@ import clsx from 'clsx';
 import { AlertTriangle, CopyPlus, Pause, Pencil, Play, Plus, Save, Search, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { CountrySelect } from '@/components/form/combobox';
-import { saveCustomOption, useCustomOptions } from '@/components/form/option-select';
+import { AddableSelect, saveCustomOption, useCustomOptions } from '@/components/form/option-select';
 import { ErrorBox, Field, Progress, Section, StatusChip, money } from '@/components/ui';
 import { patch, post } from '@/lib/api';
 import { COUNTRIES, countryName, flag } from '@/lib/countries';
 import { BulkFill } from './bulk-fill';
+import { ProjectParties } from './project-parties';
 import type { Country, ProjectDetail } from './types';
 
 const marketName = (c: Pick<Country, 'countryCode' | 'targetGroup'>) => `${countryName(c.countryCode)}${c.targetGroup ? ` · ${c.targetGroup}` : ''}`;
@@ -141,8 +142,8 @@ export function CountriesTab({ project, editable, reload, security }: { project:
                 </Field>
               </div>
               <Field label="Language"><input className="input" value={adding.language} onChange={(e) => setAdding({ ...adding, language: e.target.value })} placeholder="en" /></Field>
-              <Field label="Target group" hint="Needed when the country is already a market">
-                <input className="input" list="tab-target-groups" value={adding.targetGroup} onChange={(e) => setAdding({ ...adding, targetGroup: e.target.value })} />
+              <Field label="Target group" hint="Needed when the country is already a market. Type a new one to add it.">
+                <AddableSelect field="targetGroup" base={[]} value={adding.targetGroup} onChange={(v) => setAdding({ ...adding, targetGroup: v })} placeholder="e.g. Gen Z" />
               </Field>
               <Field label="LOI (min)"><input className="input" type="number" min={1} placeholder={String(src?.loiMinutes ?? '')} value={adding.loiMinutes} onChange={(e) => setAdding({ ...adding, loiMinutes: e.target.value })} /></Field>
               <Field label="IR %"><input className="input" type="number" min={1} max={100} placeholder={String(src?.irPercent ?? '')} value={adding.irPercent} onChange={(e) => setAdding({ ...adding, irPercent: e.target.value })} /></Field>
@@ -204,7 +205,7 @@ export function CountriesTab({ project, editable, reload, security }: { project:
             <thead className="border-y border-line bg-sunken/60">
               <tr>
                 {editable && <th className="th w-8"><input type="checkbox" aria-label="Select all markets" checked={visible.length > 0 && visible.every((c) => selected.includes(c.id))} onChange={(e) => setSelected(e.target.checked ? visible.map((c) => c.id) : [])} /></th>}
-                <th className="th">Market</th><th className="th">Status</th><th className="th">Completes</th><th className="th">LOI</th><th className="th">IR</th><th className="th">CPI</th><th className="th">Vendors</th><th className="th">Survey links</th><th className="th" />
+                <th className="th">Market</th><th className="th">Status</th><th className="th">Completes</th><th className="th" title="Planned LOI, with the average of live completes under it">LOI</th><th className="th" title="Planned IR, with the actual incidence under it">IR</th><th className="th">CPI</th><th className="th">Vendors</th><th className="th">Survey links</th><th className="th" />
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -246,8 +247,14 @@ export function CountriesTab({ project, editable, reload, security }: { project:
                     </td>
                     <td className="td"><StatusChip status={c.status} /></td>
                     <td className="td"><Progress value={c.completes} max={c.targetCompletes} /></td>
-                    <td className="td tabular-nums">{c.loiMinutes} min</td>
-                    <td className="td tabular-nums">{c.irPercent}%</td>
+                    <td className="td tabular-nums">
+                      <div className="whitespace-nowrap">{c.loiMinutes} min</div>
+                      {c.metrics?.avgLoiMinutes != null && <div className="whitespace-nowrap text-xs text-muted" title="Average LOI of live completes">Avg {c.metrics.avgLoiMinutes} min</div>}
+                    </td>
+                    <td className="td tabular-nums">
+                      <div>{c.irPercent}%</div>
+                      {c.metrics?.irPercent != null && <div className={clsx('whitespace-nowrap text-xs', c.metrics.irPercent < c.irPercent * 0.7 ? 'text-warn' : 'text-muted')} title="Completes ÷ (completes + terminates)">Avg {c.metrics.irPercent}%</div>}
+                    </td>
                     <td className="td tabular-nums">{money(c.cpi, c.currency)}</td>
                     <td className="td">{c.allocations.length || <span className="text-warn">0</span>}</td>
                     <td className="td max-w-[300px] text-xs text-muted" title={c.liveSurveyUrl ?? ''}>
@@ -283,10 +290,10 @@ export function CountriesTab({ project, editable, reload, security }: { project:
         )}
       </Section>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6">
         <Section title="Project settings">
-          <dl className="grid grid-cols-[140px_1fr] gap-y-2 text-sm">
-            <dt className="text-muted">Client</dt><dd>{project.client.name}</dd>
+          <ProjectParties key={`${project.id}:${project.clientContact?.id ?? ''}:${project.workOrderNo ?? ''}`} project={project} editable={editable} reload={reload} />
+          <dl className="grid grid-cols-[140px_1fr] gap-y-2 text-sm md:grid-cols-[140px_1fr_140px_1fr] md:gap-x-6">
             <dt className="text-muted">Sales</dt><dd>{project.salesPerson?.name ?? '–'}</dd>
             <dt className="text-muted">Bid reference</dt><dd>{project.bidReference ? <Copyable text={project.bidReference} label="bid reference" /> : '–'}</dd>
             <dt className="text-muted">CPI currency</dt><dd>{currency}</dd>
@@ -295,14 +302,6 @@ export function CountriesTab({ project, editable, reload, security }: { project:
             <dt className="text-muted">Redirect mode</dt><dd>{project.redirectMode.toLowerCase()} (version {project.activeRedirectVersion?.version ?? '–'})</dd>
           </dl>
           {project.description && <p className="mt-4 whitespace-pre-wrap border-t border-line pt-4 text-sm text-muted">{project.description}</p>}
-        </Section>
-        <Section title="Client survey integration">
-          <p className="text-sm text-muted">At the end of the survey, send respondents to this URL with the status and the token SampTrek passed in:</p>
-          <div className="mt-2 flex items-start gap-1 rounded-lg bg-sunken p-3"><code className="min-w-0 flex-1 break-all text-xs">{project.outcomeEndpoints.browser}</code><CopyIcon text={project.outcomeEndpoints.browser} label="end-of-survey URL" /></div>
-          <p className="mt-2 text-xs text-muted">Statuses: {project.outcomeEndpoints.statuses.join(', ')}</p>
-          <p className="mt-4 text-sm text-muted">To confirm outcomes server to server (recommended before billing), POST a signed request to:</p>
-          <div className="mt-2 flex items-start gap-1 rounded-lg bg-sunken p-3"><code className="min-w-0 flex-1 break-all text-xs">{project.outcomeEndpoints.s2s}</code><CopyIcon text={project.outcomeEndpoints.s2s} label="server-to-server URL" /></div>
-          <p className="mt-2 text-xs text-muted">Body: token, status, timestamp (unix seconds) and signature = HMAC-SHA256(client secret, &quot;token.status.timestamp&quot;). See docs/SURVEY_INTEGRATION.md.</p>
         </Section>
       </div>
     </div>

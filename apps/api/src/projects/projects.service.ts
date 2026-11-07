@@ -12,6 +12,10 @@ import { randomToken } from '../common/crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { defaultParamMappings, prebuiltRules, RedirectConfig } from '../redirects/redirect.types';
 import { parseConfig } from '../redirects/redirects.service';
+import { emptyFieldMetrics, fieldMetrics, SPEEDER_DETAIL } from './field-metrics';
+import { autopilotOf } from '../monitor/monitor.rules';
+import { claimManualWorkOrder, takeWorkOrder } from '../numbering/numbering';
+import { LOGO_SELECT, withLogoUrl } from '../parties/logos';
 import { assertPayout, launchProblems, marketKey, marketLabel, sameMarket } from './markets';
 import {
   addCountrySchema,
@@ -52,6 +56,7 @@ export class ProjectsService {
     await this.entitlements.assertProjectRoom(u.organizationId);
     const client = await this.prisma.client.findFirst({ where: { id: input.clientId, organizationId: u.organizationId } });
     if (!client) throw new BadRequestException('Client not found');
+    if (client.status !== 'ACTIVE') throw new BadRequestException({ message: `${client.name} is inactive. Make the client active first (Clients page).`, code: 'CLIENT_INACTIVE' });
     if (input.clientContactId) {
       const c = await this.prisma.clientContact.findFirst({ where: { id: input.clientContactId, clientId: client.id } });
       if (!c) throw new BadRequestException('Client contact does not belong to this client');
@@ -78,11 +83,12 @@ export class ProjectsService {
 
     // Vendors chosen on the form go into every market; payouts above the client CPI need a confirmation.
     const vendorRows = input.vendors.length
-      ? await this.prisma.vendor.findMany({ where: { organizationId: u.organizationId, id: { in: input.vendors.map((v) => v.vendorId) } }, select: { id: true, name: true } })
+      ? await this.prisma.vendor.findMany({ where: { organizationId: u.organizationId, id: { in: input.vendors.map((v) => v.vendorId) } }, select: { id: true, name: true, status: true } })
       : [];
     for (const v of input.vendors) {
       const vendor = vendorRows.find((x) => x.id === v.vendorId);
       if (!vendor) throw new BadRequestException('Vendor not found');
+      if (vendor.status !== 'ACTIVE') throw new BadRequestException({ message: `${vendor.name} is inactive. Make the vendor active first (Vendors page).`, code: 'VENDOR_INACTIVE' });
       for (const c of countries) assertPayout(v.cpi, c.cpi!, c.currency ?? 'USD', c as never, vendor.name, v.allowAboveCpi);
     }
     if (new Set(input.vendors.map((v) => v.vendorId)).size !== input.vendors.length) throw new BadRequestException('A vendor is listed twice');
@@ -94,12 +100,12 @@ export class ProjectsService {
     let skipped: string[] = [];
 
     const project = await this.prisma.$transaction(async (tx) => {
-      const org = await tx.organization.update({
-        where: { id: u.organizationId },
-        data: { projectSeq: { increment: 1 }, ...(input.generateWorkOrder && !input.workOrderNo ? { workOrderSeq: { increment: 1 } } : {}) },
-      });
+      const org = await tx.organization.update({ where: { id: u.organizationId }, data: { projectSeq: { increment: 1 } } });
       const projectCode = `${org.projectCodePrefix}${org.projectSeq}`;
-      const workOrderNo = input.workOrderNo ?? (input.generateWorkOrder ? `${org.workOrderPrefix}${org.workOrderSeq}` : null);
+      // A typed work order must be free (and moves the counter on); otherwise the next one is generated.
+      const manual = input.workOrderNo?.trim() || null;
+      if (manual) await claimManualWorkOrder(tx, u.organizationId, manual);
+      const workOrderNo = manual ?? (input.generateWorkOrder ? await takeWorkOrder(tx, u.organizationId) : null);
 
       const p = await tx.project.create({
         data: {
@@ -118,6 +124,7 @@ export class ProjectsService {
           devices: input.devices,
           security: normalizeSecurity(input.security),
           redirectMode: input.redirectMode,
+          ...(input.speederCheck ? { speederCheck: input.speederCheck } : {}),
           fieldStartAt: input.fieldStartAt ? new Date(`${input.fieldStartAt}T00:00:00Z`) : undefined,
           fieldEndAt: input.fieldEndAt ? new Date(`${input.fieldEndAt}T00:00:00Z`) : undefined,
           ...(input.gateQuestions?.length ? { gateQuestions: input.gateQuestions as Prisma.InputJsonValue } : {}),
@@ -235,8 +242,11 @@ export class ProjectsService {
       keys.sort((x, y) => f * text(x).localeCompare(text(y), 'en', { sensitivity: 'base', numeric: true }) || y.createdAt.getTime() - x.createdAt.getTime() || y.id.localeCompare(x.id));
       pageIds = keys.slice((q.page - 1) * q.pageSize, q.page * q.pageSize).map((k) => k.id);
     }
-    const [total, found] = await Promise.all([
+    const { status: _status, ...withoutStatus } = where;
+    const [total, byStatus, found] = await Promise.all([
       this.prisma.project.count({ where }),
+      // Count per status with the other filters applied, for the coloured status tabs.
+      this.prisma.project.groupBy({ by: ['status'], where: withoutStatus, _count: { _all: true } }),
       this.prisma.project.findMany({
         where: pageIds ? { id: { in: pageIds }, organizationId: u.organizationId } : where,
         orderBy: projectOrder(q.sort, q.dir),
@@ -250,13 +260,15 @@ export class ProjectsService {
       }),
     ]);
     const rows = pageIds ? pageIds.map((id) => found.find((r) => r.id === id)!).filter(Boolean) : found;
-    const stats = await this.sessionStats(rows.map((r) => r.id));
+    const [stats, metrics] = await Promise.all([this.sessionStats(rows.map((r) => r.id)), fieldMetrics(this.prisma, rows.map((r) => r.id))]);
     return {
       total,
+      counts: Object.fromEntries(byStatus.map((b) => [b.status, b._count._all])) as Partial<Record<string, number>>,
       page: q.page,
       pageSize: q.pageSize,
       items: rows.map((r) => {
         const s = stats.get(r.id) ?? emptyStats();
+        const fm = metrics.get(r.id) ?? emptyFieldMetrics();
         const target = r.countries.reduce((a, c) => a + c.targetCompletes, 0);
         const live = r.countries.filter((c) => c.status === 'LIVE').length;
         return {
@@ -284,8 +296,13 @@ export class ProjectsService {
           dropouts: s.PARTIAL,
           inProgress: s.STARTED,
           qualityFails: s.QUALITY_FAIL + s.DUPLICATE + s.SECURITY_REJECT,
+          speeders: s.SPEEDER,
+          /** Planned (bid) LOI and IR, averaged over the markets. */
           loiMinutes: avg(r.countries.map((c) => c.loiMinutes)),
           irPercent: avg(r.countries.map((c) => c.irPercent)),
+          /** Actual, from live sessions (docs/FIELD_METRICS.md). */
+          avgLoiMinutes: fm.avgLoiMinutes,
+          avgIrPercent: fm.irPercent,
           redirectMode: r.redirectMode,
           fieldStartAt: r.fieldStartAt,
           fieldEndAt: r.fieldEndAt,
@@ -300,13 +317,13 @@ export class ProjectsService {
     const out = new Map<string, ReturnType<typeof emptyStats>>();
     if (!projectIds.length) return out;
     const grouped = await this.prisma.respondentSession.groupBy({
-      by: ['projectId', 'status'],
+      by: ['projectId', 'status', 'statusDetail'],
       where: { projectId: { in: projectIds }, isTest: false },
       _count: { _all: true },
     });
     for (const g of grouped) {
       const s = out.get(g.projectId) ?? emptyStats();
-      s[g.status] = g._count._all;
+      addStat(s, g);
       out.set(g.projectId, s);
     }
     return out;
@@ -316,7 +333,7 @@ export class ProjectsService {
     const p = await this.prisma.project.findFirst({
       where: { id, organizationId: u.organizationId },
       include: {
-        client: { select: { id: true, name: true, code: true } },
+        client: { select: { id: true, name: true, code: true, status: true, website: true, contacts: { select: { id: true, name: true, email: true, phone: true }, orderBy: { name: 'asc' } }, ...LOGO_SELECT } },
         clientContact: true,
         projectManager: { select: { id: true, name: true } },
         salesPerson: { select: { id: true, name: true } },
@@ -325,7 +342,7 @@ export class ProjectsService {
           orderBy: [{ countryCode: 'asc' }, { createdAt: 'asc' }],
           include: {
             quotas: true,
-            allocations: { include: { vendor: { select: { id: true, name: true, code: true } } }, orderBy: { createdAt: 'asc' } },
+            allocations: { include: { vendor: { select: { id: true, name: true, code: true, status: true, contactName: true, contactEmail: true, ...LOGO_SELECT } } }, orderBy: { createdAt: 'asc' } },
           },
         },
       },
@@ -333,16 +350,17 @@ export class ProjectsService {
     if (!p) throw new NotFoundException('Project not found');
     const stats = (await this.sessionStats([p.id])).get(p.id) ?? emptyStats();
     const byCountryVendor = await this.prisma.respondentSession.groupBy({
-      by: ['vendorAllocationId', 'status'],
+      by: ['vendorAllocationId', 'status', 'statusDetail'],
       where: { projectId: p.id, isTest: false },
       _count: { _all: true },
     });
     const allocStats = new Map<string, ReturnType<typeof emptyStats>>();
     for (const g of byCountryVendor) {
       const s = allocStats.get(g.vendorAllocationId) ?? emptyStats();
-      s[g.status] = g._count._all;
+      addStat(s, g);
       allocStats.set(g.vendorAllocationId, s);
     }
+    const [projectMetrics, marketMetrics] = await Promise.all([fieldMetrics(this.prisma, [p.id]), fieldMetrics(this.prisma, [p.id], 'country')]);
     const base = config.publicBaseUrl;
     const signed = !!(p.security as Record<string, boolean> | null)?.urlProtection;
     const money = await this.prisma.respondentSession.groupBy({
@@ -350,14 +368,26 @@ export class ProjectsService {
       where: { projectId: p.id, isTest: false, status: 'COMPLETE' },
       _sum: { revenue: true, payout: true },
     });
+    const clientLinks = await this.prisma.clientUniqueLink.groupBy({ by: ['projectCountryId', 'status'], where: { projectId: p.id }, _count: { _all: true } });
+    const linksOf = (countryId: string) => {
+      const rows = clientLinks.filter((r) => r.projectCountryId === countryId);
+      const n = (st: string) => rows.find((r) => r.status === st)?._count._all ?? 0;
+      return { total: n('UNUSED') + n('ASSIGNED'), unused: n('UNUSED') };
+    };
     return {
       ...p,
+      client: withLogoUrl('client', p.client),
       stats,
+      /** Actual LOI, IR and speeders from live sessions; planned values stay on each market. */
+      metrics: projectMetrics.get(p.id) ?? emptyFieldMetrics(),
       finance: projectFinance(p.countries, money.map((m) => ({ countryId: m.projectCountryId, revenue: Number(m._sum.revenue ?? 0), cost: Number(m._sum.payout ?? 0) }))),
       countries: p.countries.map((c) => ({
         ...c,
+        metrics: marketMetrics.get(c.id) ?? emptyFieldMetrics(),
+        clientLinks: linksOf(c.id),
         allocations: c.allocations.map((a) => ({
           ...a,
+          vendor: withLogoUrl('vendor', a.vendor),
           // With URL protection on, vendors append sig = hex HMAC-SHA256(their signing secret, UID).
           entryLink: `${base}/s/${a.entryCode}?${encodeURIComponent(a.uidParam)}=[UID]${signed ? '&sig=[SIG]' : ''}`,
           testEntryLink: `${base}/s/${a.testEntryCode}?${encodeURIComponent(a.uidParam)}=[UID]${signed ? '&sig=[SIG]' : ''}`,
@@ -370,6 +400,11 @@ export class ProjectsService {
 
   async update(u: AuthUser, id: string, body: z.infer<typeof updateProjectSchema>) {
     const p = await this.mustOwn(u, id);
+    if (body.clientContactId) {
+      const ok = await this.prisma.clientContact.count({ where: { id: body.clientContactId, clientId: p.clientId } });
+      if (!ok) throw new BadRequestException('Client contact does not belong to this client');
+    }
+    if (body.workOrderNo && body.workOrderNo !== p.workOrderNo) await claimManualWorkOrder(this.prisma, u.organizationId, body.workOrderNo, id);
     const data: Prisma.ProjectUncheckedUpdateInput = { ...body } as Prisma.ProjectUncheckedUpdateInput;
     if (body.security) data.security = normalizeSecurity(body.security);
     for (const k of ['gateQuestions', 'prescreen'] as const) {
@@ -378,6 +413,8 @@ export class ProjectsService {
     }
     if (body.fieldStartAt !== undefined) data.fieldStartAt = body.fieldStartAt ? new Date(`${body.fieldStartAt}T00:00:00.000Z`) : null;
     if (body.fieldEndAt !== undefined) data.fieldEndAt = body.fieldEndAt ? new Date(`${body.fieldEndAt}T23:59:59.999Z`) : null;
+    // Switching the auto-pause checkpoint on again starts it afresh for every market and link.
+    if (body.autopilot?.autoPause?.enabled && !autopilotOf(p.autopilot).autoPause.enabled) data.autopilotState = Prisma.DbNull;
     const launch = body.status === 'LIVE' ? await this.launchPlan(p.id) : null;
     const before = await this.history.snapshot(id);
     await this.prisma.$transaction(async (tx) => {
@@ -399,10 +436,10 @@ export class ProjectsService {
    * not ready do not block the others: they stay in draft and are listed, so the person can fix them.
    */
   private async launchPlan(projectId: string) {
-    const countries = await this.prisma.projectCountry.findMany({ where: { projectId }, include: { _count: { select: { allocations: true } } } });
+    const countries = await this.prisma.projectCountry.findMany({ where: { projectId }, include: { _count: { select: { allocations: true, clientLinks: { where: { status: 'UNUSED' } } } } } });
     const candidates = countries.filter((c) => c.status !== 'CLOSED');
     const notReady = candidates
-      .map((c) => ({ id: c.id, market: marketLabel(c), problems: launchProblems({ ...c, vendorCount: c._count.allocations }) }))
+      .map((c) => ({ id: c.id, market: marketLabel(c), problems: launchProblems({ ...c, vendorCount: c._count.allocations, unusedClientLinks: c._count.clientLinks }) }))
       .filter((c) => c.problems.length);
     const ready = candidates.filter((c) => !notReady.some((n) => n.id === c.id));
     if (!ready.length)
@@ -417,7 +454,17 @@ export class ProjectsService {
   /** Moves many projects to one status. Each is checked on its own; the result lists what happened to each. */
   async bulkStatus(u: AuthUser, body: z.infer<typeof bulkStatusSchema>) {
     const results: { id: string; projectCode?: string; ok: boolean; error?: string; issues?: string[]; notReady?: { market: string; problems: string[] }[] }[] = [];
+    // Only Hold → Live and Live → Hold; anything else (Draft, Test, Closed, Invoiced) is left alone.
+    const from = body.status === 'LIVE' ? 'HOLD' : 'LIVE';
+    const current = new Map(
+      (await this.prisma.project.findMany({ where: { id: { in: body.ids }, organizationId: u.organizationId }, select: { id: true, status: true } })).map((p) => [p.id, p.status]),
+    );
     for (const id of [...new Set(body.ids)]) {
+      const now = current.get(id);
+      if (now && now !== from) {
+        results.push({ id, ok: false, error: `Only ${from === 'HOLD' ? 'Hold' : 'Live'} projects can be ${body.status === 'LIVE' ? 'set live' : 'put on hold'} here; this one is ${now.charAt(0) + now.slice(1).toLowerCase()}` });
+        continue;
+      }
       try {
         const r = (await this.update(u, id, { status: body.status })) as { projectCode: string; launch?: { notReady: { market: string; problems: string[] }[] } };
         results.push({ id, projectCode: r.projectCode, ok: true, notReady: r.launch?.notReady ?? [] });
@@ -541,9 +588,15 @@ export class ProjectsService {
       await this.assertNewMarket(projectId, { countryCode: current.countryCode, language: body.language ?? current.language, targetGroup: body.targetGroup ?? current.targetGroup }, countryId);
     if (body.status === 'LIVE' && current.status !== 'LIVE') {
       const vendorCount = await this.prisma.vendorAllocation.count({ where: { projectCountryId: countryId } });
-      const problems = launchProblems({ ...current, liveSurveyUrl: body.liveSurveyUrl ?? current.liveSurveyUrl, vendorCount });
+      const unusedClientLinks = await this.prisma.clientUniqueLink.count({ where: { projectCountryId: countryId, status: 'UNUSED' } });
+      const problems = launchProblems({ ...current, liveSurveyUrl: body.liveSurveyUrl ?? current.liveSurveyUrl, vendorCount, unusedClientLinks });
+      const fix: Record<string, string> = {
+        'no live survey link': 'Add the client live survey link first.',
+        'no client unique links left': 'Upload client unique links on the Client unique links tab.',
+        'no vendor': 'Add at least one vendor on the Vendors & links tab.',
+      };
       if (problems.length)
-        throw new BadRequestException({ message: `${marketLabel(current)} cannot go live: ${problems.join(' and ')}`, code: 'NOT_READY', issues: problems.map((x) => (x === 'no live survey link' ? 'Add the client live survey link first.' : 'Add at least one vendor on the Vendors & links tab.')) });
+        throw new BadRequestException({ message: `${marketLabel(current)} cannot go live: ${problems.join(' and ')}`, code: 'NOT_READY', issues: problems.map((x) => fix[x] ?? x) });
     }
     const { cpi, ...rest } = body;
     if (rest.targetGroup !== undefined) rest.targetGroup = rest.targetGroup.trim() || (null as never);
@@ -615,6 +668,7 @@ export class ProjectsService {
           captchaStyle: src.captchaStyle,
           pageDesign: json(src.pageDesign),
           autopilot: json(src.autopilot),
+          speederCheck: json(src.speederCheck),
           redirectMode: src.redirectMode,
         },
       });
@@ -663,6 +717,7 @@ export class ProjectsService {
     const country = await this.mustOwnCountry(u, projectId, countryId);
     const vendor = await this.prisma.vendor.findFirst({ where: { id: body.vendorId, organizationId: u.organizationId } });
     if (!vendor) throw new BadRequestException('Vendor not found');
+    if (vendor.status !== 'ACTIVE') throw new BadRequestException({ message: `${vendor.name} is inactive. Make the vendor active first (Vendors page).`, code: 'VENDOR_INACTIVE' });
     assertPayout(body.cpi, Number(country.cpi), country.currency, country, vendor.name, allowAboveCpi);
     const exists = await this.prisma.vendorAllocation.findFirst({ where: { projectCountryId: countryId, vendorId: vendor.id } });
     if (exists) throw new BadRequestException(`${vendor.name} is already allocated to this country`);
@@ -740,9 +795,11 @@ export class ProjectsService {
     const data: Prisma.ProjectUncheckedUpdateInput = {};
     for (const k of RESTORABLE) {
       const val = snap[k];
+      // Versions saved before the speeder check existed leave the current setting alone.
+      if (k === 'speederCheck' && val === undefined) continue;
       if (k === 'fieldStartAt') data.fieldStartAt = val ? new Date(`${val}T00:00:00.000Z`) : null;
       else if (k === 'fieldEndAt') data.fieldEndAt = val ? new Date(`${val}T23:59:59.999Z`) : null;
-      else if (k === 'gateQuestions' || k === 'prescreen' || k === 'pageDesign' || k === 'autopilot') data[k] = val == null ? Prisma.DbNull : (val as Prisma.InputJsonValue);
+      else if (k === 'gateQuestions' || k === 'prescreen' || k === 'pageDesign' || k === 'autopilot' || k === 'speederCheck') data[k] = val == null ? Prisma.DbNull : (val as Prisma.InputJsonValue);
       else (data as Record<string, unknown>)[k] = val;
     }
     // People and contacts may have left since; keep the current ones then.
@@ -845,7 +902,14 @@ export function emptyStats() {
     SECURITY_REJECT: 0,
     PARTIAL: 0,
     TECHNICAL_ERROR: 0,
+    /** Quality fails from the speeder check; counted here and left out of QUALITY_FAIL. */
+    SPEEDER: 0,
   };
+}
+
+function addStat(s: ReturnType<typeof emptyStats>, g: { status: keyof ReturnType<typeof emptyStats>; statusDetail: string | null; _count: { _all: number } }) {
+  if (g.status === 'QUALITY_FAIL' && g.statusDetail === SPEEDER_DETAIL) s.SPEEDER += g._count._all;
+  else s[g.status] += g._count._all;
 }
 
 function avg(xs: number[]) {

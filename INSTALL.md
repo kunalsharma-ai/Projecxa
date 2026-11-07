@@ -52,6 +52,9 @@ cp apps/web/.env.example apps/web/.env.local
 | `WEB_ORIGIN` | `https://app.yourcompany.com` | Web app address (comma-separate if more than one) |
 | `PORT` | `4000` | |
 
+Sampledge's own server uses `samptrek.sampledge.com` (it was `projexa.sampledge.com`). To move an
+existing server, follow `docs/SAMPTREK_ADDRESS.md`.
+
 `apps/web/.env.local`
 
 | Variable | Example | Notes |

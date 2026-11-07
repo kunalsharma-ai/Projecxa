@@ -27,7 +27,8 @@ export interface Dashboard {
 }
 
 export interface Insights {
-  items: { id: string; severity: 'info' | 'warn' | 'bad'; title: string; detail: string; href: string }[];
+  items: { id: string; severity: 'info' | 'warn' | 'bad'; title: string; detail: string; href: string; read?: boolean }[];
+  /** Alerts this person has not read yet (the bell badge). */
   alerts: number;
   activity: { id: string; action: string; entityType: string; at: string; actor: string }[];
 }

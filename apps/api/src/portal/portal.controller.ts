@@ -177,7 +177,7 @@ export class VendorPortalController {
     }
     const st = status && status in emptyStats() ? (status as keyof ReturnType<typeof emptyStats>) : undefined;
     const rows = await this.prisma.respondentSession.findMany({
-      where: { vendorAllocation: { vendorId }, ...(allocationId ? { vendorAllocationId: allocationId } : {}), ...(st ? { status: st } : {}) },
+      where: { vendorAllocation: { vendorId }, ...(allocationId ? { vendorAllocationId: allocationId } : {}), ...(st === 'SPEEDER' ? { status: 'QUALITY_FAIL', statusDetail: 'SPEEDER' } : st ? { status: st } : {}) },
       orderBy: { startedAt: 'desc' },
       take: 500,
       select: {
