@@ -38,7 +38,8 @@ export interface Me {
   mfa?: MfaStatus;
   branding?: import('./branding').Brand;
   /** Set in Settings → Integrations. */
-  links?: { bidzoUrl: string | null };
+  /** sampbidxUrl is the current name; bidzoUrl is the same value for older app builds. */
+  links?: { sampbidxUrl?: string | null; bidzoUrl?: string | null };
   /** Product tour after sign-in (docs/PRODUCT_TOUR.md). */
   tour?: { version: number; show: boolean; outcome: 'completed' | 'skipped' | null; at: string | null };
 
@@ -78,7 +79,7 @@ export const SECURITY_LABELS: Record<string, string> = {
 
 export const CATEGORIES = ['B2B', 'B2C', 'B2C-B2B', 'Consumer', 'Healthcare-Professional', 'Healthcare-Consumer', 'Teens-And-Parents'];
 
-/** A bid won in Bidzo, waiting to become (or linked to) a project. */
+/** A bid won in SampBidx, waiting to become (or linked to) a project. */
 export interface BidLine { countryCode: string; sampleSize: number; loiMinutes: number; incidencePct: number; cpi?: number; language?: string; notes?: string }
 export interface WonBid {
   id: string; bidNumber: string; bidVersion: number | null; projectName: string; description: string | null; projectType: string | null; projectCategory: string | null;

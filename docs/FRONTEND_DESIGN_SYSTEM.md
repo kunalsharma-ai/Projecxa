@@ -16,7 +16,7 @@ The order of priority is the one the prompt sets: **usability, then speed, then 
 | Projects | List, multi-country wizard, project workspace with countries, vendors, redirects, QA studio, respondents | Only one (table) view |
 | Portals | Client and vendor portals (milestone 2) | Same visual system; no theme choice |
 
-**Nothing was duplicated.** Milestone 4 restyles and extends the screens above. Bids and RFQs stay in Bidzo (see section 8).
+**Nothing was duplicated.** Milestone 4 restyles and extends the screens above. Bids and RFQs stay in SampBidx (see section 8).
 
 ## 2. Navigation
 
@@ -29,7 +29,7 @@ The order of priority is the one the prompt sets: **usability, then speed, then 
   - On phones the sidebar becomes a drawer.
 - **Top command bar**
   - Global search and commands: `Ctrl/⌘ K` or `/`.
-  - **Quick create:** New project. New bid opens Bidzo when `NEXT_PUBLIC_BIDZO_URL` is set.
+  - **Quick create:** New project. New bid opens SampBidx when `NEXT_PUBLIC_SAMPBIDX_URL` is set.
   - **Notifications:** a count of alerts, with the alerts in a dropdown.
   - **Theme switcher:** mode and the 8 themes.
   - **Insights panel toggle:** the `]` key.
@@ -137,7 +137,7 @@ Numbers stay exact: charts show the same values as the reports API.
 
 ## 8. Bid Creation Studio
 
-**Decided (Kunal, 2026-11-01): bids stay in Bidzo.** SampTrek links to Bidzo from Quick Create and the command palette (`NEXT_PUBLIC_BIDZO_URL`). SampTrek does not get its own bid model. If the Bid Studio below is built, it is built in Bidzo using this design system.
+**Decided (Kunal, 2026-11-01): bids stay in SampBidx.** SampTrek links to SampBidx from Quick Create and the command palette (`NEXT_PUBLIC_SAMPBIDX_URL`). SampTrek does not get its own bid model. If the Bid Studio below is built, it is built in SampBidx using this design system.
 
 The design is ready either way:
 
@@ -245,7 +245,7 @@ apps/web
 
 ## 17. Non-duplication
 
-- **Bids and RFQs:** they stay in Bidzo, reached through Quick Create.
+- **Bids and RFQs:** they stay in SampBidx, reached through Quick Create.
 - **Sales pipeline:** it stays in DealFlow.
 - **Navigation and search:** the command palette and insights reuse the existing projects, clients, vendors, reports and audit data. The one new endpoint, `GET /insights`, reads existing tables.
 - **Personal preferences:** the only schema change is the `User.preferences` column for them.
@@ -258,7 +258,7 @@ apps/web
 | 5 | Smart Form system, data grid, country selection studio, redirect diagram and version diff |
 | 6 | Dashboard widgets (drag, resize, save), map, waterfall, heatmap; Motion for React where needed |
 | 7 | AI copilot and voice, once a provider and policies are agreed |
-| — | Bid Studio: in Bidzo, using this design system (decided 2026-11-01) |
+| — | Bid Studio: in SampBidx, using this design system (decided 2026-11-01) |
 
 ## 19. QA and usability testing
 
@@ -275,4 +275,4 @@ apps/web
 **Usability testing:**
 
 - Time common tasks with 3–5 project managers on the new shell: find a project, switch to a client's report, review completes. Compare against the old shell.
-- Test the bid target (under three minutes for a repeat bid) in Bidzo once the Bid Studio is built there.
+- Test the bid target (under three minutes for a repeat bid) in SampBidx once the Bid Studio is built there.

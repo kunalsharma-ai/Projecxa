@@ -103,7 +103,8 @@ export class AuthController {
       /** Product tour after sign-in (docs/PRODUCT_TOUR.md). */
       tour: tourState(links),
       /** Links set in Settings → Integrations (staff only). */
-      links: { bidzoUrl: user.role === 'CLIENT_USER' || user.role === 'VENDOR_USER' ? null : await this.integrations.bidzoUrl(org.id) },
+      // bidzoUrl repeats sampbidxUrl for app builds from before SampBidx was renamed from Bidzo.
+      links: await (async () => { const url = user.role === 'CLIENT_USER' || user.role === 'VENDOR_USER' ? null : await this.integrations.sampbidxUrl(org.id); return { sampbidxUrl: url, bidzoUrl: url }; })(),
       /** Super Admin switches (docs/SUPER_ADMIN.md); the same as GET /auth/me/features. */
       features: await this.entitlements.forUser(user.id),
     };

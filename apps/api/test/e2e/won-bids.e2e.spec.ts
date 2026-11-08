@@ -4,7 +4,7 @@ import { createHmac } from 'crypto';
 import request from 'supertest';
 import { api, createApp, login, makeOrg, resetDb } from './helpers';
 
-describe('Won bids from Bidzo (e2e)', () => {
+describe('Won bids from SampBidx (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaClient;
   let admin: ReturnType<typeof api>;
@@ -38,16 +38,17 @@ describe('Won bids from Bidzo (e2e)', () => {
       ...bidOver,
     },
   });
-  const send = (body: unknown, opts: { tenant?: string; key?: string; ts?: number; sig?: string } = {}) => {
+  const send = (body: unknown, opts: { tenant?: string; key?: string; ts?: number; sig?: string; legacy?: boolean } = {}) => {
     const raw = JSON.stringify(body);
     const ts = String(opts.ts ?? Math.floor(Date.now() / 1000));
     const sig = opts.sig ?? `sha256=${createHmac('sha256', opts.key ?? secret).update(`${ts}.${raw}`).digest('hex')}`;
     return request(app.getHttpServer())
-      .post('/api/v1/integrations/bidzo/events')
+      // legacy: the path and headers from when SampBidx was called Bidzo.
+      .post(opts.legacy ? '/api/v1/integrations/bidzo/events' : '/api/v1/integrations/sampbidx/events')
       .set('Content-Type', 'application/json')
-      .set('X-Bidzo-Tenant', opts.tenant ?? 'won-a')
-      .set('X-Bidzo-Timestamp', ts)
-      .set('X-Bidzo-Signature', sig)
+      .set(opts.legacy ? 'X-Bidzo-Tenant' : 'X-SampBidx-Tenant', opts.tenant ?? 'won-a')
+      .set(opts.legacy ? 'X-Bidzo-Timestamp' : 'X-SampBidx-Timestamp', ts)
+      .set(opts.legacy ? 'X-Bidzo-Signature' : 'X-SampBidx-Signature', sig)
       .send(raw);
   };
 
@@ -69,14 +70,16 @@ describe('Won bids from Bidzo (e2e)', () => {
   it('is disabled until an admin creates the signing secret', async () => {
     secret = 'not-set';
     await send(event()).expect(401);
-    expect((await pm.get('/integrations/bidzo').expect(200)).body).toMatchObject({ enabled: false, tenant: 'won-a' });
-    await pm.post('/integrations/bidzo/secret').expect(403);
-    const r = (await admin.post('/integrations/bidzo/secret').expect(200)).body;
+    expect((await pm.get('/integrations/sampbidx').expect(200)).body).toMatchObject({ enabled: false, tenant: 'won-a' });
+    await pm.post('/integrations/sampbidx/secret').expect(403);
+    const r = (await admin.post('/integrations/sampbidx/secret').expect(200)).body;
     expect(r.enabled).toBe(true);
-    expect(r.secret).toMatch(/^bzw_/);
+    expect(r.secret).toMatch(/^sbx_/);
+    expect(r.endpoint).toMatch(/\/api\/v1\/integrations\/sampbidx\/events$/);
     secret = r.secret;
-    // The secret is never shown again.
-    expect((await admin.get('/integrations/bidzo').expect(200)).body.secret).toBeUndefined();
+    // The secret is never shown again, and the old /bidzo path reads the same settings.
+    expect((await admin.get('/integrations/sampbidx').expect(200)).body.secret).toBeUndefined();
+    expect((await admin.get('/integrations/bidzo').expect(200)).body).toMatchObject({ enabled: true, tenant: 'won-a' });
   });
 
   it('rejects bad signatures, stale timestamps, unknown tenants and invalid payloads', async () => {
@@ -133,9 +136,15 @@ describe('Won bids from Bidzo (e2e)', () => {
     const after = (await pm.get(`/won-bids/${wonBidId}`).expect(200)).body;
     expect(after).toMatchObject({ status: 'PROJECT_CREATED', projectId: p.id, project: { projectCode: p.projectCode } });
 
-    // A late re-delivery from Bidzo does not reopen or overwrite it.
+    // A late re-delivery from SampBidx does not reopen or overwrite it.
     expect((await send(event({ eventId: 'evt-3' }, { projectName: 'Late rename' })).expect(202)).body).toMatchObject({ status: 'PROJECT_CREATED', duplicate: true });
     expect((await pm.get(`/won-bids/${wonBidId}`).expect(200)).body.projectName).toBe('Cloud buyers tracker v2');
+  });
+
+  it('still accepts the old /bidzo path and X-Bidzo-* headers', async () => {
+    const r = await send(event({ eventId: 'evt-legacy' }, { id: 'bidzo-uuid-legacy', bidNumber: 'BZ-2026-0099' }), { legacy: true }).expect(202);
+    expect(r.body.duplicate).toBe(false);
+    await send(event({ eventId: 'evt-legacy-2' }, { id: 'bidzo-uuid-legacy', bidNumber: 'BZ-2026-0099' }), { legacy: true, key: 'wrong' }).expect(401);
   });
 
   it('dismiss and restore', async () => {
@@ -153,7 +162,7 @@ describe('Won bids from Bidzo (e2e)', () => {
     secret = (await admin.post('/integrations/bidzo/secret').expect(200)).body.secret;
     await send(event({ eventId: 'evt-10' }), { key: old }).expect(401);
     await send(event({ eventId: 'evt-11' })).expect(202);
-    await admin.post('/integrations/bidzo/disable').expect(200);
+    await admin.post('/integrations/sampbidx/disable').expect(200);
     await send(event({ eventId: 'evt-12' })).expect(401);
   });
 });

@@ -10,10 +10,10 @@ Every integration is set up by an admin in the app at **Settings → Integration
 | Zoho Books | Each organisation's admin | Refreshes the token and finds the Books organisation |
 | Xero, QuickBooks Online | Admins of the organisation that runs the server (the app); each organisation then presses Connect on the Accounting page for its own company | Asks Xero/Intuit whether they accept the client ID and secret |
 | Tally Prime | Admins of the organisation that runs the server only | Lists the companies open in Tally |
-| Bidzo link | Each organisation's admin | – |
+| SampBidx link | Each organisation's admin | – |
 | Push notifications (phone app, Expo) | Admins of the organisation that runs the server | Sends a test push to your own phones that are signed in to the app |
 
-Captcha keys, the Bidzo webhook secret, alert webhooks and API keys were already set in the app (Settings, and Settings → API and webhooks).
+Captcha keys, the SampBidx webhook secret, alert webhooks and API keys were already set in the app (Settings, and Settings → API and webhooks).
 
 The SAMPLEON connection (audiences from the SUPPLY360 panels) is set on the server for now; see [SAMPLEON_INTEGRATION.md](SAMPLEON_INTEGRATION.md).
 
@@ -61,4 +61,4 @@ All admin-only, under `/api/v1/integrations/settings`:
 - `DELETE /:kind` – remove the saved settings (falls back to the server env)
 - `POST /:kind/test` – `{ ok, message, integration }`
 
-Kinds: `smtp`, `sso_google`, `sso_microsoft`, `sso_zoho`, `gemini`, `zoho_books`, `xero`, `quickbooks`, `tally`, `bidzo`.
+Kinds: `smtp`, `sso_google`, `sso_microsoft`, `sso_zoho`, `gemini`, `zoho_books`, `xero`, `quickbooks`, `tally`, `bidzo` (the SampBidx link; the kind keeps its old name, see docs/SAMPBIDX_INTEGRATION.md).

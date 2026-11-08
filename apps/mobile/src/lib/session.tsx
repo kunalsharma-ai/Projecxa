@@ -16,7 +16,7 @@ export interface Me {
   branding?: { appName?: string; custom?: boolean; primaryColor?: string | null; hidePoweredBy?: boolean } | null;
   client?: { id: string; name: string } | null;
   vendor?: { id: string; name: string } | null;
-  links?: { bidzoUrl: string | null };
+  links?: { sampbidxUrl?: string | null; bidzoUrl?: string | null };
 }
 
 type LoginResult = { ok: true } | { mfa: true };

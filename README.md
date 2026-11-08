@@ -44,12 +44,12 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - **Command center** dashboard with a 14-day completes trend and quota achievement.
 - Shortcuts: `Ctrl/⌘ K` or `/` search, `[` sidebar, `]` insights.
 
-## Milestone 5: won bids from Bidzo
+## Milestone 5: won bids from SampBidx
 
-- When a bid is won in Bidzo, it shows up automatically in **Won bids** (`/won-bids`), with a count badge in the sidebar and an item in the insights panel.
+- When a bid is won in SampBidx, it shows up automatically in **Won bids** (`/won-bids`), with a count badge in the sidebar and an item in the insights panel.
 - **Set up project** opens the new-project wizard prefilled from the bid: name, description, bid number, category, client (or one click to add the client), and one market per bid country with LOI, IR, CPI, currency and sample size as target. Each won bid becomes at most one project.
 - Bids that will not run can be dismissed with a reason and restored later.
-- Admins connect Bidzo under **Settings → Bidzo connection** (endpoint, tenant and a signing secret shown once). The webhook contract for the Bidzo side is in `docs/BIDZO_INTEGRATION.md`.
+- Admins connect SampBidx under **Settings → SampBidx connection** (endpoint, tenant and a signing secret shown once). The webhook contract for the SampBidx side is in `docs/SAMPBIDX_INTEGRATION.md`.
 - The demo seed adds three synthetic won bids.
 
 ## Milestone 6: gate survey, question builder and respondent security
@@ -267,7 +267,7 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 
 ## Milestone 35: every integration set up in the app
 
-- **Settings → Integrations** (`/settings/integrations`, admins): email sending (Zoho Mail SMTP), sign in with Google, Microsoft and Zoho, the Gemini AI copilot, Zoho Books, Xero, QuickBooks Online, Tally Prime and the Bidzo link, all set up on screen. No server files to edit.
+- **Settings → Integrations** (`/settings/integrations`, admins): email sending (Zoho Mail SMTP), sign in with Google, Microsoft and Zoho, the Gemini AI copilot, Zoho Books, Xero, QuickBooks Online, Tally Prime and the SampBidx link, all set up on screen. No server files to edit.
 - Each card has step-by-step help with links to where every key comes from, the redirect URI to copy, **Save and test**, and a status: Connected, Server settings, Check settings or Not set up.
 - Zoho Books needs no curl: paste the grant code and SampTrek gets the refresh token and finds the organisation.
 - Secrets are encrypted at rest, never shown again and never written to the audit log. Old environment variables still work as a fallback, so existing servers keep running.

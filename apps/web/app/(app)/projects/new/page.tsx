@@ -474,7 +474,7 @@ function CreateProjectPage() {
             {wonBid.status === 'NEW' ? (
               <>
                 <div className="font-medium">Prefilled from won bid {wonBid.bidNumber}</div>
-                <div className="text-muted">Name, description, markets, sample sizes, LOI, IR and CPI ({wonBid.currency}) come from Bidzo. Check them, add survey links and save; the bid is then linked to this project.</div>
+                <div className="text-muted">Name, description, markets, sample sizes, LOI, IR and CPI ({wonBid.currency}) come from SampBidx. Check them, add survey links and save; the bid is then linked to this project.</div>
                 {!wonBid.suggestedClient && !info.clientId && (
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <span>Client “{wonBid.clientName}” is not in SampTrek yet.</span>
@@ -544,7 +544,7 @@ function CreateProjectPage() {
                   <option value="">Me</option>{users.filter((u) => ['ADMIN', 'PROJECT_MANAGER'].includes(u.role)).map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
                 </select>
               </Field>
-              <Field label="Bid reference (Bidzo)"><input className="input" value={info.bidReference} onChange={(e) => setInfo({ ...info, bidReference: e.target.value })} /></Field>
+              <Field label="Bid reference (SampBidx)"><input className="input" value={info.bidReference} onChange={(e) => setInfo({ ...info, bidReference: e.target.value })} /></Field>
               <Field label="Fieldwork dates" hint="Used for pacing on the fieldwork monitor">
                 <DateRangePicker value={{ from: info.fieldStartAt || null, to: info.fieldEndAt || null }} onChange={(v) => setInfo({ ...info, fieldStartAt: v.from ?? '', fieldEndAt: v.to ?? '' })} placeholder="Start and end" />
               </Field>

@@ -51,7 +51,7 @@ describe('Super Admin: subscriptions, feature switches, activity, automation (e2
     const routes = router.stack.filter((l) => l.route).flatMap((l) => Object.keys(l.route!.methods).map((m) => [m.toUpperCase(), l.route!.path] as const));
     expect(routes.length).toBeGreaterThan(100);
     // Public routes are never gated (respondent links, sign-up forms, the public API has its own check).
-    const PUBLIC = /^(\/api\/v1)?\/(public|s|r|g|u|end|pa|brand|s2s|integrations\/bidzo\/events|auth)(\/|$)/;
+    const PUBLIC = /^(\/api\/v1)?\/(public|s|r|g|u|end|pa|brand|s2s|integrations\/(sampbidx|bidzo)\/events|auth)(\/|$)/;
     const unmapped = routes.filter(([m, p]) => !PUBLIC.test(p) && featureForRoute(m, p) === undefined);
     expect(unmapped).toEqual([]);
     expect(featureForRoute('POST', '/api/v1/projects')).toBe('projects.create');
@@ -152,13 +152,13 @@ describe('Super Admin: subscriptions, feature switches, activity, automation (e2
     const zb = list.body.integrations.find((i: { kind: string }) => i.kind === 'zoho_books');
     expect(zb).toMatchObject({ allowed: false, editable: false });
     expect(list.body.integrations.find((i: { kind: string }) => i.kind === 'smtp').allowed).toBe(true);
-    await tenantAdmin.put('/integrations/settings/bidzo', { values: { BIDZO_URL: 'https://bidzo.example.com' } }).expect(403);
+    await tenantAdmin.put('/integrations/settings/bidzo', { values: { SAMPBIDX_URL: 'https://sampbidx.example.com' } }).expect(403);
     const m = await sa.get('/super-admin/integrations').expect(200);
     const row = m.body.organizations.find((o: { id: string }) => o.id === tenant.org.id);
     expect(row.integrations.bidzo.allowed).toBe(false);
     expect(row.integrations.smtp.allowed).toBe(true);
     await sa.put(`/super-admin/organizations/${tenant.org.id}/features`, { changes: [{ feature: 'integration.bidzo', channel: 'web', state: 'on' }] }).expect(200);
-    await tenantAdmin.put('/integrations/settings/bidzo', { values: { BIDZO_URL: 'https://bidzo.example.com' } }).expect(200);
+    await tenantAdmin.put('/integrations/settings/bidzo', { values: { SAMPBIDX_URL: 'https://sampbidx.example.com' } }).expect(200);
     await sa.delete(`/super-admin/organizations/${tenant.org.id}/integrations/bidzo`).expect(200);
   });
 

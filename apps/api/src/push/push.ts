@@ -20,7 +20,7 @@ export const PUSH_CATEGORIES = [
   { key: 'alerts', label: 'Fieldwork alerts', hint: 'Projects you manage: stalled, behind pace, quality spikes', staff: true },
   { key: 'requests', label: 'Requests', hint: 'New requests and replies meant for you', staff: false },
   { key: 'tasks', label: 'Task reminders', hint: 'When a reminder on your task is due', staff: true },
-  { key: 'won_bids', label: 'Won bids', hint: 'A bid won in Bidzo is ready to set up', staff: true },
+  { key: 'won_bids', label: 'Won bids', hint: 'A bid won in SampBidx is ready to set up', staff: true },
 ] as const;
 export type PushCategory = (typeof PUSH_CATEGORIES)[number]['key'];
 
@@ -154,7 +154,7 @@ export class PushService {
     });
   }
 
-  /** A won bid arrived from Bidzo: admins and project managers. */
+  /** A won bid arrived from SampBidx: admins and project managers. */
   async wonBidReceived(org: string, bid: { name: string; bidNumber?: string | null }) {
     const to = (await this.prisma.user.findMany({ where: { organizationId: org, role: { in: EDITORS }, active: true }, select: { id: true } })).map((x) => x.id);
     return this.notify(to, 'won_bids', { title: 'Won bid ready to set up', body: [bid.bidNumber, bid.name].filter(Boolean).join(' · '), path: '/won-bids' });

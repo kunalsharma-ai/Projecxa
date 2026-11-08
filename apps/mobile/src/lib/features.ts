@@ -39,7 +39,7 @@ export const FEATURES: Feature[] = [
   { key: 'projects.create', label: 'Create project', hint: 'Start a new study', icon: 'plus-circle', web: '/projects/new', roles: EDITORS, group: 'Workspace' },
   { key: 'tasks', label: 'Tasks', hint: 'Your to-dos, reminders and overdue work', icon: 'check-square', route: '/tasks', web: '/tasks', roles: STAFF, group: 'Workspace' },
   { key: 'requests', label: 'Requests', hint: 'Client and vendor tickets and disputes', icon: 'message-square', route: '/requests', web: '/requests', roles: STAFF, group: 'Workspace' },
-  { key: 'won_bids', label: 'Won bids', hint: 'Bids won in Bidzo, waiting for setup', icon: 'award', route: '/won-bids', web: '/won-bids', roles: STAFF, group: 'Workspace' },
+  { key: 'won_bids', label: 'Won bids', hint: 'Bids won in SampBidx, waiting for setup', icon: 'award', route: '/won-bids', web: '/won-bids', roles: STAFF, group: 'Workspace' },
   { key: 'notifications', label: 'Notifications', hint: 'Alerts, reminders and activity', icon: 'bell', route: '/notifications', web: '/', roles: STAFF, group: 'Workspace' },
   { key: 'monitor', label: 'Fieldwork monitor', hint: 'Pace, alerts and autopilot', icon: 'activity', route: '/monitor', web: '/monitor', roles: STAFF, group: 'Fieldwork' },
   { key: 'redirect_health', label: 'Redirect health', hint: 'Fallbacks, errors and callbacks', icon: 'git-branch', route: '/redirect-health', web: '/redirect-health', roles: STAFF, group: 'Fieldwork' },

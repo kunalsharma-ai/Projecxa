@@ -82,7 +82,7 @@ export default function WonBidsPage() {
     <>
       <PageHeader
         title="Won bids"
-        subtitle="Bids won in Bidzo arrive here automatically. Set up each one as a project; markets, sample sizes, LOI, IR and CPI are filled in for you."
+        subtitle="Bids won in SampBidx arrive here automatically. Set up each one as a project; markets, sample sizes, LOI, IR and CPI are filled in for you."
       />
       <div className="mb-4"><ErrorBox error={error} /></div>
       <div className="mb-5 flex gap-1 overflow-x-auto border-b border-line" role="tablist">
@@ -99,7 +99,7 @@ export default function WonBidsPage() {
         {!data ? <Loading /> : data.items.length === 0 ? (
           <Empty>
             {tab === 'NEW' ? (
-              <>No won bids are waiting. When a bid is marked won in Bidzo it appears here within seconds.{me?.user.role === 'ADMIN' && <> Connect Bidzo in <Link href="/settings" className="text-brand hover:underline">Settings</Link>.</>}</>
+              <>No won bids are waiting. When a bid is marked won in SampBidx it appears here within seconds.{me?.user.role === 'ADMIN' && <> Connect SampBidx in <Link href="/settings" className="text-brand hover:underline">Settings</Link>.</>}</>
             ) : 'Nothing here yet.'}
           </Empty>
         ) : (
@@ -185,7 +185,7 @@ export default function WonBidsPage() {
                                 ))}
                               </tbody>
                             </table>
-                            <p className="mt-2 text-xs text-muted">Received {new Date(b.receivedAt).toLocaleString()}{b.deliveries > 1 ? ` · updated by Bidzo ${b.deliveries - 1} time${b.deliveries === 2 ? '' : 's'}` : ''}</p>
+                            <p className="mt-2 text-xs text-muted">Received {new Date(b.receivedAt).toLocaleString()}{b.deliveries > 1 ? ` · updated by SampBidx ${b.deliveries - 1} time${b.deliveries === 2 ? '' : 's'}` : ''}</p>
                           </td>
                         </tr>
                       )}

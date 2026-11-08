@@ -56,7 +56,7 @@ export const TOUR_STEPS: TourStep[] = [
     id: 'won-bids',
     target: 'nav:/won-bids',
     title: 'Won bids',
-    body: 'Bids you win in Bidzo arrive here automatically, ready to turn into a project in one click.',
+    body: 'Bids you win in SampBidx arrive here automatically, ready to turn into a project in one click.',
   },
   {
     id: 'monitor',
@@ -121,7 +121,7 @@ export const TOUR_STEPS: TourStep[] = [
     target: 'nav:/settings/integrations',
     adminOnly: true,
     title: 'Settings and integrations',
-    body: 'Connect email, sign-in, AI, accounting and Bidzo right here, without a developer.',
+    body: 'Connect email, sign-in, AI, accounting and SampBidx right here, without a developer.',
     points: ['Team members and roles', 'Branding, privacy and security rules'],
   },
   {
