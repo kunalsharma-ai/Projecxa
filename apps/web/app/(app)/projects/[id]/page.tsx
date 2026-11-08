@@ -9,6 +9,7 @@ import { CountriesTab } from '@/components/project/countries-tab';
 import { FilesTab } from '@/components/project/files-tab';
 import { FinanceTab } from '@/components/project/finance-tab';
 import { HistoryTab } from '@/components/project/history-tab';
+import { TeamTab } from '@/components/project/team-tab';
 import { SaveTemplate } from '@/components/project/save-template';
 import { AlertTriangle, BadgeCheck, CircleSlash, Clock, CopyPlus, Gauge, Hourglass, LayoutTemplate, Percent, Rabbit, Route, ShieldAlert, X } from 'lucide-react';
 import { RedirectsPopup } from '@/components/project/redirects-popup';
@@ -34,7 +35,7 @@ import { get, patch } from '@/lib/api';
 import { flag } from '@/lib/countries';
 import { SECURITY_LABELS } from '@/lib/types';
 
-const TABS = ['Overview', 'Vendors & links', 'Vendor unique links', 'Client unique links', 'Quotas & monitor', 'SampAudience', 'Gate & security', 'Respondent pages', 'Redirects', 'QA studio', 'Respondents', 'Answers', 'Reconcile & invoice', 'Files & requests', 'History'] as const;
+const TABS = ['Overview', 'Vendors & links', 'Vendor unique links', 'Client unique links', 'Quotas & monitor', 'SampAudience', 'Gate & security', 'Respondent pages', 'Redirects', 'QA studio', 'Respondents', 'Answers', 'Reconcile & invoice', 'Files & requests', 'Team', 'History'] as const;
 
 export default function ProjectPage() {
   const { id } = useParams<{ id: string }>();
@@ -269,6 +270,7 @@ export default function ProjectPage() {
       {tab === 'Reconcile & invoice' && <FinanceTab key={p.id} project={p} editable={editable} reload={reload} />}
       {tab === 'Respondent pages' && <RespondentPagesTab key={p.id} project={p} editable={editable} />}
       {tab === 'Files & requests' && <FilesTab project={p} editable={editable} />}
+      {tab === 'Team' && <TeamTab key={p.id} project={p} editable={editable} reload={reload} />}
       {tab === 'History' && <HistoryTab key={p.id} project={p} editable={editable} reload={reload} />}
       {tab === 'Answers' && <AnswersView projectId={p.id} projectCode={p.projectCode} />}
     </>

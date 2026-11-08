@@ -348,6 +348,11 @@ export const HELP: Record<string, HelpEntry> = {
     how: 'Upload a file and choose who can see it, or start a request.',
     where: 'Shown in the client or vendor portal for the people you share with.',
   },
+  'tab:Team': {
+    what: 'Your team\'s comments on this project, the handover checklist and everything that happened on the project.',
+    how: 'Comment and type @ to mention a colleague. Start a handover when another project manager takes over.',
+    where: 'Staff only. Clients and vendors never see this tab or its comments.',
+  },
   'tab:History': {
     what: 'Every change to this project\'s settings, who made it and when.',
     how: 'Open a change to see before and after, and Restore to go back.',
@@ -355,6 +360,23 @@ export const HELP: Record<string, HelpEntry> = {
   },
 
   // ───────────────────── Project: sections and explicit ids ─────────────────────
+  'section:/projects/[id]::Comments': {
+    what: 'A conversation about this project for your team, oldest first.',
+    how: 'Type @ and pick a colleague to mention them; they get a bell notification and an email (Zoho Mail). Edit or delete your own comments.',
+    where: 'Staff of your organisation only; never shown in the client or vendor portal.',
+  },
+  'section:/projects/[id]::Handover': {
+    what: 'A checklist for handing this project to another project manager, so nothing is missed.',
+    how: 'Start a handover, choose who takes over and which items to cover. You both tick items; they accept once every item is ticked.',
+    where: 'This project. On accept, the receiver becomes the project manager unless you untick that option.',
+  },
+  'section:/projects/[id]::Activity': {
+    what: 'Everything that happened on this project, newest first: changes, comments, handovers, fieldwork events and requests.',
+    how: 'Use the chips to show one kind only, and Show older to go back further.',
+    where: 'This project. The full settings before and after are on the History tab.',
+  },
+  'field:/projects/[id]::Hand over to': { what: 'The admin or project manager who takes over this project.', how: 'Pick one person; viewers and sales cannot run a project.', where: 'This handover. They get a bell notification and an email.' },
+  'field:/projects/[id]::Handover note': { what: 'What the next person should know first, such as client habits or risks.', how: 'Write a few lines; it shows at the top of the checklist.', where: 'This handover, and the email to the receiver.' },
   'section:Project settings': {
     what: 'Project-wide settings such as name, client, category, managers, link variable and dates.',
     how: 'Change a value and save; it applies to every market.',

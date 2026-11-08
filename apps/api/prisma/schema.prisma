@@ -585,6 +585,8 @@ model Project {
   alerts            Alert[]
   wonBid            WonBid?
   tasks             Task[]
+  comments          ProjectComment[]
+  handovers         ProjectHandover[]
   settingsVersions  ProjectSettingsVersion[]
   tickets           Ticket[]
   sharedFiles       SharedFile[]
@@ -2154,4 +2156,50 @@ model QuestionSet {
   createdAt      DateTime     @default(now())
 
   @@unique([organizationId, key])
+}
+
+/// A team comment on a project (docs/TEAM_COLLABORATION.md). Staff only; never shown in a portal.
+model ProjectComment {
+  id             String    @id @default(cuid())
+  organizationId String
+  projectId      String
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  authorId       String
+  body           String
+  /// Staff mentioned with @Name; each gets a bell item and an email.
+  mentionIds     String[]  @default([])
+  editedAt       DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([projectId, createdAt])
+  @@index([organizationId, createdAt])
+}
+
+enum HandoverStatus {
+  OPEN
+  ACCEPTED
+  CANCELLED
+}
+
+/// Handing a project to another project manager with a checklist both people tick.
+model ProjectHandover {
+  id             String         @id @default(cuid())
+  organizationId String
+  projectId      String
+  project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fromUserId     String
+  toUserId       String
+  note           String?
+  status         HandoverStatus @default(OPEN)
+  /// [{ key, label, done, doneById, doneAt }]
+  items          Json
+  /// On accept, the receiver becomes the project manager.
+  makeManager    Boolean        @default(true)
+  acceptedAt     DateTime?
+  cancelledAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([projectId, createdAt])
+  @@index([toUserId, status])
 }
