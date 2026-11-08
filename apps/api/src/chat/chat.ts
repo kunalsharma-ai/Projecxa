@@ -7,6 +7,8 @@
  * - Offline: every message has a growing `seq`, so a device that lost its connection asks for
  *   "everything after N" (GET /chat/sync). Messages written offline carry an id from the device
  *   (`clientId`); sending the same one twice saves it once, so the device can retry safely.
+ * - Access (docs/TEAM_CHAT.md → Who gets chat): the Super Admin turns chat on for admins and picks their options;
+ *   an admin who has chat turns it on for their own users, with options up to their own. Nobody else has it.
  * Client and vendor portal users never see the chat.
  */
 import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, HttpCode, Injectable, Module, NotFoundException, Param, Patch, Post, Query, Sse, MessageEvent } from '@nestjs/common';
@@ -20,6 +22,14 @@ import { ZodPipe } from '../common/zod.pipe';
 import { PrismaService } from '../prisma/prisma.service';
 
 const OPEN_KINDS: ChatChannelKind[] = ['GENERAL', 'ANNOUNCEMENTS', 'PROJECT'];
+/** What someone may do in chat besides reading Announcements and General. */
+export const CHAT_OPTIONS = ['general', 'project_rooms', 'groups', 'direct'] as const;
+export type ChatOption = (typeof CHAT_OPTIONS)[number];
+export const CHAT_OPTION_LABEL: Record<ChatOption, string> = { general: 'Post in General', project_rooms: 'Project rooms', groups: 'Make groups', direct: 'Direct messages' };
+/** Present = chat is on for this person; the set holds their options. */
+type Access = Set<ChatOption>;
+const cleanOptions = (o: string[]) => CHAT_OPTIONS.filter((k) => o.includes(k));
+const OFF = { statusCode: 403, code: 'CHAT_OFF', message: 'Team chat is not turned on for you. Ask your admin.' };
 export const TONES = ['on_track', 'at_risk', 'blocked', 'done'] as const;
 const PAGE = 50;
 const SYNC_LIMIT = 500;
@@ -44,10 +54,11 @@ export const channelSettingsSchema = z
   .refine((b) => Object.keys(b).length > 0, 'Nothing to change');
 export const readSchema = z.object({ seq: z.number().int().min(0) }).strict();
 export const messagesQuery = z.object({ before: z.coerce.number().int().optional(), after: z.coerce.number().int().optional(), limit: z.coerce.number().int().min(1).max(200).optional() });
+export const accessSchema = z.object({ enabled: z.boolean(), options: z.array(z.enum(CHAT_OPTIONS)).max(4).default([]) }).strict();
 export const syncQuery = z.object({ after: z.coerce.number().int().min(0).default(0), changedSince: z.string().datetime().optional(), latestOnly: z.enum(['true', 'false']).optional() });
 
 /** What travels on the live stream. `audience` limits private channels to their members. */
-interface ChatEvent { organizationId: string; audience: string[] | null; type: string; data: unknown }
+interface ChatEvent { organizationId: string; audience: string[] | null; type: string; data: unknown; kind?: ChatChannelKind }
 
 const author = { select: { id: true, name: true, role: true, superAdmin: true } } as const;
 type MsgRow = Prisma.ChatMessageGetPayload<{ include: { author: typeof author } }>;
@@ -84,6 +95,54 @@ export class ChatService {
 
   // ─── Access ──────────────────────────────────────────────────────────────
 
+  /**
+   * Everyone in the organisation who has chat, with their options. The Super Admin always has every option;
+   * an admin has what the Super Admin gave; anyone else has what an admin gave them, but only options that at
+   * least one admin with chat still has (so taking chat away from the admins takes it away from their users).
+   */
+  async accessMap(orgId: string): Promise<Map<string, Access>> {
+    const [org, rows] = await Promise.all([
+      this.prisma.organization.findUnique({ where: { id: orgId }, select: { platformOwner: true } }),
+      this.prisma.user.findMany({ where: { organizationId: orgId, active: true, role: { in: STAFF } }, select: { id: true, role: true, superAdmin: true, chatEnabled: true, chatOptions: true } }),
+    ]);
+    const map = new Map<string, Access>();
+    const adminOptions = new Set<ChatOption>();
+    for (const r of rows) {
+      if (r.superAdmin && org?.platformOwner) map.set(r.id, new Set(CHAT_OPTIONS));
+      else if (r.role === 'ADMIN' && r.chatEnabled) map.set(r.id, new Set(cleanOptions(r.chatOptions)));
+      for (const o of map.get(r.id) ?? []) adminOptions.add(o);
+    }
+    if (map.size) {
+      for (const r of rows) {
+        if (map.has(r.id) || r.role === 'ADMIN' || !r.chatEnabled) continue;
+        map.set(r.id, new Set(cleanOptions(r.chatOptions).filter((o) => adminOptions.has(o))));
+      }
+    }
+    return map;
+  }
+
+  /** This person's chat access, worked out once per request. */
+  private readonly accessCache = new WeakMap<AuthUser, Promise<Access | null>>();
+  access(u: AuthUser): Promise<Access | null> {
+    let p = this.accessCache.get(u);
+    if (!p) {
+      p = this.accessMap(u.organizationId).then((m) => m.get(u.id) ?? null);
+      this.accessCache.set(u, p);
+    }
+    return p;
+  }
+  private async need(u: AuthUser, option?: ChatOption, message?: string): Promise<Access> {
+    const a = await this.access(u);
+    if (!a) throw new ForbiddenException(OFF);
+    if (option && !a.has(option)) throw new ForbiddenException(message ?? 'Your admin has not turned this on for you.');
+    return a;
+  }
+
+  async me(u: AuthUser) {
+    const a = await this.access(u);
+    return { enabled: !!a, options: a ? [...a] : [], manage: !!a && isAdmin(u), superAdmin: !!u.superAdmin };
+  }
+
   /** General and Announcements always exist; made on first use, once per organisation. */
   private async ensureDefaults(orgId: string) {
     for (const [key, kind] of [['general', 'GENERAL'], ['announcements', 'ANNOUNCEMENTS']] as const) {
@@ -95,20 +154,28 @@ export class ChatService {
     }
   }
 
-  private visibleWhere(u: AuthUser): Prisma.ChatChannelWhereInput {
-    return { organizationId: u.organizationId, OR: [{ kind: { in: OPEN_KINDS } }, { members: { some: { userId: u.id, member: true } } }] };
+  private async visible(u: AuthUser): Promise<Prisma.ChatChannelWhereInput> {
+    const a = await this.need(u);
+    return {
+      organizationId: u.organizationId,
+      OR: [
+        { kind: { in: a.has('project_rooms') ? OPEN_KINDS : ['GENERAL', 'ANNOUNCEMENTS'] } },
+        { kind: { in: a.has('direct') ? ['GROUP', 'DIRECT'] : ['GROUP'] }, members: { some: { userId: u.id, member: true } } },
+      ],
+    };
   }
 
   private async channelFor(u: AuthUser, channelId: string) {
-    const ch = await this.prisma.chatChannel.findFirst({ where: { id: channelId, ...this.visibleWhere(u) }, include: { members: { where: { member: true }, select: { userId: true } } } });
+    const ch = await this.prisma.chatChannel.findFirst({ where: { id: channelId, ...(await this.visible(u)) }, include: { members: { where: { member: true }, select: { userId: true } } } });
     if (!ch) throw new NotFoundException('Conversation not found');
     return ch;
   }
 
   /** Who may post here, in plain words, or null when this person may. */
-  private postBlock(u: AuthUser, ch: { kind: ChatChannelKind; adminsOnly: boolean; archivedAt: Date | null }) {
+  private postBlock(u: AuthUser, ch: { kind: ChatChannelKind; adminsOnly: boolean; archivedAt: Date | null }, a: Access) {
     if (ch.archivedAt) return 'This conversation is archived.';
     if ((ch.kind === 'ANNOUNCEMENTS' || ch.adminsOnly) && !isAdmin(u)) return 'Only admins and the Super Admin post here.';
+    if (ch.kind === 'GENERAL' && !a.has('general')) return 'You can read General. Your admin has not turned on posting here for you.';
     return null;
   }
 
@@ -116,23 +183,26 @@ export class ChatService {
     return OPEN_KINDS.includes(ch.kind) ? null : ch.members.map((m) => m.userId);
   }
 
-  private emit(organizationId: string, audience: string[] | null, type: string, data: unknown) {
-    this.bus.next({ organizationId, audience, type, data });
+  private emit(organizationId: string, audience: string[] | null, type: string, data: unknown, kind?: ChatChannelKind) {
+    this.bus.next({ organizationId, audience, type, data, kind });
   }
 
-  private async staffIds(u: AuthUser, ids: string[]) {
+  /** Teammates who have chat (and, for direct messages, that option). */
+  private async staffIds(u: AuthUser, ids: string[], option?: ChatOption) {
     const unique = [...new Set(ids)];
-    const found = await this.prisma.user.findMany({ where: { id: { in: unique }, organizationId: u.organizationId, active: true, role: { in: STAFF } }, select: { id: true } });
-    if (found.length !== unique.length) throw new BadRequestException('Pick active people from your team');
+    const map = await this.accessMap(u.organizationId);
+    if (unique.some((id) => !map.has(id))) throw new BadRequestException('Pick people from your team who have team chat');
+    if (option && unique.some((id) => !map.get(id)!.has(option))) throw new BadRequestException('That person does not have direct messages turned on');
     return unique;
   }
 
   // ─── Channels ────────────────────────────────────────────────────────────
 
   async channels(u: AuthUser) {
+    const a = await this.need(u);
     await this.ensureDefaults(u.organizationId);
     const rows = await this.prisma.chatChannel.findMany({
-      where: this.visibleWhere(u),
+      where: await this.visible(u),
       include: {
         project: { select: { id: true, projectCode: true, name: true, status: true } },
         members: { where: { member: true }, select: { userId: true, user: { select: { id: true, name: true, role: true, superAdmin: true } } } },
@@ -168,8 +238,8 @@ export class ChatService {
           other,
           members: c.kind === 'GROUP' || c.kind === 'DIRECT' ? c.members.map((m) => m.user) : null,
           adminsOnly: c.adminsOnly || c.kind === 'ANNOUNCEMENTS',
-          canPost: !this.postBlock(u, c),
-          postBlock: this.postBlock(u, c),
+          canPost: !this.postBlock(u, c, a),
+          postBlock: this.postBlock(u, c, a),
           canManage: isAdmin(u) || (c.kind === 'GROUP' && c.createdById === u.id),
           archived: !!c.archivedAt,
           muted: readBy.get(c.id)?.muted ?? false,
@@ -189,6 +259,7 @@ export class ChatService {
 
   /** The project's room, made the first time someone opens it. */
   async openProject(u: AuthUser, projectId: string) {
+    await this.need(u, 'project_rooms', 'Your admin has not turned on project rooms for you.');
     const p = await this.prisma.project.findFirst({ where: { id: projectId, organizationId: u.organizationId }, select: { id: true, projectCode: true } });
     if (!p) throw new NotFoundException('Project not found');
     const existing = await this.prisma.chatChannel.findUnique({ where: { projectId } });
@@ -198,8 +269,9 @@ export class ChatService {
   }
 
   async openDirect(u: AuthUser, userId: string) {
+    await this.need(u, 'direct', 'Your admin has not turned on direct messages for you.');
     if (userId === u.id) throw new BadRequestException('Pick someone else');
-    await this.staffIds(u, [userId]);
+    await this.staffIds(u, [userId], 'direct');
     const key = [u.id, userId].sort().join(':');
     const ch = await this.prisma.chatChannel.upsert({
       where: { organizationId_key: { organizationId: u.organizationId, key } },
@@ -210,6 +282,7 @@ export class ChatService {
   }
 
   async createGroup(u: AuthUser, b: z.infer<typeof groupSchema>) {
+    await this.need(u, 'groups', 'Your admin has not turned on making groups for you.');
     const ids = await this.staffIds(u, [u.id, ...b.userIds]);
     const ch = await this.prisma.chatChannel.create({ data: { organizationId: u.organizationId, kind: 'GROUP', name: b.name, createdById: u.id, members: { create: ids.map((userId) => ({ userId })) } } });
     await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'chat.group.create', entityType: 'ChatChannel', entityId: ch.id, detail: { name: b.name, members: ids.length } });
@@ -286,7 +359,7 @@ export class ChatService {
         return shapeMessage(dup);
       }
     }
-    const block = this.postBlock(u, ch);
+    const block = this.postBlock(u, ch, await this.need(u));
     if (block) throw new ForbiddenException(block);
     if (b.type === 'UPDATE' && ch.kind !== 'PROJECT') throw new BadRequestException('Project updates go in a project room');
     let m: MsgRow;
@@ -304,7 +377,7 @@ export class ChatService {
     await this.prisma.chatChannel.update({ where: { id: channelId }, data: { lastMessageAt: m.createdAt } });
     await this.markRead(u, channelId, m.seq, ch.kind);
     const out = shapeMessage(m);
-    this.emit(u.organizationId, this.audienceOf(ch), 'message', out);
+    this.emit(u.organizationId, this.audienceOf(ch), 'message', out, ch.kind);
     return out;
   }
 
@@ -321,7 +394,7 @@ export class ChatService {
     if (m.deletedAt) throw new BadRequestException('This message was deleted');
     const r = await this.prisma.chatMessage.update({ where: { id: m.id }, data: { body, editedAt: new Date() }, include: { author } });
     const out = shapeMessage(r);
-    this.emit(u.organizationId, this.audienceOf(ch), 'message', out);
+    this.emit(u.organizationId, this.audienceOf(ch), 'message', out, ch.kind);
     return out;
   }
 
@@ -331,7 +404,7 @@ export class ChatService {
     const r = await this.prisma.chatMessage.update({ where: { id: m.id }, data: { deletedAt: new Date() }, include: { author } });
     if (m.authorId !== u.id) await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'chat.message.delete', entityType: 'ChatChannel', entityId: ch.id, detail: { messageId: m.id, authorId: m.authorId } });
     const out = shapeMessage(r);
-    this.emit(u.organizationId, this.audienceOf(ch), 'message', out);
+    this.emit(u.organizationId, this.audienceOf(ch), 'message', out, ch.kind);
     return out;
   }
 
@@ -355,12 +428,13 @@ export class ChatService {
    * in every conversation this person can see.
    */
   async sync(u: AuthUser, q: z.infer<typeof syncQuery>) {
+    await this.need(u);
     if (q.latestOnly === 'true') {
       // A new device: start from now and load each conversation when it is opened.
       const top = await this.prisma.chatMessage.aggregate({ where: { organizationId: u.organizationId }, _max: { seq: true } });
       return { items: [], more: false, latestSeq: top._max.seq ?? 0, serverTime: new Date().toISOString() };
     }
-    const visible = await this.prisma.chatChannel.findMany({ where: this.visibleWhere(u), select: { id: true } });
+    const visible = await this.prisma.chatChannel.findMany({ where: await this.visible(u), select: { id: true } });
     const ids = visible.map((c) => c.id);
     const fresh = await this.prisma.chatMessage.findMany({ where: { channelId: { in: ids }, seq: { gt: q.after } }, include: { author }, orderBy: { seq: 'asc' }, take: SYNC_LIMIT + 1 });
     const changed = q.changedSince
@@ -374,13 +448,79 @@ export class ChatService {
 
   // ─── People and live stream ──────────────────────────────────────────────
 
+  /** Teammates who have chat. */
   async people(u: AuthUser) {
-    const rows = await this.prisma.user.findMany({ where: { organizationId: u.organizationId, active: true, role: { in: STAFF } }, select: { id: true, name: true, email: true, role: true, superAdmin: true, lastSeenAt: true }, orderBy: { name: 'asc' } });
-    return rows.map((p) => ({ ...p, online: (this.online.get(p.id) ?? 0) > 0 }));
+    await this.need(u);
+    const map = await this.accessMap(u.organizationId);
+    const rows = await this.prisma.user.findMany({ where: { id: { in: [...map.keys()] } }, select: { id: true, name: true, email: true, role: true, superAdmin: true, lastSeenAt: true }, orderBy: { name: 'asc' } });
+    return rows.map((p) => ({ ...p, direct: map.get(p.id)!.has('direct'), online: (this.online.get(p.id) ?? 0) > 0 }));
+  }
+
+  // ─── Who gets chat ───────────────────────────────────────────────────────
+
+  private shapeAccess(r: { id: string; name: string; email: string; role: string; superAdmin: boolean; chatEnabled: boolean; chatOptions: string[] }, map: Map<string, Access>) {
+    const eff = map.get(r.id);
+    return { id: r.id, name: r.name, email: r.email, role: r.role, superAdmin: r.superAdmin, enabled: r.chatEnabled, options: cleanOptions(r.chatOptions), effective: eff ? [...eff] : null };
+  }
+  private readonly accessSelect = { id: true, name: true, email: true, role: true, superAdmin: true, chatEnabled: true, chatOptions: true } as const;
+
+  /** An admin who has chat: their users and what each has. The Super Admin also sees the admins here. */
+  async accessList(u: AuthUser) {
+    const a = await this.need(u);
+    if (!isAdmin(u)) throw new ForbiddenException('Only admins with team chat give it to people');
+    const map = await this.accessMap(u.organizationId);
+    const rows = await this.prisma.user.findMany({
+      where: { organizationId: u.organizationId, active: true, role: { in: u.superAdmin ? STAFF : STAFF.filter((r) => r !== 'ADMIN') }, id: { not: u.id } },
+      select: this.accessSelect,
+      orderBy: [{ role: 'asc' }, { name: 'asc' }],
+    });
+    return { options: [...a], labels: CHAT_OPTION_LABEL, people: rows.map((r) => this.shapeAccess(r, map)) };
+  }
+
+  /** Turn chat on or off for one of the admin's users, with options up to the admin's own. */
+  async setAccess(u: AuthUser, userId: string, b: z.infer<typeof accessSchema>) {
+    const a = await this.need(u);
+    if (!isAdmin(u)) throw new ForbiddenException('Only admins with team chat give it to people');
+    if (userId === u.id) throw new BadRequestException('You cannot change your own chat access');
+    const t = await this.prisma.user.findFirst({ where: { id: userId, organizationId: u.organizationId, active: true, role: { in: STAFF } }, select: { id: true, role: true } });
+    if (!t) throw new NotFoundException('Person not found');
+    if (t.role === 'ADMIN' && !u.superAdmin) throw new ForbiddenException('Only the Super Admin gives team chat to admins');
+    const extra = b.options.filter((o) => !a.has(o));
+    if (extra.length) throw new ForbiddenException(`You can only give options you have yourself: ${extra.map((o) => CHAT_OPTION_LABEL[o]).join(', ')}`);
+    return this.writeAccess(u, t.id, b);
+  }
+
+  /** Super Admin: the admins of an organisation and their chat access. */
+  async orgAccess(orgId: string) {
+    const org = await this.prisma.organization.findUnique({ where: { id: orgId }, select: { id: true, platformOwner: true } });
+    if (!org) throw new NotFoundException('Organisation not found');
+    const map = await this.accessMap(orgId);
+    const admins = await this.prisma.user.findMany({ where: { organizationId: orgId, active: true, role: 'ADMIN' }, select: this.accessSelect, orderBy: { name: 'asc' } });
+    const users = await this.prisma.user.count({ where: { organizationId: orgId, active: true, role: { in: STAFF.filter((r) => r !== 'ADMIN') } } });
+    return { labels: CHAT_OPTION_LABEL, options: CHAT_OPTIONS, admins: admins.map((r) => this.shapeAccess(r, map)), usersWithChat: [...map.keys()].filter((id) => !admins.some((x) => x.id === id)).length, users };
+  }
+
+  /** Super Admin: give or take away chat for an admin, in any organisation. */
+  async setAdminAccess(u: AuthUser, userId: string, b: z.infer<typeof accessSchema>) {
+    const t = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, role: true, organizationId: true } });
+    if (!t) throw new NotFoundException('Person not found');
+    if (t.role !== 'ADMIN') throw new BadRequestException('The Super Admin gives team chat to admins; admins give it to their users');
+    return this.writeAccess(u, t.id, b, t.organizationId);
+  }
+
+  private async writeAccess(u: AuthUser, userId: string, b: z.infer<typeof accessSchema>, orgId = u.organizationId) {
+    const r = await this.prisma.user.update({ where: { id: userId }, data: { chatEnabled: b.enabled, chatOptions: b.enabled ? b.options : [] }, select: this.accessSelect });
+    await this.audit.record({ organizationId: orgId, actorId: u.id, action: 'chat.access', entityType: 'User', entityId: userId, detail: { enabled: b.enabled, options: b.options } });
+    // Their open tabs reload what they may do (and an admin's change can change their users' too).
+    this.emit(orgId, null, 'access', { userId });
+    return this.shapeAccess(r, await this.accessMap(orgId));
   }
 
   stream(u: AuthUser): Observable<MessageEvent> {
     return new Observable<MessageEvent>((sub) => {
+      let a: Access | null = null;
+      let closed = false;
+      this.access(u).then((x) => { a = x; if (!x && !closed) sub.error(new ForbiddenException(OFF)); });
       const was = this.online.get(u.id) ?? 0;
       this.online.set(u.id, was + 1);
       if (!was) this.emit(u.organizationId, null, 'presence', { userId: u.id, online: true });
@@ -388,11 +528,18 @@ export class ChatService {
       const s = this.bus.subscribe((e) => {
         if (e.organizationId !== u.organizationId) return;
         if (e.audience && !e.audience.includes(u.id)) return;
+        if (e.type === 'access') {
+          // Chat access changed somewhere in the organisation: work it out again.
+          this.accessMap(u.organizationId).then((m) => { a = m.get(u.id) ?? null; sub.next({ type: 'access', data: { enabled: !!a } }); if (!a) sub.complete(); });
+          return;
+        }
+        if (!a || (e.kind === 'PROJECT' && !a.has('project_rooms')) || (e.kind === 'DIRECT' && !a.has('direct'))) return;
         sub.next({ type: e.type, data: e.data as object });
       });
       // Keeps proxies from closing a quiet connection.
       const ping = setInterval(() => sub.next({ type: 'ping', data: String(Date.now()) }), 25_000);
       return () => {
+        closed = true;
         s.unsubscribe();
         clearInterval(ping);
         const n = (this.online.get(u.id) ?? 1) - 1;
@@ -423,6 +570,21 @@ export class ChatController {
   @Get('people')
   people(@CurrentUser() u: AuthUser) {
     return this.svc.people(u);
+  }
+
+  @Get('me')
+  me(@CurrentUser() u: AuthUser) {
+    return this.svc.me(u);
+  }
+
+  @Get('access')
+  accessList(@CurrentUser() u: AuthUser) {
+    return this.svc.accessList(u);
+  }
+
+  @Patch('access/:userId')
+  setAccess(@CurrentUser() u: AuthUser, @Param('userId') userId: string, @Body(new ZodPipe(accessSchema)) b: z.infer<typeof accessSchema>) {
+    return this.svc.setAccess(u, userId, b);
   }
 
   @Get('channels')
@@ -494,6 +656,22 @@ export class ChatController {
   }
 }
 
-@Module({ controllers: [ChatController], providers: [ChatService], exports: [ChatService] })
+/** Super Admin console: who among each organisation's admins has team chat. */
+@Controller('super-admin')
+export class SuperAdminChatController {
+  constructor(private readonly svc: ChatService) {}
+
+  @Get('organizations/:id/chat-access')
+  orgAccess(@Param('id') orgId: string) {
+    return this.svc.orgAccess(orgId);
+  }
+
+  @Patch('chat-access/:userId')
+  setAdminAccess(@CurrentUser() u: AuthUser, @Param('userId') userId: string, @Body(new ZodPipe(accessSchema)) b: z.infer<typeof accessSchema>) {
+    return this.svc.setAdminAccess(u, userId, b);
+  }
+}
+
+@Module({ controllers: [ChatController, SuperAdminChatController], providers: [ChatService], exports: [ChatService] })
 export class ChatModule {}
 
