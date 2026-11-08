@@ -9,6 +9,7 @@ import { WebhooksService } from '../webhooks/webhooks.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { allocationRules, autoPauseStateOf, autopilotOf, Candidate, marketRules, Metrics, pace, Pace, settingsOf } from './monitor.rules';
 import { runAutoPause } from './auto-pause';
+import { RoutingService } from './routing.service';
 
 type Fetcher = (url: string, init: RequestInit) => Promise<{ status: number }>;
 
@@ -16,7 +17,7 @@ interface Row extends Metrics { key: string }
 
 export interface MarketView {
   project: { id: string; projectCode: string; name: string; status: string; fieldStartAt: Date | null; fieldEndAt: Date | null };
-  country: { id: string; countryCode: string; status: string; irPercent: number; loiMinutes: number; currency: string };
+  country: { id: string; countryCode: string; targetGroup: string | null; status: string; irPercent: number; loiMinutes: number; currency: string; /** Client CPI. */ cpi: number };
   metrics: Metrics;
   pace: Pace;
   ir: number | null;
@@ -38,6 +39,7 @@ export class MonitorService {
     private readonly audit: AuditService,
     private readonly webhooks: WebhooksService,
     private readonly push: PushService,
+    private readonly routing: RoutingService,
   ) {}
 
   /** Every five minutes: evaluate every organisation that has live fieldwork or open alerts. */
@@ -101,7 +103,7 @@ export class MonitorService {
       const m = { ...(byCountry.get(c.id) ?? empty(0)), target: c.targetCompletes };
       return {
         project: c.project,
-        country: { id: c.id, countryCode: c.countryCode, status: c.status, irPercent: c.irPercent, loiMinutes: c.loiMinutes, currency: c.currency },
+        country: { id: c.id, countryCode: c.countryCode, targetGroup: c.targetGroup, status: c.status, irPercent: c.irPercent, loiMinutes: c.loiMinutes, currency: c.currency, cpi: Number(c.cpi) },
         metrics: strip(m),
         pace: pace(m, c.project.fieldEndAt, now, s.stalledHours),
         ir: share(m.completes, m.completes + m.terminates),
@@ -126,14 +128,17 @@ export class MonitorService {
     for (const p of await this.prisma.project.findMany({ where: { organizationId: org, status: 'LIVE' }, select: { id: true, autopilot: true } })) {
       if (autopilotOf(p.autopilot).autoPause.enabled) pauseActions.push(...(await runAutoPause(this.prisma, p.id, now)).actions);
     }
-    const markets = await this.markets(org, undefined, now);
+    let markets = await this.markets(org, undefined, now);
+    // Vendor auto-routing (projects set to "auto"): it changes vendor targets, so read the markets again after it.
+    const routeActions = await this.routing.runAuto(org, markets, s, now);
+    if (routeActions.length) markets = await this.markets(org, undefined, now);
     const projectRows = await this.prisma.project.findMany({ where: { id: { in: [...new Set(markets.map((m) => m.project.id))] } }, select: { id: true, autopilot: true, autopilotState: true } });
     const autopilots = new Map(projectRows.map((p) => [p.id, autopilotOf(p.autopilot)]));
     const pauseStates = new Map(projectRows.map((p) => [p.id, autoPauseStateOf(p.autopilotState, autopilotOf(p.autopilot).autoPause)]));
 
     type Found = Candidate & { projectId?: string; projectCountryId?: string; vendorAllocationId?: string; autoAction?: string };
     const found: Found[] = [];
-    const actions: string[] = [...pauseActions];
+    const actions: string[] = [...pauseActions, ...routeActions];
     for (const mk of markets) {
       const label = `${mk.project.projectCode} ${mk.country.countryCode}`;
       // Held or paused by the auto-pause checkpoint: an info alert until someone resumes it.

@@ -425,7 +425,7 @@ export const HELP: Record<string, HelpEntry> = {
   'section:/monitor::Live markets': { what: 'Every live market across projects, with pace and risk.', how: 'Sort by risk and open a project to act.', where: 'All live projects.' },
   'project.autopilot': {
     title: 'Autopilot',
-    what: 'Actions the monitor may take on its own, such as pausing a vendor with bad quality or closing a full market.',
+    what: 'Actions the monitor may take on its own, such as pausing a vendor with bad quality, closing a full market, or routing traffic to the best vendor.',
     how: 'Tick only the actions you are comfortable with. Each one is logged and raised as an alert.',
     where: 'Live markets of this project.',
   },
@@ -434,6 +434,30 @@ export const HELP: Record<string, HelpEntry> = {
     what: 'A soft-launch stop: the autopilot pauses each market (or vendor link) once it reaches a share of its target or a number of completes, so you can check the data.',
     how: 'Choose market or vendor link, then a % of target or a number of completes. Resume when the data looks right; it will not pause that one again.',
     where: 'Live markets of this project. Once every market or link was paused or reached its target, the autopilot switches the checkpoint off.',
+  },
+  'project.autoRoute': {
+    title: 'Route traffic to the best vendor',
+    what: 'Vendor auto-routing. When a market will fall short, SampTrek moves the completes a vendor will not deliver (paused, stalled, behind pace, poor quality, or not given to anyone) to the best other vendor in that market, by raising its target.',
+    how: 'Turn it on, pick "Suggest, I approve" to press Route yourself or "Route automatically" to let the monitor do it every five minutes. Set the weights, the minimum vendor score, the most to move in one run and the wait between runs, then Save.',
+    where: 'Live markets of this project only. Vendors with a score under the minimum, and (if ticked) vendors whose CPI is at or above the client CPI, never receive. Every run is logged and can be undone.',
+  },
+  'project.autoRoute.weights': {
+    title: 'Routing weights',
+    what: 'How much each part counts in the routing score (0–100): vendor score (in this country when there is enough data), margin under the client CPI, and room (completes it can still deliver by the field end date).',
+    how: 'Raise a weight to make that part matter more. The weights do not have to add up to 100; the % next to each shows its real share. A vendor with no score yet counts as 60.',
+    where: 'This project. The plan below shows each vendor\'s parts and routing score, so you can see why it was picked.',
+  },
+  'project.routingPlan': {
+    title: 'Vendor routing',
+    what: 'What routing would do now in each live market: which vendors give completes and why, who gets them, the change in CPI, and the ranking of every vendor with room (and the ones skipped, with the reason).',
+    how: 'Read the ranking, then press Route to apply the plan. If the numbers changed since you opened the page, SampTrek asks you to look again before routing.',
+    where: 'Live markets of this project. It works by hand even when automatic routing is off.',
+  },
+  'project.routingHistory': {
+    title: 'Routing history',
+    what: 'Every routing run on this project, automatic or by hand, with who ran it and each vendor target before and after.',
+    how: 'Press Undo to put every vendor target of a run back. It refuses if a target changed since, so a newer change is never overwritten. An undo also starts the wait before the autopilot routes that market again.',
+    where: 'This project. Runs also appear in the audit log as allocation.route, autopilot.route and allocation.route_undo.',
   },
   'project.speederCheck': {
     title: 'Speeder check',

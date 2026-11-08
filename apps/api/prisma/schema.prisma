@@ -80,6 +80,7 @@ model Organization {
   invoices               Invoice[]
   reconciliations        Reconciliation[]
   alerts                 Alert[]
+  routingRuns            RoutingRun[]
   vendorBills            VendorBill[]
   exchangeRates          ExchangeRate[]
   apiKeys                ApiKey[]
@@ -583,6 +584,7 @@ model Project {
   invoices          Invoice[]
   reconciliations   Reconciliation[]
   alerts            Alert[]
+  routingRuns       RoutingRun[]
   wonBid            WonBid?
   tasks             Task[]
   settingsVersions  ProjectSettingsVersion[]
@@ -650,6 +652,7 @@ model ProjectCountry {
 
   quotas        QuotaCell[]
   allocations   VendorAllocation[]
+  routingRuns   RoutingRun[]
   sessions      RespondentSession[]
   quoteRequests QuoteRequest[]
   clientLinks   ClientUniqueLink[]
@@ -1214,6 +1217,34 @@ enum AlertState {
   OPEN
   ACKNOWLEDGED
   RESOLVED
+}
+
+/// One vendor auto-routing change to a market's vendor targets, kept so it can be explained and undone. See src/monitor/routing.ts.
+model RoutingRun {
+  id               String         @id @default(cuid())
+  organizationId   String
+  organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectId        String
+  project          Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectCountryId String
+  projectCountry   ProjectCountry @relation(fields: [projectCountryId], references: [id], onDelete: Cascade)
+  /// auto (the autopilot) | manual (someone pressed Route now)
+  trigger          String
+  /// null when the autopilot ran it.
+  actorId          String?
+  /// [{ from, to, completes, reason, because, cpiDelta }]
+  moves            Json
+  /// [{ id, vendor, from, to }]: each vendor target before and after, used by undo.
+  targets          Json
+  /// { ranking, skipped, settings, freed, cap, held, uncovered, costDelta }: why the plan looked like this.
+  explanation      Json
+  summary          String
+  createdAt        DateTime       @default(now())
+  undoneAt         DateTime?
+  undoneById       String?
+
+  @@index([projectId, createdAt])
+  @@index([projectCountryId, createdAt])
 }
 
 /// A fieldwork problem found by the monitor. One unresolved alert per dedupeKey; it resolves itself when the condition clears.
