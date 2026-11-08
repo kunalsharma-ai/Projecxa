@@ -10,8 +10,9 @@ import { FilesTab } from '@/components/project/files-tab';
 import { FinanceTab } from '@/components/project/finance-tab';
 import { HistoryTab } from '@/components/project/history-tab';
 import { SaveTemplate } from '@/components/project/save-template';
-import { AlertTriangle, BadgeCheck, CircleSlash, Clock, CopyPlus, Gauge, Hourglass, LayoutTemplate, Percent, Rabbit, Route, ShieldAlert, X } from 'lucide-react';
+import { AlertTriangle, BadgeCheck, CircleSlash, Clock, CopyPlus, Gauge, Hourglass, LayoutTemplate, MonitorPlay, Percent, Rabbit, Route, ShieldAlert, X } from 'lucide-react';
 import { RedirectsPopup } from '@/components/project/redirects-popup';
+import { DashboardLinksPopup } from '@/components/project/dashboard-links';
 import { StatusMenu } from '@/components/project/status-menu';
 import { CloneProject } from '@/components/project/clone-project';
 import { MonitorTab } from '@/components/project/monitor-tab';
@@ -46,6 +47,7 @@ export default function ProjectPage() {
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [cloning, setCloning] = useState(false);
   const [redirectsOpen, setRedirectsOpen] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [launch, setLaunch] = useState<ProjectDetail['launch'] | null>(null);
   const [skipped, setSkipped] = useState<string[]>([]);
   useEffect(() => {
@@ -149,6 +151,7 @@ export default function ProjectPage() {
           <>
             {editable && <button className="btn-ghost" onClick={() => { setCloning(!cloning); setSavingTemplate(false); }}><CopyPlus className="h-4 w-4" /> Clone project</button>}
             {editable && <button className="btn-ghost" onClick={() => { setSavingTemplate(!savingTemplate); setCloning(false); }}><LayoutTemplate className="h-4 w-4" /> Save as template</button>}
+            {editable && <button className="btn-ghost" onClick={() => setSharing(true)} title="A live, read-only page for your client"><MonitorPlay className="h-4 w-4" /> Client dashboard</button>}
             <button className="btn-ghost" onClick={() => setRedirectsOpen(true)}><Route className="h-4 w-4" /> Redirects</button>
             <span className="inline-flex items-center gap-1">
               <StatusMenu status={p.status} editable={editable} onChange={setStatus} />
@@ -176,6 +179,7 @@ export default function ProjectPage() {
         </div>
       )}
       {redirectsOpen && <RedirectsPopup project={p} onClose={() => setRedirectsOpen(false)} openTab={(t) => { setRedirectsOpen(false); setTab(t); }} />}
+      {sharing && <DashboardLinksPopup project={p} onClose={() => setSharing(false)} />}
       {savingTemplate && <SaveTemplate project={p} onClose={() => setSavingTemplate(false)} />}
       {cloning && <CloneProject project={p} onClose={() => setCloning(false)} />}
 
