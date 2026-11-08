@@ -15,7 +15,7 @@ import { CATALOG } from '../integrations/catalog';
 import { IntegrationsService } from '../integrations/integrations.service';
 import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { EntitlementsService, ORG_FEATURES_INCLUDE, orgFeatures, subscriptionLive, userFeatures } from './entitlements';
+import { EntitlementsService, ORG_FEATURES_INCLUDE, orgFeatures, readFeatureAccess, subscriptionLive, userFeatures } from './entitlements';
 import { FEATURES, FEATURE_KEYS, featureDef, MOBILE_FEATURE_KEYS } from './features';
 
 const STAFF: Role[] = ['ADMIN', 'PROJECT_MANAGER', 'SALES', 'VIEWER'];
@@ -25,14 +25,14 @@ export const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', 
 export interface PlatformSettings { registrationOpen: boolean; defaultPlanCode: string | null; trialDays: number }
 const DEFAULT_SETTINGS: PlatformSettings = { registrationOpen: false, defaultPlanCode: 'starter', trialDays: 14 };
 
-const workspace = ['dashboard', 'tasks', 'requests', 'notifications', 'projects', 'projects.create', 'won_bids', 'reports', 'data_processing', 'analytics', 'clients', 'vendors', 'portal_access', 'team', 'settings', 'integrations', 'portal.client', 'portal.vendor', 'integration.smtp'];
+const workspace = ['dashboard', 'tasks', 'requests', 'notifications', 'projects', 'projects.create', 'won_bids', 'reports', 'data_processing', 'analytics', 'clients', 'vendors', 'portal_access', 'team', 'settings', 'integrations', 'portal.client', 'portal.vendor', 'integration.smtp', 'collaboration', 'client_dashboards', 'languages'];
 /** Made the first time plans are listed, so the Super Admin has something to start from. */
 export const STARTER_PLANS = [
   { code: 'starter', name: 'Starter', description: 'Projects, links, reports and portals for a small team.', priceLabel: null, sortOrder: 1, maxUsers: 5, maxProjects: 50,
     features: workspace, mobileFeatures: workspace.filter((k) => MOBILE_FEATURE_KEYS.includes(k)) },
   { code: 'professional', name: 'Professional', description: 'Adds monitoring, finance, AI and accounting.', priceLabel: null, sortOrder: 2, maxUsers: 25, maxProjects: null,
-    features: [...workspace, 'copilot', 'monitor', 'redirect_health', 'invoices', 'payables', 'accounting', 'privacy', 'integration.sso_google', 'integration.sso_microsoft', 'integration.sso_zoho', 'integration.gemini', 'integration.zoho_books', 'integration.bidzo'],
-    mobileFeatures: [...workspace, 'copilot', 'monitor', 'redirect_health', 'invoices', 'payables'].filter((k) => MOBILE_FEATURE_KEYS.includes(k)) },
+    features: [...workspace, 'copilot', 'chat', 'monitor', 'forecasting', 'vendor_routing', 'fraud_checks', 'redirect_health', 'invoices', 'payables', 'accounting', 'privacy', 'integration.sso_google', 'integration.sso_microsoft', 'integration.sso_zoho', 'integration.gemini', 'integration.zoho_books', 'integration.bidzo'],
+    mobileFeatures: [...workspace, 'copilot', 'monitor', 'forecasting', 'redirect_health', 'invoices', 'payables'].filter((k) => MOBILE_FEATURE_KEYS.includes(k)) },
   { code: 'enterprise', name: 'Enterprise', description: 'Everything, including API, branding and all integrations.', priceLabel: null, sortOrder: 3, maxUsers: null, maxProjects: null,
     features: FEATURE_KEYS, mobileFeatures: MOBILE_FEATURE_KEYS },
 ];
@@ -196,11 +196,14 @@ export class SuperAdminService {
     const planWeb = new Set(sub ? sub.plan.features : FEATURE_KEYS);
     const planMobile = new Set(sub ? sub.plan.mobileFeatures : MOBILE_FEATURE_KEYS);
     const ov = (k: string, c: string) => org.featureOverrides.find((o) => o.feature === k && o.channel === c);
+    const access = readFeatureAccess(org.featureAccess);
     return {
       ...s,
       subscriptionDetail: sub ? { ...sub, plan: undefined } : null,
       features: FEATURES.map((d) => ({
         key: d.key, label: d.label, group: d.group, summary: d.summary, mobile: d.mobile,
+        // Who the organisation's Admin gives it to (Settings → Features & access); null = not the Admin's choice.
+        adminAccess: access[d.key] ? { mode: access[d.key]!.mode, people: access[d.key]!.people.length } : null,
         web: { plan: planWeb.has(d.key), override: ov(d.key, 'web')?.enabled ?? null, effective: f.web.has(d.key) },
         app: d.mobile ? { plan: planMobile.has(d.key), override: ov(d.key, 'mobile')?.enabled ?? null, effective: f.mobileEnabled && f.mobile.has(d.key) } : null,
       })),

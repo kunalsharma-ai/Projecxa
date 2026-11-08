@@ -7,7 +7,7 @@ import { FormEvent, Fragment, useCallback, useEffect, useMemo, useState } from '
 import { ActivityList } from '@/components/super-admin/activity-list';
 import { ErrorBox, Loading, PageHeader, Section, Toggle } from '@/components/ui';
 import { api, get, post } from '@/lib/api';
-import { ago, day, ORG_STATUS, ROLE_LABEL, SUB_STATUS, type ActivityItem, type Catalog, type FeatureRow, type OrgDetail, type OrgUser, type Plan, type SubStatus } from '@/lib/super-admin';
+import { ACCESS_LABEL, ago, day, ORG_STATUS, ROLE_LABEL, SUB_STATUS, type ActivityItem, type Catalog, type FeatureRow, type OrgDetail, type OrgUser, type Plan, type SubStatus } from '@/lib/super-admin';
 import { Label } from '@/components/help';
 
 type Tab = 'subscription' | 'features' | 'people' | 'activity' | 'integrations';
@@ -152,7 +152,7 @@ function FeaturesTab({ org, run }: { org: OrgDetail; run: Run }) {
     run(() => api(`/super-admin/organizations/${org.id}/features`, { method: 'PUT', json: { changes: org.features.filter((f) => channel === 'web' || f.mobile).map((f) => ({ feature: f.key, channel, state })) } }));
   return (
     <>
-      <p className="mb-4 text-sm text-muted">Each feature follows the plan unless you switch it on or off here. Changes reach the web app and the Android/iOS app within seconds, and the server refuses switched-off features. People can also have features taken away one by one in the People tab.</p>
+      <p className="mb-4 text-sm text-muted">Each feature follows the plan unless you switch it on or off here. Switching on a feature the plan does not include gives this organisation an extra. Changes reach the web app and the Android/iOS app within seconds, and the server refuses switched-off features. The organisation’s Admin then chooses who in their team gets each feature (the “Admin gives it to” column). People can also have features taken away one by one in the People tab.</p>
       <div className="mb-4 flex flex-wrap gap-2 text-xs">
         <span className="self-center text-muted">All on the web:</span>
         {(['plan', 'on', 'off'] as const).map((s) => <button key={s} className="btn-ghost px-2 py-1 text-xs" onClick={() => all('web', s)}>{s === 'plan' ? 'Follow plan' : s === 'on' ? 'On' : 'Off'}</button>)}
@@ -163,14 +163,15 @@ function FeaturesTab({ org, run }: { org: OrgDetail; run: Run }) {
         {groups.map((g) => (
           <Section key={g} title={g}>
             <div className="-mx-5 overflow-x-auto px-5">
-              <table className="w-full min-w-[720px] table-fixed text-sm">
-                <thead><tr><th className="th w-[40%]">Feature</th><th className="th"><Globe className="mr-1 inline h-3.5 w-3.5" />Web</th><th className="th"><Smartphone className="mr-1 inline h-3.5 w-3.5" />Mobile app</th></tr></thead>
+              <table className="w-full min-w-[820px] table-fixed text-sm">
+                <thead><tr><th className="th w-[34%]">Feature</th><th className="th"><Globe className="mr-1 inline h-3.5 w-3.5" />Web</th><th className="th"><Smartphone className="mr-1 inline h-3.5 w-3.5" />Mobile app</th><th className="th w-[16%]">Admin gives it to</th></tr></thead>
                 <tbody>
                   {org.features.filter((f) => f.group === g).map((f) => (
                     <tr key={f.key} className="border-t border-line" data-feature={f.key}>
                       <td className="td"><div className="font-medium">{f.label}</div><div className="text-xs text-muted">{f.summary}</div></td>
                       <td className="td"><State cell={f.web} label={`${f.label} on the web`} onChange={(s) => change(f, 'web', s)} /></td>
                       <td className="td">{f.app ? <State cell={f.app} label={`${f.label} in the app`} onChange={(s) => change(f, 'mobile', s)} /> : <span className="flex items-center gap-1 text-xs text-muted"><Minus className="h-3 w-3" />Web only</span>}</td>
+                      <td className="td text-xs text-muted">{f.adminAccess ? `${ACCESS_LABEL[f.adminAccess.mode]}${f.adminAccess.mode === 'people' ? ` (${f.adminAccess.people})` : ''}` : 'Admins'}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -19,6 +19,8 @@ export interface OrgSummary {
 }
 export interface FeatureRow {
   key: string; label: string; group: string; summary: string; mobile: boolean;
+  /** Who the organisation's Admin gives it to (Settings → Features & access); null = not the Admin's choice. */
+  adminAccess: { mode: 'everyone' | 'admins' | 'people' | 'off'; people: number } | null;
   web: { plan: boolean; override: boolean | null; effective: boolean };
   app: { plan: boolean; override: boolean | null; effective: boolean } | null;
 }
@@ -101,3 +103,6 @@ export const METHOD_LABEL: Record<string, string> = {
 };
 export const fmtMoney = (currency: string, n: number | string | null | undefined) =>
   n == null || n === '' ? '—' : `${currency} ${Number(n).toLocaleString(undefined, { minimumFractionDigits: Number(n) % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
+
+/** How the organisation's Admin shares a feature (docs/FEATURE_ACCESS.md). */
+export const ACCESS_LABEL: Record<'everyone' | 'admins' | 'people' | 'off', string> = { everyone: 'Everyone', admins: 'Admins only', people: 'Chosen people', off: 'No one' };

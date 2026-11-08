@@ -41,6 +41,7 @@ import { VendorSignupModule } from './vendor-signup/vendor-signup';
 import { SurveyModule } from './survey/survey.controller';
 import { UniqueLinksModule } from './unique-links/unique-links';
 import { UsersModule } from './users/users.controller';
+import { FeatureAccessModule } from './feature-access/feature-access';
 import { VendorsModule } from './vendors/vendors.controller';
 
 @Module({
@@ -55,6 +56,7 @@ import { VendorsModule } from './vendors/vendors.controller';
     PushModule,
     AuthModule,
     UsersModule,
+    FeatureAccessModule,
     ClientsModule,
     VendorsModule,
     ProjectsModule,

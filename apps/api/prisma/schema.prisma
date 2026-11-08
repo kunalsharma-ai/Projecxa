@@ -133,6 +133,9 @@ model Organization {
   platformSettings       Json?
   subscription           Subscription?
   featureOverrides       FeatureOverride[]
+  /// Admin's choice of who gets each feature the plan includes (docs/FEATURE_ACCESS.md):
+  /// { [featureKey]: { mode: "everyone" | "admins" | "people" | "off", people: userId[] } }. Missing = the feature's default.
+  featureAccess          Json?
   automationRuns         AutomationRun[]
   billingInvoices        BillingInvoice[]
 }
