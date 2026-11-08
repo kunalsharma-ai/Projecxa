@@ -22,6 +22,10 @@ export const alertSettingsSchema = z
     quotaNearPct: z.number().int().min(50).max(99).default(90),
     /** Rates need at least this many respondents before a rule fires. */
     minSample: z.number().int().min(5).max(500).default(20),
+    /** Alert when a project's forecast margin at finish is under this percent (docs/PROFIT_FORECAST.md). */
+    marginFloorPct: z.number().int().min(0).max(95).default(20),
+    /** Also alert when the forecast margin falls this many points under the planned margin. */
+    marginDropPts: z.number().int().min(1).max(100).default(10),
   })
   .strict();
 export type AlertSettings = z.infer<typeof alertSettingsSchema>;
@@ -58,6 +62,8 @@ export const autopilotSchema = z
     /** Close a vendor link once it has delivered its target. */
     closeOnTarget: z.boolean().default(false),
     autoPause: autoPauseSchema.optional(),
+    /** This project's margin floor in percent; null or missing uses the organisation's alert settings. */
+    marginFloorPct: z.number().int().min(0).max(95).nullable().optional(),
   })
   .strict();
 export type Autopilot = z.infer<typeof autopilotSchema>;
@@ -103,7 +109,7 @@ export function autoPauseDecision(a: AutoPause, state: AutoPauseState, key: stri
   return null;
 }
 
-export const RULES = ['stalled', 'behind_pace', 'low_ir', 'loi_short', 'loi_long', 'quality_spike', 'drop_off', 'quota_near', 'target_reached', 'cell_full', 'auto_paused', 'callbacks_failed'] as const;
+export const RULES = ['stalled', 'behind_pace', 'low_ir', 'loi_short', 'loi_long', 'quality_spike', 'drop_off', 'quota_near', 'target_reached', 'cell_full', 'auto_paused', 'callbacks_failed', 'margin_low'] as const;
 export type Rule = (typeof RULES)[number];
 export type Severity = 'info' | 'warn' | 'bad';
 

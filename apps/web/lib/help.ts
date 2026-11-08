@@ -453,10 +453,32 @@ export const HELP: Record<string, HelpEntry> = {
     how: 'Watch profit while fieldwork runs. Expected revenue shows the value at target. Rejected completes drop out after reconciliation.',
     where: 'This project, per CPI currency. Live projects refresh every 30 seconds.',
   },
+  'project.forecast': {
+    title: 'Forecast at finish',
+    what: 'When this project will reach its targets and the revenue, cost, profit and margin it will end with, if fieldwork keeps its current pace and vendor mix.',
+    how: 'Finish date comes from the completes of the last 72 hours. Remaining completes are priced at the vendors delivering now. Check By market to see which market is slow or costly.',
+    where: 'Live and held markets of this live project, per CPI currency; closed markets count with what they earned. SampTrek alerts when the margin drops under the floor.',
+  },
+  'field:Margin alert below': {
+    title: 'Margin alert below',
+    what: 'This project\'s own margin floor: SampTrek raises a margin alert when the forecast margin at finish is under it.',
+    how: 'Enter a whole percent, for example 25. Leave empty to use the margin floor from Settings → Fieldwork alerts.',
+    where: 'This project only. The alert waits for 5 completes in a currency.',
+  },
+  'field:Margin floor': {
+    what: 'The lowest forecast margin a live project may head for before SampTrek raises a margin alert.',
+    how: 'Enter a whole percent. Projects can set their own in Quotas & monitor → Autopilot.',
+    where: 'Every live project of your organisation that has no floor of its own.',
+  },
+  'field:Margin drop': {
+    what: 'Raise the margin alert when the forecast margin falls this many points under the margin planned from the bid, even above the floor.',
+    how: 'Enter whole points, for example 10: a 45% plan heading for 34% alerts.',
+    where: 'Every live project of your organisation.',
+  },
   'field:Avg LOI': { title: 'Avg LOI', what: 'Average minutes live completes actually took, from reaching the client survey to completing.', how: 'Compare it with the planned LOI; much shorter suggests speeders, much longer means drop-outs.', where: 'Project list and fieldwork status. Reports call it LOI.' },
   'field:Avg IR': { title: 'Avg IR', what: 'Actual incidence: completes ÷ (completes + terminates).', how: 'Compare it with the planned IR; a big drop raises the real cost per complete.', where: 'Project list and fieldwork status. Reports call it IR.' },
   'field:Speeders': { what: 'Completes rejected by the speeder check because they were too fast.', how: 'Set the check in Gate & security. A high count points at a vendor or a survey that is easy to rush.', where: 'Fieldwork status, project list and reports.' },
-  'project.alerts': { title: 'Active alerts', what: 'Problems the monitor found: low pace, stalls, low incidence, high drop-out or poor quality.', how: 'Open an alert, fix the cause, then dismiss it.', where: 'This project.' },
+  'project.alerts': { title: 'Active alerts', what: 'Problems the monitor found: low pace, stalls, low incidence, high drop-out, poor quality or a margin heading too low.', how: 'Open an alert, fix the cause, then dismiss it.', where: 'This project.' },
   'project.security': {
     title: 'Respondent security',
     what: 'Checks that stop duplicates, bots and fraud before respondents reach the survey.',

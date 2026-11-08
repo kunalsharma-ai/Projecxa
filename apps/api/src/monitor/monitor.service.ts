@@ -9,6 +9,7 @@ import { WebhooksService } from '../webhooks/webhooks.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { allocationRules, autoPauseStateOf, autopilotOf, Candidate, marketRules, Metrics, pace, Pace, settingsOf } from './monitor.rules';
 import { runAutoPause } from './auto-pause';
+import { ForecastMarketIn, forecastProject, marginFloorOf, marginRules, ProjectForecast } from './forecast';
 
 type Fetcher = (url: string, init: RequestInit) => Promise<{ status: number }>;
 
@@ -16,7 +17,7 @@ interface Row extends Metrics { key: string }
 
 export interface MarketView {
   project: { id: string; projectCode: string; name: string; status: string; fieldStartAt: Date | null; fieldEndAt: Date | null };
-  country: { id: string; countryCode: string; status: string; irPercent: number; loiMinutes: number; currency: string };
+  country: { id: string; countryCode: string; status: string; irPercent: number; loiMinutes: number; currency: string; cpi: number };
   metrics: Metrics;
   pace: Pace;
   ir: number | null;
@@ -101,7 +102,7 @@ export class MonitorService {
       const m = { ...(byCountry.get(c.id) ?? empty(0)), target: c.targetCompletes };
       return {
         project: c.project,
-        country: { id: c.id, countryCode: c.countryCode, status: c.status, irPercent: c.irPercent, loiMinutes: c.loiMinutes, currency: c.currency },
+        country: { id: c.id, countryCode: c.countryCode, status: c.status, irPercent: c.irPercent, loiMinutes: c.loiMinutes, currency: c.currency, cpi: Number(c.cpi) },
         metrics: strip(m),
         pace: pace(m, c.project.fieldEndAt, now, s.stalledHours),
         ir: share(m.completes, m.completes + m.terminates),
@@ -112,6 +113,49 @@ export class MonitorService {
         cells: c.quotas,
       };
     });
+  }
+
+  /**
+   * Finish date, cost and margin forecast for each live project (docs/PROFIT_FORECAST.md).
+   * Pass `markets` when they are already loaded for the same organisation and moment.
+   */
+  async forecasts(org: string, projectId?: string, now = new Date(), markets?: MarketView[]): Promise<Map<string, ProjectForecast>> {
+    const mks = markets ?? (await this.markets(org, projectId, now));
+    const ids = [...new Set(mks.map((m) => m.project.id))];
+    if (!ids.length) return new Map();
+    const [orgRow, projects, money, closed] = await Promise.all([
+      this.prisma.organization.findUnique({ where: { id: org }, select: { alertSettings: true } }),
+      this.prisma.project.findMany({ where: { id: { in: ids }, organizationId: org }, select: { id: true, autopilot: true } }),
+      this.prisma.respondentSession.groupBy({ by: ['projectCountryId'], where: { organizationId: org, projectId: { in: ids }, isTest: false, status: 'COMPLETE' }, _sum: { revenue: true, payout: true }, _count: { _all: true } }),
+      // Closed markets take no more completes, but what they earned and cost stays in the project's money.
+      this.prisma.projectCountry.findMany({ where: { projectId: { in: ids }, status: 'CLOSED' }, select: { id: true, projectId: true, countryCode: true, currency: true, cpi: true } }),
+    ]);
+    const s = settingsOf(orgRow?.alertSettings);
+    const moneyOf = new Map(money.map((m) => [m.projectCountryId, { revenue: Number(m._sum.revenue ?? 0), cost: Number(m._sum.payout ?? 0), completes: m._count._all }]));
+    const out = new Map<string, ProjectForecast>();
+    for (const p of projects) {
+      const own = mks.filter((m) => m.project.id === p.id);
+      const input: ForecastMarketIn[] = own.map((m) => ({
+        id: m.country.id,
+        countryCode: m.country.countryCode,
+        status: m.country.status,
+        currency: m.country.currency,
+        cpi: m.country.cpi,
+        target: m.metrics.target,
+        completes: m.metrics.completes,
+        revenue: moneyOf.get(m.country.id)?.revenue ?? 0,
+        cost: moneyOf.get(m.country.id)?.cost ?? 0,
+        pace: m.pace,
+        vendors: m.allocations.map((a) => ({ cpi: a.cpi, target: a.metrics.target, completes: a.metrics.completes, status: a.status, perDay: a.pace.perDay })),
+      }));
+      for (const c of closed.filter((c) => c.projectId === p.id)) {
+        const got = moneyOf.get(c.id) ?? { revenue: 0, cost: 0, completes: 0 };
+        const done = { status: 'done' as const, perDay: 0, requiredPerDay: null, remaining: 0, etaDays: 0, daysLeft: null };
+        input.push({ id: c.id, countryCode: c.countryCode, status: 'CLOSED', currency: c.currency, cpi: Number(c.cpi), target: got.completes, completes: got.completes, revenue: got.revenue, cost: got.cost, pace: done, vendors: [] });
+      }
+      out.set(p.id, forecastProject(input, { now, fieldEndAt: own[0].project.fieldEndAt, marginFloorPct: marginFloorOf(s, autopilotOf(p.autopilot).marginFloorPct), marginDropPts: s.marginDropPts }));
+    }
+    return out;
   }
 
   /**
@@ -183,6 +227,12 @@ export class MonitorService {
           });
         }
       }
+    }
+    // Margin forecast: one alert per project and currency when the predicted margin is too low.
+    const forecasts = await this.forecasts(org, undefined, now, markets);
+    for (const [projectId, f] of forecasts) {
+      const code = markets.find((m) => m.project.id === projectId)!.project.projectCode;
+      for (const c of marginRules(`p:${projectId}`, code, f)) found.push({ ...c, projectId });
     }
     const failed = await this.prisma.callbackDelivery.count({ where: { organizationId: org, state: { in: ['FAILED', 'DEAD_LETTER'] } } });
     if (failed) found.push({ dedupeKey: 'org:callbacks_failed', rule: 'callbacks_failed', severity: 'bad', title: `${failed} vendor callback${failed === 1 ? '' : 's'} failed`, detail: 'Replay them from the project page once the vendor endpoint is fixed.', metrics: { failed } });

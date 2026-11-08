@@ -31,7 +31,7 @@ Speeders are counted on their own: `stats.SPEEDER` on the project and vendor lin
 
 ## Live revenue, cost and profit
 
-The project page shows, per CPI currency, **Revenue (live)** (client CPI × completes), **Cost (live)** (vendor payout for those completes) and **Profit (live)** with the margin, next to the client CPI and the expected revenue at target. A live project refreshes its counts, Avg LOI / Avg IR and money every 30 seconds while the page is visible (only the figures, so open forms keep their input). Rejected completes leave the money once they are reconciled.
+The project page shows, per CPI currency, **Revenue (live)** (client CPI × completes), **Cost (live)** (vendor payout for those completes) and **Profit (live)** with the margin, next to the client CPI and the expected revenue at target. A live project refreshes its counts, Avg LOI / Avg IR and money every 30 seconds while the page is visible (only the figures, so open forms keep their input). Rejected completes leave the money once they are reconciled. Below them, **Forecast at finish** predicts the finish date, cost and margin from the current pace (docs/PROFIT_FORECAST.md).
 
 ## Help text
 
