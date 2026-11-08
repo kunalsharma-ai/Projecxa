@@ -169,6 +169,12 @@ export const HELP: Record<string, HelpEntry> = {
     how: 'Add a portal user for a client or vendor with a temporary password; they change it on first sign-in.',
     where: 'Clients see their projects, files and invoices. Vendors see their links, respondents, quotes and statements.',
   },
+  'page:/chat': {
+    title: 'Team chat',
+    what: 'Chat for staff only: Announcements, General, a room per project, private groups and direct messages. It runs on your SampTrek server.',
+    how: 'Pick a conversation, or press New. In a project room, tick "Post as a project update" to share how the project is doing.',
+    where: 'Messages are saved on this device too, so you can read them offline. What you write offline is sent when you reconnect.',
+  },
   'page:/tasks': {
     title: 'Tasks',
     what: 'Your to-dos and reminders, including ones the AI copilot made for you.',

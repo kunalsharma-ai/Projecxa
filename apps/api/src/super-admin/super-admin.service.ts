@@ -25,7 +25,7 @@ export const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', 
 export interface PlatformSettings { registrationOpen: boolean; defaultPlanCode: string | null; trialDays: number }
 const DEFAULT_SETTINGS: PlatformSettings = { registrationOpen: false, defaultPlanCode: 'starter', trialDays: 14 };
 
-const workspace = ['dashboard', 'tasks', 'requests', 'notifications', 'projects', 'projects.create', 'won_bids', 'reports', 'data_processing', 'analytics', 'clients', 'vendors', 'portal_access', 'team', 'settings', 'integrations', 'portal.client', 'portal.vendor', 'integration.smtp'];
+const workspace = ['dashboard', 'tasks', 'chat', 'requests', 'notifications', 'projects', 'projects.create', 'won_bids', 'reports', 'data_processing', 'analytics', 'clients', 'vendors', 'portal_access', 'team', 'settings', 'integrations', 'portal.client', 'portal.vendor', 'integration.smtp'];
 /** Made the first time plans are listed, so the Super Admin has something to start from. */
 export const STARTER_PLANS = [
   { code: 'starter', name: 'Starter', description: 'Projects, links, reports and portals for a small team.', priceLabel: null, sortOrder: 1, maxUsers: 5, maxProjects: 50,
