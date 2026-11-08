@@ -24,7 +24,7 @@ export interface ChatChannel {
   adminsOnly: boolean; canPost: boolean; postBlock: string | null; canManage: boolean; archived: boolean; muted: boolean;
   readSeq: number; unread: number; lastMessage: ChatMessage | null; lastMessageAt: string | null;
 }
-export interface ChatPerson { id: string; name: string; email: string; role: string; superAdmin: boolean; online: boolean; lastSeenAt: string | null }
+export interface ChatPerson { id: string; name: string; email: string; role: string; superAdmin: boolean; online: boolean; direct?: boolean; lastSeenAt: string | null }
 interface Outgoing { clientId: string; channelId: string; body: string; type: 'TEXT' | 'UPDATE'; tone?: Tone; createdAt: string; failed?: string }
 export type Connection = 'live' | 'connecting' | 'offline';
 

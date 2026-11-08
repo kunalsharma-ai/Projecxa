@@ -8,6 +8,7 @@ import { useMe } from '@/components/me';
 import { useChat, type ChatChannel, type ChatMessage, type ChatPerson, type Connection, type Tone } from '@/components/chat/chat-provider';
 import { ErrorBox, Loading } from '@/components/ui';
 import { api, get, post } from '@/lib/api';
+import { hasFeature } from '@/lib/types';
 
 const ROLE_LABEL: Record<string, string> = { ADMIN: 'Admin', PROJECT_MANAGER: 'Project manager', SALES: 'Sales', VIEWER: 'Viewer' };
 const TONES: { key: Tone; label: string; chip: string; bar: string }[] = [
@@ -404,7 +405,9 @@ function Dialog({ title, onClose, children }: { title: string; onClose: () => vo
 function StartDialog({ onClose, onOpen }: { onClose: () => void; onOpen: (c: ChatChannel) => void }) {
   const chat = useChat()!;
   const me = useMe()!;
-  const [tab, setTab] = useState<'direct' | 'group' | 'project'>('direct');
+  // Each kind of conversation is its own option, given by the organisation's Admin (Settings → Features & access).
+  const tabs = ([['direct', 'Direct message', 'chat.direct'], ['group', 'Group', 'chat.groups'], ['project', 'Project room', 'chat.project_rooms']] as const).filter(([, , f]) => hasFeature(me, f));
+  const [tab, setTab] = useState<'direct' | 'group' | 'project'>(tabs[0]?.[0] ?? 'direct');
   const [picked, setPicked] = useState<string[]>([]);
   const [name, setName] = useState('');
   const [projects, setProjects] = useState<{ id: string; projectCode: string; name: string }[] | null>(null);
@@ -419,20 +422,21 @@ function StartDialog({ onClose, onOpen }: { onClose: () => void; onOpen: (c: Cha
   return (
     <Dialog title="New conversation" onClose={onClose}>
       <div className="mb-3 flex gap-1 rounded-lg bg-sunken p-1 text-xs">
-        {([['direct', 'Direct message'], ['group', 'Group'], ['project', 'Project room']] as const).map(([k, l]) => (
+        {tabs.map(([k, l]) => (
           <button key={k} className={clsx('flex-1 rounded-md px-2 py-1.5 font-medium', tab === k ? 'bg-panel shadow-sm' : 'text-muted')} onClick={() => { setTab(k); setPicked([]); }}>{l}</button>
         ))}
       </div>
       {error ? <div className="mb-2"><ErrorBox error={error} /></div> : null}
-      {tab === 'direct' && <PersonPicker single people={others} selected={picked} onToggle={(id) => go(() => post<ChatChannel>('/chat/direct', { userId: id }))} />}
-      {tab === 'group' && (
+      {!tabs.length && <p className="text-sm text-muted">Your admin has not turned on direct messages, groups or project rooms for you yet. They can do it in Settings → Features &amp; access.</p>}
+      {tab === 'direct' && tabs.length > 0 && <PersonPicker single people={others.filter((p) => p.direct)} selected={picked} onToggle={(id) => go(() => post<ChatChannel>('/chat/direct', { userId: id }))} />}
+      {tab === 'group' && tabs.length > 0 && (
         <>
           <input className="input mb-2" placeholder="Group name, e.g. DE launch team" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} aria-label="Group name" />
           <PersonPicker people={others} selected={picked} onToggle={(id) => setPicked((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]))} />
           <button className="btn-primary mt-3 w-full" disabled={!name.trim() || !picked.length} onClick={() => go(() => post<ChatChannel>('/chat/groups', { name: name.trim(), userIds: picked }))}>Create group with {picked.length || 'no'} {picked.length === 1 ? 'person' : 'people'}</button>
         </>
       )}
-      {tab === 'project' && (
+      {tab === 'project' && tabs.length > 0 && (
         <>
           <input className="input" placeholder="Search projects" value={pq} onChange={(e) => setPq(e.target.value)} aria-label="Search projects" autoFocus />
           <ul className="mt-2 max-h-64 overflow-y-auto">

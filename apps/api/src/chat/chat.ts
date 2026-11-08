@@ -7,8 +7,8 @@
  * - Offline: every message has a growing `seq`, so a device that lost its connection asks for
  *   "everything after N" (GET /chat/sync). Messages written offline carry an id from the device
  *   (`clientId`); sending the same one twice saves it once, so the device can retry safely.
- * - Access (docs/TEAM_CHAT.md → Who gets chat): the Super Admin turns chat on for admins and picks their options;
- *   an admin who has chat turns it on for their own users, with options up to their own. Nobody else has it.
+ * - Access (docs/TEAM_CHAT.md → Who gets chat): chat and its options are features. The Super Admin's plan gives them to
+ *   the organisation and its admins; an admin then turns them on for their users in Settings → Features & access.
  * Client and vendor portal users never see the chat.
  */
 import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, HttpCode, Injectable, Module, NotFoundException, Param, Patch, Post, Query, Sse, MessageEvent } from '@nestjs/common';
@@ -20,16 +20,15 @@ import { AuthUser } from '../auth/auth.types';
 import { CurrentUser, STAFF } from '../auth/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import { PrismaService } from '../prisma/prisma.service';
+import { EntitlementsService, userFeatures } from '../super-admin/entitlements';
 
 const OPEN_KINDS: ChatChannelKind[] = ['GENERAL', 'ANNOUNCEMENTS', 'PROJECT'];
 /** What someone may do in chat besides reading Announcements and General. */
 export const CHAT_OPTIONS = ['general', 'project_rooms', 'groups', 'direct'] as const;
 export type ChatOption = (typeof CHAT_OPTIONS)[number];
-export const CHAT_OPTION_LABEL: Record<ChatOption, string> = { general: 'Post in General', project_rooms: 'Project rooms', groups: 'Make groups', direct: 'Direct messages' };
 /** Present = chat is on for this person; the set holds their options. */
 type Access = Set<ChatOption>;
-const cleanOptions = (o: string[]) => CHAT_OPTIONS.filter((k) => o.includes(k));
-const OFF = { statusCode: 403, code: 'CHAT_OFF', message: 'Team chat is not turned on for you. Ask your admin.' };
+const OFF = { statusCode: 403, code: 'CHAT_OFF', message: 'Team chat is not turned on for you. Ask your admin to allow it in Settings → Features & access.' };
 export const TONES = ['on_track', 'at_risk', 'blocked', 'done'] as const;
 const PAGE = 50;
 const SYNC_LIMIT = 500;
@@ -54,7 +53,6 @@ export const channelSettingsSchema = z
   .refine((b) => Object.keys(b).length > 0, 'Nothing to change');
 export const readSchema = z.object({ seq: z.number().int().min(0) }).strict();
 export const messagesQuery = z.object({ before: z.coerce.number().int().optional(), after: z.coerce.number().int().optional(), limit: z.coerce.number().int().min(1).max(200).optional() });
-export const accessSchema = z.object({ enabled: z.boolean(), options: z.array(z.enum(CHAT_OPTIONS)).max(4).default([]) }).strict();
 export const syncQuery = z.object({ after: z.coerce.number().int().min(0).default(0), changedSince: z.string().datetime().optional(), latestOnly: z.enum(['true', 'false']).optional() });
 
 /** What travels on the live stream. `audience` limits private channels to their members. */
@@ -91,32 +89,25 @@ export class ChatService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   // ─── Access ──────────────────────────────────────────────────────────────
 
   /**
-   * Everyone in the organisation who has chat, with their options. The Super Admin always has every option;
-   * an admin has what the Super Admin gave; anyone else has what an admin gave them, but only options that at
-   * least one admin with chat still has (so taking chat away from the admins takes it away from their users).
+   * Everyone in the organisation who has chat, with their options. Chat and each option are features
+   * (docs/FEATURE_ACCESS.md): the Super Admin's plan and switches decide what the organisation and each admin
+   * get, and the organisation's Admin decides which users get chat and which options (Settings → Features & access).
    */
   async accessMap(orgId: string): Promise<Map<string, Access>> {
     const [org, rows] = await Promise.all([
-      this.prisma.organization.findUnique({ where: { id: orgId }, select: { platformOwner: true } }),
-      this.prisma.user.findMany({ where: { organizationId: orgId, active: true, role: { in: STAFF } }, select: { id: true, role: true, superAdmin: true, chatEnabled: true, chatOptions: true } }),
+      this.entitlements.loadOrg(orgId),
+      this.prisma.user.findMany({ where: { organizationId: orgId, active: true, role: { in: STAFF } }, select: { id: true, role: true, superAdmin: true, mobileAccess: true, featuresOff: true, mobileFeaturesOff: true } }),
     ]);
     const map = new Map<string, Access>();
-    const adminOptions = new Set<ChatOption>();
     for (const r of rows) {
-      if (r.superAdmin && org?.platformOwner) map.set(r.id, new Set(CHAT_OPTIONS));
-      else if (r.role === 'ADMIN' && r.chatEnabled) map.set(r.id, new Set(cleanOptions(r.chatOptions)));
-      for (const o of map.get(r.id) ?? []) adminOptions.add(o);
-    }
-    if (map.size) {
-      for (const r of rows) {
-        if (map.has(r.id) || r.role === 'ADMIN' || !r.chatEnabled) continue;
-        map.set(r.id, new Set(cleanOptions(r.chatOptions).filter((o) => adminOptions.has(o))));
-      }
+      const f = userFeatures(org, r).web;
+      if (f.chat) map.set(r.id, new Set(CHAT_OPTIONS.filter((o) => f[`chat.${o}`])));
     }
     return map;
   }
@@ -134,13 +125,13 @@ export class ChatService {
   private async need(u: AuthUser, option?: ChatOption, message?: string): Promise<Access> {
     const a = await this.access(u);
     if (!a) throw new ForbiddenException(OFF);
-    if (option && !a.has(option)) throw new ForbiddenException(message ?? 'Your admin has not turned this on for you.');
+    if (option && !a.has(option)) throw new ForbiddenException(message ?? 'Your admin has not turned this on for you (Settings → Features & access).');
     return a;
   }
 
   async me(u: AuthUser) {
     const a = await this.access(u);
-    return { enabled: !!a, options: a ? [...a] : [], manage: !!a && isAdmin(u), superAdmin: !!u.superAdmin };
+    return { enabled: !!a, options: a ? [...a] : [] };
   }
 
   /** General and Announcements always exist; made on first use, once per organisation. */
@@ -456,66 +447,6 @@ export class ChatService {
     return rows.map((p) => ({ ...p, direct: map.get(p.id)!.has('direct'), online: (this.online.get(p.id) ?? 0) > 0 }));
   }
 
-  // ─── Who gets chat ───────────────────────────────────────────────────────
-
-  private shapeAccess(r: { id: string; name: string; email: string; role: string; superAdmin: boolean; chatEnabled: boolean; chatOptions: string[] }, map: Map<string, Access>) {
-    const eff = map.get(r.id);
-    return { id: r.id, name: r.name, email: r.email, role: r.role, superAdmin: r.superAdmin, enabled: r.chatEnabled, options: cleanOptions(r.chatOptions), effective: eff ? [...eff] : null };
-  }
-  private readonly accessSelect = { id: true, name: true, email: true, role: true, superAdmin: true, chatEnabled: true, chatOptions: true } as const;
-
-  /** An admin who has chat: their users and what each has. The Super Admin also sees the admins here. */
-  async accessList(u: AuthUser) {
-    const a = await this.need(u);
-    if (!isAdmin(u)) throw new ForbiddenException('Only admins with team chat give it to people');
-    const map = await this.accessMap(u.organizationId);
-    const rows = await this.prisma.user.findMany({
-      where: { organizationId: u.organizationId, active: true, role: { in: u.superAdmin ? STAFF : STAFF.filter((r) => r !== 'ADMIN') }, id: { not: u.id } },
-      select: this.accessSelect,
-      orderBy: [{ role: 'asc' }, { name: 'asc' }],
-    });
-    return { options: [...a], labels: CHAT_OPTION_LABEL, people: rows.map((r) => this.shapeAccess(r, map)) };
-  }
-
-  /** Turn chat on or off for one of the admin's users, with options up to the admin's own. */
-  async setAccess(u: AuthUser, userId: string, b: z.infer<typeof accessSchema>) {
-    const a = await this.need(u);
-    if (!isAdmin(u)) throw new ForbiddenException('Only admins with team chat give it to people');
-    if (userId === u.id) throw new BadRequestException('You cannot change your own chat access');
-    const t = await this.prisma.user.findFirst({ where: { id: userId, organizationId: u.organizationId, active: true, role: { in: STAFF } }, select: { id: true, role: true } });
-    if (!t) throw new NotFoundException('Person not found');
-    if (t.role === 'ADMIN' && !u.superAdmin) throw new ForbiddenException('Only the Super Admin gives team chat to admins');
-    const extra = b.options.filter((o) => !a.has(o));
-    if (extra.length) throw new ForbiddenException(`You can only give options you have yourself: ${extra.map((o) => CHAT_OPTION_LABEL[o]).join(', ')}`);
-    return this.writeAccess(u, t.id, b);
-  }
-
-  /** Super Admin: the admins of an organisation and their chat access. */
-  async orgAccess(orgId: string) {
-    const org = await this.prisma.organization.findUnique({ where: { id: orgId }, select: { id: true, platformOwner: true } });
-    if (!org) throw new NotFoundException('Organisation not found');
-    const map = await this.accessMap(orgId);
-    const admins = await this.prisma.user.findMany({ where: { organizationId: orgId, active: true, role: 'ADMIN' }, select: this.accessSelect, orderBy: { name: 'asc' } });
-    const users = await this.prisma.user.count({ where: { organizationId: orgId, active: true, role: { in: STAFF.filter((r) => r !== 'ADMIN') } } });
-    return { labels: CHAT_OPTION_LABEL, options: CHAT_OPTIONS, admins: admins.map((r) => this.shapeAccess(r, map)), usersWithChat: [...map.keys()].filter((id) => !admins.some((x) => x.id === id)).length, users };
-  }
-
-  /** Super Admin: give or take away chat for an admin, in any organisation. */
-  async setAdminAccess(u: AuthUser, userId: string, b: z.infer<typeof accessSchema>) {
-    const t = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true, role: true, organizationId: true } });
-    if (!t) throw new NotFoundException('Person not found');
-    if (t.role !== 'ADMIN') throw new BadRequestException('The Super Admin gives team chat to admins; admins give it to their users');
-    return this.writeAccess(u, t.id, b, t.organizationId);
-  }
-
-  private async writeAccess(u: AuthUser, userId: string, b: z.infer<typeof accessSchema>, orgId = u.organizationId) {
-    const r = await this.prisma.user.update({ where: { id: userId }, data: { chatEnabled: b.enabled, chatOptions: b.enabled ? b.options : [] }, select: this.accessSelect });
-    await this.audit.record({ organizationId: orgId, actorId: u.id, action: 'chat.access', entityType: 'User', entityId: userId, detail: { enabled: b.enabled, options: b.options } });
-    // Their open tabs reload what they may do (and an admin's change can change their users' too).
-    this.emit(orgId, null, 'access', { userId });
-    return this.shapeAccess(r, await this.accessMap(orgId));
-  }
-
   stream(u: AuthUser): Observable<MessageEvent> {
     return new Observable<MessageEvent>((sub) => {
       let a: Access | null = null;
@@ -528,11 +459,6 @@ export class ChatService {
       const s = this.bus.subscribe((e) => {
         if (e.organizationId !== u.organizationId) return;
         if (e.audience && !e.audience.includes(u.id)) return;
-        if (e.type === 'access') {
-          // Chat access changed somewhere in the organisation: work it out again.
-          this.accessMap(u.organizationId).then((m) => { a = m.get(u.id) ?? null; sub.next({ type: 'access', data: { enabled: !!a } }); if (!a) sub.complete(); });
-          return;
-        }
         if (!a || (e.kind === 'PROJECT' && !a.has('project_rooms')) || (e.kind === 'DIRECT' && !a.has('direct'))) return;
         sub.next({ type: e.type, data: e.data as object });
       });
@@ -575,16 +501,6 @@ export class ChatController {
   @Get('me')
   me(@CurrentUser() u: AuthUser) {
     return this.svc.me(u);
-  }
-
-  @Get('access')
-  accessList(@CurrentUser() u: AuthUser) {
-    return this.svc.accessList(u);
-  }
-
-  @Patch('access/:userId')
-  setAccess(@CurrentUser() u: AuthUser, @Param('userId') userId: string, @Body(new ZodPipe(accessSchema)) b: z.infer<typeof accessSchema>) {
-    return this.svc.setAccess(u, userId, b);
   }
 
   @Get('channels')
@@ -656,22 +572,6 @@ export class ChatController {
   }
 }
 
-/** Super Admin console: who among each organisation's admins has team chat. */
-@Controller('super-admin')
-export class SuperAdminChatController {
-  constructor(private readonly svc: ChatService) {}
-
-  @Get('organizations/:id/chat-access')
-  orgAccess(@Param('id') orgId: string) {
-    return this.svc.orgAccess(orgId);
-  }
-
-  @Patch('chat-access/:userId')
-  setAdminAccess(@CurrentUser() u: AuthUser, @Param('userId') userId: string, @Body(new ZodPipe(accessSchema)) b: z.infer<typeof accessSchema>) {
-    return this.svc.setAdminAccess(u, userId, b);
-  }
-}
-
-@Module({ controllers: [ChatController, SuperAdminChatController], providers: [ChatService], exports: [ChatService] })
+@Module({ controllers: [ChatController], providers: [ChatService], exports: [ChatService] })
 export class ChatModule {}
 

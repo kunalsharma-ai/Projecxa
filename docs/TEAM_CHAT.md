@@ -6,6 +6,28 @@ account and nothing to set up in Settings → Integrations. Client and vendor po
 
 Menu: **Work → Team chat** (`/chat`). The menu item shows how many messages are unread.
 
+## Who gets chat
+
+Chat is controlled in layers, like every other feature (docs/FEATURE_ACCESS.md):
+
+1. **Super Admin.** Team chat is part of a plan (Professional and Enterprise by default) or given to one
+   organisation as an extra (Super Admin → Organisations → Features). The Super Admin can also take it away from one
+   person, an admin included (Organisations → People). The organisation that runs the server always has it.
+2. **Admins.** When the organisation has chat, its admins get it first, with every option. Nobody else has it yet.
+3. **Users.** An admin turns it on for their users in **Settings → Features & access**: everyone, chosen people,
+   admins only, or no one. Each option is its own switch there, given the same way:
+
+| Switch | What it allows |
+| --- | --- |
+| `chat` Team chat | Use chat: read Announcements and General, and any group someone adds you to |
+| `chat.general` Post in General | Write in General |
+| `chat.project_rooms` Project rooms | See, open and post in project rooms |
+| `chat.groups` Make groups | Start group conversations |
+| `chat.direct` Direct messages | Message one person; you can only message people who have it too |
+
+Announcements are always posted by admins and the Super Admin only. Someone without chat does not see Team chat in
+the menu, and the server refuses its API (`403 FEATURE_DISABLED`). Options are checked by the server on every request.
+
 ## Conversations
 
 | Kind | Who sees it | Who posts |
@@ -49,7 +71,7 @@ be cached by the browser; that part (an installable app with a service worker) i
 - **Several API processes**: the live stream is in-process. With more than one API process behind a load
   balancer, messages still arrive through the one-minute catch-up; for instant delivery across processes, run one
   API process or add Redis pub/sub (Redis is already in docker-compose).
-- **Feature switch**: `chat` (Super Admin → features; web only for now). It is in the starter plans.
+- **Feature switches**: `chat`, `chat.general`, `chat.project_rooms`, `chat.groups`, `chat.direct` (web only for now). See *Who gets chat*.
 
 ### API (staff only)
 
@@ -68,7 +90,8 @@ be cached by the browser; that part (an installable app with a service worker) i
 | POST | `/chat/channels/:id/read` | `{ seq }` read up to here (only moves forward) |
 | PATCH / DELETE | `/chat/messages/:id` | Edit / delete |
 | GET | `/chat/sync` | `?after=<seq>&changedSince=<ISO time>`: what this device missed (500 at a time, `more` when there is more) |
-| GET | `/chat/people` | Active staff, with `online` |
+| GET | `/chat/me` | `{ enabled, options }`: what this person may do in chat |
+| GET | `/chat/people` | Teammates who have chat, with `online` and `direct` |
 | GET (SSE) | `/chat/stream` | Events: `hello`, `message`, `channel`, `read`, `presence`, `ping` |
 
 Tables: `ChatChannel`, `ChatMember` (members of groups and direct messages, and everyone's read position),

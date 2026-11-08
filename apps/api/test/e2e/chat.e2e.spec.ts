@@ -28,6 +28,10 @@ describe('Team chat (e2e)', () => {
     pm = api(app, await login(app, a.users.PROJECT_MANAGER.email));
     viewer = api(app, await login(app, a.users.VIEWER.email));
     other = api(app, await login(app, b.users.PROJECT_MANAGER.email));
+    // Team chat starts as admins only; these admins give it and every option to their whole team.
+    for (const t of [admin, api(app, await login(app, b.users.ADMIN.email))]) {
+      for (const f of ['chat', 'chat.general', 'chat.project_rooms', 'chat.groups', 'chat.direct']) await t.put(`/feature-access/${f}`, { mode: 'everyone' }).expect(200);
+    }
     const clientId = (await pm.post('/clients', { name: 'Acme', code: 'ACME' }).expect(201)).body.id;
     const p = (await pm.post('/projects', { name: 'Brand tracker', category: 'B2C', clientId, defaults: { language: 'en', loiMinutes: 10, irPercent: 50, cpi: 5, targetCompletes: 10, liveSurveyUrl: 'https://client.example.com/s?rid={session_token}' }, countries: [{ countryCode: 'US' }] }).expect(201)).body;
     projectId = p.id;
@@ -155,5 +159,45 @@ describe('Team chat (e2e)', () => {
     expect(bodies).toEqual(['Live hello']);
     expect(seen[0].type).toBe('hello');
     expect((await pm.get('/chat/people').expect(200)).body.find((p: { id: string }) => p.id === users.ADMIN.id).online).toBe(false);
+  });
+
+  it('Super Admin → Admin → users: chat and each option follow Features & access', async () => {
+    const t = await makeOrg(prisma, 'chat-layers');
+    const tAdmin = api(app, await login(app, t.users.ADMIN.email));
+    const tPm = api(app, await login(app, t.users.PROJECT_MANAGER.email));
+    const tViewer = api(app, await login(app, t.users.VIEWER.email));
+    // Before the Admin decides, only admins have chat, with every option.
+    expect((await tAdmin.get('/chat/me').expect(200)).body).toEqual({ enabled: true, options: ['general', 'project_rooms', 'groups', 'direct'] });
+    expect((await tPm.get('/chat/me').expect(403)).body.code).toBe('FEATURE_DISABLED');
+    await tPm.get('/chat/channels').expect(403);
+
+    // The Admin gives chat to the viewer only, without any options: they read Announcements and General.
+    await tAdmin.put('/feature-access/chat', { mode: 'people', people: [t.users.VIEWER.id] }).expect(200);
+    expect((await tViewer.get('/chat/me').expect(200)).body).toEqual({ enabled: true, options: [] });
+    await tPm.get('/chat/channels').expect(403);
+    const list = (await tViewer.get('/chat/channels').expect(200)).body;
+    expect(list.map((c: { kind: string }) => c.kind)).toEqual(['ANNOUNCEMENTS', 'GENERAL']);
+    const general = find(list, 'GENERAL') as unknown as { id: string; canPost: boolean; postBlock: string };
+    expect(general.canPost).toBe(false);
+    expect(general.postBlock).toMatch(/read General/);
+    await tViewer.post(`/chat/channels/${general.id}/messages`, { body: 'hi' }).expect(403);
+    await tViewer.post('/chat/direct', { userId: t.users.ADMIN.id }).expect(403);
+    await tViewer.post('/chat/groups', { name: 'x', userIds: [t.users.ADMIN.id] }).expect(403);
+    // Only people with chat show up, and you cannot message someone without direct messages.
+    expect((await tAdmin.get('/chat/people').expect(200)).body.map((p: { id: string }) => p.id).sort()).toEqual([t.users.ADMIN.id, t.users.VIEWER.id].sort());
+    await tAdmin.post('/chat/direct', { userId: t.users.PROJECT_MANAGER.id }).expect(400);
+    await tAdmin.post('/chat/direct', { userId: t.users.VIEWER.id }).expect(400);
+
+    // Turning on options one by one.
+    await tAdmin.put('/feature-access/chat.general', { mode: 'people', people: [t.users.VIEWER.id] }).expect(200);
+    await tAdmin.put('/feature-access/chat.direct', { mode: 'people', people: [t.users.VIEWER.id] }).expect(200);
+    await tViewer.post(`/chat/channels/${general.id}/messages`, { body: 'Hello from the viewer' }).expect(201);
+    const dm = (await tViewer.post('/chat/direct', { userId: t.users.ADMIN.id }).expect(201)).body;
+    await tViewer.post('/chat/groups', { name: 'x', userIds: [t.users.ADMIN.id] }).expect(403);
+
+    // Super Admin layer: taking chat away from the organisation takes it from the admins and their users too.
+    await prisma.featureOverride.create({ data: { organizationId: t.org.id, feature: 'chat', channel: 'web', enabled: false } });
+    expect((await tAdmin.get('/chat/channels').expect(403)).body.code).toBe('FEATURE_DISABLED');
+    await tViewer.get(`/chat/channels/${dm.id}/messages`).expect(403);
   });
 });
