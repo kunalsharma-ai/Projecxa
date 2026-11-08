@@ -1,5 +1,5 @@
 import { hasFeature, type Features } from '@/lib/types';
-import { MessageCircle, CreditCard, Database, PieChart, Crown, Columns3, Activity, Route, MessagesSquare, ListChecks, Sparkles, BarChart3, BookOpenCheck, Users, HandCoins, Building2, FolderKanban, FormInput, ReceiptText, KeyRound, LayoutDashboard, Palette, PlugZap, PlusCircle, Settings, ShieldCheck, Stamp, Trophy, Truck, type LucideIcon } from 'lucide-react';
+import { MessageCircle, CreditCard, Database, PieChart, Crown, Columns3, Activity, Route, MessagesSquare, ListChecks, Sparkles, BarChart3, BookOpenCheck, Users, HandCoins, Building2, FolderKanban, FormInput, ReceiptText, KeyRound, LayoutDashboard, Palette, PlugZap, PlusCircle, Settings, ShieldCheck, Stamp, ToggleRight, Trophy, Truck, type LucideIcon } from 'lucide-react';
 
 export type NavGroup = 'Main' | 'Fieldwork' | 'Finance' | 'Workspace' | 'Admin';
 export interface NavItem { href: string; label: string; icon: LucideIcon; group: NavGroup; keywords?: string; editorsOnly?: boolean; adminOnly?: boolean; feature?: string; superAdminOnly?: boolean }
@@ -35,6 +35,7 @@ export const NAV: NavItem[] = [
   { href: '/portal-access', label: 'Portal access', icon: KeyRound, group: 'Admin', keywords: 'client vendor logins', feature: 'portal_access' },
   { href: '/settings/integrations', label: 'Integrations', icon: PlugZap, group: 'Admin', keywords: 'connect email smtp zoho mail google microsoft sso sign-in gemini ai api key zoho books xero quickbooks tally sampbidx bidzo setup keys', adminOnly: true, feature: 'integrations' },
   { href: '/settings/team', label: 'Team', icon: Users, group: 'Admin', keywords: 'staff users invite people roles deactivate password', adminOnly: true, feature: 'team' },
+  { href: '/settings/features', label: 'Features & access', icon: ToggleRight, group: 'Admin', keywords: 'features access permissions plan allow chat who can use turn off hide users roles', adminOnly: true, feature: 'team' },
   { href: '/settings/privacy', label: 'Privacy', icon: ShieldCheck, group: 'Admin', keywords: 'gdpr retention consent erase delete anonymise personal data', adminOnly: true, feature: 'privacy' },
   { href: '/settings/subscription', label: 'Subscription', icon: CreditCard, group: 'Admin', keywords: 'plan billing pay payment renew upgrade invoice receipt razorpay stripe bank transfer upi', adminOnly: true },
   { href: '/settings/branding', label: 'Branding', icon: Stamp, group: 'Admin', keywords: 'white label logo colours domain custom brand name email sender', adminOnly: true, feature: 'branding' },

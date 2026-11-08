@@ -217,6 +217,12 @@ export const HELP: Record<string, HelpEntry> = {
     how: 'Invite by email, change role, deactivate someone who left, or sign them out everywhere.',
     where: 'Staff only. Client and vendor logins are under Portal access.',
   },
+  'page:/settings/features': {
+    title: 'Features & access',
+    what: 'Who in your team gets each feature your plan includes.',
+    how: 'Pick Everyone, Admins only, Chosen people (then tick them) or No one. Locked features are not in your plan: ask your SampTrek provider or upgrade under Subscription.',
+    where: 'Applies at once on the web and in the Android/iOS app, and the server refuses what someone was not given. New features such as Team chat start with admins only.',
+  },
   'page:/settings/integrations': {
     title: 'Integrations',
     what: 'Every connection to another service, set up here and not on the server: email, sign-in, accounting, AI, push and more.',
