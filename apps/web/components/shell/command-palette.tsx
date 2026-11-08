@@ -7,7 +7,7 @@ import { canEdit, useMe } from '@/components/me';
 import { useTheme } from '@/components/theme';
 import { get } from '@/lib/api';
 import { THEMES } from '@/lib/theme';
-import { bidzoUrl, NAV, visibleNav } from './nav';
+import { sampbidxUrl, NAV, visibleNav } from './nav';
 
 interface Cmd { id: string; group: string; label: string; hint?: string; icon: React.ComponentType<{ className?: string }>; run: () => void; keywords?: string }
 interface Lookups { clients: { id: string; name: string; code: string }[]; vendors: { id: string; name: string; code: string }[] }
@@ -67,7 +67,7 @@ export function CommandPalette({ open, onClose, onToggleInsights, onStartTour }:
     const cmds: Cmd[] = [
       ...visibleNav(me?.user.role, me?.features).map((n) => ({ id: `nav-${n.href}`, group: 'Go to', label: n.label, icon: n.icon, run: go(n.href), keywords: n.keywords })),
       ...(canEdit(me) ? [{ id: 'new-project', group: 'Actions', label: 'Create project', icon: Zap, run: go('/projects/new') }, { id: 'project-templates', group: 'Actions', label: 'Project templates', icon: Zap, run: go('/projects/templates') }] : []),
-      ...(bidzoUrl(me) ? [{ id: 'new-bid', group: 'Actions', label: 'Create bid in Bidzo', icon: Zap, run: () => { onClose(); window.open(`${bidzoUrl(me)}/bids/new`, '_blank', 'noopener'); } }] : []),
+      ...(sampbidxUrl(me) ? [{ id: 'new-bid', group: 'Actions', label: 'Create bid in SampBidx', icon: Zap, run: () => { onClose(); window.open(`${sampbidxUrl(me)}/bids/new`, '_blank', 'noopener'); } }] : []),
       { id: 'mode', group: 'Actions', label: dark ? 'Switch to light mode' : 'Switch to dark mode', icon: dark ? Sun : Moon, run: () => { update({ mode: dark ? 'light' : 'dark' }); onClose(); }, keywords: 'theme appearance' },
       { id: 'sidebar', group: 'Actions', label: prefs.sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar', hint: '[', icon: PanelLeft, run: () => { update({ sidebarCollapsed: !prefs.sidebarCollapsed }); onClose(); } },
       { id: 'insights', group: 'Actions', label: prefs.insightsOpen ? 'Hide insights panel' : 'Show insights panel', hint: ']', icon: PanelRight, run: () => { onToggleInsights(); onClose(); } },

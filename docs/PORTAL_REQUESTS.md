@@ -90,6 +90,6 @@ Files are stored in the database (`SharedFile`, 10 MB each). Each file is shared
 
 - Vendor self-registration.
 - Feasibility and CPI quote requests to vendors.
-- RFQs, which stay in Bidzo.
+- RFQs, which stay in SampBidx.
 
 Migration: `20261102141402_portal_requests_files`.

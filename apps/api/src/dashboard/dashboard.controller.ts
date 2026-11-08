@@ -350,7 +350,7 @@ export class DashboardController {
         items.push({ id: `idle-${c.id}`, severity: 'warn', title: `${c.project.projectCode} ${c.countryCode} has had no traffic for 24h`, detail: `${c.completes} of ${c.targetCompletes} completes so far.`, href: `/projects/${c.project.id}` });
       }
     }
-    if (wonBidsNew) items.push({ id: 'won-bids', severity: 'info', title: `${wonBidsNew} won bid${wonBidsNew === 1 ? '' : 's'} waiting for project setup`, detail: 'Won in Bidzo; set up the project from the Won bids list.', href: '/won-bids' });
+    if (wonBidsNew) items.push({ id: 'won-bids', severity: 'info', title: `${wonBidsNew} won bid${wonBidsNew === 1 ? '' : 's'} waiting for project setup`, detail: 'Won in SampBidx; set up the project from the Won bids list.', href: '/won-bids' });
     for (const p of pending) {
       const proj = projects.find((x) => x.id === p.projectId);
       if (proj) items.push({ id: `approve-${proj.id}`, severity: 'info', title: `${p._count._all} complete${p._count._all === 1 ? '' : 's'} to review on ${proj.projectCode}`, detail: proj.name, href: `/projects/${proj.id}` });

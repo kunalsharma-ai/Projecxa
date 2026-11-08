@@ -26,7 +26,7 @@ export interface FieldDef {
 }
 export interface KindDef {
   kind: IntegrationKind;
-  group: 'Email' | 'Sign-in' | 'AI' | 'Accounting' | 'Bidzo' | 'Payments' | 'Mobile';
+  group: 'Email' | 'Sign-in' | 'AI' | 'Accounting' | 'SampBidx' | 'Payments' | 'Mobile';
   label: string;
   summary: string;
   /** platform = one per SampTrek server, set by the organisation that runs it (sign-in and accounting apps). */
@@ -274,18 +274,18 @@ export const CATALOG: KindDef[] = [
   },
   {
     kind: 'bidzo',
-    group: 'Bidzo',
-    label: 'Bidzo link',
-    summary: 'Where "New bid" opens. Won bids arrive through the signed Bidzo connection in Settings.',
+    group: 'SampBidx',
+    label: 'SampBidx link',
+    summary: 'Where "New bid" opens. Won bids arrive through the signed SampBidx connection in Settings.',
     scope: 'org',
-    fields: [{ key: 'BIDZO_URL', label: 'Bidzo address', type: 'url', required: true, placeholder: 'https://bidzo.sampledge.com' }],
+    fields: [{ key: 'SAMPBIDX_URL', label: 'SampBidx address', type: 'url', required: true, placeholder: 'https://sampbidx.sampledge.com' }],
     steps: [
-      'Enter the address you open Bidzo at. "New bid" in the header and command palette then opens Bidzo there.',
-      'To receive won bids automatically, use Connect Bidzo under Settings → Bidzo connection and give Bidzo the endpoint, tenant and secret shown there.',
+      'Enter the address you open SampBidx at. "New bid" in the header and command palette then opens SampBidx there.',
+      'To receive won bids automatically, use Connect SampBidx under Settings → SampBidx connection and give SampBidx the endpoint, tenant and secret shown there.',
     ],
     links: [],
     testable: false,
-    next: { label: 'Bidzo connection', href: '/settings#bidzo' },
+    next: { label: 'SampBidx connection', href: '/settings#sampbidx' },
   },
   {
     kind: 'razorpay',

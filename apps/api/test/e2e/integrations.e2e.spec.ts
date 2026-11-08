@@ -212,11 +212,19 @@ describe('Settings → Integrations (e2e)', () => {
     expect(await svc.tallyOrgs()).toEqual([ownerOrgId]);
   });
 
-  it('the Bidzo address shows in the staff session for the New bid link', async () => {
-    await admin.put('/integrations/settings/bidzo', { values: { BIDZO_URL: 'javascript:alert(1)' } }).expect(400);
-    await admin.put('/integrations/settings/bidzo', { values: { BIDZO_URL: 'https://bidzo.example.com' } }).expect(200);
-    expect((await pm.get('/auth/me').expect(200)).body.links.bidzoUrl).toBe('https://bidzo.example.com');
-    expect((await otherAdmin.get('/auth/me').expect(200)).body.links.bidzoUrl).toBeNull();
+  it('the SampBidx address shows in the staff session for the New bid link', async () => {
+    await admin.put('/integrations/settings/bidzo', { values: { SAMPBIDX_URL: 'javascript:alert(1)' } }).expect(400);
+    await admin.put('/integrations/settings/bidzo', { values: { SAMPBIDX_URL: 'https://sampbidx.example.com' } }).expect(200);
+    // bidzoUrl repeats the same value for app builds from before the rename.
+    expect((await pm.get('/auth/me').expect(200)).body.links).toEqual({ sampbidxUrl: 'https://sampbidx.example.com', bidzoUrl: 'https://sampbidx.example.com' });
+    expect((await otherAdmin.get('/auth/me').expect(200)).body.links.sampbidxUrl).toBeNull();
+  });
+
+  it('a link saved before the rename (as BIDZO_URL) still works and shows in the form', async () => {
+    await prisma.integrationSetting.update({ where: { organizationId_kind: { organizationId: ownerOrgId, kind: 'bidzo' } }, data: { values: { BIDZO_URL: 'https://old.example.com' } } });
+    expect((await pm.get('/auth/me').expect(200)).body.links.sampbidxUrl).toBe('https://old.example.com');
+    const card = (await admin.get('/integrations/settings').expect(200)).body.integrations.find((i: { kind: string }) => i.kind === 'bidzo');
+    expect(JSON.stringify(card)).toContain('https://old.example.com');
   });
 
   it('rejects unknown kinds and spots private addresses', async () => {

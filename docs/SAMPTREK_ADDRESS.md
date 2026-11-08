@@ -44,7 +44,7 @@ buttons in the app) at each provider you use, and keep the old ones until the mo
 - **Client survey platforms**: return links in Decipher/Forsta, Qualtrics, Alchemer and others
   (Redirects popup on each project). Live surveys keep working through the old host (step 1);
   use the new links for new projects.
-- **Bidzo and SAMPLEON** if they call SampTrek's webhooks or API at the old host.
+- **SampBidx and SAMPLEON** if they call SampTrek's webhooks or API at the old host.
 - **Custom domains** (Settings → Branding) point their CNAME at the web app's host name; update the
   target if it was `projexa.sampledge.com`.
 

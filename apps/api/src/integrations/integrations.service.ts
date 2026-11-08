@@ -1,6 +1,6 @@
 /**
  * Settings → Integrations (docs/INTEGRATIONS.md). Admins set up email, sign-in, AI, accounting and
- * Bidzo in the app; nothing has to be edited on the server. Secrets are AES-256-GCM encrypted at
+ * SampBidx in the app; nothing has to be edited on the server. Secrets are AES-256-GCM encrypted at
  * rest and never sent back to the browser. When an organisation has not saved an integration, the
  * old environment variables still apply, so existing servers keep working.
  */
@@ -122,6 +122,8 @@ export class IntegrationsService {
         const o = await this.prisma.organization.findUniqueOrThrow({ where: { id: row.organizationId }, select: { slug: true } });
         env[kind === 'tally' ? 'TALLY_TENANT' : 'ZOHO_BOOKS_TENANT'] = o.slug;
       }
+      // SampBidx was called Bidzo: links saved before the rename are stored as BIDZO_URL.
+      if (kind === 'bidzo' && !env.SAMPBIDX_URL?.trim() && env.BIDZO_URL?.trim()) env.SAMPBIDX_URL = env.BIDZO_URL;
       return { source: 'app', env, row };
     }
     return { source: configuredIn(kind, process.env) ? 'env' : null, env: process.env, row: null };
@@ -178,9 +180,10 @@ export class IntegrationsService {
     }
     return [...ids];
   }
-  async bidzoUrl(org: string): Promise<string | null> {
+  /** Where "New bid" opens SampBidx (integration kind stays `bidzo`, see docs/SAMPBIDX_INTEGRATION.md). */
+  async sampbidxUrl(org: string): Promise<string | null> {
     const r = await this.resolve(org, 'bidzo');
-    return r.source === 'app' ? r.env.BIDZO_URL?.trim() || null : null;
+    return r.source === 'app' ? r.env.SAMPBIDX_URL?.trim() || null : null;
   }
 
   /** Push to the phone app: on when saved as On here, or EXPO_PUSH=on in the server env. */
@@ -554,7 +557,7 @@ export function configuredIn(kind: IntegrationKind, env: EnvMap): boolean {
     case 'xero': return !!ledgersFrom(env).xero;
     case 'quickbooks': return !!ledgersFrom(env).quickbooks;
     case 'tally': return !!ledgersFrom(env).tally;
-    case 'bidzo': return !!env.BIDZO_URL?.trim();
+    case 'bidzo': return !!(env.SAMPBIDX_URL?.trim() || env.BIDZO_URL?.trim());
     case 'razorpay': return !!env.RAZORPAY_KEY_ID?.trim() && !!env.RAZORPAY_KEY_SECRET?.trim();
     case 'stripe': return !!env.STRIPE_SECRET_KEY?.trim();
     case 'push': return (env.EXPO_PUSH ?? '').trim() === 'on';

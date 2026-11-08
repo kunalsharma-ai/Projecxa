@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-/** One market line of a won bid, as Bidzo sends it (bid_country_lines + the quoted CPI). */
+/** One market line of a won bid, as SampBidx sends it (bid_country_lines + the quoted CPI). */
 export const bidCountrySchema = z.object({
   countryCode: z.string().regex(/^[A-Z]{2}$/),
   sampleSize: z.number().int().min(1).max(10_000_000),
@@ -11,8 +11,8 @@ export const bidCountrySchema = z.object({
   notes: z.string().max(2000).optional(),
 });
 
-/** Contract for POST /api/v1/integrations/bidzo/events (see docs/BIDZO_INTEGRATION.md). */
-export const bidzoEventSchema = z.object({
+/** Contract for POST /api/v1/integrations/sampbidx/events (old path /integrations/bidzo/events still works; see docs/SAMPBIDX_INTEGRATION.md). */
+export const sampbidxEventSchema = z.object({
   event: z.literal('bid.won'),
   eventId: z.string().min(1).max(200),
   occurredAt: z.string().datetime({ offset: true }),
@@ -32,7 +32,7 @@ export const bidzoEventSchema = z.object({
     countries: z.array(bidCountrySchema).min(1).max(200),
   }),
 });
-export type BidzoEvent = z.infer<typeof bidzoEventSchema>;
+export type SampBidxEvent = z.infer<typeof sampbidxEventSchema>;
 export type BidCountry = z.infer<typeof bidCountrySchema>;
 
 export const dismissSchema = z.object({ reason: z.string().max(500).optional() });

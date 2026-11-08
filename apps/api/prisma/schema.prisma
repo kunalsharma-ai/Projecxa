@@ -61,7 +61,7 @@ model Organization {
   lastWorkOrderNo        String?
   /// Put in front of every respondent UID (session token) we send to client surveys, e.g. "SMP-". Null = none.
   uidPrefix              String?
-  /// Shared secret Bidzo signs "bid won" webhooks with (HMAC-SHA256). Null = intake disabled.
+  /// Shared secret SampBidx signs "bid won" webhooks with (HMAC-SHA256). Null = intake disabled.
   bidzoWebhookSecret     String?
   /// Free third-party captcha keys set by an admin: { turnstile?: { siteKey, secret }, hcaptcha?: { siteKey, secret } }.
   captchaProviders       Json?
@@ -530,7 +530,7 @@ model Project {
   /// Human-readable project ID, e.g. PRX10001. Unique per tenant.
   projectCode             String
   workOrderNo             String?
-  /// Reference to the won bid in Bidzo (Bidzo owns bids; we only keep the link).
+  /// Reference to the won bid in SampBidx (SampBidx owns bids; we only keep the link).
   bidReference            String?
   name                    String
   /// What vendors see instead of the internal name, which can reveal the client. Null = "Survey <code>".
@@ -1074,13 +1074,13 @@ enum WonBidStatus {
   DISMISSED
 }
 
-/// A bid won in Bidzo, received by webhook. One row per Bidzo bid; a project is created from it at most once.
+/// A bid won in SampBidx, received by webhook. One row per SampBidx bid; a project is created from it at most once.
 model WonBid {
   id               String       @id @default(cuid())
   organizationId   String
   organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   source           String       @default("BIDZO")
-  /// Bidzo's bid id; with source and organization it makes repeated deliveries idempotent.
+  /// SampBidx's bid id; with source and organization it makes repeated deliveries idempotent.
   externalId       String
   bidNumber        String
   bidVersion       Int?

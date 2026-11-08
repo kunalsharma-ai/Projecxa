@@ -20,7 +20,7 @@ export const NAV: NavItem[] = [
   { href: '/reports', label: 'Reports', icon: BarChart3, group: 'Main', keywords: 'overall conversion client vendor clicks', feature: 'reports' },
   { href: '/projects/new', label: 'Create project', icon: PlusCircle, group: 'Fieldwork', keywords: 'new project wizard', editorsOnly: true, feature: 'projects.create' },
   { href: '/projects/board', label: 'Project board', icon: Columns3, group: 'Fieldwork', keywords: 'kanban gantt timeline stages pipeline board', feature: 'projects' },
-  { href: '/won-bids', label: 'Won bids', icon: Trophy, group: 'Fieldwork', keywords: 'bidzo awarded setup project', feature: 'won_bids' },
+  { href: '/won-bids', label: 'Won bids', icon: Trophy, group: 'Fieldwork', keywords: 'sampbidx bidzo awarded setup project', feature: 'won_bids' },
   { href: '/monitor', label: 'Fieldwork monitor', icon: Activity, group: 'Fieldwork', keywords: 'alerts pace autopilot stalled incidence quality', feature: 'monitor' },
   { href: '/redirect-health', label: 'Redirect health', icon: Route, group: 'Fieldwork', keywords: 'redirects fallback callbacks survey links broken latency errors health', feature: 'redirect_health' },
   { href: '/data-processing', label: 'Data processing', icon: Database, group: 'Fieldwork', keywords: 'data quality cleaning validation pipeline speeders duplicates clean data export reconciliation quota balance', feature: 'data_processing' },
@@ -32,7 +32,7 @@ export const NAV: NavItem[] = [
   { href: '/requests', label: 'Requests', icon: MessagesSquare, group: 'Workspace', keywords: 'tickets support client vendor portal disputes questions issues', feature: 'requests' },
   { href: '/copilot', label: 'AI copilot', icon: Sparkles, group: 'Workspace', keywords: 'assistant ai gemini voice ask chat summarise report', feature: 'copilot' },
   { href: '/portal-access', label: 'Portal access', icon: KeyRound, group: 'Admin', keywords: 'client vendor logins', feature: 'portal_access' },
-  { href: '/settings/integrations', label: 'Integrations', icon: PlugZap, group: 'Admin', keywords: 'connect email smtp zoho mail google microsoft sso sign-in gemini ai api key zoho books xero quickbooks tally bidzo setup keys', adminOnly: true, feature: 'integrations' },
+  { href: '/settings/integrations', label: 'Integrations', icon: PlugZap, group: 'Admin', keywords: 'connect email smtp zoho mail google microsoft sso sign-in gemini ai api key zoho books xero quickbooks tally sampbidx bidzo setup keys', adminOnly: true, feature: 'integrations' },
   { href: '/settings/team', label: 'Team', icon: Users, group: 'Admin', keywords: 'staff users invite people roles deactivate password', adminOnly: true, feature: 'team' },
   { href: '/settings/privacy', label: 'Privacy', icon: ShieldCheck, group: 'Admin', keywords: 'gdpr retention consent erase delete anonymise personal data', adminOnly: true, feature: 'privacy' },
   { href: '/settings/subscription', label: 'Subscription', icon: CreditCard, group: 'Admin', keywords: 'plan billing pay payment renew upgrade invoice receipt razorpay stripe bank transfer upi', adminOnly: true },
@@ -50,9 +50,11 @@ export function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-/** Bids live in Bidzo; SampTrek links there when the URL is set (Settings → Integrations, or the build env). */
-export const BIDZO_URL = process.env.NEXT_PUBLIC_BIDZO_URL || '';
-export const bidzoUrl = (me: { links?: { bidzoUrl: string | null } } | null) => (me?.links?.bidzoUrl || BIDZO_URL).replace(/\/$/, '');
+/** Bids live in SampBidx; SampTrek links there when the URL is set (Settings → Integrations, or the build env). */
+// NEXT_PUBLIC_BIDZO_URL is the old name (from when SampBidx was called Bidzo) and still works.
+export const SAMPBIDX_URL = process.env.NEXT_PUBLIC_SAMPBIDX_URL || process.env.NEXT_PUBLIC_BIDZO_URL || '';
+export const sampbidxUrl = (me: { links?: { sampbidxUrl?: string | null; bidzoUrl?: string | null } } | null) =>
+  (me?.links?.sampbidxUrl || me?.links?.bidzoUrl || SAMPBIDX_URL).replace(/\/$/, '');
 
 /** Items this person may see: by role, and by the features the Super Admin gave them (docs/SUPER_ADMIN.md). */
 export const visibleNav = (role: string | undefined, features?: Features) =>

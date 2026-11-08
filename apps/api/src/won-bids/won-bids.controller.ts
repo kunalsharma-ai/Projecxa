@@ -1,5 +1,5 @@
 /**
- * Won bids (legacy "Won bids" list): Bidzo sends a signed "bid.won" webhook, the bid appears
+ * Won bids (legacy "Won bids" list): SampBidx sends a signed "bid.won" webhook, the bid appears
  * here for project managers, and "Set up project" opens the project wizard prefilled from it.
  * A project can be created from a won bid once (enforced in ProjectsService.create).
  */
@@ -17,7 +17,7 @@ import { hmacSha256, randomToken, safeEqualHex } from '../common/crypto';
 import { ZodPipe } from '../common/zod.pipe';
 import { PrismaService } from '../prisma/prisma.service';
 import { PushService } from '../push/push';
-import { bidzoEventSchema, dismissSchema, listSchema } from './won-bids.schemas';
+import { sampbidxEventSchema, dismissSchema, listSchema } from './won-bids.schemas';
 
 /** Signed requests older or newer than this are rejected (replay protection). */
 export const SIGNATURE_WINDOW_SECONDS = 300;
@@ -26,17 +26,20 @@ export const SIGNATURE_WINDOW_SECONDS = 300;
 export class WonBidsController {
   constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly push: PushService) {}
 
-  // ───────────── Intake from Bidzo (public, HMAC-signed) ─────────────
+  // ───────────── Intake from SampBidx (public, HMAC-signed) ─────────────
 
   @Public()
-  @Post('integrations/bidzo/events')
+  // The /bidzo/ path and X-Bidzo-* headers are the names from before the rename; both keep working.
+  @Post(['integrations/sampbidx/events', 'integrations/bidzo/events'])
   @HttpCode(202)
   async intake(
     @Req() req: Request & { rawBody?: Buffer },
-    @Headers('x-bidzo-tenant') tenant?: string,
-    @Headers('x-bidzo-timestamp') ts?: string,
-    @Headers('x-bidzo-signature') sig?: string,
+    @Headers() headers: Record<string, string | undefined>,
   ) {
+    const header = (name: string) => headers[`x-sampbidx-${name}`] ?? headers[`x-bidzo-${name}`];
+    const tenant = header('tenant');
+    const ts = header('timestamp');
+    const sig = header('signature');
     // Same answer for unknown tenant, missing secret and bad signature: nothing to probe.
     const reject = () => new UnauthorizedException('Invalid signature');
     if (!tenant || !ts || !sig || !req.rawBody) throw reject();
@@ -48,7 +51,7 @@ export class WonBidsController {
     const age = Math.abs(Date.now() / 1000 - Number(ts));
     if (!Number.isFinite(age) || age > SIGNATURE_WINDOW_SECONDS) throw new UnauthorizedException('Timestamp outside the allowed window');
 
-    const parsed = bidzoEventSchema.safeParse(JSON.parse(raw));
+    const parsed = sampbidxEventSchema.safeParse(JSON.parse(raw));
     if (!parsed.success) {
       throw new BadRequestException({ message: 'Invalid event', issues: parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })) });
     }
@@ -121,7 +124,7 @@ export class WonBidsController {
       include: { project: { select: { id: true, projectCode: true, status: true } } },
     });
     if (!r) throw new NotFoundException();
-    // Suggest the SampTrek client whose name matches Bidzo's (case-insensitive).
+    // Suggest the SampTrek client whose name matches SampBidx's (case-insensitive).
     const match = await this.prisma.client.findFirst({
       where: { organizationId: u.organizationId, name: { equals: r.clientName, mode: 'insensitive' } },
       select: { id: true, name: true },
@@ -157,7 +160,7 @@ export class WonBidsController {
 
   // ───────────── Integration settings (admin) ─────────────
 
-  @Get('integrations/bidzo')
+  @Get(['integrations/sampbidx', 'integrations/bidzo'])
   async settings(@CurrentUser() u: AuthUser) {
     const [org, last] = await Promise.all([
       this.prisma.organization.findUniqueOrThrow({ where: { id: u.organizationId }, select: { slug: true, bidzoWebhookSecret: true } }),
@@ -166,28 +169,28 @@ export class WonBidsController {
     return {
       enabled: !!org.bidzoWebhookSecret,
       tenant: org.slug,
-      endpoint: `${config.publicBaseUrl}/api/v1/integrations/bidzo/events`,
+      endpoint: `${config.publicBaseUrl}/api/v1/integrations/sampbidx/events`,
       lastReceivedAt: last?.updatedAt ?? null,
     };
   }
 
-  /** Creates or rotates the signing secret. It is returned once; Bidzo must be updated with it. */
-  @Post('integrations/bidzo/secret')
+  /** Creates or rotates the signing secret. It is returned once; SampBidx must be updated with it. */
+  @Post(['integrations/sampbidx/secret', 'integrations/bidzo/secret'])
   @Roles('ADMIN')
   @HttpCode(200)
   async rotate(@CurrentUser() u: AuthUser) {
-    const secret = `bzw_${randomToken(32)}`;
+    const secret = `sbx_${randomToken(32)}`;
     await this.prisma.organization.update({ where: { id: u.organizationId }, data: { bidzoWebhookSecret: secret } });
-    await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'integration.bidzo.secret-rotated', entityType: 'Organization', entityId: u.organizationId });
+    await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'integration.sampbidx.secret-rotated', entityType: 'Organization', entityId: u.organizationId });
     return { ...(await this.settings(u)), secret };
   }
 
-  @Post('integrations/bidzo/disable')
+  @Post(['integrations/sampbidx/disable', 'integrations/bidzo/disable'])
   @Roles('ADMIN')
   @HttpCode(200)
   async disable(@CurrentUser() u: AuthUser) {
     await this.prisma.organization.update({ where: { id: u.organizationId }, data: { bidzoWebhookSecret: null } });
-    await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'integration.bidzo.disabled', entityType: 'Organization', entityId: u.organizationId });
+    await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'integration.sampbidx.disabled', entityType: 'Organization', entityId: u.organizationId });
     return this.settings(u);
   }
 }

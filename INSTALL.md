@@ -33,7 +33,7 @@ pnpm install --frozen-lockfile
 ## 3. Server settings
 
 Copy the examples and fill in **only these values**. Everything else (email, SSO,
-AI copilot, Zoho Books, Xero, QuickBooks, Tally, Bidzo) is set up later in the app
+AI copilot, Zoho Books, Xero, QuickBooks, Tally, SampBidx) is set up later in the app
 at **Settings → Integrations**, so leave the "Optional fallbacks" part of the file empty.
 
 ```bash
@@ -153,9 +153,9 @@ step-by-step help, the redirect URI to copy, and **Save and test**:
 - Sign in with Google, Microsoft and Zoho.
 - AI copilot and voice (Google Gemini).
 - Zoho Books, Xero, QuickBooks Online, Tally Prime.
-- Bidzo link.
+- SampBidx link.
 
-Captcha keys, the Bidzo webhook secret, alert webhooks and API keys are set under Settings and
+Captcha keys, the SampBidx webhook secret, alert webhooks and API keys are set under Settings and
 Settings → API and webhooks. Full detail: `docs/INTEGRATIONS.md`.
 
 ## 8. Updating later

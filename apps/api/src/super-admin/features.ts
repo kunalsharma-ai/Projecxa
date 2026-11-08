@@ -23,7 +23,7 @@ export interface FeatureDef {
 
 const INTEGRATION_LABEL: Record<string, string> = {
   smtp: 'Email (Zoho Mail / SMTP)', sso_google: 'Google sign-in', sso_microsoft: 'Microsoft sign-in', sso_zoho: 'Zoho sign-in', gemini: 'Google Gemini AI',
-  zoho_books: 'Zoho Books', xero: 'Xero', quickbooks: 'QuickBooks Online', tally: 'Tally Prime', bidzo: 'Bidzo',
+  zoho_books: 'Zoho Books', xero: 'Xero', quickbooks: 'QuickBooks Online', tally: 'Tally Prime', bidzo: 'SampBidx',
 };
 
 export const FEATURES: FeatureDef[] = [
@@ -34,7 +34,7 @@ export const FEATURES: FeatureDef[] = [
   { key: 'notifications', label: 'Notifications', group: 'Workspace', summary: 'Bell, alerts and insights panel', roles: STAFF, mobile: true },
   { key: 'projects', label: 'Projects', group: 'Projects', summary: 'Projects, links, quotas, redirects, security, respondent pages', roles: STAFF, mobile: true },
   { key: 'projects.create', label: 'Create projects', group: 'Projects', summary: 'New projects, templates and drafts', roles: EDITORS, mobile: true },
-  { key: 'won_bids', label: 'Won bids', group: 'Projects', summary: 'Bids won in Bidzo, ready to set up', roles: STAFF, mobile: true },
+  { key: 'won_bids', label: 'Won bids', group: 'Projects', summary: 'Bids won in SampBidx, ready to set up', roles: STAFF, mobile: true },
   { key: 'monitor', label: 'Fieldwork monitor', group: 'Projects', summary: 'Pace, alerts, autopilot and reallocation', roles: STAFF, mobile: true },
   { key: 'redirect_health', label: 'Redirect health', group: 'Projects', summary: 'Broken links, fallbacks and callbacks', roles: STAFF, mobile: true },
   { key: 'reports', label: 'Reports', group: 'Projects', summary: 'All reports, saved views, scheduled emails', roles: STAFF, mobile: true },
@@ -93,7 +93,7 @@ const ROUTES: [RegExp, string | null, string?][] = [
   [/^tasks(\/|$)/, 'tasks'],
   [/^(requests|files)(\/|$)/, 'requests'],
   [/^integrations\/settings(\/|$)/, 'integrations'],
-  [/^integrations\/bidzo/, 'integrations'],
+  [/^integrations\/(sampbidx|bidzo)/, 'integrations'],
   [/^integrations\/sampleon/, 'integrations'],
   [/^won-bids(\/|$)/, 'won_bids'],
   [/^(monitor|alerts)(\/|$)/, 'monitor'],

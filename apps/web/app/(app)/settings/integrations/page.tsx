@@ -24,7 +24,7 @@ const GROUPS: { id: string; title: string; icon: typeof Mail; blurb: string }[] 
   { id: 'AI', title: 'AI', icon: Bot, blurb: 'The copilot chat and voice assistant.' },
   { id: 'Accounting', title: 'Accounting', icon: BookOpenCheck, blurb: 'Direct sync of invoices, bills and payments.' },
   { id: 'Payments', title: 'Payments', icon: CreditCard, blurb: 'Online payment gateways organisations pay their plan through (Super Admin → Billing).' },
-  { id: 'Bidzo', title: 'Bidzo', icon: Link2, blurb: 'Bids live in Bidzo; SampTrek links there.' },
+  { id: 'SampBidx', title: 'SampBidx', icon: Link2, blurb: 'Bids live in SampBidx; SampTrek links there.' },
   { id: 'Mobile', title: 'Mobile app', icon: Smartphone, blurb: 'Push notifications to the Android and iOS app.' },
 ];
 
@@ -69,7 +69,7 @@ export default function IntegrationsPage() {
     <>
       <PageHeader
         title="Integrations"
-        subtitle="Connect email, sign-in, AI, accounting and Bidzo here. Nothing needs to change on the server."
+        subtitle="Connect email, sign-in, AI, accounting and SampBidx here. Nothing needs to change on the server."
         actions={<span className="chip bg-sunken text-muted"><PlugZap className="mr-1 h-3.5 w-3.5" />{counts.ready} of {counts.total} ready</span>}
       />
       <div className="space-y-6">

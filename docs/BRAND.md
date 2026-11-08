@@ -60,6 +60,12 @@ SampTrek name, with its own logo in emails and on sign-in pages.
 Sampledge's own server moves from `projexa.sampledge.com` to `samptrek.sampledge.com`. Links come from
 server settings, not code; see `docs/SAMPTREK_ADDRESS.md`.
 
+## Sister products
+
+The bidding tool that was called **Bidzo** is now **SampBidx**, and SAMPLEON is shown as
+**SampAudience**. The app says the new names everywhere; the old internal names that stay are listed in
+`docs/SAMPBIDX_INTEGRATION.md` and `docs/SAMPLEON_INTEGRATION.md`.
+
 ## Names kept on purpose
 
 These still say `projexa` because changing them would break running servers, saved data or other

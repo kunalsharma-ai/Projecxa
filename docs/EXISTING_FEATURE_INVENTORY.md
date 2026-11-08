@@ -18,13 +18,13 @@ SampTrek milestone 1 is a fresh codebase. Each item below says how milestone 1 t
 | Top 5 vendors / projects / clients | Ranked lists | **Milestone 8:** ranked by revenue in the selected period |
 | Live projects table | Project ID, bid number, work order, name, completes, terminates, overquotas, dropouts | Rebuilt as a compact list with progress |
 | Monthly revenue chart | Revenue / payout / profit / loss, monthly-weekly-daily, bar-line | **Milestone 8:** revenue, payout and profit (loss shows below zero), daily / weekly / monthly, bars or lines, with a table view |
-| Bidding dashboard, vendor dashboard | Menu entries only | Out of scope: bidding belongs to Bidzo |
+| Bidding dashboard, vendor dashboard | Menu entries only | Out of scope: bidding belongs to SampBidx |
 
 ## Won bids (`/member/project/won`)
 
 | Visible feature | Milestone 1 |
 |---|---|
-| List of won bids with "create project" and "open project" | **Rebuilt in milestone 5** at `/won-bids`. Bids won in Bidzo arrive automatically through a signed `bid.won` webhook (see `docs/BIDZO_INTEGRATION.md`). Tabs for waiting, created and dismissed; "Set up project" opens the wizard prefilled from the bid; "Open project" once created. |
+| List of won bids with "create project" and "open project" | **Rebuilt in milestone 5** at `/won-bids`. Bids won in SampBidx arrive automatically through a signed `bid.won` webhook (see `docs/SAMPBIDX_INTEGRATION.md`). Tabs for waiting, created and dismissed; "Set up project" opens the wizard prefilled from the bid; "Open project" once created. |
 
 ## Create project (`/member/project/create`)
 

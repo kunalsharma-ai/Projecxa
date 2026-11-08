@@ -214,7 +214,7 @@ async function main() {
   Sign in: admin@projexa.local or pm@projexa.local, password: ${ADMIN_PASSWORD}
   Portals: client@projexa.local (Acme Insights), vendor@projexa.local (Panel Alpha), same password
   Demo project: ${project.projectCode} (US, GB, DE × Panel Alpha, Sample Beta)
-  Won bids: 3 synthetic Bidzo bids waiting for setup at /won-bids`);
+  Won bids: 3 synthetic SampBidx bids waiting for setup at /won-bids`);
 }
 
 /**
@@ -460,7 +460,7 @@ main()
   })
   .finally(() => prisma.$disconnect());
 
-/** Synthetic bids as if Bidzo had sent `bid.won`, so the Won bids list has something to set up. */
+/** Synthetic bids as if SampBidx had sent `bid.won`, so the Won bids list has something to set up. */
 async function seedWonBids(organizationId: string) {
   const day = 86_400_000;
   const bids = [

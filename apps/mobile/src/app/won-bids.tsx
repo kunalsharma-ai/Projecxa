@@ -24,7 +24,7 @@ function WonBids() {
   const list = useLoad<{ counts: Record<string, number>; items: WonBid[] }>(`/won-bids${query({ status })}`);
   const n = (k: string) => list.data?.counts[k] ?? 0;
   return (
-    <Screen title="Won bids" subtitle="From Bidzo, waiting for project setup" back refreshing={list.refreshing} onRefresh={list.reload}>
+    <Screen title="Won bids" subtitle="From SampBidx, waiting for project setup" back refreshing={list.refreshing} onRefresh={list.reload}>
       <Segmented value={status} onChange={setStatus} options={[{ value: 'NEW', label: `New · ${n('NEW')}` }, { value: 'PROJECT_CREATED', label: `Set up · ${n('PROJECT_CREATED')}` }, { value: 'DISMISSED', label: 'Dismissed' }, { value: '', label: 'All' }]} />
       <LoadState loading={list.loading && !list.data} error={list.error} onRetry={list.reload} empty={!!list.data && !list.data.items.length} emptyText="No won bids here." />
       {list.data?.items.map((b) => (

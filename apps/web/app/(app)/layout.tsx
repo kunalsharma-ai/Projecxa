@@ -8,7 +8,7 @@ import { CopilotChat } from '@/components/copilot/chat';
 import { canEdit, MeContext } from '@/components/me';
 import { CommandPalette } from '@/components/shell/command-palette';
 import { InsightsPanel, type Insights } from '@/components/shell/insights-panel';
-import { bidzoUrl } from '@/components/shell/nav';
+import { sampbidxUrl } from '@/components/shell/nav';
 import { Popover } from '@/components/shell/popover';
 import { InfoTip } from '@/components/help';
 import { ProductTour } from '@/components/shell/product-tour';
@@ -187,15 +187,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                         <div className="font-medium">New project</div>
                         <div className="text-xs text-muted">Multi-country project wizard</div>
                       </Link>
-                      {bidzoUrl(me) ? (
-                        <a href={`${bidzoUrl(me)}/bids/new`} target="_blank" rel="noopener noreferrer" onClick={close} className="block rounded-md px-3 py-2 hover:bg-sunken">
+                      {sampbidxUrl(me) ? (
+                        <a href={`${sampbidxUrl(me)}/bids/new`} target="_blank" rel="noopener noreferrer" onClick={close} className="block rounded-md px-3 py-2 hover:bg-sunken">
                           <div className="font-medium">New bid</div>
-                          <div className="text-xs text-muted">Opens Bidzo, where bids live</div>
+                          <div className="text-xs text-muted">Opens SampBidx, where bids live</div>
                         </a>
                       ) : (
                         <div className="rounded-md px-3 py-2 text-muted">
                           <div className="font-medium">New bid</div>
-                          <div className="text-xs">Bids are created in Bidzo. An admin can add its address in Settings → Integrations.</div>
+                          <div className="text-xs">Bids are created in SampBidx. An admin can add its address in Settings → Integrations.</div>
                         </div>
                       )}
                     </div>
