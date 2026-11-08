@@ -65,8 +65,12 @@ function run(cmd: string, args: string[], env: NodeJS.ProcessEnv, stdin?: NodeJS
   });
 }
 
+const NEWER_SETTINGS = /^SET (transaction_timeout)\b/;
+
 function cleanPgError(s: string) {
-  const lines = s.split('\n').map((l) => l.trim()).filter((l) => l && !/^(pg_dump|pg_restore|psql): (warning|detail): /.test(l) && !/^NOTICE:/.test(l));
+  const all = s.split('\n').map((l) => l.trim()).filter((l) => l && !/^(pg_dump|pg_restore|psql): (warning|detail): /.test(l) && !/(NOTICE|DETAIL|HINT):|^drop cascades/.test(l));
+  // Lead with the actual error line.
+  const lines = [...all.filter((l) => /ERROR|error:/.test(l)), ...all.filter((l) => !/ERROR|error:/.test(l))];
   return lines.slice(0, 4).join(' ').slice(0, 600);
 }
 
@@ -106,6 +110,7 @@ export async function restoreFrom(t: PgTarget, file: string) {
   // Refuse a file pg_restore cannot read before anything is touched.
   await inspectDump(file);
   const prelude = [
+    'SET client_min_messages = warning;',
     'BEGIN;',
     "SET LOCAL lock_timeout = '60s';",
     `DROP SCHEMA IF EXISTS ${q(t.schema)} CASCADE;`,
@@ -125,7 +130,15 @@ export async function restoreFrom(t: PgTarget, file: string) {
   // inside the open transaction, and PostgreSQL rolls it all back.
   const input = Readable.from((async function* () {
     yield prelude;
-    for await (const chunk of sql.stdout) yield chunk as Buffer;
+    // Newer pg_restore versions write settings an older server does not know (e.g. transaction_timeout
+    // from PostgreSQL 17); drop those lines so the client tools may be newer than the server.
+    let rest = '';
+    for await (const chunk of sql.stdout) {
+      const lines = (rest + (chunk as Buffer).toString('utf8')).split('\n');
+      rest = lines.pop() ?? '';
+      yield lines.filter((l) => !NEWER_SETTINGS.test(l)).map((l) => l + '\n').join('');
+    }
+    if (rest && !NEWER_SETTINGS.test(rest)) yield rest;
     const code = await exited;
     yield code === 0 ? '\nCOMMIT;\n' : '\nROLLBACK;\n';
   })());
