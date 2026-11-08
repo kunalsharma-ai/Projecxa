@@ -16,6 +16,9 @@ export interface CheckResult {
   /** Status the session gets when this failure is enforced. */
   status?: 'SECURITY_REJECT' | 'DUPLICATE' | 'TERMINATE' | 'QUOTA_FULL' | 'PARTIAL';
   note?: string;
+  /** Risk points a passing check still adds (soft signals), and their names. See fraud.ts. */
+  risk?: number;
+  signals?: string[];
 }
 
 export const REASON_LABELS: Record<string, string> = {
@@ -39,6 +42,14 @@ export const REASON_LABELS: Record<string, string> = {
   GATE_SKIPPED: 'Skipped the entry checks',
   EXPIRED: 'Session expired',
   SPEEDER: 'Speeder: completed faster than the speeder check allows',
+  PROXY_VPN: 'Connected through a VPN or proxy',
+  DATACENTER_IP: 'Connected from a data centre or hosting network',
+  IP_ABUSE: 'IP address on a public abuse list',
+  IP_BLOCKED: 'IP address on your block list',
+  AUTOMATED_BROWSER: 'Automated or faked browser',
+  CROSS_VENDOR: 'Same person already came in through another vendor',
+  SEEN_IN_OTHER_PROJECT: 'Same person already took part in another project',
+  HIGH_RISK: 'Fraud risk score too high',
 };
 
 export type DeviceType = 'desktop' | 'mobile' | 'tablet';

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { redirectConfigSchema, REDIRECT_MODES } from '../redirects/redirect.types';
 import { CAPTCHA_STYLES } from '../survey/captcha';
 import { questionListSchema } from '../survey/questions';
+import { fraudRulesSchema } from '../survey/fraud';
 
 export const SECURITY_KEYS = [
   'gateSurvey',
@@ -17,6 +18,10 @@ export const SECURITY_KEYS = [
   'timezoneTracking',
   'torDetection',
   'cookieValidation',
+  // Stronger fraud checks (docs/FRAUD_CHECKS.md).
+  'proxyDetection',
+  'automationDetection',
+  'crossProjectDuplicates',
 ] as const;
 
 export const securitySchema = z
@@ -104,6 +109,7 @@ export const createProjectSchema = z.object({
   currency: z.string().regex(/^[A-Z]{3}$/).optional(),
   gateQuestions: questionListSchema.optional(),
   speederCheck: speederCheckSchema.optional(),
+  fraudRules: fraudRulesSchema.optional(),
   vendors: z.array(createVendorSchema).max(50).default([]),
   fieldStartAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').optional(),
   fieldEndAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').optional(),
@@ -133,6 +139,8 @@ export const updateProjectSchema = z.object({
   autopilot: autopilotSchema.optional(),
   /** Completes faster than this share of the planned LOI become speeders (docs/FIELD_METRICS.md). */
   speederCheck: speederCheckSchema.optional(),
+  /** Cross-project rules and the risk threshold (docs/FRAUD_CHECKS.md). */
+  fraudRules: fraudRulesSchema.optional(),
 }).refine((b) => !b.fieldStartAt || !b.fieldEndAt || b.fieldStartAt <= b.fieldEndAt, { message: 'The field end date must be on or after the start date', path: ['fieldEndAt'] });
 
 export const updateCountrySchema = countrySettingsSchema.extend({

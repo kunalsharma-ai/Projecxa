@@ -23,7 +23,7 @@ export interface FeatureDef {
 
 const INTEGRATION_LABEL: Record<string, string> = {
   smtp: 'Email (Zoho Mail / SMTP)', sso_google: 'Google sign-in', sso_microsoft: 'Microsoft sign-in', sso_zoho: 'Zoho sign-in', gemini: 'Google Gemini AI',
-  zoho_books: 'Zoho Books', xero: 'Xero', quickbooks: 'QuickBooks Online', tally: 'Tally Prime', bidzo: 'SampBidx',
+  zoho_books: 'Zoho Books', xero: 'Xero', quickbooks: 'QuickBooks Online', tally: 'Tally Prime', bidzo: 'SampBidx', push: 'Push notifications', ip_reputation: 'IP and proxy reputation',
 };
 
 export const FEATURES: FeatureDef[] = [

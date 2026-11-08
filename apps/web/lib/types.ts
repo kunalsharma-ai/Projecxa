@@ -75,6 +75,9 @@ export const SECURITY_LABELS: Record<string, string> = {
   timezoneTracking: 'Timezone tracking',
   torDetection: 'TOR detection',
   cookieValidation: 'Cookie validation',
+  proxyDetection: 'IP and proxy reputation',
+  automationDetection: 'Automated browsers',
+  crossProjectDuplicates: 'Across projects',
 };
 
 export const CATEGORIES = ['B2B', 'B2C', 'B2C-B2B', 'Consumer', 'Healthcare-Professional', 'Healthcare-Consumer', 'Teens-And-Parents'];

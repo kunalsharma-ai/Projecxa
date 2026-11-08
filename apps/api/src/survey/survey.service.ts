@@ -28,19 +28,26 @@ import { DEFAULT_DESIGN, defaultPlatformBrand, designOf, END_STATUSES, EndStatus
 import { brandOf } from '../branding/branding';
 import { evaluate, Question, questionsOf } from './questions';
 import { TorService } from './tor.service';
+import { IpReputationService } from './ip-reputation';
+import { checkAutomation, FraudRules, fraudRulesOf, riskOf, signalsOf } from './fraud';
 import { matchCells, Respondent } from '../quotas/quota.rules';
 import { consentFor } from '../privacy/privacy';
 import { isSpeeder, SPEEDER_DETAIL, speederOf } from '../projects/field-metrics';
 import { runAutoPause } from '../monitor/auto-pause';
 
 /** Toggles that need the respondent's browser, so they run on the gate page before the survey. */
-const GATE_KEYS = ['gateSurvey', 'captcha', 'browserFingerprinting', 'browserLanguage', 'timezoneTracking', 'cookieValidation'] as const;
+const GATE_KEYS = ['gateSurvey', 'captcha', 'browserFingerprinting', 'browserLanguage', 'timezoneTracking', 'cookieValidation', 'automationDetection', 'crossProjectDuplicates'] as const;
+const HASH_RE = /^[0-9a-f]{64}$/i;
 
 export interface GateSubmission {
   nonce?: unknown;
   languages?: unknown;
   timezone?: unknown;
   fingerprint?: unknown;
+  /** Stable device hash: the fingerprint without browser version and languages. */
+  device?: unknown;
+  /** Automated-browser signals (fraud.ts BrowserSignals). */
+  signals?: unknown;
   answers?: unknown;
   /** true when the respondent agreed to the consent notice, false when they declined. */
   consent?: unknown;
@@ -59,7 +66,7 @@ export interface GateView {
     attemptsLeft: number;
   } | null;
   captcha: { challenge: string; bits: number } | null;
-  collect: { languages: boolean; timezone: boolean; fingerprint: boolean };
+  collect: { languages: boolean; timezone: boolean; fingerprint: boolean; signals?: boolean };
   gateQuestions: Question[];
   prescreen: Question[];
   /** Consent notice for the market, shown first (null when none applies). */
@@ -146,6 +153,7 @@ export class SurveyService {
     private readonly prisma: PrismaService,
     private readonly tor: TorService,
     private readonly webhooks: WebhooksService,
+    private readonly ipRep: IpReputationService,
   ) {}
 
   /**
@@ -268,15 +276,22 @@ export class SurveyService {
       const exit = await this.tor.isExitNode(req.ip);
       checks.push(exit === null ? { check: 'tor', ok: true, note: 'exit list not loaded' } : exit ? { check: 'tor', ok: false, reason: 'TOR_EXIT', status: 'SECURITY_REJECT' } : { check: 'tor', ok: true });
     }
+    if (security.proxyDetection) checks.push(await this.ipRep.check(project.organizationId, req.ip));
     if (security.geolocation) {
       checks.push(appConfig.geoCountryHeader ? checkGeo(req.geoCountry, country.countryCode) : { check: 'geolocation', ok: true, note: 'not configured' });
     }
     if (security.duplicateDetection && ipHash) {
       const sameDevice = await this.prisma.respondentSession.findFirst({
         where: { projectId: project.id, isTest: false, ipHash, userAgent: req.userAgent ?? null },
-        select: { id: true },
+        select: { id: true, vendorAllocation: { select: { vendorId: true } } },
       });
-      checks.push(sameDevice ? { check: 'duplicate', ok: false, reason: 'SAME_DEVICE', status: 'DUPLICATE' } : { check: 'duplicate', ok: true });
+      checks.push(sameDevice ? duplicateOf('duplicate', 'SAME_DEVICE', sameDevice.vendorAllocation.vendorId !== allocation.vendorId) : { check: 'duplicate', ok: true });
+    }
+    // Fraud risk from the entry checks; with no gate page, the threshold is applied here.
+    const rules = fraudRulesOf(project.fraudRules);
+    const entryRisk = riskOf(checks);
+    if (rules.riskThreshold != null && entryRisk.score >= rules.riskThreshold && !gateNeeded(security)) {
+      checks.push({ check: 'risk', ok: false, reason: 'HIGH_RISK', status: 'SECURITY_REJECT', note: String(entryRisk.score) });
     }
     const failed = checks.find((c) => !c.ok);
     if (!initial && !isTest && failed) initial = { status: failed.status!, detail: failed.reason };
@@ -318,6 +333,8 @@ export class SurveyService {
           ipHash,
           userAgent: req.userAgent?.slice(0, 500),
           deviceType: device.note,
+          riskScore: checks.length > 1 || entryRisk.score ? entryRisk.score : null,
+          riskSignals: entryRisk.signals,
           geoCountry: appConfig.geoCountryHeader && /^[A-Z]{2}$/i.test(req.geoCountry ?? '') ? req.geoCountry!.toUpperCase() : null,
           gateRequired,
           uniqueLinkId: opts.uniqueLinkId,
@@ -516,7 +533,7 @@ export class SurveyService {
         token,
         human: this.humanView(session),
         captcha: powRequired(security, captchaStyleOf(session)) ? { challenge: powChallenge(appConfig.jwtSecret, token), bits: powBits(session.isTest) } : null,
-        collect: { languages: !!security.browserLanguage, timezone: !!security.timezoneTracking, fingerprint: !!security.browserFingerprinting },
+        collect: { languages: !!security.browserLanguage, timezone: !!security.timezoneTracking, fingerprint: !!(security.browserFingerprinting || security.crossProjectDuplicates), signals: !!security.automationDetection },
         gateQuestions: security.gateSurvey ? questionsOf(session.project.gateQuestions) : [],
         prescreen: security.prescreening ? questionsOf(session.project.prescreen) : [],
         consent: consent ? { title: consent.title, body: consent.body, privacyUrl: consent.privacyUrl, version: consent.version } : null,
@@ -607,7 +624,8 @@ export class SurveyService {
 
     const security = (session.project.security ?? {}) as Record<string, boolean>;
     const orgId = session.organizationId;
-    const fingerprint = typeof body.fingerprint === 'string' && /^[0-9a-f]{64}$/i.test(body.fingerprint) ? sha256(`${orgId}:${body.fingerprint.toLowerCase()}`) : null;
+    const fingerprint = typeof body.fingerprint === 'string' && HASH_RE.test(body.fingerprint) ? sha256(`${orgId}:${body.fingerprint.toLowerCase()}`) : null;
+    const deviceHash = typeof body.device === 'string' && HASH_RE.test(body.device) ? sha256(`${orgId}:device:${body.device.toLowerCase()}`) : null;
     const browserId = cookies.browserId && cookies.browserId.length <= 100 ? sha256(`${orgId}:${cookies.browserId}`) : null;
     const checks: CheckResult[] = [];
 
@@ -634,17 +652,29 @@ export class SurveyService {
       checks.push(checkLanguage(langs, session.projectCountry.language));
     }
     if (security.timezoneTracking) checks.push(checkTimezone(typeof body.timezone === 'string' ? body.timezone.slice(0, 64) : undefined, session.projectCountry.countryCode));
+    if (security.automationDetection) checks.push(checkAutomation(signalsOf(body.signals), session.userAgent ?? undefined));
+    // Same person again in this project, through any vendor. Another vendor is reported as CROSS_VENDOR.
+    const vendorId = session.vendorAllocation.vendorId;
+    const sameHere = { projectId: session.projectId, isTest: false, id: { not: session.id } };
+    const vendorOf = { vendorAllocation: { select: { vendorId: true } } } as const;
     if (security.browserFingerprinting) {
-      if (!fingerprint) checks.push({ check: 'fingerprint', ok: true, note: 'not reported' });
+      const or = [...(fingerprint ? [{ fingerprintHash: fingerprint }] : []), ...(deviceHash ? [{ deviceHash }] : [])];
+      if (!or.length) checks.push({ check: 'fingerprint', ok: true, note: 'not reported' });
       else {
-        const same = await this.prisma.respondentSession.findFirst({ where: { projectId: session.projectId, isTest: false, fingerprintHash: fingerprint, id: { not: session.id } }, select: { id: true } });
-        checks.push(same ? { check: 'fingerprint', ok: false, reason: 'SAME_FINGERPRINT', status: 'DUPLICATE' } : { check: 'fingerprint', ok: true });
+        const same = await this.prisma.respondentSession.findFirst({ where: { ...sameHere, OR: or }, select: vendorOf, orderBy: { startedAt: 'asc' } });
+        checks.push(same ? duplicateOf('fingerprint', 'SAME_FINGERPRINT', same.vendorAllocation.vendorId !== vendorId) : { check: 'fingerprint', ok: true });
       }
     }
     if (security.cookieValidation && browserId) {
-      const same = await this.prisma.respondentSession.findFirst({ where: { projectId: session.projectId, isTest: false, browserIdHash: browserId, id: { not: session.id } }, select: { id: true } });
-      checks.push(same ? { check: 'browser', ok: false, reason: 'SAME_BROWSER', status: 'DUPLICATE' } : { check: 'browser', ok: true });
+      const same = await this.prisma.respondentSession.findFirst({ where: { ...sameHere, browserIdHash: browserId }, select: vendorOf, orderBy: { startedAt: 'asc' } });
+      checks.push(same ? duplicateOf('browser', 'SAME_BROWSER', same.vendorAllocation.vendorId !== vendorId) : { check: 'browser', ok: true });
     }
+    const rules = fraudRulesOf(session.project.fraudRules);
+    if (security.crossProjectDuplicates) checks.push(await this.crossProjectCheck(session, rules, { fingerprintHash: fingerprint, deviceHash, browserIdHash: browserId }));
+    // Risk: what the entry checks found plus everything found here. Applied before the answers.
+    const gateRisk = riskOf(checks);
+    const risk = { score: Math.min(100, (session.riskScore ?? 0) + gateRisk.score), signals: [...new Set([...session.riskSignals, ...gateRisk.signals])].slice(0, 20) };
+    if (rules.riskThreshold != null && risk.score >= rules.riskThreshold) checks.push({ check: 'risk', ok: false, reason: 'HIGH_RISK', status: 'SECURITY_REJECT', note: String(risk.score) });
     const raw = (body.answers && typeof body.answers === 'object' ? body.answers : {}) as { gate?: unknown; prescreen?: unknown };
     const gate = security.gateSurvey ? evaluate(questionsOf(session.project.gateQuestions), raw.gate) : null;
     const pre = security.prescreening ? evaluate(questionsOf(session.project.prescreen), raw.prescreen) : null;
@@ -666,7 +696,7 @@ export class SurveyService {
     const enforced = !session.isTest;
     const answers = gate || pre ? ({ ...(gate ? { gate: gate.answers } : {}), ...(pre ? { prescreen: pre.answers } : {}) } as Prisma.InputJsonValue) : undefined;
     const agreed = consent && body.consent === true ? { consentAt: new Date(), consentVersion: consent.version } : {};
-    await this.prisma.respondentSession.update({ where: { id: session.id }, data: { fingerprintHash: fingerprint, browserIdHash: browserId, answers, quotaCellIds: cells.matched.map((c) => c.id), ...agreed } });
+    await this.prisma.respondentSession.update({ where: { id: session.id }, data: { fingerprintHash: fingerprint, deviceHash, browserIdHash: browserId, riskScore: risk.score, riskSignals: risk.signals, answers, quotaCellIds: cells.matched.map((c) => c.id), ...agreed } });
     await this.event(session.id, 'SECURITY_CHECK', null, 'ENTRY', `checks:gate:${session.id}:${randomToken(4)}`, { stage: 'gate', enforced, checks });
 
     const failed = checks.find((c) => !c.ok);
@@ -675,6 +705,33 @@ export class SurveyService {
     // Guarded so two submits cannot both release the link with different results.
     await this.prisma.respondentSession.updateMany({ where: { id: session.id, gatePassedAt: null }, data: { gatePassedAt: new Date() } });
     return { location: await this.surveyLink(session) };
+  }
+
+  /**
+   * Cross-project duplicates (docs/FRAUD_CHECKS.md): the same device or browser seen in another
+   * project of the organisation within the rule's window. Fingerprint, device hash and browser
+   * cookie only; an IP address alone is too often shared (mobile carriers, offices) across months.
+   */
+  private async crossProjectCheck(session: SessionWithContext, rules: FraudRules, ids: { fingerprintHash: string | null; deviceHash: string | null; browserIdHash: string | null }): Promise<CheckResult> {
+    const or = Object.entries(ids).filter(([, v]) => v).map(([k, v]) => ({ [k]: v }));
+    if (!or.length) return { check: 'crossProject', ok: true, note: 'not reported' };
+    const r = rules.crossProject;
+    const listed = r.projectIds.filter((id) => id !== session.projectId);
+    if (r.scope === 'listed' && !listed.length) return { check: 'crossProject', ok: true, note: 'no projects picked' };
+    const seen = await this.prisma.respondentSession.findFirst({
+      where: {
+        organizationId: session.organizationId,
+        isTest: false,
+        projectId: r.scope === 'listed' ? { in: listed } : { not: session.projectId },
+        ...(r.scope === 'client' ? { project: { clientId: session.project.clientId } } : {}),
+        startedAt: { gte: new Date(Date.now() - r.days * 86_400_000) },
+        ...(r.outcomes === 'completes' ? { status: 'COMPLETE' as const } : {}),
+        OR: or,
+      },
+      select: { project: { select: { projectCode: true } } },
+      orderBy: { startedAt: 'desc' },
+    });
+    return seen ? { check: 'crossProject', ok: false, reason: 'SEEN_IN_OTHER_PROJECT', status: 'DUPLICATE', note: seen.project.projectCode } : { check: 'crossProject', ok: true };
   }
 
   private async fail(session: SessionWithContext, status: OutcomeStatus, reason: string) {
@@ -834,6 +891,11 @@ function humanRequired(security: Record<string, boolean>, style: CaptchaStyle) {
 /** The background proof-of-work runs with the captcha toggle, and replaces the visible step for "invisible". */
 function powRequired(security: Record<string, boolean>, style: CaptchaStyle) {
   return !!security.captcha || (!!security.gateSurvey && style === 'invisible');
+}
+
+/** A duplicate found in this project; through another vendor it is reported as CROSS_VENDOR. */
+function duplicateOf(check: string, reason: string, otherVendor: boolean): CheckResult {
+  return otherVendor ? { check, ok: false, reason: 'CROSS_VENDOR', status: 'DUPLICATE', note: reason } : { check, ok: false, reason, status: 'DUPLICATE' };
 }
 
 export function gateNeeded(security: Record<string, boolean>): boolean {

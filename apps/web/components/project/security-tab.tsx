@@ -12,12 +12,17 @@ import { cleanQuestion, QuestionBuilder, questionProblems } from './question-bui
 import type { ProjectDetail } from './types';
 import { InfoTip } from '@/components/help';
 import { SpeederCheck } from './speeder-check';
+import { FraudRulesSection, fraudRulesOf, fraudRulesProblem, LinkedPeople } from './fraud-rules';
 
-interface Status { geolocation: { configured: boolean; header: string | null }; tor: { nodes: number; updatedAt: string | null } }
+interface Status {
+  geolocation: { configured: boolean; header: string | null };
+  tor: { nodes: number; updatedAt: string | null };
+  ipReputation?: { lists: boolean; proxycheck: boolean; allowList: boolean; blockList: boolean; sources: { id: string; count: number; error: string | null }[] };
+}
 interface CaptchaInfo { providers: Record<'turnstile' | 'hcaptcha', { configured: boolean; siteKey: string | null }> }
-interface Summary { entries: number; gate: { required: number; passed: number }; reasons: { reason: string; label: string; status: string; count: number }[] }
+interface Summary { entries: number; gate: { required: number; passed: number }; reasons: { reason: string; label: string; status: string; count: number }[]; risk?: { low: number; medium: number; high: number } }
 
-type Key = 'gateSurvey' | 'prescreening' | 'captcha' | 'urlProtection' | 'duplicateDetection' | 'browserFingerprinting' | 'cookieValidation' | 'geolocation' | 'timezoneTracking' | 'browserLanguage' | 'torDetection';
+type Key = 'gateSurvey' | 'prescreening' | 'captcha' | 'urlProtection' | 'duplicateDetection' | 'browserFingerprinting' | 'cookieValidation' | 'geolocation' | 'timezoneTracking' | 'browserLanguage' | 'torDetection' | 'proxyDetection' | 'automationDetection' | 'crossProjectDuplicates';
 
 const GROUPS: { title: string; icon: typeof Bot; items: { key: Key; label: string; help: string }[] }[] = [
   {
@@ -31,15 +36,19 @@ const GROUPS: { title: string; icon: typeof Bot; items: { key: Key; label: strin
   {
     title: 'Bots',
     icon: Bot,
-    items: [{ key: 'captcha', label: 'Captcha', help: 'Adds the human check (style below) and a background proof-of-work that slows down scripts.' }],
+    items: [
+      { key: 'captcha', label: 'Captcha', help: 'Adds the human check (style below) and a background proof-of-work that slows down scripts.' },
+      { key: 'automationDetection', label: 'Automated browsers', help: 'Stops bots and scripted browsers (automation flag, headless browsers, faked devices) on the gate page.' },
+    ],
   },
   {
     title: 'Duplicates',
     icon: Fingerprint,
     items: [
-      { key: 'duplicateDetection', label: 'Duplicate detection', help: 'Same IP address and browser entering this project again.' },
-      { key: 'browserFingerprinting', label: 'Browser fingerprinting', help: 'Same device, recognised from screen, hardware and browser traits.' },
+      { key: 'duplicateDetection', label: 'Duplicate detection', help: 'Same IP address and browser entering this project again, through any vendor.' },
+      { key: 'browserFingerprinting', label: 'Browser fingerprinting', help: 'Same device, recognised from screen, hardware and browser traits, even after a browser update or a language change.' },
       { key: 'cookieValidation', label: 'Cookie validation', help: 'Needs cookies switched on, and catches the same browser coming back.' },
+      { key: 'crossProjectDuplicates', label: 'Across projects', help: 'Same device or browser already took part in another of your projects (rules below).' },
     ],
   },
   {
@@ -50,6 +59,7 @@ const GROUPS: { title: string; icon: typeof Bot; items: { key: Key; label: strin
       { key: 'timezoneTracking', label: 'Time zone', help: "The device's time zone must belong to the survey country." },
       { key: 'browserLanguage', label: 'Browser language', help: 'One of the browser languages must match the survey language.' },
       { key: 'torDetection', label: 'TOR detection', help: 'Blocks connections through the TOR network.' },
+      { key: 'proxyDetection', label: 'IP and proxy reputation', help: 'Blocks VPNs, proxies, data centre networks and known abusive addresses, from free lists.' },
     ],
   },
   {
@@ -80,6 +90,7 @@ export function SecurityTab({ project, editable, reload }: { project: ProjectDet
   const [style, setStyle] = useState<CaptchaStyle>(project.captchaStyle ?? 'math');
   const [gate, setGate] = useState<Question[]>(project.gateQuestions ?? []);
   const [pre, setPre] = useState<Question[]>(project.prescreen ?? []);
+  const [rules, setRules] = useState(fraudRulesOf(project.fraudRules));
   const [status, setStatus] = useState<Status | null>(null);
   const [captcha, setCaptcha] = useState<CaptchaInfo | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -94,10 +105,11 @@ export function SecurityTab({ project, editable, reload }: { project: ProjectDet
   }, [project.id]);
 
   const original = useMemo(
-    () => stable([project.security, withOs(project.devices), project.captchaStyle, (project.gateQuestions ?? []).map(cleanQuestion), (project.prescreen ?? []).map(cleanQuestion)]),
+    () => stable([project.security, withOs(project.devices), project.captchaStyle, (project.gateQuestions ?? []).map(cleanQuestion), (project.prescreen ?? []).map(cleanQuestion), fraudRulesOf(project.fraudRules)]),
     [project],
   );
-  const dirty = stable([security, devices, style, gate.map(cleanQuestion), pre.map(cleanQuestion)]) !== original;
+  const dirty = stable([security, devices, style, gate.map(cleanQuestion), pre.map(cleanQuestion), rules]) !== original;
+  const rulesProblem = fraudRulesProblem(rules, !!security.crossProjectDuplicates);
   const problems = [...gate, ...pre].reduce((n, q) => n + questionProblems(q).length, 0);
   const humanOn = security.gateSurvey || security.captcha;
   const currency = project.countries[0]?.currency ?? 'USD';
@@ -108,7 +120,7 @@ export function SecurityTab({ project, editable, reload }: { project: ProjectDet
     setSaving(true);
     setSaved(false);
     try {
-      await patch(`/projects/${project.id}`, { security, devices, captchaStyle: style, gateQuestions: gate.length ? gate.map(cleanQuestion) : null, prescreen: pre.length ? pre.map(cleanQuestion) : null });
+      await patch(`/projects/${project.id}`, { security, devices, captchaStyle: style, gateQuestions: gate.length ? gate.map(cleanQuestion) : null, prescreen: pre.length ? pre.map(cleanQuestion) : null, fraudRules: rules });
       setSaved(true);
       reload();
     } catch (e) {
@@ -123,6 +135,14 @@ export function SecurityTab({ project, editable, reload }: { project: ProjectDet
     if (key === 'geolocation' && status && !status.geolocation.configured) return { text: 'Not active yet: the server needs a country header from your CDN (GEO_COUNTRY_HEADER). Entries are let through until then.', tone: 'warn' };
     if (key === 'torDetection' && status && !status.tor.nodes) return { text: 'The TOR exit list has not loaded yet, so entries are let through.', tone: 'warn' };
     if (key === 'torDetection' && status?.tor.nodes) return { text: `${status.tor.nodes.toLocaleString()} TOR exit addresses loaded.`, tone: 'ok' };
+    if (key === 'proxyDetection' && status?.ipReputation) {
+      const r = status.ipReputation;
+      const loaded = r.sources.filter((x) => x.count > 0).reduce((n, x) => n + x.count, 0);
+      if (r.lists && !loaded && !r.proxycheck) return { text: 'The free IP lists have not loaded yet, so entries are let through. An admin can load them in Settings → Integrations.', tone: 'warn' };
+      if (!r.lists && !r.proxycheck) return { text: r.blockList ? 'Only your block list is used: the free lists are off in Settings → Integrations.' : 'No source is on: an admin turned the free lists off in Settings → Integrations.', tone: 'warn' };
+      return { text: [r.lists && `${loaded.toLocaleString()} VPN, data centre and abuse ranges loaded`, r.proxycheck && 'proxycheck.io on', r.allowList && 'your allow list applies'].filter(Boolean).join(' · ') + '.', tone: 'ok' };
+    }
+    if (key === 'crossProjectDuplicates') return { text: rules.crossProject.scope === 'listed' ? `Looks in ${rules.crossProject.projectIds.length} picked project${rules.crossProject.projectIds.length === 1 ? '' : 's'}, last ${rules.crossProject.days} days.` : `Looks in ${rules.crossProject.scope === 'client' ? "this client's" : 'all your'} projects, last ${rules.crossProject.days} days.`, tone: 'ok' };
     if (key === 'prescreening' && !pre.length) return { text: 'Add prescreener questions below.', tone: 'warn' };
     if (key === 'gateSurvey' && !gate.length) return { text: 'Only the human check runs until you add gate questions below.', tone: 'warn' };
     return null;
@@ -174,6 +194,8 @@ export function SecurityTab({ project, editable, reload }: { project: ProjectDet
           </div>
         </Section>
 
+        <FraudRulesSection project={project} value={rules} onChange={setRules} editable={editable} crossOn={!!security.crossProjectDuplicates} />
+
         <SpeederCheck key={`${project.speederCheck?.enabled}-${project.speederCheck?.fraction}`} project={project} editable={editable} reload={reload} />
 
         <Section title="Human check style">
@@ -212,7 +234,7 @@ export function SecurityTab({ project, editable, reload }: { project: ProjectDet
 
         {editable && (dirty || saved || !!error) && (
           <div className="sticky bottom-3 z-10 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-panel p-3 shadow-lg">
-            <button className="btn-primary" disabled={!dirty || saving || problems > 0 || !!devicesProblem(devices)} onClick={save}>{saving ? 'Saving…' : 'Save security and questions'}</button>
+            <button className="btn-primary" disabled={!dirty || saving || problems > 0 || !!devicesProblem(devices) || !!rulesProblem} onClick={save}>{saving ? 'Saving…' : 'Save security and questions'}</button>
             {problems > 0 && <span className="text-sm text-bad">Fix {problems} question {problems === 1 ? 'problem' : 'problems'} first.</span>}
             {!problems && dirty && <span className="text-sm text-muted">Unsaved changes</span>}
             {!dirty && saved && <span className="text-sm text-ok">Saved</span>}
@@ -241,7 +263,22 @@ export function SecurityTab({ project, editable, reload }: { project: ProjectDet
               {summary.gate.passed.toLocaleString()} of {summary.gate.required.toLocaleString()} respondents passed the gate ({Math.round((summary.gate.passed / summary.gate.required) * 100)}%). Live traffic only.
             </p>
           )}
+          {summary?.risk && summary.risk.low + summary.risk.medium + summary.risk.high > 0 && (
+            <div className="mt-4 border-t border-line pt-3">
+              <div className="mb-2 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted">Fraud risk<InfoTip id="field:Reject at risk score" /></div>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                {(['low', 'medium', 'high'] as const).map((b) => (
+                  <div key={b} className={clsx('rounded-lg px-2 py-1.5', b === 'low' ? 'bg-ok/10 text-ok' : b === 'medium' ? 'bg-warn/10 text-warn' : 'bg-bad/10 text-bad')}>
+                    <div className="text-base font-semibold tabular-nums">{summary.risk![b].toLocaleString()}</div>
+                    <div className="text-[11px] capitalize">{b}{b === 'low' ? ' (0–34)' : b === 'medium' ? ' (35–69)' : ' (70+)'}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </Section>
+
+        <LinkedPeople projectId={project.id} />
 
         {testLink && (
           <Section title="Try it">

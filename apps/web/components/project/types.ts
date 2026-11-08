@@ -74,6 +74,8 @@ export interface ProjectDetail {
   autopilotState?: { autoPause?: AutoPauseState } | null;
   /** Speeder check: completes faster than fraction × planned LOI become speeders. */
   speederCheck?: { enabled: boolean; fraction: string } | null;
+  /** Cross-project duplicate rules and risk threshold (docs/FRAUD_CHECKS.md). */
+  fraudRules?: FraudRules | null;
   metrics?: FieldMetrics;
   countries: Country[];
   stats: Stats;
@@ -82,4 +84,9 @@ export interface ProjectDetail {
   /** Only on the response to going live: how many markets opened and which were not ready. */
   launch?: { opened: number; notReady: { id: string; market: string; problems: string[] }[] };
   outcomeEndpoints: { browser: string; s2s: string; statuses: string[] };
+}
+
+export interface FraudRules {
+  crossProject: { scope: 'all' | 'client' | 'listed'; projectIds: string[]; days: number; outcomes: 'any' | 'completes' };
+  riskThreshold: number | null;
 }

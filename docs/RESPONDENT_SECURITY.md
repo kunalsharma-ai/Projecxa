@@ -5,12 +5,14 @@ Every respondent who opens a vendor entry link goes through these steps, in this
 | Step | Where | Checks | Fails as |
 |---|---|---|---|
 | 1. Entry link | server, before a session exists | URL protection: `sig = hex(HMAC-SHA256(vendor signing secret, UID))` | refused (no session, so the real respondent's ID is not used up); counted in the project's security summary |
-| 2. Entry | server | device type (from the user agent), TOR exit node, geolocation, same IP + browser | `SECURITY_REJECT` (`DEVICE_NOT_ALLOWED`, `MOBILE_OS_NOT_ALLOWED`, `TOR_EXIT`, `GEO_MISMATCH`) or `DUPLICATE` (`SAME_DEVICE`) |
+| 2. Entry | server | device type (from the user agent), TOR exit node, IP and proxy reputation, geolocation, same IP + browser | `SECURITY_REJECT` (`DEVICE_NOT_ALLOWED`, `MOBILE_OS_NOT_ALLOWED`, `TOR_EXIT`, `PROXY_VPN`, `DATACENTER_IP`, `IP_ABUSE`, `IP_BLOCKED`, `GEO_MISMATCH`) or `DUPLICATE` (`SAME_DEVICE`, `CROSS_VENDOR`) |
 | 3. Human check | gate page | chosen captcha style, 3 tries, new challenge each try | `SECURITY_REJECT` / `HUMAN_CHECK_FAILED` |
 | 4. Gate survey | gate page | executive's gate questions | `TERMINATE` / `GATE_SCREENOUT`; invalid answers `SECURITY_REJECT` / `GATE_INCOMPLETE` |
 | 5. Prescreener | gate page | executive's prescreener questions | `TERMINATE` / `PRESCREEN` |
-| 6. Browser checks | gate page submit | background proof-of-work (captcha), cookies, browser language, time zone, fingerprint and browser cookie duplicates | `SECURITY_REJECT` (`CAPTCHA_FAILED`, `COOKIES_BLOCKED`, `LANGUAGE_MISMATCH`, `TIMEZONE_MISMATCH`) or `DUPLICATE` (`SAME_FINGERPRINT`, `SAME_BROWSER`) |
+| 6. Browser checks | gate page submit | background proof-of-work (captcha), cookies, browser language, time zone, automated browsers, fingerprint / device hash and browser cookie duplicates, the same person in other projects, the risk score | `SECURITY_REJECT` (`CAPTCHA_FAILED`, `COOKIES_BLOCKED`, `LANGUAGE_MISMATCH`, `TIMEZONE_MISMATCH`, `AUTOMATED_BROWSER`, `HIGH_RISK`) or `DUPLICATE` (`SAME_FINGERPRINT`, `SAME_BROWSER`, `CROSS_VENDOR`, `SEEN_IN_OTHER_PROJECT`) |
 | 7. Client survey | | the survey link (with the opaque session token) is only released here | |
+
+The stronger fraud checks (IP and proxy reputation, automated browsers, across projects and vendors, risk score) are described in [FRAUD_CHECKS.md](FRAUD_CHECKS.md).
 
 When several things fail at once, bot and fraud reasons win over screen-outs, so a duplicate is never hidden as a terminate. An outcome reported for a session that never passed the gate is recorded as `SECURITY_REJECT` / `GATE_SKIPPED`.
 

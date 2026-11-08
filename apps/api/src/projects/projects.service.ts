@@ -125,6 +125,7 @@ export class ProjectsService {
           security: normalizeSecurity(input.security),
           redirectMode: input.redirectMode,
           ...(input.speederCheck ? { speederCheck: input.speederCheck } : {}),
+          ...(input.fraudRules ? { fraudRules: input.fraudRules } : {}),
           fieldStartAt: input.fieldStartAt ? new Date(`${input.fieldStartAt}T00:00:00Z`) : undefined,
           fieldEndAt: input.fieldEndAt ? new Date(`${input.fieldEndAt}T00:00:00Z`) : undefined,
           ...(input.gateQuestions?.length ? { gateQuestions: input.gateQuestions as Prisma.InputJsonValue } : {}),
@@ -669,6 +670,7 @@ export class ProjectsService {
           pageDesign: json(src.pageDesign),
           autopilot: json(src.autopilot),
           speederCheck: json(src.speederCheck),
+          fraudRules: json(src.fraudRules),
           redirectMode: src.redirectMode,
         },
       });
@@ -796,10 +798,10 @@ export class ProjectsService {
     for (const k of RESTORABLE) {
       const val = snap[k];
       // Versions saved before the speeder check existed leave the current setting alone.
-      if (k === 'speederCheck' && val === undefined) continue;
+      if ((k === 'speederCheck' || k === 'fraudRules') && val === undefined) continue;
       if (k === 'fieldStartAt') data.fieldStartAt = val ? new Date(`${val}T00:00:00.000Z`) : null;
       else if (k === 'fieldEndAt') data.fieldEndAt = val ? new Date(`${val}T23:59:59.999Z`) : null;
-      else if (k === 'gateQuestions' || k === 'prescreen' || k === 'pageDesign' || k === 'autopilot' || k === 'speederCheck') data[k] = val == null ? Prisma.DbNull : (val as Prisma.InputJsonValue);
+      else if (k === 'gateQuestions' || k === 'prescreen' || k === 'pageDesign' || k === 'autopilot' || k === 'speederCheck' || k === 'fraudRules') data[k] = val == null ? Prisma.DbNull : (val as Prisma.InputJsonValue);
       else (data as Record<string, unknown>)[k] = val;
     }
     // People and contacts may have left since; keep the current ones then.
