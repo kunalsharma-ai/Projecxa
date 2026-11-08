@@ -31,6 +31,8 @@ export interface Preferences {
   sidebarCollapsed: boolean;
   insightsOpen: boolean;
   favorites: string[];
+  /** Interface language (lib/i18n.ts); English when unset. */
+  language: 'en' | 'hi' | 'es';
   recentProjects: { id: string; code: string; name: string }[];
 }
 
@@ -53,6 +55,7 @@ export const DEFAULTS: Preferences = {
   sidebarCollapsed: false,
   insightsOpen: false,
   favorites: [],
+  language: 'en',
   recentProjects: [],
 };
 

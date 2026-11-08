@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { I18nProvider } from '@/components/i18n';
 import { ThemeProvider } from '@/components/theme';
 import { BOOT_SCRIPT } from '@/lib/theme';
 import './globals.css';
@@ -17,7 +18,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
       </head>
       <body className="min-h-screen font-sans">
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <I18nProvider>{children}</I18nProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

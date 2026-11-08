@@ -2,6 +2,7 @@
 import { Activity, BarChart3, ReceiptText, ShieldCheck, Sparkles, Trophy } from 'lucide-react';
 import { ProductLogo } from '@/components/brand-mark';
 import { usePublicBrand } from '@/lib/branding';
+import { LanguageMenu } from '@/components/i18n';
 
 const STEPS = [
   { label: 'Won bids', icon: Trophy, tone: 'tone-amber' },
@@ -45,7 +46,9 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
           {!custom && <span className="flex items-center gap-2">A product of <img src="/brand/sampledge-logo-on-dark.svg" alt="Sampledge" className="h-6 w-auto" /></span>}
         </div>
       </section>
-      <div className="grid place-items-center px-4 py-10">
+      <div className="relative grid place-items-center px-4 py-10">
+        {/* Language for the signed-out pages; kept in this browser and saved to the profile after sign-in. */}
+        <div className="absolute right-3 top-3"><LanguageMenu /></div>
         <div className="flex w-full max-w-md flex-col items-center">
           {children}
           {/* The company behind the product, on every signed-out page (not on white-labelled addresses). */}

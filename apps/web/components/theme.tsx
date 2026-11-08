@@ -89,7 +89,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const reset = useCallback(async () => {
     pending.current = {};
     if (timer.current) clearTimeout(timer.current);
-    setPrefs({ ...DEFAULTS });
+    // Resetting the look keeps the person's language (the server keeps it too).
+    setPrefs((cur) => ({ ...DEFAULTS, language: cur.language }));
     if (signedIn.current) await post('/auth/me/preferences/reset');
   }, []);
 

@@ -138,7 +138,7 @@ export function Sidebar({ mobileOpen, onClose, badges = {} }: { mobileOpen: bool
                     className={clsx('flex items-center gap-3 rounded-lg px-3 py-1.5 text-sm transition-colors duration-[var(--dur)]', compact && 'lg:justify-center lg:px-0', active ? 'bg-sidebar-ink/10 text-sidebar-ink' : 'text-sidebar-muted hover:bg-sidebar-ink/5 hover:text-sidebar-ink')}
                   >
                     <Clock className="h-4 w-4 shrink-0" aria-hidden />
-                    <span className={clsx('min-w-0 truncate', compact && 'lg:sr-only')}>
+                    <span className={clsx('min-w-0 truncate', compact && 'lg:sr-only')} translate="no">
                       <span className="font-mono text-xs">{p.code}</span> <span className="opacity-80">{p.name}</span>
                     </span>
                   </Link>
