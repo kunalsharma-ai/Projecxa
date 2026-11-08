@@ -1,6 +1,6 @@
 'use client';
 import clsx from 'clsx';
-import { Activity, Bot, Building2, CreditCard, Crown, Gauge, Layers, PlugZap, UserPlus } from 'lucide-react';
+import { Activity, Bot, Building2, CreditCard, Crown, DatabaseBackup, Gauge, Layers, PlugZap, RadioTower, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useMe } from '@/components/me';
@@ -15,6 +15,8 @@ const TABS = [
   { href: '/super-admin/activity', label: 'Activity', icon: Activity },
   { href: '/super-admin/integrations', label: 'Integrations', icon: PlugZap },
   { href: '/super-admin/automation', label: 'Automation', icon: Bot },
+  { href: '/super-admin/backups', label: 'Backups', icon: DatabaseBackup },
+  { href: '/super-admin/status', label: 'Status page', icon: RadioTower },
 ];
 
 /** Super Admin console (docs/SUPER_ADMIN.md): only the person who runs this server sees it. */

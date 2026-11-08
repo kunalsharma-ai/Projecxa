@@ -20,6 +20,8 @@ Background jobs (callbacks, webhooks, monitor, schedulers) run inside the API pr
 - pnpm 10: `npm install -g pnpm@10.28.0`. Node 26 no longer ships Corepack, so the old
   `corepack enable` step does not work any more.
 - PostgreSQL 16, either a managed database or `docker compose up -d postgres`.
+- PostgreSQL client tools of the same version or newer, for backups (`pg_dump`, `pg_restore`, `psql`):
+  `sudo apt install postgresql-client-16`. See docs/BACKUPS.md.
 - A reverse proxy with TLS (Nginx, Caddy or a load balancer) and two DNS names, for example
   `app.yourcompany.com` (web) and `api.yourcompany.com` (API).
 
@@ -183,11 +185,18 @@ pm2 kill && pm2 resurrect                  # restart pm2 itself so it runs on No
 node -v                                    # should print v26.x
 ```
 
-## 9. Backups
+## 9. Backups and the status page
 
-- Daily PostgreSQL backups (`pg_dump`).
-- Keep a safe copy of `MFA_ENCRYPTION_KEY` and `JWT_SECRET`. A database restore without the
-  same `MFA_ENCRYPTION_KEY` cannot read saved integration secrets.
+- Backups are set up in the app: **Settings → Integrations → Backup storage** (a folder on the server,
+  or a free Cloudflare R2 / Backblaze B2 bucket, with an encryption passphrase), then **Super Admin →
+  Backups**: Back up now, a daily schedule, Test, Download and a guarded Restore. See docs/BACKUPS.md.
+- If the app cannot start, restore a downloaded backup on the server with
+  `pnpm restore-backup --file <file>`, then `pnpm db:deploy`. `pnpm backup` takes one from a cron job.
+- Keep a safe copy of `MFA_ENCRYPTION_KEY`, `JWT_SECRET` and the backup passphrase. A database restore
+  without the same `MFA_ENCRYPTION_KEY` cannot read saved integration secrets.
+- The public status page is at `https://<web>/status` (Super Admin → Status page). Add
+  `https://<api>/api/v1/public/status/ping` to a free outside monitor such as UptimeRobot to be alerted
+  when the server is down. See docs/STATUS_PAGE.md.
 
 ## 10. Checking an install
 

@@ -38,6 +38,8 @@ import { RedirectHealthModule } from './redirect-health/redirect-health';
 import { BrandingModule } from './branding/branding';
 import { QuotesModule } from './quotes/quotes';
 import { VendorSignupModule } from './vendor-signup/vendor-signup';
+import { BackupsModule } from './backups/backups.controller';
+import { StatusModule } from './status/status.service';
 import { SurveyModule } from './survey/survey.controller';
 import { UniqueLinksModule } from './unique-links/unique-links';
 import { UsersModule } from './users/users.controller';
@@ -77,6 +79,8 @@ import { VendorsModule } from './vendors/vendors.controller';
     RequestsModule,
     QuotesModule, PrivacyModule, BrandingModule, RedirectHealthModule,
     VendorSignupModule,
+    BackupsModule,
+    StatusModule,
     UniqueLinksModule,
     ReportsModule,
     WonBidsModule,

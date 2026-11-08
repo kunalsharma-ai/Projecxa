@@ -15,7 +15,9 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "seed": "ts-node --transpile-only prisma/seed.ts",
-    "create-admin": "ts-node --transpile-only prisma/create-admin.ts"
+    "create-admin": "ts-node --transpile-only prisma/create-admin.ts",
+    "backup": "ts-node --transpile-only prisma/backup-cli.ts backup",
+    "restore-backup": "ts-node --transpile-only prisma/backup-cli.ts restore"
   },
   "prisma": {
     "seed": "ts-node --transpile-only prisma/seed.ts"

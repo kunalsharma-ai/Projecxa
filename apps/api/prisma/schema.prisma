@@ -2155,3 +2155,67 @@ model QuestionSet {
 
   @@unique([organizationId, key])
 }
+
+/// A copy of the whole database (docs/BACKUPS.md). Rows are rebuilt from the storage's manifest files
+/// after a restore or on a new server ("Find backups in storage"), so a backup is never lost from the list.
+model Backup {
+  id           String    @id @default(cuid())
+  /// File name in the storage, without folder, e.g. samptrek-2026-11-08T0300Z-ab12.dump.enc
+  name         String    @unique
+  /// manual | scheduled | before_restore | cli
+  trigger      String
+  /// running | ok | failed
+  status       String
+  /// local | s3
+  target       String
+  sizeBytes    BigInt?
+  sha256       String?
+  encrypted    Boolean   @default(false)
+  /// The newest database migration in the backup: a restore never goes to a newer one than the server knows.
+  migration    String?
+  tables       Int?
+  durationMs   Int?
+  error        String?
+  createdById  String?
+  createdBy    String?
+  lastVerifiedAt DateTime?
+  lastVerifyOk Boolean?
+  restoredAt   DateTime?
+  startedAt    DateTime  @default(now())
+  finishedAt   DateTime?
+
+  @@index([startedAt])
+}
+
+/// One health check of the server, taken every minute by the status page (docs/STATUS_PAGE.md).
+/// components = { app: "up", database: "up", callbacks: "degraded", … }. Gaps between checks count as down.
+model UptimeCheck {
+  id         String   @id @default(cuid())
+  at         DateTime @default(now())
+  components Json
+  dbLatencyMs Int?
+
+  @@index([at])
+}
+
+/// A notice on the public status page: an incident or planned maintenance (docs/STATUS_PAGE.md).
+model StatusIncident {
+  id         String    @id @default(cuid())
+  title      String
+  /// minor | major | maintenance
+  impact     String
+  /// investigating | identified | monitoring | resolved | scheduled | in_progress | completed
+  state      String
+  /// Component keys it affects (app, database, links, callbacks, email)
+  components String[]
+  /// [{ at, state, message }], newest last
+  updates    Json      @default("[]")
+  startsAt   DateTime  @default(now())
+  endsAt     DateTime?
+  resolvedAt DateTime?
+  createdById String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([startsAt])
+}

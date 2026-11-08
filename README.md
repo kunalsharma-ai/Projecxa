@@ -316,6 +316,20 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - Public registration page `/register` (opened by the Super Admin).
 - Details: `docs/SUPER_ADMIN.md`.
 
+## Backups, restore and status page
+
+- **Backups** (Super Admin → Backups): a full copy of the database in one click or every day/week, kept
+  in a folder on the server or a free S3-compatible bucket (Cloudflare R2, Backblaze B2, MinIO) chosen
+  in Settings → Integrations → Backup storage, encrypted with a passphrase (AES-256). Test, Download,
+  keep the newest N, email on failure, and find backups again from the storage on a new server.
+- **Guarded restore**: type RESTORE and your password; a safety backup is taken first, the file's
+  fingerprint is checked, and the database is replaced in one transaction (all or nothing), newer
+  migrations applied. `pnpm restore-backup --file …` does the same when the app cannot start.
+- **Status page** at `/status`: live state and 90-day uptime of the website, respondent links, database,
+  callbacks and email (the server checks itself every minute), incidents and planned maintenance posted
+  by the Super Admin, and a ping address for free outside monitors.
+- Details: `docs/BACKUPS.md`, `docs/STATUS_PAGE.md`.
+
 ## Install on a server
 
 See `INSTALL.md`: server settings, database, `pnpm create-admin` for the first admin, build, run and TLS.

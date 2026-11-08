@@ -19,7 +19,9 @@ import { aiFrom, AiConfig, config, EnvMap, ledgersFrom, smtpFrom, SmtpConfig, zo
 import { ZodPipe } from '../common/zod.pipe';
 import { PrismaService } from '../prisma/prisma.service';
 import { EntitlementsService } from '../super-admin/entitlements';
-import { BOOTSTRAP_ENV, CATALOG, FieldDef, IntegrationKind, isKind, isPaymentKind, KIND, KindDef } from './catalog';
+import { pgDumpVersion } from '../backups/backup-core';
+import { BackupStorage, s3From, storageFrom } from '../backups/storage';
+import { BOOTSTRAP_ENV, CATALOG, FieldDef, IntegrationKind, isKind, isServerOnlyKind, KIND, KindDef } from './catalog';
 
 export type Source = 'app' | 'env' | null;
 export interface Resolved { source: Source; env: EnvMap; row: IntegrationSetting | null }
@@ -79,7 +81,7 @@ export class IntegrationsService {
 
   /** The Super Admin can take an integration away from an organisation (docs/SUPER_ADMIN.md). */
   async allowed(org: string, kind: IntegrationKind): Promise<boolean> {
-    if (isPaymentKind(kind)) return true;
+    if (isServerOnlyKind(kind)) return true;
     return this.entitlements.orgAllows(org, `integration.${kind}`);
   }
 
@@ -187,6 +189,13 @@ export class IntegrationsService {
   }
 
   /** Push to the phone app: on when saved as On here, or EXPO_PUSH=on in the server env. */
+  /** Backup storage (docs/BACKUPS.md); null when it has not been chosen. */
+  async backupStorage(): Promise<{ storage: BackupStorage; passphrase: string | null; source: Source; target: string } | null> {
+    const r = await this.resolve(null, 'backup_storage');
+    if (!configuredIn('backup_storage', r.env)) return null;
+    return { storage: storageFrom(r.env), passphrase: r.env.BACKUP_PASSPHRASE?.trim() || null, source: r.source, target: r.env.BACKUP_TARGET!.trim() };
+  }
+
   async push(): Promise<{ enabled: boolean; accessToken: string | null }> {
     const r = await this.resolve(null, 'push');
     return { enabled: (r.env.EXPO_PUSH ?? '').trim() === 'on', accessToken: r.env.EXPO_ACCESS_TOKEN?.trim() || null };
@@ -220,8 +229,8 @@ export class IntegrationsService {
     const users = new Map<string, string>();
     const out = [];
     for (const def of CATALOG) {
-      // Payment gateways belong to the server owner only; other organisations never see them.
-      if (isPaymentKind(def.kind) && !owner) continue;
+      // Payment gateways and backup storage belong to the server owner only; other organisations never see them.
+      if (isServerOnlyKind(def.kind) && !owner) continue;
       const r = await this.resolve(u.organizationId, def.kind);
       const configured = configuredIn(def.kind, r.env);
       let detail: string | null = null;
@@ -284,7 +293,8 @@ export class IntegrationsService {
     if (f.type === 'url' && v) {
       let url: URL;
       try { url = new URL(v); } catch { throw new BadRequestException(`${f.label}: enter a full address starting with https://`); }
-      const httpOk = def.kind === 'tally' || config.allowHttpRedirects;
+      // Owner-only settings may point at the server owner's private network (Tally, a MinIO bucket).
+      const httpOk = def.kind === 'tally' || def.kind === 'backup_storage' || config.allowHttpRedirects;
       if (url.protocol !== 'https:' && !(url.protocol === 'http:' && httpOk)) throw new BadRequestException(`${f.label}: use an https:// address`);
       if (url.username || url.password) throw new BadRequestException(`${f.label}: leave the user name and password out of the address`);
     }
@@ -332,6 +342,10 @@ export class IntegrationsService {
     }
     const missing = def.fields.filter((f) => f.required && !values[f.key] && !secrets[f.key]).map((f) => f.label);
     if (kind === 'zoho_books' && !secrets.ZOHO_BOOKS_REFRESH_TOKEN) missing.push('Grant code (or refresh token)');
+    if (kind === 'backup_storage' && values.BACKUP_TARGET === 's3') {
+      for (const k of ['BACKUP_S3_ENDPOINT', 'BACKUP_S3_BUCKET', 'BACKUP_S3_ACCESS_KEY', 'BACKUP_S3_SECRET_KEY']) if (!values[k] && !secrets[k]) missing.push(def.fields.find((f) => f.key === k)!.label);
+    }
+    if (kind === 'backup_storage' && values.BACKUP_S3_BUCKET && !/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(values.BACKUP_S3_BUCKET)) throw new BadRequestException('Bucket name: use 3–63 lowercase letters, digits, dots or -');
     if (missing.length) throw new BadRequestException(`Fill in: ${missing.join(', ')}`);
     const sealed = Object.keys(secrets).length ? encryptSecret(JSON.stringify(secrets), secretKey()) : null;
     const changed = def.fields.filter((f) => !f.transient && (f.type === 'secret' ? secrets[f.key] !== before[f.key] : values[f.key] !== before[f.key])).map((f) => f.key);
@@ -473,6 +487,22 @@ export class IntegrationsService {
         if (bad.length === phones.length) return { ok: false, message: `Expo could not send: ${bad[0]?.message ?? 'unknown error'}` };
         return { ok: true, message: `Sent a test push to ${phones.length - bad.length} of your phone${phones.length === 1 ? '' : 's'}.` };
       }
+      case 'backup_storage': {
+        const b = await this.backupStorage();
+        if (!b) return { ok: false, message: 'Choose where to keep backups and save first.' };
+        const name = `samptrek-test-${Date.now().toString(36)}.txt`;
+        try {
+          await b.storage.putText(name, 'SampTrek backup storage test');
+          const back = await b.storage.getText(name);
+          await b.storage.remove(name);
+          if (back !== 'SampTrek backup storage test') return { ok: false, message: `Wrote a test file to ${b.storage.where} but could not read it back.` };
+        } catch (e) {
+          return { ok: false, message: (e as Error).message.slice(0, 300) };
+        }
+        const tool = await pgDumpVersion().then((v) => ({ ok: true, v }), (e: Error) => ({ ok: false, v: e.message }));
+        if (!tool.ok) return { ok: false, message: `Storage works (${b.storage.where}), but ${tool.v}` };
+        return { ok: true, message: `Wrote, read and deleted a test file in ${b.storage.where}. ${tool.v} is ready.${b.passphrase ? ' Backups will be encrypted.' : ' Backups will NOT be encrypted: add a passphrase.'}` };
+      }
     }
   }
 
@@ -561,6 +591,10 @@ export function configuredIn(kind: IntegrationKind, env: EnvMap): boolean {
     case 'razorpay': return !!env.RAZORPAY_KEY_ID?.trim() && !!env.RAZORPAY_KEY_SECRET?.trim();
     case 'stripe': return !!env.STRIPE_SECRET_KEY?.trim();
     case 'push': return (env.EXPO_PUSH ?? '').trim() === 'on';
+    case 'backup_storage': {
+      const t = env.BACKUP_TARGET?.trim();
+      return t === 'local' || (t === 's3' && !!s3From(env));
+    }
   }
 }
 
