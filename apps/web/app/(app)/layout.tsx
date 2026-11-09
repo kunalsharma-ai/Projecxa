@@ -1,6 +1,6 @@
 'use client';
 import clsx from 'clsx';
-import { Bell, Compass, LogOut, Maximize2, Menu, Palette, PanelRight, Plus, Search, Settings, ShieldCheck, Sparkles, X } from 'lucide-react';
+import { Bell, Compass, Eye, LogOut, Maximize2, Menu, Palette, PanelRight, Plus, Search, Settings, ShieldCheck, Sparkles, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -266,6 +266,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           <div className="flex min-h-0 flex-1">
             <main id="main" key={pathname} className="anim-in mx-auto w-full min-w-0 max-w-[1440px] px-4 py-6 sm:px-6">
+              {me.observing && (
+                <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-warn/40 bg-warn/10 px-4 py-2.5 text-sm" role="status" data-observing>
+                  <Eye className="h-4 w-4 shrink-0 text-warn" />
+                  <span className="min-w-0 flex-1">You are observing <b>{me.observing.name}</b> as Super Admin. Everything is read-only, and this visit is in their activity log.</span>
+                  <button className="btn-ghost px-3 py-1 text-xs" onClick={async () => { const r = await post<{ home: string }>('/super-admin/observe/exit'); window.location.href = r.home; }}>Exit observe mode</button>
+                </div>
+              )}
               {blocked ? <PlanBlocked block={me.features!.block!} admin={me.user.role === 'ADMIN'} /> : featureOff ? <FeatureOff feature={pageFeature!} /> : children}
             </main>
             {copilot && pathname !== '/copilot' && (

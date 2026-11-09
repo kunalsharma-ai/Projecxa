@@ -5,6 +5,8 @@ export interface FeatureDef { key: string; label: string; group: string; summary
 export interface Plan {
   id: string; code: string; name: string; description: string | null; priceLabel: string | null;
   features: string[]; mobileFeatures: string[]; mobileEnabled: boolean; maxUsers: number | null; maxProjects: number | null;
+  /** Other usage limits (docs/PLAN_LIMITS.md). */
+  limits: LimitsJson | null;
   active: boolean; sortOrder: number; organizations: number;
   priceMonthly: number | string | null; priceYearly: number | string | null; currency: string;
 }
@@ -25,7 +27,8 @@ export interface FeatureRow {
   app: { plan: boolean; override: boolean | null; effective: boolean } | null;
 }
 export interface OrgDetail extends Omit<OrgSummary, 'features'> {
-  subscriptionDetail: { status: SubStatus; startsAt: string; endsAt: string | null; trialEndsAt: string | null; maxUsers: number | null; maxProjects: number | null; mobileEnabled: boolean; notes: string | null } | null;
+  subscriptionDetail: { status: SubStatus; startsAt: string; endsAt: string | null; trialEndsAt: string | null; maxUsers: number | null; maxProjects: number | null; limits: LimitsJson | null; mobileEnabled: boolean; notes: string | null } | null;
+  usage: Usage;
   features: FeatureRow[];
 }
 export interface OrgUser {
@@ -48,7 +51,7 @@ export interface AutomationCatalog {
   actions: { type: string; label: string; fields: string[] }[];
   recipes: { id: string; name: string; summary: string; trigger: string }[];
 }
-export interface Catalog { features: FeatureDef[]; groups: string[]; automation: AutomationCatalog }
+export interface Catalog { features: FeatureDef[]; groups: string[]; limits: LimitDef[]; automation: AutomationCatalog }
 
 export const SUB_STATUS: Record<SubStatus, [string, string]> = {
   TRIAL: ['Trial', 'bg-info/15 text-info'], ACTIVE: ['Active', 'bg-ok/15 text-ok'], PAST_DUE: ['Past due', 'bg-warn/15 text-warn'],
@@ -106,3 +109,10 @@ export const fmtMoney = (currency: string, n: number | string | null | undefined
 
 /** How the organisation's Admin shares a feature (docs/FEATURE_ACCESS.md). */
 export const ACCESS_LABEL: Record<'everyone' | 'admins' | 'people' | 'off', string> = { everyone: 'Everyone', admins: 'Admins only', people: 'Chosen people', off: 'No one' };
+
+/** Usage limits (docs/PLAN_LIMITS.md). */
+export type LimitKey = 'users' | 'projects' | 'projectsPerMonth' | 'clients' | 'vendors' | 'portalUsers' | 'clicksPerMonth' | 'completesPerMonth' | 'scheduledReports' | 'apiKeys';
+export interface LimitDef { key: LimitKey; label: string; counts: string; period: 'total' | 'month'; traffic?: boolean }
+export type LimitsJson = Partial<Record<LimitKey, number | null>> & { trafficAction?: 'stop' | 'warn' };
+export interface UsageRow { key: LimitKey; label: string; counts: string; period: 'total' | 'month'; traffic: boolean; limit: number | null; used: number }
+export interface Usage { trafficAction: 'stop' | 'warn'; limits: UsageRow[] }

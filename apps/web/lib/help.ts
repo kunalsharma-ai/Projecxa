@@ -367,6 +367,28 @@ export const HELP: Record<string, HelpEntry> = {
   },
 
   // ───────────────────── Project: sections and explicit ids ─────────────────────
+  'section:Usage and limits': {
+    what: 'What your plan allows (projects, clients, vendors, logins, clicks, completes…) and how much you use now.',
+    how: 'Bars turn amber at 80% and red when a limit is reached. Monthly counts reset on the 1st.',
+    where: 'Your whole organisation. Your SampTrek provider sets the limits.',
+  },
+  'section:Limits in this plan': {
+    what: 'Usage limits every organisation on this plan gets.',
+    how: 'Type a number, or leave a field empty for no limit. Choose whether running out of clicks or completes stops new entries or only shows the overrun.',
+    where: 'Every organisation on the plan, at once. One organisation can get its own numbers on its Subscription tab.',
+  },
+  'section:Runs as': {
+    what: 'The name, domain and respondent ID prefix this organisation uses on links and redirects.',
+    how: 'Traffic on their own domain and name is still counted here. Use Observe to open their workspace read-only.',
+    where: 'This organisation only.',
+  },
+  'section:Clicks and completes per day': { what: 'Live respondent entries per day, with completes shown darker.', how: 'Pick 7, 30 or 90 days. Hover a bar for the numbers.', where: 'This organisation; test links are left out.' },
+  'section:Busiest projects': { what: 'The projects with the most live clicks in the period.', how: 'Open Observe to see a project in full.', where: 'This organisation only.' },
+  'section:Usage': {
+    what: 'How much of each limit this organisation uses.',
+    how: 'Change its limits on the left, or move it to another plan.',
+    where: 'This organisation only.',
+  },
   'section:Project settings': {
     what: 'Project-wide settings such as name, client, category, managers, link variable and dates.',
     how: 'Change a value and save; it applies to every market.',

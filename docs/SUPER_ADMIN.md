@@ -46,6 +46,9 @@ Every feature passes four layers (details in docs/FEATURE_ACCESS.md):
 3. **Admin** — the organisation's Admin chooses who in the team gets each feature they have: everyone, admins only, chosen people or no one (Settings → Features & access). They cannot hand out anything layers 1–2 do not give.
 4. **Person** — the Super Admin can still take features away from one person (Organisations → People).
 
+Usage limits per plan and per organisation (projects, clicks, completes, clients, vendors, portal logins…): docs/PLAN_LIMITS.md.
+Observing an organisation read-only and its traffic: docs/SUPER_ADMIN_OBSERVE.md.
+
 ## How it is enforced (web and mobile at once)
 
 Every authenticated API request goes through `auth.guard.ts`:

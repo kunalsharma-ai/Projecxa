@@ -1,3 +1,4 @@
+import { EntitlementsService } from '../super-admin/entitlements';
 import { Body, Controller, Get, Headers, HttpCode, Param, Post, Put, Query, Req, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Request, Response } from 'express';
@@ -47,9 +48,11 @@ function send(res: Response, f: { name: string; type: string; data: Buffer }, in
 @Controller('billing')
 @Roles('ADMIN')
 export class BillingController {
-  constructor(private readonly billing: BillingService) {}
+  constructor(private readonly billing: BillingService, private readonly entitlements: EntitlementsService) {}
 
   @Get() overview(@CurrentUser() u: AuthUser) { return this.billing.overview(u); }
+  /** The plan's usage limits and how much is used (docs/PLAN_LIMITS.md). */
+  @Get('usage') usage(@CurrentUser() u: AuthUser) { return this.entitlements.limitsReport(u.organizationId); }
 
   @Post('checkout') @HttpCode(200)
   checkout(@CurrentUser() u: AuthUser, @Body(new ZodPipe(checkout)) b: z.infer<typeof checkout>) { return this.billing.checkout(u, b); }

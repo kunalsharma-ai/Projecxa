@@ -1,5 +1,6 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpException, HttpStatus, Param, Patch, Post, Put, Query, Req } from '@nestjs/common';
-import { Request } from 'express';
+import { Body, Controller, Delete, Get, HttpCode, HttpException, HttpStatus, Param, Patch, Post, Put, Query, Req, Res } from '@nestjs/common';
+import { Request, Response } from 'express';
+import { ObserveTokens } from './observe';
 import { z } from 'zod';
 import { AuthUser } from '../auth/auth.types';
 import { CurrentUser, Public, Roles } from '../auth/decorators';
@@ -9,12 +10,15 @@ import { RateLimiter } from '../public-api/api-key.guard';
 import { checkChallenge, newChallenge } from '../vendor-signup/vendor-signup';
 import { AutomationService, ruleSchema } from './automation';
 import { FEATURE_KEYS } from './features';
+import { LIMIT_KEYS } from './limits';
 import { SuperAdminService } from './super-admin.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 const SUB_STATUSES = ['TRIAL', 'ACTIVE', 'PAST_DUE', 'EXPIRED', 'CANCELLED'] as const;
 const date = z.coerce.date().nullable().optional();
 const limit = z.number().int().min(0).max(1_000_000).nullable().optional();
+/** Usage limits (src/super-admin/limits.ts): a number, or null = no limit; trafficAction = what reaching clicks/completes does. */
+const limitsJson = z.object({ ...Object.fromEntries(LIMIT_KEYS.filter((k) => k !== 'users' && k !== 'projects').map((k) => [k, z.number().int().min(0).max(1_000_000_000).nullable().optional()])), trafficAction: z.enum(['stop', 'warn']).optional() }).strict();
 const email = z.string().trim().email().max(200).transform((s) => s.toLowerCase());
 const slug = z.string().trim().toLowerCase().regex(/^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/, 'Use 3–40 lowercase letters, digits or -');
 const feature = z.string().refine((k) => FEATURE_KEYS.includes(k), 'Unknown feature');
@@ -24,14 +28,14 @@ const orgUpdate = z.object({ name: z.string().trim().min(2).max(160).optional(),
 const approve = z.object({ planCode: z.string().max(40).nullable().optional(), trialDays: z.number().int().min(0).max(365).nullable().optional() }).strict();
 const subscription = z.object({
   planCode: z.string().min(1).max(40), status: z.enum(SUB_STATUSES), startsAt: date, endsAt: date, trialEndsAt: date,
-  maxUsers: limit, maxProjects: limit, mobileEnabled: z.boolean().optional(), notes: z.string().max(2000).nullable().optional(),
+  maxUsers: limit, maxProjects: limit, limits: limitsJson.nullable().optional(), mobileEnabled: z.boolean().optional(), notes: z.string().max(2000).nullable().optional(),
 }).strict();
 const features = z.object({ changes: z.array(z.object({ feature, channel: z.enum(['web', 'mobile']), state: z.enum(['plan', 'on', 'off']) }).strict()).min(1).max(200) }).strict();
 const userUpdate = z.object({ active: z.boolean().optional(), mobileAccess: z.boolean().optional(), featuresOff: z.array(feature).max(100).optional(), mobileFeaturesOff: z.array(feature).max(100).optional(), superAdmin: z.boolean().optional() }).strict();
 const planBase = {
   name: z.string().trim().min(1).max(80), description: z.string().max(500).nullable().optional(), priceLabel: z.string().max(80).nullable().optional(),
   features: z.array(feature).max(200), mobileFeatures: z.array(feature).max(200), mobileEnabled: z.boolean().optional(),
-  maxUsers: limit, maxProjects: limit, sortOrder: z.number().int().min(0).max(1000).optional(),
+  maxUsers: limit, maxProjects: limit, limits: limitsJson.optional(), sortOrder: z.number().int().min(0).max(1000).optional(),
   priceMonthly: z.number().min(0).max(100_000_000).nullable().optional(), priceYearly: z.number().min(0).max(100_000_000).nullable().optional(),
   currency: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/, 'Use a 3-letter currency code').optional(),
 };
@@ -44,7 +48,7 @@ const activityQuery = z.object({ organizationId: z.string().max(40).optional(), 
 @Controller('super-admin')
 @Roles('ADMIN')
 export class SuperAdminController {
-  constructor(private readonly svc: SuperAdminService, private readonly automation: AutomationService) {}
+  constructor(private readonly svc: SuperAdminService, private readonly automation: AutomationService, private readonly observe: ObserveTokens) {}
 
   @Get('overview') overview() { return this.svc.overview(); }
   @Get('catalog') catalog() { return { ...this.svc.catalog(), automation: this.automation.catalog() }; }
@@ -68,6 +72,20 @@ export class SuperAdminController {
   @Put('organizations/:id/subscription') setSub(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body(new ZodPipe(subscription)) b: z.infer<typeof subscription>) { return this.svc.setSubscription(u, id, b); }
   @Delete('organizations/:id/subscription') removeSub(@CurrentUser() u: AuthUser, @Param('id') id: string) { return this.svc.removeSubscription(u, id); }
   @Put('organizations/:id/features') setFeatures(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body(new ZodPipe(features)) b: z.infer<typeof features>) { return this.svc.setFeatures(u, id, b.changes); }
+  /** Open the organisation read-only as the Super Admin (docs/SUPER_ADMIN_OBSERVE.md). */
+  @Post('organizations/:id/observe') @HttpCode(200)
+  async startObserve(@CurrentUser() u: AuthUser, @Param('id') id: string, @Res({ passthrough: true }) res: Response) {
+    const org = await this.svc.observeTarget(u, id);
+    await this.observe.start(res, u.id, org.id);
+    return { ok: true, organization: org, home: '/' };
+  }
+  @Post('observe/exit') @HttpCode(200)
+  stopObserve(@CurrentUser() u: AuthUser, @Res({ passthrough: true }) res: Response) {
+    this.observe.stop(res);
+    return { ok: true, home: u.observing ? `/super-admin/organizations/${u.observing.organizationId}` : '/super-admin' };
+  }
+  /** Traffic at a glance: clicks, completes and outcomes per day, top projects and vendors, the domain links run on. */
+  @Get('organizations/:id/traffic') traffic(@Param('id') id: string, @Query('days') days?: string) { return this.svc.traffic(id, Math.min(90, Math.max(1, Number(days) || 30))); }
   @Get('organizations/:id/users') users(@Param('id') id: string) { return this.svc.users(id); }
   @Delete('organizations/:id/integrations/:kind') clearIntegration(@CurrentUser() u: AuthUser, @Param('id') id: string, @Param('kind') kind: string) { return this.svc.clearIntegration(u, id, kind); }
 
