@@ -16,6 +16,7 @@ describe('Live client dashboard links (e2e)', () => {
   let countryId: string;
   let entryCode: string;
   let n = 0;
+  let orgId: string;
   const http = () => request(app.getHttpServer());
   const view = (token: string) => http().get(`/api/v1/public/dashboard/${token}`);
 
@@ -24,6 +25,7 @@ describe('Live client dashboard links (e2e)', () => {
     await resetDb(prisma);
     dashboardLimiter.reset();
     const a = await makeOrg(prisma, 'dash');
+    orgId = a.org.id;
     const b = await makeOrg(prisma, 'dash-other');
     pm = api(app, await login(app, a.users.PROJECT_MANAGER.email));
     viewer = api(app, await login(app, a.users.VIEWER.email));
@@ -135,6 +137,15 @@ describe('Live client dashboard links (e2e)', () => {
     await view('short').expect(404);
     const audit = await prisma.auditEvent.findMany({ where: { entityId: projectId, action: { startsWith: 'dashboard_link.' } } });
     expect(audit.map((a) => a.action)).toEqual(expect.arrayContaining(['dashboard_link.created', 'dashboard_link.updated', 'dashboard_link.revoked']));
+  });
+
+  it('stops working when the plan no longer includes client dashboards', async () => {
+    const link = (await pm.post(`/projects/${projectId}/dashboard-links`, { label: 'Plan check' }).expect(201)).body;
+    await view(link.token).expect(200);
+    const off = await prisma.featureOverride.create({ data: { organizationId: orgId, feature: 'client_dashboards', channel: 'web', enabled: false } });
+    expect((await view(link.token).expect(404)).body.code).toBe('DASHBOARD_LINK_UNAVAILABLE');
+    await prisma.featureOverride.delete({ where: { id: off.id } });
+    await view(link.token).expect(200);
   });
 
   it('caps working links per project', async () => {

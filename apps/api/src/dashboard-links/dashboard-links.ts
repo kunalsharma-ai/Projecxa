@@ -22,6 +22,7 @@ import { ZodPipe } from '../common/zod.pipe';
 import { PrismaService } from '../prisma/prisma.service';
 import { fieldMetrics, emptyFieldMetrics } from '../projects/field-metrics';
 import { RateLimiter } from '../public-api/api-key.guard';
+import { EntitlementsModule, EntitlementsService } from '../super-admin/entitlements';
 
 /** At most this many links that still work, per project. */
 export const MAX_ACTIVE_DASHBOARD_LINKS = 20;
@@ -63,7 +64,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 
 @Injectable()
 export class DashboardLinksService {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly entitlements: EntitlementsService) {}
 
   private async project(organizationId: string, id: string) {
     const p = await this.prisma.project.findFirst({ where: { id, organizationId }, select: { id: true, projectCode: true, status: true } });
@@ -140,6 +141,8 @@ export class DashboardLinksService {
     if (!TOKEN_RE.test(token)) throw gone();
     const link = await this.prisma.clientDashboardLink.findUnique({ where: { token }, select: { id: true, projectId: true, organizationId: true, showMoney: true, showVendors: true, revokedAt: true, expiresAt: true } });
     if (!link || linkState(link) !== 'ACTIVE') throw gone();
+    // The organisation's plan must still include client dashboards (docs/FEATURE_ACCESS.md).
+    if (!(await this.entitlements.orgAllows(link.organizationId, 'client_dashboards'))) throw gone();
     const p = await this.prisma.project.findFirst({
       where: { id: link.projectId, organizationId: link.organizationId, status: { in: [...SHAREABLE_STATUSES] } },
       select: {
@@ -276,5 +279,5 @@ export class PublicDashboardController {
   }
 }
 
-@Module({ controllers: [DashboardLinksController, PublicDashboardController], providers: [DashboardLinksService] })
+@Module({ imports: [EntitlementsModule], controllers: [DashboardLinksController, PublicDashboardController], providers: [DashboardLinksService] })
 export class DashboardLinksModule {}
