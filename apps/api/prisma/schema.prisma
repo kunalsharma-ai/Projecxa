@@ -80,11 +80,13 @@ model Organization {
   invoices               Invoice[]
   reconciliations        Reconciliation[]
   alerts                 Alert[]
+  routingRuns            RoutingRun[]
   vendorBills            VendorBill[]
   exchangeRates          ExchangeRate[]
   apiKeys                ApiKey[]
   webhookEndpoints       WebhookEndpoint[]
   webhookDeliveries      WebhookDelivery[]
+  sampleonOutboundEvents SampleonOutboundEvent[]
   reportSchedules        ReportSchedule[]
   accountingExports      AccountingExport[]
   zohoBooksLinks         ZohoBooksLink[]
@@ -101,6 +103,7 @@ model Organization {
   customOptions          CustomOption[]
   partyLogos             PartyLogo[]
   clientUniqueLinks      ClientUniqueLink[]
+  clientDashboardLinks   ClientDashboardLink[]
   aiUsage                AiUsage[]
   aiDocuments            AiDocument[]
   tickets                Ticket[]
@@ -133,8 +136,12 @@ model Organization {
   platformSettings       Json?
   subscription           Subscription?
   featureOverrides       FeatureOverride[]
+  /// Admin's choice of who gets each feature the plan includes (docs/FEATURE_ACCESS.md):
+  /// { [featureKey]: { mode: "everyone" | "admins" | "people" | "off", people: userId[] } }. Missing = the feature's default.
+  featureAccess          Json?
   automationRuns         AutomationRun[]
   billingInvoices        BillingInvoice[]
+  chatChannels           ChatChannel[]
 }
 
 enum OrgStatus {
@@ -164,6 +171,8 @@ model Plan {
   maxUsers       Int?
   /// Projects allowed; null = no limit.
   maxProjects    Int?
+  /// Other usage limits (src/super-admin/limits.ts, docs/PLAN_LIMITS.md): { clients, vendors, clicksPerMonth, …, trafficAction }. Missing = no limit.
+  limits         Json?
   active         Boolean          @default(true)
   sortOrder      Int              @default(0)
   subscriptions  Subscription[]
@@ -196,6 +205,8 @@ model Subscription {
   /// Overrides the plan's limits for this organisation; null = the plan's.
   maxUsers        Int?
   maxProjects     Int?
+  /// Overrides the plan's other limits for this organisation: a key with null = no limit, missing = the plan's.
+  limits          Json?
   /// Turns the mobile app off for the whole organisation, whatever the plan says.
   mobileEnabled   Boolean            @default(true)
   /// How the organisation last paid for it: MONTHLY or YEARLY (null = set by hand).
@@ -411,6 +422,8 @@ model User {
   projectVersions  ProjectSettingsVersion[]
   pushDevices      PushDevice[]
   mobileSsoCodes   MobileSsoCode[]
+  chatMemberships  ChatMember[]
+  chatMessages     ChatMessage[]
 
   @@unique([organizationId, email])
   @@index([email])
@@ -569,6 +582,8 @@ model Project {
   autopilotState          Json?
   /// Speeder check: { enabled, fraction: "1/3" }. A complete faster than fraction × planned LOI becomes QUALITY_FAIL / SPEEDER.
   speederCheck            Json?
+  /// Fraud rules (docs/FRAUD_CHECKS.md): { crossProject: { scope, projectIds, days, outcomes }, riskThreshold }.
+  fraudRules              Json?
   redirectMode            RedirectMode           @default(HYBRID)
   activeRedirectVersionId String?                @unique
   activeRedirectVersion   RedirectPolicyVersion? @relation("ActiveRedirectVersion", fields: [activeRedirectVersionId], references: [id])
@@ -583,16 +598,21 @@ model Project {
   invoices          Invoice[]
   reconciliations   Reconciliation[]
   alerts            Alert[]
+  routingRuns       RoutingRun[]
   wonBid            WonBid?
   tasks             Task[]
+  comments          ProjectComment[]
+  handovers         ProjectHandover[]
   settingsVersions  ProjectSettingsVersion[]
   tickets           Ticket[]
   sharedFiles       SharedFile[]
   sampleonRequests  SampleonAudienceRequest[]
   clientUniqueLinks ClientUniqueLink[]
+  dashboardLinks    ClientDashboardLink[]
   /// How the gate/prescreener questions used by quota cells map onto SUPPLY360 profile attributes, for SAMPLEON.
   /// { "gate:<questionId>": { attribute, values: { <answerId>: value } } }; see src/sampleon/quota-translate.ts.
   sampleonQuotaMap  Json?
+  chatChannel       ChatChannel?
 
   @@unique([organizationId, projectCode])
   @@index([organizationId, status])
@@ -650,6 +670,7 @@ model ProjectCountry {
 
   quotas        QuotaCell[]
   allocations   VendorAllocation[]
+  routingRuns   RoutingRun[]
   sessions      RespondentSession[]
   quoteRequests QuoteRequest[]
   clientLinks   ClientUniqueLink[]
@@ -833,6 +854,11 @@ model RespondentSession {
   /// Tenant-scoped hashes of the browser fingerprint and the long-lived browser cookie.
   fingerprintHash    String?
   browserIdHash      String?
+  /// Tenant-scoped hash of the stable device traits (no browser version or languages), so a browser update or a new language does not hide a repeat device.
+  deviceHash         String?
+  /// Fraud risk 0-100 from every check that ran, and the signals behind it (docs/FRAUD_CHECKS.md).
+  riskScore          Int?
+  riskSignals        String[]               @default([])
   startedAt          DateTime               @default(now())
   outcomeAt          DateTime?
   expiresAt          DateTime
@@ -855,6 +881,11 @@ model RespondentSession {
   @@index([projectId, fingerprintHash])
   @@index([projectId, browserIdHash])
   @@index([projectId, ipHash])
+  @@index([projectId, deviceHash])
+  @@index([organizationId, fingerprintHash])
+  @@index([organizationId, deviceHash])
+  @@index([organizationId, browserIdHash])
+  @@index([organizationId, ipHash])
   @@index([organizationId, startedAt])
   @@index([invoiceId])
   @@index([vendorBillId])
@@ -1119,6 +1150,37 @@ model TorExitNode {
   updatedAt DateTime @updatedAt
 }
 
+/// Free public IP lists (VPN, data centre, abuse), refreshed by src/survey/ip-reputation.ts. Server-wide.
+model IpReputationRange {
+  id       String @id @default(cuid())
+  /// List id, e.g. x4b-vpn, x4b-datacenter, firehol-level1.
+  source   String
+  /// vpn | datacenter | abuse
+  category String
+  /// Written with raw SQL (Prisma's inet mapping takes single addresses, not ranges); matched with >>=.
+  range    String @db.Inet
+
+  @@index([source])
+  @@index([range(ops: InetOps)], type: Gist)
+}
+
+/// When each public IP list last loaded.
+model IpReputationSource {
+  id       String    @id
+  category String
+  count    Int       @default(0)
+  syncedAt DateTime?
+  error    String?
+}
+
+/// Cached answers from the optional proxycheck.io lookup (free key), kept 7 days. Keyed by a hash of the IP.
+model IpLookupCache {
+  key       String   @id
+  proxy     Boolean
+  type      String?
+  checkedAt DateTime @default(now())
+}
+
 /// Images uploaded for respondent pages (logo, hero, background). Served publicly at /pa/:id.
 model PageAsset {
   id             String       @id @default(cuid())
@@ -1214,6 +1276,34 @@ enum AlertState {
   OPEN
   ACKNOWLEDGED
   RESOLVED
+}
+
+/// One vendor auto-routing change to a market's vendor targets, kept so it can be explained and undone. See src/monitor/routing.ts.
+model RoutingRun {
+  id               String         @id @default(cuid())
+  organizationId   String
+  organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectId        String
+  project          Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectCountryId String
+  projectCountry   ProjectCountry @relation(fields: [projectCountryId], references: [id], onDelete: Cascade)
+  /// auto (the autopilot) | manual (someone pressed Route now)
+  trigger          String
+  /// null when the autopilot ran it.
+  actorId          String?
+  /// [{ from, to, completes, reason, because, cpiDelta }]
+  moves            Json
+  /// [{ id, vendor, from, to }]: each vendor target before and after, used by undo.
+  targets          Json
+  /// { ranking, skipped, settings, freed, cap, held, uncovered, costDelta }: why the plan looked like this.
+  explanation      Json
+  summary          String
+  createdAt        DateTime       @default(now())
+  undoneAt         DateTime?
+  undoneById       String?
+
+  @@index([projectId, createdAt])
+  @@index([projectCountryId, createdAt])
 }
 
 /// A fieldwork problem found by the monitor. One unresolved alert per dedupeKey; it resolves itself when the condition clears.
@@ -2114,6 +2204,29 @@ model SampleonAudienceRequest {
   @@index([organizationId, projectId])
 }
 
+/// Events SampTrek sends to SAMPLEON (SampAudience), e.g. project.created, delivered with retries
+/// by SampleonOutbox. The envelope is fixed when queued, so a retry sends the same eventId.
+model SampleonOutboundEvent {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectId      String?
+  /// The envelope's eventId: SAMPLEON applies each event once.
+  eventId        String        @unique
+  type           String
+  envelope       Json
+  state          CallbackState @default(PENDING)
+  attempts       Int           @default(0)
+  nextAttemptAt  DateTime      @default(now())
+  lastStatusCode Int?
+  lastError      String?
+  createdAt      DateTime      @default(now())
+  deliveredAt    DateTime?
+
+  @@index([state, nextAttemptAt])
+  @@index([organizationId, projectId])
+}
+
 /// SAMPLEON events already processed (deduplicated by event id).
 model SampleonInboundEvent {
   eventId           String   @id
@@ -2218,4 +2331,161 @@ model StatusIncident {
   updatedAt  DateTime  @updatedAt
 
   @@index([startsAt])
+}
+
+/// A team comment on a project (docs/TEAM_COLLABORATION.md). Staff only; never shown in a portal.
+model ProjectComment {
+  id             String    @id @default(cuid())
+  organizationId String
+  projectId      String
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  authorId       String
+  body           String
+  /// Staff mentioned with @Name; each gets a bell item and an email.
+  mentionIds     String[]  @default([])
+  editedAt       DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([projectId, createdAt])
+  @@index([organizationId, createdAt])
+}
+
+enum HandoverStatus {
+  OPEN
+  ACCEPTED
+  CANCELLED
+}
+
+/// Handing a project to another project manager with a checklist both people tick.
+model ProjectHandover {
+  id             String         @id @default(cuid())
+  organizationId String
+  projectId      String
+  project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fromUserId     String
+  toUserId       String
+  note           String?
+  status         HandoverStatus @default(OPEN)
+  /// [{ key, label, done, doneById, doneAt }]
+  items          Json
+  /// On accept, the receiver becomes the project manager.
+  makeManager    Boolean        @default(true)
+  acceptedAt     DateTime?
+  cancelledAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([projectId, createdAt])
+  @@index([toUserId, status])
+}
+
+/// Live client dashboard (docs/CLIENT_DASHBOARD_LINKS.md): a read-only, revocable link that shows one
+/// project's completes and quotas without signing in. Money and vendor names only when switched on.
+model ClientDashboardLink {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectId      String
+  project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  /// Random, unguessable part of the link (/live/{token}).
+  token          String       @unique
+  /// Who the link is for, e.g. "Acme research team". Staff only.
+  label          String?
+  /// Show client CPI and spend so far (never vendor cost or margin).
+  showMoney      Boolean      @default(false)
+  /// Show completes per vendor by vendor name (never vendor CPI).
+  showVendors    Boolean      @default(false)
+  expiresAt      DateTime?
+  revokedAt      DateTime?
+  viewCount      Int          @default(0)
+  lastViewedAt   DateTime?
+  createdById    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([projectId])
+}
+
+/// Team chat (docs/TEAM_CHAT.md): staff-only chat that runs on this server, with no outside chat service.
+enum ChatChannelKind {
+  /// Everyone on the team.
+  GENERAL
+  /// Everyone reads; only admins and the Super Admin post.
+  ANNOUNCEMENTS
+  /// One per project, made the first time someone opens it.
+  PROJECT
+  /// Two people.
+  DIRECT
+  /// A private group: only its members see it.
+  GROUP
+}
+
+model ChatChannel {
+  id             String          @id @default(cuid())
+  organizationId String
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  kind           ChatChannelKind
+  /// Group name; GENERAL/ANNOUNCEMENTS/PROJECT/DIRECT names are worked out when shown.
+  name           String?
+  projectId      String?         @unique
+  project        Project?        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  /// One per organisation: "general", "announcements", or for DIRECT the two user ids sorted and joined with ":".
+  key      String?
+  /// Only admins (and the Super Admin) may post. Always true for ANNOUNCEMENTS.
+  adminsOnly     Boolean         @default(false)
+  createdById    String?
+  archivedAt     DateTime?
+  createdAt      DateTime        @default(now())
+  /// Time of the newest message, for ordering the channel list.
+  lastMessageAt  DateTime?
+  members        ChatMember[]
+  messages       ChatMessage[]
+
+  @@unique([organizationId, key])
+  @@index([organizationId, kind])
+}
+
+/// Who is in a DIRECT or GROUP conversation, and where each person has read up to in any channel.
+model ChatMember {
+  channelId String
+  channel   ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// false = read state only (open channels have no member list).
+  member    Boolean     @default(true)
+  /// Highest message seq this person has read.
+  readSeq   Int         @default(0)
+  muted     Boolean     @default(false)
+  joinedAt  DateTime    @default(now())
+
+  @@id([channelId, userId])
+  @@index([userId])
+}
+
+model ChatMessage {
+  id             String      @id @default(cuid())
+  /// Grows with every message on the server, so a device that was offline asks for "everything after N".
+  seq            Int         @unique @default(autoincrement())
+  organizationId String
+  channelId      String
+  channel        ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  authorId       String?
+  author         User?       @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  /// TEXT, or UPDATE for a project status update (with tone).
+  type           String      @default("TEXT")
+  /// UPDATE only: on_track | at_risk | blocked | done
+  tone           String?
+  body           String
+  /// Id the sender's device gave the message. A message queued offline and sent twice is saved once.
+  clientId       String?
+  editedAt       DateTime?
+  deletedAt      DateTime?
+  createdAt      DateTime    @default(now())
+  /// Edits and deletions, so a device that was offline picks them up too.
+  updatedAt      DateTime    @updatedAt
+
+  @@unique([authorId, clientId])
+  @@index([channelId, updatedAt])
+  @@index([channelId, seq])
+  @@index([organizationId, seq])
 }

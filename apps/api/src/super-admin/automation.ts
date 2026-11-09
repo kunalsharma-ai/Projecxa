@@ -234,7 +234,7 @@ export class AutomationService implements OnModuleInit {
       case 'seats.exceeded': {
         const orgs = await this.prisma.organization.findMany({ where: { ...(onlyOrg ? { id: onlyOrg } : {}), status: 'ACTIVE', platformOwner: false }, select: { id: true, status: true, platformOwner: true, ...ORG_FEATURES_INCLUDE } });
         for (const o of orgs) {
-          const limit = orgFeatures(o).limits.maxUsers;
+          const limit = orgFeatures(o).limits.users;
           if (limit == null) continue;
           const used = await this.prisma.user.count({ where: { organizationId: o.id, active: true, role: { in: ['ADMIN', 'PROJECT_MANAGER', 'SALES', 'VIEWER'] } } });
           if (used > limit) out.push({ organizationId: o.id, dedupeKey: `seats:${used}/${limit}`, vars: { detail: `${used} active users (limit ${limit})` } });

@@ -4,7 +4,7 @@
  * feed the same config builders (common/config.ts), and env still works as a fallback.
  */
 
-export const INTEGRATION_KINDS = ['smtp', 'sso_google', 'sso_microsoft', 'sso_zoho', 'gemini', 'zoho_books', 'xero', 'quickbooks', 'tally', 'bidzo', 'razorpay', 'stripe', 'push', 'backup_storage'] as const;
+export const INTEGRATION_KINDS = ['smtp', 'sso_google', 'sso_microsoft', 'sso_zoho', 'gemini', 'zoho_books', 'xero', 'quickbooks', 'tally', 'bidzo', 'razorpay', 'stripe', 'push', 'backup_storage', 'ip_reputation'] as const;
 /** Payment gateways the server owner uses to collect subscription payments (docs/SUBSCRIPTION_PAYMENTS.md). Never shown to other organisations. */
 export const PAYMENT_KINDS = ['razorpay', 'stripe'] as const;
 export const isPaymentKind = (k: string) => (PAYMENT_KINDS as readonly string[]).includes(k);
@@ -29,7 +29,7 @@ export interface FieldDef {
 }
 export interface KindDef {
   kind: IntegrationKind;
-  group: 'Email' | 'Sign-in' | 'AI' | 'Accounting' | 'SampBidx' | 'Payments' | 'Mobile' | 'Backups';
+  group: 'Email' | 'Sign-in' | 'AI' | 'Accounting' | 'SampBidx' | 'Payments' | 'Mobile' | 'Backups' | 'Fraud';
   label: string;
   summary: string;
   /** platform = one per SampTrek server, set by the organisation that runs it (sign-in and accounting apps). */
@@ -390,6 +390,43 @@ export const CATALOG: KindDef[] = [
     ],
     testable: true,
     next: { label: 'Super Admin → Backups', href: '/super-admin/backups' },
+  },
+  {
+    kind: 'ip_reputation',
+    group: 'Fraud',
+    label: 'IP and proxy reputation',
+    summary: 'Stops respondents coming through VPNs, proxies, data centres and known abusive addresses. Free sources only; used by projects with “IP and proxy reputation” on.',
+    scope: 'org',
+    fields: [
+      {
+        key: 'IP_LISTS',
+        label: 'Free public lists',
+        type: 'select',
+        default: 'on',
+        options: [{ value: 'on', label: 'On (VPN, data centre and abuse lists)' }, { value: 'off', label: 'Off' }],
+        hint: 'X4BNet VPN and data centre ranges and FireHOL Level 1, refreshed every 12 hours. No account or key needed.',
+      },
+      {
+        key: 'PROXYCHECK_API_KEY',
+        label: 'proxycheck.io key (optional, free)',
+        type: 'secret',
+        hint: 'Free account: 1,000 lookups a day. Catches residential proxies the lists miss. Each address is looked up once a week at most.',
+      },
+      { key: 'IP_ALLOWLIST', label: 'Always allow (your office, QA)', type: 'text', placeholder: '203.0.113.7, 198.51.100.0/24', hint: 'Addresses or ranges, separated by commas. They pass this check even when a list names them.' },
+      { key: 'IP_BLOCKLIST', label: 'Always block', type: 'text', placeholder: '192.0.2.0/24', hint: 'Addresses or ranges you have seen fraud from, separated by commas.' },
+    ],
+    steps: [
+      'Keep Free public lists On. They work straight away, with nothing to sign up for.',
+      'Optional: create a free account at proxycheck.io, open Dashboard → API key, copy the key and paste it here. It adds residential proxy detection (1,000 lookups a day on the free plan).',
+      'Add your office or QA addresses to Always allow, so test runs from a VPN are not stopped.',
+      'Save and press Test. Then turn on “IP and proxy reputation” in a project’s Gate & security tab.',
+    ],
+    links: [
+      { label: 'proxycheck.io free plan', href: 'https://proxycheck.io/pricing' },
+      { label: 'X4BNet VPN lists', href: 'https://github.com/X4BNet/lists_vpn' },
+      { label: 'FireHOL Level 1', href: 'https://iplists.firehol.org/?ipset=firehol_level1' },
+    ],
+    testable: true,
   },
 ];
 

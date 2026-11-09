@@ -302,6 +302,11 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - **Work orders** get your prefix and the next number automatically (e.g. FR9132), or can be typed by hand, never twice; the last one given is shown and they can be edited later. A **UID prefix** brands every respondent ID sent to client surveys. Details: `docs/WORK_ORDERS_AND_UID_PREFIX.md`.
 - **Client unique links**: upload the client's per-respondent survey links per market (Excel, CSV or paste); each respondent gets the next unused one, never twice. The older tab is now **Vendor unique links**. Details: `docs/CLIENT_UNIQUE_LINKS.md`.
 
+## Live client dashboards
+
+- Project → **Client dashboard** makes a read-only link (`/live/<token>`) the client opens without signing in, to watch completes, markets and quota cells move. It refreshes every 30 seconds and shows the last 24 hours' pace.
+- No money or vendor details unless switched on per link (**Show CPI and spend**, **Show vendor names**); vendor cost and margin are never shown. Links can have an end date and can be turned off at once. Details: `docs/CLIENT_DASHBOARD_LINKS.md`.
+
 ## Mobile app for Android and iOS
 
 `apps/mobile` is one Expo (React Native) app for Android and iOS in the Neon (dark) and Aurora (light) looks from the design mockups. Staff get the command center, projects (with markets, vendors, quotas, share links, go live / hold / close, pause vendors), fieldwork monitor and alerts, AI copilot with confirm cards, tasks, requests, won bids, reports, invoices, vendor payables, clients, vendors, redirect health and notifications; client and vendor users get their portal. Settings-heavy screens open the web app. What each person sees follows the Super Admin feature switches for mobile and changes live (next API call, opening More, returning to the app, or within 30 seconds). Contract, store builds with EAS and limits: [docs/MOBILE_APP.md](docs/MOBILE_APP.md).
@@ -381,3 +386,7 @@ Two Fieldwork pages from the mockup, per project and from real data: **Data proc
 - **Respondent pages** show the Sampledge logo and tab icon (gate and every end page); a project's own logo moves it to a "Powered by" line, and Respondent pages → Show the Sampledge logo turns it off. See [docs/BRAND.md](docs/BRAND.md).
 - **Notifications**: opening the bell marks alerts read for that person; the badge counts only new ones. See [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md).
 - **Audience sets** in the gate survey builder: B2B, B2C, parents, teens, healthcare consumers, patients and caregivers; every question stays editable and organisations can save their own version. See [docs/GATE_QUESTION_SETS.md](docs/GATE_QUESTION_SETS.md).
+
+## Stronger fraud checks
+
+Three new toggles in Gate & security, all free: **IP and proxy reputation** (VPN, data centre and abuse lists, an optional free proxycheck.io key, your own allow and block lists; set up in Settings → Integrations), **Automated browsers** (webdriver, headless and faked-device signals) and **Across projects** (the same device or browser in your other projects, with Fraud rules for which projects and how many days). Repeat devices through another vendor are reported as `CROSS_VENDOR`, the fingerprint gains a device hash that survives browser updates, every respondent gets a 0–100 risk score with an optional reject threshold, and the **Same person elsewhere** panel lists linked respondents. See [docs/FRAUD_CHECKS.md](docs/FRAUD_CHECKS.md).

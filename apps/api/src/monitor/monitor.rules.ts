@@ -22,6 +22,10 @@ export const alertSettingsSchema = z
     quotaNearPct: z.number().int().min(50).max(99).default(90),
     /** Rates need at least this many respondents before a rule fires. */
     minSample: z.number().int().min(5).max(500).default(20),
+    /** Alert when a project's forecast margin at finish is under this percent (docs/PROFIT_FORECAST.md). */
+    marginFloorPct: z.number().int().min(0).max(95).default(20),
+    /** Also alert when the forecast margin falls this many points under the planned margin. */
+    marginDropPts: z.number().int().min(1).max(100).default(10),
   })
   .strict();
 export type AlertSettings = z.infer<typeof alertSettingsSchema>;
@@ -51,6 +55,35 @@ export const autoPauseSchema = z
 export type AutoPause = z.infer<typeof autoPauseSchema>;
 export const DEFAULT_AUTO_PAUSE: AutoPause = { enabled: false, by: 'percent', value: 10, scope: 'market' };
 
+/**
+ * Vendor auto-routing (docs/VENDOR_AUTO_ROUTING.md): when a market will fall short, move the
+ * completes a link will not deliver to the best other link, ranked by vendor score, margin and
+ * room. "approve" only proposes a plan; "auto" lets the monitor apply it. Every change is kept as a
+ * routing run that can be undone. See src/monitor/routing.ts.
+ */
+export const autoRouteSchema = z
+  .object({
+    enabled: z.boolean().default(false),
+    mode: z.enum(['approve', 'auto']).default('approve'),
+    /** Relative weights of the three parts of the routing score; they do not have to add up to 100. */
+    weights: z
+      .object({ score: z.number().int().min(0).max(100).default(50), cost: z.number().int().min(0).max(100).default(30), room: z.number().int().min(0).max(100).default(20) })
+      .strict()
+      .default({ score: 50, cost: 30, room: 20 })
+      .refine((w) => w.score + w.cost + w.room > 0, { message: 'At least one weight must be above 0' }),
+    /** Vendors with a score under this never receive routed completes. Vendors without a score yet count as UNSCORED_AS. */
+    minScore: z.number().int().min(0).max(100).default(55),
+    /** Never give completes to a link whose CPI is at or above the client CPI. */
+    keepMargin: z.boolean().default(true),
+    /** At most this share of what the market still needs moves in one run. */
+    maxMovePercent: z.number().int().min(1).max(100).default(25),
+    /** After a run (or an undo) the autopilot leaves the market alone for this long. */
+    cooldownHours: z.number().int().min(1).max(168).default(6),
+  })
+  .strict();
+export type AutoRoute = z.infer<typeof autoRouteSchema>;
+export const DEFAULT_AUTO_ROUTE: AutoRoute = autoRouteSchema.parse({});
+
 export const autopilotSchema = z
   .object({
     /** Pause a vendor link when its quality rejects pass the threshold. */
@@ -58,13 +91,16 @@ export const autopilotSchema = z
     /** Close a vendor link once it has delivered its target. */
     closeOnTarget: z.boolean().default(false),
     autoPause: autoPauseSchema.optional(),
+    autoRoute: autoRouteSchema.optional(),
+    /** This project's margin floor in percent; null or missing uses the organisation's alert settings. */
+    marginFloorPct: z.number().int().min(0).max(95).nullable().optional(),
   })
   .strict();
 export type Autopilot = z.infer<typeof autopilotSchema>;
-export const autopilotOf = (json: unknown): Autopilot & { autoPause: AutoPause } => {
+export const autopilotOf = (json: unknown): Autopilot & { autoPause: AutoPause; autoRoute: AutoRoute } => {
   const r = autopilotSchema.safeParse(json ?? {});
   const a = r.success ? r.data : { pauseOnQuality: false, closeOnTarget: false };
-  return { ...a, autoPause: a.autoPause ?? DEFAULT_AUTO_PAUSE };
+  return { ...a, autoPause: a.autoPause ?? DEFAULT_AUTO_PAUSE, autoRoute: a.autoRoute ?? DEFAULT_AUTO_ROUTE };
 };
 
 /** Completes at which the checkpoint fires for a target, or null when it never can (target 0, or checkpoint at/after target). */
@@ -103,7 +139,7 @@ export function autoPauseDecision(a: AutoPause, state: AutoPauseState, key: stri
   return null;
 }
 
-export const RULES = ['stalled', 'behind_pace', 'low_ir', 'loi_short', 'loi_long', 'quality_spike', 'drop_off', 'quota_near', 'target_reached', 'cell_full', 'auto_paused', 'callbacks_failed'] as const;
+export const RULES = ['stalled', 'behind_pace', 'low_ir', 'loi_short', 'loi_long', 'quality_spike', 'drop_off', 'quota_near', 'target_reached', 'cell_full', 'auto_paused', 'callbacks_failed', 'margin_low'] as const;
 export type Rule = (typeof RULES)[number];
 export type Severity = 'info' | 'warn' | 'bad';
 

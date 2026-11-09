@@ -3,7 +3,7 @@
 The bell in the header (and Notifications on the phone app) lists alerts worked out live from the data:
 fieldwork monitor alerts, failed callbacks, redirect fallbacks, markets close to target or without
 traffic, expiring vendor documents, failed scheduled redirect changes, open requests and the person's
-own task reminders. See `GET /insights` in `apps/api/src/dashboard/dashboard.controller.ts`.
+own task reminders, @mentions and handovers waiting for them ([TEAM_COLLABORATION.md](TEAM_COLLABORATION.md)). See `GET /insights` in `apps/api/src/dashboard/dashboard.controller.ts`.
 
 ## Read state is per person
 

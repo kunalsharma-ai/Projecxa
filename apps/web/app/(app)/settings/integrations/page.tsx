@@ -1,6 +1,6 @@
 'use client';
 import clsx from 'clsx';
-import { Bot, BookOpenCheck, CreditCard, Check, DatabaseBackup, ChevronDown, Copy, ExternalLink, KeyRound, Link2, Loader2, Mail, PlugZap, Server, Smartphone, Trash2 } from 'lucide-react';
+import { Bot, BookOpenCheck, CreditCard, Check, DatabaseBackup, ChevronDown, Copy, ExternalLink, KeyRound, Link2, Loader2, Mail, PlugZap, Server, ShieldAlert, Smartphone, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useMe } from '@/components/me';
@@ -27,6 +27,7 @@ const GROUPS: { id: string; title: string; icon: typeof Mail; blurb: string }[] 
   { id: 'SampBidx', title: 'SampBidx', icon: Link2, blurb: 'Bids live in SampBidx; SampTrek links there.' },
   { id: 'Mobile', title: 'Mobile app', icon: Smartphone, blurb: 'Push notifications to the Android and iOS app.' },
   { id: 'Backups', title: 'Backups', icon: DatabaseBackup, blurb: 'Where database backups are kept (Super Admin → Backups).' },
+  { id: 'Fraud', title: 'Fraud checks', icon: ShieldAlert, blurb: 'Free IP and proxy reputation for respondent entry checks.' },
 ];
 
 const when = (d: string | null) => (d ? new Date(d).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');

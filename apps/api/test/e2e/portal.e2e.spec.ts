@@ -139,7 +139,8 @@ describe('Client and vendor portals (e2e)', () => {
     const completes = (await client1.get(`/portal/client/projects/${projectId}/completes`).expect(200)).body;
     expect(completes).toHaveLength(2);
     expect(completes[0]).toHaveProperty('token');
-    expect(JSON.stringify(completes)).not.toMatch(/A-1|A-2|payout|vendor/i);
+    // Session tokens are random base64url and can contain "a-1" by chance, so check everything but the token.
+    expect(JSON.stringify(completes.map(({ token: _t, ...rest }: { token: string }) => rest))).not.toMatch(/A-1|A-2|payout|vendor/i);
   });
 
   it('client approves and rejects pending completes once; another client cannot', async () => {

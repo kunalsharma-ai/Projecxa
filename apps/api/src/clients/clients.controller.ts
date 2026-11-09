@@ -1,3 +1,4 @@
+import { EntitlementsService } from '../super-admin/entitlements';
 import { BadRequestException, Body, ConflictException, Controller, Get, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
 import { Module } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -65,7 +66,7 @@ const DETAIL = { id: true, name: true, code: true, status: true, website: true, 
 
 @Controller('clients')
 export class ClientsController {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly entitlements: EntitlementsService) {}
 
   /** ?status=ACTIVE lists only active clients (what Create project offers). */
   @Get()
@@ -99,6 +100,7 @@ export class ClientsController {
   @Roles(...EDITORS, 'SALES')
   async create(@CurrentUser() u: AuthUser, @Body(new ZodPipe(createSchema)) body: z.infer<typeof createSchema>) {
     await this.assertCodeFree(u.organizationId, body.code);
+    await this.entitlements.assertLimit(u.organizationId, 'clients');
     const c = await this.prisma.client.create({
       data: {
         organizationId: u.organizationId,
@@ -126,6 +128,8 @@ export class ClientsController {
     const taken = new Set(existing.map((c) => c.code));
     const names = new Set(existing.map((c) => c.name.trim().toLowerCase()));
     const results: { row: number; ok: boolean; name?: string; code?: string; errors?: string[]; id?: string }[] = [];
+    // Plan limit (docs/PLAN_LIMITS.md): rows past it are reported, not added.
+    let room = await this.entitlements.room(u.organizationId, 'clients');
     for (const [i, raw] of body.rows.entries()) {
       const p = importRowSchema.safeParse(raw);
       if (!p.success) {
@@ -140,6 +144,11 @@ export class ClientsController {
         results.push({ row: i + 1, ok: false, name: r.name, errors });
         continue;
       }
+      if (room !== null && room <= 0) {
+        results.push({ row: i + 1, ok: false, name: r.name, errors: ['Your plan’s client limit is reached. Ask your SampTrek provider for more.'] });
+        continue;
+      }
+      if (room !== null) room -= 1;
       const code = r.code ?? codeFromName(r.name, taken);
       taken.add(code);
       names.add(r.name.toLowerCase());

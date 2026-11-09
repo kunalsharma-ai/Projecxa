@@ -9,12 +9,16 @@ import { PrismaService } from '../prisma/prisma.service';
 import { alertSettingsSchema, DEFAULT_ALERT_SETTINGS, settingsOf } from './monitor.rules';
 import { MonitorService } from './monitor.service';
 import { ReallocationController, ReallocationService } from './reallocation.service';
+import { RoutingController } from './routing.controller';
+import { RoutingService } from './routing.service';
+import { VendorsModule } from '../vendors/vendors.controller';
 
 const listSchema = z.object({
   state: z.enum(['OPEN', 'ACKNOWLEDGED', 'RESOLVED', 'ACTIVE']).default('ACTIVE'),
   projectId: z.string().max(64).optional(),
 });
 const monitorQuery = z.object({ projectId: z.string().max(64).optional() });
+const forecastQuery = z.object({ projectId: z.string().min(1).max(64) });
 const webhookUrl = z
   .string()
   .url()
@@ -40,6 +44,18 @@ export class MonitorController {
       this.prisma.organization.findUniqueOrThrow({ where: { id: u.organizationId }, select: { alertSettings: true } }),
     ]);
     return { generatedAt: new Date(), markets, alerts, settings: settingsOf(org.alertSettings) };
+  }
+
+  /**
+   * Predicted finish date, cost and margin for one live project (docs/PROFIT_FORECAST.md).
+   * `forecast` is null when the project is not live or has no live or held markets.
+   */
+  @Get('monitor/forecast')
+  async forecast(@CurrentUser() u: AuthUser, @Query(new ZodPipe(forecastQuery)) q: z.infer<typeof forecastQuery>) {
+    const p = await this.prisma.project.findFirst({ where: { id: q.projectId, organizationId: u.organizationId }, select: { id: true, status: true } });
+    if (!p) throw new NotFoundException('Project not found');
+    const f = p.status === 'LIVE' ? (await this.monitor.forecasts(u.organizationId, p.id)).get(p.id) : undefined;
+    return { forecast: f ?? null, reason: f ? null : p.status !== 'LIVE' ? 'The forecast runs while the project is live.' : 'No market is live or on hold.' };
   }
 
   /** Runs the rules now instead of waiting for the five-minute check. */
@@ -134,5 +150,5 @@ export class MonitorController {
   }
 }
 
-@Module({ controllers: [MonitorController, ReallocationController], providers: [MonitorService, ReallocationService], exports: [MonitorService, ReallocationService] })
+@Module({ imports: [VendorsModule], controllers: [MonitorController, ReallocationController, RoutingController], providers: [MonitorService, ReallocationService, RoutingService], exports: [MonitorService, ReallocationService, RoutingService] })
 export class MonitorModule {}

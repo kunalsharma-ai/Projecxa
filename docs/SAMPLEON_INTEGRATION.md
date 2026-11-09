@@ -23,6 +23,26 @@ Set `SAMPLEON_URL`, `SAMPLEON_CLIENT_ID` (default `projexa`) and `SAMPLEON_CLIEN
 API (`apps/api/.env.example`). In SAMPLEON, register client `projexa` (system `PROJEXA`, the identifier SampTrek still sends as `source.platform`) with the
 same secret and the webhook URL `{SAMPTREK_API}/api/v1/integrations/sampleon/events`.
 
+## SAMPLEON learns about each project
+
+Creating a project (or copying one) queues a `project.created` event in the same transaction:
+envelope v1, `source: PROJEXA`, `correlationId` and `subject.sourceProjectId` = the project code,
+payload `{ projectId: <project code>, name, countries }` (each country once). A worker
+(`SampleonOutbox`, every 5 seconds with the callback worker) posts it to
+`{SAMPLEON_URL}/api/v1/events`, signed as `projexa` (same signature as below) with the event id as
+`Idempotency-Key`. SAMPLEON applies each event id once and keeps the project in its list of known
+projects, so it knows the project before the first audience request arrives.
+
+- 2xx is delivered. A 4xx other than 408 and 429 is refused for good (`FAILED`). Anything else,
+  including SAMPLEON being down, is retried with the shared backoff (30 s doubling, capped at
+  1 hour) up to 12 times, then `DEAD_LETTER`. Each retry sends the same event id.
+- Nothing is queued while `SAMPLEON_URL` and `SAMPLEON_CLIENT_SECRET` are not set.
+- `GET /api/v1/projects/{id}/sampleon` includes `announced` (the latest event's state, attempts,
+  last error and delivery time), and the project's SampAudience tab shows it. For a project made
+  before the connection, `POST /api/v1/projects/{id}/sampleon/announce` (admins and project
+  managers) sends it again with the current name and countries.
+- Table `SampleonOutboundEvent` (migration `20261109120000_sampleon_outbound_events`).
+
 ## Ask SAMPLEON for an audience
 
 `POST /api/v1/projects/{id}/sampleon/audience-requests` (admins and project managers):
@@ -89,6 +109,7 @@ the latest per-country snapshot.
 
 ## Tests
 
-`apps/api/test/e2e/sampleon.e2e.spec.ts`, `apps/api/test/unit/sampleon-quotas.spec.ts` (the
-translation), and SAMPLEON's `e2e/ecosystem/run.mjs`, which runs the
+`apps/api/test/e2e/sampleon.e2e.spec.ts`, `apps/api/test/e2e/sampleon-project-created.e2e.spec.ts`
+(project.created: signed, retried, copied projects, sent again on request, nothing when not
+connected), `apps/api/test/unit/sampleon-quotas.spec.ts` (the translation), and SAMPLEON's `e2e/ecosystem/run.mjs`, which runs the
 workflow with SampTrek, SAMPLEON, SUPPLY360 and ZAPX together.
