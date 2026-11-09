@@ -9,6 +9,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { alertSettingsSchema, DEFAULT_ALERT_SETTINGS, settingsOf } from './monitor.rules';
 import { MonitorService } from './monitor.service';
 import { ReallocationController, ReallocationService } from './reallocation.service';
+import { RoutingController } from './routing.controller';
+import { RoutingService } from './routing.service';
+import { VendorsModule } from '../vendors/vendors.controller';
 
 const listSchema = z.object({
   state: z.enum(['OPEN', 'ACKNOWLEDGED', 'RESOLVED', 'ACTIVE']).default('ACTIVE'),
@@ -147,5 +150,5 @@ export class MonitorController {
   }
 }
 
-@Module({ controllers: [MonitorController, ReallocationController], providers: [MonitorService, ReallocationService], exports: [MonitorService, ReallocationService] })
+@Module({ imports: [VendorsModule], controllers: [MonitorController, ReallocationController, RoutingController], providers: [MonitorService, ReallocationService, RoutingService], exports: [MonitorService, ReallocationService, RoutingService] })
 export class MonitorModule {}
