@@ -1,3 +1,4 @@
+import { EntitlementsService } from '../super-admin/entitlements';
 import { BadRequestException, Body, Controller, Delete, Get, Injectable, NotFoundException, Param, Post } from '@nestjs/common';
 import { z } from 'zod';
 import { AuditService } from '../audit/audit.service';
@@ -50,6 +51,7 @@ export class ApiKeysService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   async list(org: string) {
@@ -62,6 +64,7 @@ export class ApiKeysService {
   async create(u: AuthUser, body: z.infer<typeof createKeySchema>) {
     const active = await this.prisma.apiKey.count({ where: { organizationId: u.organizationId, revokedAt: null } });
     if (active >= MAX_KEYS) throw new BadRequestException(`You can have up to ${MAX_KEYS} keys. Revoke one you no longer use.`);
+    await this.entitlements.assertLimit(u.organizationId, 'apiKeys');
     const { key, prefix, keyHash } = newApiKey();
     const row = await this.prisma.apiKey.create({
       data: {

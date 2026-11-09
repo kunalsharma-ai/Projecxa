@@ -9,12 +9,15 @@ import { RateLimiter } from '../public-api/api-key.guard';
 import { checkChallenge, newChallenge } from '../vendor-signup/vendor-signup';
 import { AutomationService, ruleSchema } from './automation';
 import { FEATURE_KEYS } from './features';
+import { LIMIT_KEYS } from './limits';
 import { SuperAdminService } from './super-admin.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 const SUB_STATUSES = ['TRIAL', 'ACTIVE', 'PAST_DUE', 'EXPIRED', 'CANCELLED'] as const;
 const date = z.coerce.date().nullable().optional();
 const limit = z.number().int().min(0).max(1_000_000).nullable().optional();
+/** Usage limits (src/super-admin/limits.ts): a number, or null = no limit; trafficAction = what reaching clicks/completes does. */
+const limitsJson = z.object({ ...Object.fromEntries(LIMIT_KEYS.filter((k) => k !== 'users' && k !== 'projects').map((k) => [k, z.number().int().min(0).max(1_000_000_000).nullable().optional()])), trafficAction: z.enum(['stop', 'warn']).optional() }).strict();
 const email = z.string().trim().email().max(200).transform((s) => s.toLowerCase());
 const slug = z.string().trim().toLowerCase().regex(/^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/, 'Use 3–40 lowercase letters, digits or -');
 const feature = z.string().refine((k) => FEATURE_KEYS.includes(k), 'Unknown feature');
@@ -24,14 +27,14 @@ const orgUpdate = z.object({ name: z.string().trim().min(2).max(160).optional(),
 const approve = z.object({ planCode: z.string().max(40).nullable().optional(), trialDays: z.number().int().min(0).max(365).nullable().optional() }).strict();
 const subscription = z.object({
   planCode: z.string().min(1).max(40), status: z.enum(SUB_STATUSES), startsAt: date, endsAt: date, trialEndsAt: date,
-  maxUsers: limit, maxProjects: limit, mobileEnabled: z.boolean().optional(), notes: z.string().max(2000).nullable().optional(),
+  maxUsers: limit, maxProjects: limit, limits: limitsJson.nullable().optional(), mobileEnabled: z.boolean().optional(), notes: z.string().max(2000).nullable().optional(),
 }).strict();
 const features = z.object({ changes: z.array(z.object({ feature, channel: z.enum(['web', 'mobile']), state: z.enum(['plan', 'on', 'off']) }).strict()).min(1).max(200) }).strict();
 const userUpdate = z.object({ active: z.boolean().optional(), mobileAccess: z.boolean().optional(), featuresOff: z.array(feature).max(100).optional(), mobileFeaturesOff: z.array(feature).max(100).optional(), superAdmin: z.boolean().optional() }).strict();
 const planBase = {
   name: z.string().trim().min(1).max(80), description: z.string().max(500).nullable().optional(), priceLabel: z.string().max(80).nullable().optional(),
   features: z.array(feature).max(200), mobileFeatures: z.array(feature).max(200), mobileEnabled: z.boolean().optional(),
-  maxUsers: limit, maxProjects: limit, sortOrder: z.number().int().min(0).max(1000).optional(),
+  maxUsers: limit, maxProjects: limit, limits: limitsJson.optional(), sortOrder: z.number().int().min(0).max(1000).optional(),
   priceMonthly: z.number().min(0).max(100_000_000).nullable().optional(), priceYearly: z.number().min(0).max(100_000_000).nullable().optional(),
   currency: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/, 'Use a 3-letter currency code').optional(),
 };

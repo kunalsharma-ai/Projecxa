@@ -505,6 +505,9 @@ async function seedSuperAdmin(hash: string) {
     }
   }
   await prisma.featureOverride.create({ data: { organizationId: (await prisma.organization.findUniqueOrThrow({ where: { slug: 'northwind' } })).id, feature: 'monitor', channel: 'web', enabled: true } });
+  // Feature access (docs/FEATURE_ACCESS.md): Northwind's Admin keeps the monitor extra to admins and gives tasks to Omar only.
+  const omar = await prisma.user.findFirstOrThrow({ where: { email: 'omar@northwind.example.com' } });
+  await prisma.organization.update({ where: { slug: 'northwind' }, data: { featureAccess: { monitor: { mode: 'admins', people: [] }, tasks: { mode: 'people', people: [omar.id] } } } });
   const orbit = await prisma.organization.create({
     data: { name: 'Orbit Analytics', slug: 'orbit', status: 'PENDING', registration: { contactName: 'Ivy Chen', phone: '+44 20 7946 0000', website: 'https://orbit.example.com', message: 'We run 40 B2B projects a month.', requestedPlan: 'professional', at: new Date().toISOString() } },
   });

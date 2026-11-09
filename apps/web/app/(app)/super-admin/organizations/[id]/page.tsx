@@ -7,7 +7,8 @@ import { FormEvent, Fragment, useCallback, useEffect, useMemo, useState } from '
 import { ActivityList } from '@/components/super-admin/activity-list';
 import { ErrorBox, Loading, PageHeader, Section, Toggle } from '@/components/ui';
 import { api, get, post } from '@/lib/api';
-import { ago, day, ORG_STATUS, ROLE_LABEL, SUB_STATUS, type ActivityItem, type Catalog, type FeatureRow, type OrgDetail, type OrgUser, type Plan, type SubStatus } from '@/lib/super-admin';
+import { LimitFields, limitBody, limitForm, UsageBars } from '@/components/super-admin/limits';
+import { ACCESS_LABEL, ago, day, ORG_STATUS, ROLE_LABEL, SUB_STATUS, type ActivityItem, type Catalog, type FeatureRow, type LimitDef, type OrgDetail, type OrgUser, type Plan, type SubStatus } from '@/lib/super-admin';
 import { Label } from '@/components/help';
 
 type Tab = 'subscription' | 'features' | 'people' | 'activity' | 'integrations';
@@ -70,16 +71,20 @@ function SubscriptionTab({ org, run }: { org: OrgDetail; run: Run }) {
   const s = org.subscriptionDetail;
   const [form, setForm] = useState({
     planCode: org.subscription?.plan.code ?? 'starter', status: (s?.status ?? 'ACTIVE') as SubStatus, endsAt: toInput(s?.endsAt), trialEndsAt: toInput(s?.trialEndsAt),
-    maxUsers: s?.maxUsers?.toString() ?? '', maxProjects: s?.maxProjects?.toString() ?? '', mobileEnabled: s?.mobileEnabled ?? true, notes: s?.notes ?? '',
+    lim: limitForm(s?.maxUsers, s?.maxProjects, s?.limits, true), mobileEnabled: s?.mobileEnabled ?? true, notes: s?.notes ?? '',
   });
-  useEffect(() => { get<Plan[]>('/super-admin/plans').then(setPlans).catch(() => undefined); }, []);
+  const [limitDefs, setLimitDefs] = useState<LimitDef[]>([]);
+  useEffect(() => {
+    get<Plan[]>('/super-admin/plans').then(setPlans).catch(() => undefined);
+    get<Catalog>('/super-admin/catalog').then((c) => setLimitDefs(c.limits)).catch(() => undefined);
+  }, []);
   if (org.platformOwner) return <Section title="Subscription"><p className="text-sm text-muted">This organisation runs the server, so it always has every feature and no limits.</p></Section>;
   const plan = plans.find((p) => p.code === form.planCode);
   const save = (e: FormEvent) => {
     e.preventDefault();
     void run(() => api(`/super-admin/organizations/${org.id}/subscription`, { method: 'PUT', json: {
       planCode: form.planCode, status: form.status, endsAt: fromInput(form.endsAt), trialEndsAt: fromInput(form.trialEndsAt),
-      maxUsers: form.maxUsers === '' ? null : Number(form.maxUsers), maxProjects: form.maxProjects === '' ? null : Number(form.maxProjects), mobileEnabled: form.mobileEnabled, notes: form.notes || null,
+      ...limitBody(form.lim), mobileEnabled: form.mobileEnabled, notes: form.notes || null,
     } }), 'Saved. The change applies at once on the web and in the mobile app.');
   };
   const extend = (days: number) => {
@@ -102,8 +107,11 @@ function SubscriptionTab({ org, run }: { org: OrgDetail; run: Run }) {
             ? <label className="block"><Label>Trial ends</Label><input className="input" type="date" value={form.trialEndsAt} onChange={(e) => setForm({ ...form, trialEndsAt: e.target.value })} /></label>
             : <label className="block"><Label>Ends or renews on</Label><input className="input" type="date" value={form.endsAt} onChange={(e) => setForm({ ...form, endsAt: e.target.value })} /></label>}
           <div className="flex items-end gap-2">{[30, 90, 365].map((d) => <button key={d} type="button" className="btn-ghost px-2.5 py-1.5 text-xs" onClick={() => extend(d)}>+{d === 365 ? '1 year' : `${d} days`}</button>)}</div>
-          <label className="block"><Label>User limit</Label><input className="input" type="number" min={0} placeholder={plan?.maxUsers != null ? `Plan: ${plan.maxUsers}` : 'Plan: no limit'} value={form.maxUsers} onChange={(e) => setForm({ ...form, maxUsers: e.target.value })} /></label>
-          <label className="block"><Label>Project limit</Label><input className="input" type="number" min={0} placeholder={plan?.maxProjects != null ? `Plan: ${plan.maxProjects}` : 'Plan: no limit'} value={form.maxProjects} onChange={(e) => setForm({ ...form, maxProjects: e.target.value })} /></label>
+          <div className="sm:col-span-2">
+            <h3 className="text-sm font-semibold">Limits for this organisation</h3>
+            <p className="mb-3 text-xs text-muted">Empty follows the plan. Type a number to give this organisation more or less{plan ? ', or “none” for no limit' : ''}.</p>
+            {plan && limitDefs.length > 0 ? <LimitFields defs={limitDefs} form={form.lim} onChange={(lim) => setForm({ ...form, lim })} plan={plan} /> : <Loading />}
+          </div>
           <div className="flex items-center gap-3 sm:col-span-2"><Toggle checked={form.mobileEnabled} onChange={(v) => setForm({ ...form, mobileEnabled: v })} label="Mobile app" /><span className="text-sm"><Smartphone className="mr-1 inline h-4 w-4 text-muted" />Android and iOS app {form.mobileEnabled ? 'on' : 'off'} for this organisation{plan && !plan.mobileEnabled ? ' (the plan has no app)' : ''}</span></div>
           <label className="block sm:col-span-2"><Label>Notes (only you see them)</Label><textarea className="input min-h-[70px]" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="e.g. Paid by bank transfer until March" /></label>
           <div className="flex gap-2 sm:col-span-2">
@@ -112,17 +120,22 @@ function SubscriptionTab({ org, run }: { org: OrgDetail; run: Run }) {
           </div>
         </form>
       </Section>
+      <div className="space-y-6">
+      <Section title="Usage">
+        <UsageBars usage={org.usage} />
+      </Section>
       <Section title={plan ? `In ${plan.name}` : 'Plan'}>
         {plan ? (
           <div className="space-y-3 text-sm">
             {plan.description && <p className="text-muted">{plan.description}</p>}
             {plan.priceLabel && <p className="font-medium">{plan.priceLabel}</p>}
             <p><b className="tabular-nums">{plan.features.length}</b> web features · <b className="tabular-nums">{plan.mobileEnabled ? plan.mobileFeatures.length : 0}</b> in the app</p>
-            <p className="text-xs text-muted">Users: {plan.maxUsers ?? 'no limit'} · Projects: {plan.maxProjects ?? 'no limit'}. Turn single features on or off for this organisation in the Features tab.</p>
+            <p className="text-xs text-muted">Plan limits are shown as hints in the limit fields. Turn single features on or off for this organisation in the Features tab.</p>
             <p className="text-xs text-muted">Payments online or offline renew this by themselves (Billing). You can also change it here, or let Automation remind and expire it.</p>
           </div>
         ) : <Loading />}
       </Section>
+      </div>
     </div>
   );
 }
@@ -152,7 +165,7 @@ function FeaturesTab({ org, run }: { org: OrgDetail; run: Run }) {
     run(() => api(`/super-admin/organizations/${org.id}/features`, { method: 'PUT', json: { changes: org.features.filter((f) => channel === 'web' || f.mobile).map((f) => ({ feature: f.key, channel, state })) } }));
   return (
     <>
-      <p className="mb-4 text-sm text-muted">Each feature follows the plan unless you switch it on or off here. Changes reach the web app and the Android/iOS app within seconds, and the server refuses switched-off features. People can also have features taken away one by one in the People tab.</p>
+      <p className="mb-4 text-sm text-muted">Each feature follows the plan unless you switch it on or off here. Switching on a feature the plan does not include gives this organisation an extra. Changes reach the web app and the Android/iOS app within seconds, and the server refuses switched-off features. The organisation’s Admin then chooses who in their team gets each feature (the “Admin gives it to” column). People can also have features taken away one by one in the People tab.</p>
       <div className="mb-4 flex flex-wrap gap-2 text-xs">
         <span className="self-center text-muted">All on the web:</span>
         {(['plan', 'on', 'off'] as const).map((s) => <button key={s} className="btn-ghost px-2 py-1 text-xs" onClick={() => all('web', s)}>{s === 'plan' ? 'Follow plan' : s === 'on' ? 'On' : 'Off'}</button>)}
@@ -163,14 +176,15 @@ function FeaturesTab({ org, run }: { org: OrgDetail; run: Run }) {
         {groups.map((g) => (
           <Section key={g} title={g}>
             <div className="-mx-5 overflow-x-auto px-5">
-              <table className="w-full min-w-[720px] table-fixed text-sm">
-                <thead><tr><th className="th w-[40%]">Feature</th><th className="th"><Globe className="mr-1 inline h-3.5 w-3.5" />Web</th><th className="th"><Smartphone className="mr-1 inline h-3.5 w-3.5" />Mobile app</th></tr></thead>
+              <table className="w-full min-w-[820px] table-fixed text-sm">
+                <thead><tr><th className="th w-[34%]">Feature</th><th className="th"><Globe className="mr-1 inline h-3.5 w-3.5" />Web</th><th className="th"><Smartphone className="mr-1 inline h-3.5 w-3.5" />Mobile app</th><th className="th w-[16%]">Admin gives it to</th></tr></thead>
                 <tbody>
                   {org.features.filter((f) => f.group === g).map((f) => (
                     <tr key={f.key} className="border-t border-line" data-feature={f.key}>
                       <td className="td"><div className="font-medium">{f.label}</div><div className="text-xs text-muted">{f.summary}</div></td>
                       <td className="td"><State cell={f.web} label={`${f.label} on the web`} onChange={(s) => change(f, 'web', s)} /></td>
                       <td className="td">{f.app ? <State cell={f.app} label={`${f.label} in the app`} onChange={(s) => change(f, 'mobile', s)} /> : <span className="flex items-center gap-1 text-xs text-muted"><Minus className="h-3 w-3" />Web only</span>}</td>
+                      <td className="td text-xs text-muted">{f.adminAccess ? `${ACCESS_LABEL[f.adminAccess.mode]}${f.adminAccess.mode === 'people' ? ` (${f.adminAccess.people})` : ''}` : 'Admins'}</td>
                     </tr>
                   ))}
                 </tbody>

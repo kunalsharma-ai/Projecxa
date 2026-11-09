@@ -6,14 +6,18 @@ import { ErrorBox, Loading, PageHeader, Section, Toggle } from '@/components/ui'
 import { api, get, post } from '@/lib/api';
 import { fmtMoney, type Catalog, type Plan } from '@/lib/super-admin';
 import { Label } from '@/components/help';
+import { LimitFields, limitBody, limitForm, fmtNum, type LimitForm } from '@/components/super-admin/limits';
 
 type Draft = Omit<Plan, 'id' | 'organizations'> & { id?: string };
-const blank = (): Draft => ({ code: '', name: '', description: '', priceLabel: '', features: [], mobileFeatures: [], mobileEnabled: true, maxUsers: null, maxProjects: null, active: true, sortOrder: 10, currency: 'INR', priceMonthly: null, priceYearly: null });
+const blank = (): Draft => ({ code: '', name: '', description: '', priceLabel: '', features: [], mobileFeatures: [], mobileEnabled: true, maxUsers: null, maxProjects: null, limits: {}, active: true, sortOrder: 10, currency: 'INR', priceMonthly: null, priceYearly: null });
 
 export default function PlansPage() {
   const [plans, setPlans] = useState<Plan[] | null>(null);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
-  const [draft, setDraft] = useState<Draft | null>(null);
+  const [draft, setDraftRaw] = useState<Draft | null>(null);
+  const [lim, setLim] = useState<LimitForm>(limitForm(null, null, null));
+  // Opening a plan (or a new one) loads its limits into the form; edits elsewhere keep them.
+  const setDraft = (d: Draft | null) => { if (d && d.id !== draft?.id || (d && !draft)) setLim(limitForm(d.maxUsers, d.maxProjects, d.limits)); setDraftRaw(d); };
   const [error, setError] = useState<unknown>(null);
   const [note, setNote] = useState<string | null>(null);
   const load = useCallback(() => get<Plan[]>('/super-admin/plans').then(setPlans).catch(setError), []);
@@ -33,7 +37,7 @@ export default function PlansPage() {
     setError(null); setNote(null);
     const { id, code, ...rest } = draft;
     const price = (v: number | string | null) => (v === '' || v == null ? null : Number(v));
-    const body = { ...rest, description: rest.description || null, priceLabel: rest.priceLabel || null, priceMonthly: price(rest.priceMonthly), priceYearly: price(rest.priceYearly) };
+    const body = { ...rest, ...limitBody(lim), description: rest.description || null, priceLabel: rest.priceLabel || null, priceMonthly: price(rest.priceMonthly), priceYearly: price(rest.priceYearly) };
     try {
       if (id) await api(`/super-admin/plans/${id}`, { method: 'PATCH', json: body });
       else await post('/super-admin/plans', { code, ...body, active: undefined });
@@ -71,7 +75,7 @@ export default function PlansPage() {
                 <div className="rounded-lg bg-sunken p-2"><Globe className="mb-1 h-4 w-4 text-muted" /><b className="tabular-nums">{p.features.length}</b> <span className="text-muted">/ {catalog.features.length} web</span></div>
                 <div className="rounded-lg bg-sunken p-2"><Smartphone className="mb-1 h-4 w-4 text-muted" />{p.mobileEnabled ? <><b className="tabular-nums">{p.mobileFeatures.length}</b> <span className="text-muted">in the app</span></> : <span className="text-muted">No app</span>}</div>
               </div>
-              <p className="mt-3 text-xs text-muted">Users: {p.maxUsers ?? 'no limit'} · Projects: {p.maxProjects ?? 'no limit'} · {p.organizations} organisation{p.organizations === 1 ? '' : 's'}</p>
+              <p className="mt-3 text-xs text-muted">Users: {p.maxUsers ?? 'no limit'} · Projects: {p.maxProjects ?? 'no limit'}{p.limits?.clicksPerMonth != null ? ` · ${fmtNum(p.limits.clicksPerMonth)} clicks a month` : ''}{p.limits?.completesPerMonth != null ? ` · ${fmtNum(p.limits.completesPerMonth)} completes a month` : ''} · {p.organizations} organisation{p.organizations === 1 ? '' : 's'}</p>
               <div className="mt-auto flex gap-2 pt-4">
                 <button className="btn-ghost flex-1" onClick={() => setDraft({ ...p })}>Edit</button>
                 {p.organizations === 0 && <button className="btn-ghost px-2.5" aria-label={`Delete ${p.name}`} onClick={() => remove(p)}><Trash2 className="h-4 w-4" /></button>}
@@ -91,13 +95,15 @@ export default function PlansPage() {
               <label className="block"><Label>Monthly price (empty = not monthly)</Label><input className="input" type="number" min={0} step="0.01" value={draft.priceMonthly ?? ''} onChange={(e) => setDraft({ ...draft, priceMonthly: e.target.value })} placeholder="e.g. 4999" /></label>
               <label className="block"><Label>Yearly price (empty = not yearly)</Label><input className="input" type="number" min={0} step="0.01" value={draft.priceYearly ?? ''} onChange={(e) => setDraft({ ...draft, priceYearly: e.target.value })} placeholder="e.g. 49990" /></label>
               <label className="block md:col-span-3"><Label>Description</Label><input className="input" value={draft.description ?? ''} onChange={(e) => setDraft({ ...draft, description: e.target.value })} /></label>
-              <label className="block"><Label>User limit (empty = none)</Label><input className="input" type="number" min={0} value={draft.maxUsers ?? ''} onChange={(e) => setDraft({ ...draft, maxUsers: e.target.value === '' ? null : Number(e.target.value) })} /></label>
-              <label className="block"><Label>Project limit (empty = none)</Label><input className="input" type="number" min={0} value={draft.maxProjects ?? ''} onChange={(e) => setDraft({ ...draft, maxProjects: e.target.value === '' ? null : Number(e.target.value) })} /></label>
               <div className="flex flex-col justify-end gap-2">
                 <label className="flex items-center gap-2 text-sm"><Toggle checked={draft.mobileEnabled} onChange={(v) => setDraft({ ...draft, mobileEnabled: v })} label="Mobile app" />Android and iOS app included</label>
                 {draft.id && <label className="flex items-center gap-2 text-sm"><Toggle checked={draft.active} onChange={(v) => setDraft({ ...draft, active: v })} label="Offered" />Offered for new organisations</label>}
               </div>
             </div>
+          </Section>
+          <Section title="Limits in this plan">
+            <p className="mb-3 text-sm text-muted">Leave a field empty for no limit. Each organisation on the plan gets these; you can give one organisation more or less on its Subscription tab.</p>
+            <LimitFields defs={catalog.limits} form={lim} onChange={setLim} />
           </Section>
           <Section title="Features in this plan">
             <div className="space-y-5">
