@@ -16,6 +16,7 @@
     "db:deploy": "pnpm --filter @projexa/api prisma:deploy",
     "create-admin": "pnpm --filter @projexa/api create-admin",
     "backup": "pnpm --filter @projexa/api backup",
-    "restore-backup": "pnpm --filter @projexa/api restore-backup"
+    "restore-backup": "pnpm --filter @projexa/api restore-backup",
+    "import-postgres": "pnpm --filter @projexa/api import-postgres"
   }
 }

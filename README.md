@@ -338,6 +338,7 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 ## Install on a server
 
 See `INSTALL.md`: server settings, database, `pnpm create-admin` for the first admin, build, run and TLS.
+A server that ran the PostgreSQL version moves its data with `pnpm import-postgres` (`docs/POSTGRES_TO_MONGODB.md`).
 
 ## Run it locally
 
