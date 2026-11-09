@@ -88,7 +88,9 @@ describe('Backups, restore and the status page (e2e)', () => {
     expect(b).toMatchObject({ status: 'ok', trigger: 'manual', encrypted: true, createdBy: 'ADMIN' });
     expect(b.sizeBytes).toBeGreaterThan(1000);
     expect(b.tables).toBeGreaterThan(30);
-    expect(b.migration).toMatch(/backups_and_status/);
+    // The newest migration on this server (several features add migrations; the backup records the last one).
+    const latest = (await fs.readdir(join(__dirname, '../../prisma/migrations'))).filter((m) => /^\d{14}_/.test(m)).sort().pop();
+    expect(b.migration).toBe(latest);
     const files = (await fs.readdir(join(dir, 'store'))).sort();
     expect(files).toEqual([b.name, `${b.name}.json`].sort());
     expect((await fs.readFile(join(dir, 'store', b.name))).subarray(0, 8).toString()).toBe('STBKENC1');
