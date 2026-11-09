@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ProjectsModule } from '../projects/projects.controller';
 import { ProjectsService } from '../projects/projects.service';
 import { PushService } from '../push/push';
+import { idsMatching } from '../prisma/mongo-compat';
 
 /**
  * Team collaboration on a project (docs/TEAM_COLLABORATION.md): staff comments with @mentions,
@@ -403,11 +404,12 @@ export class CollaborationService {
       fieldwork: { OR: ['autopilot.', 'respondent.', 'sessions.', 'monitor.', 'reallocation.'].map((s) => ({ action: { startsWith: s } })) },
       changes: { NOT: ['comment.', 'handover.', 'request.', 'file.', 'autopilot.', 'respondent.', 'sessions.', 'monitor.', 'reallocation.'].map((s) => ({ action: { startsWith: s } })) },
     };
+    const mentioning = await idsMatching(this.prisma.auditEvent, { organizationId: u.organizationId, 'detail.projectId': projectId });
     const rows = await this.prisma.auditEvent.findMany({
       where: {
         organizationId: u.organizationId,
         AND: [
-          { OR: [{ entityType: 'Project', entityId: projectId }, { detail: { path: ['projectId'], equals: projectId } }] },
+          { OR: [{ entityType: 'Project', entityId: projectId }, { id: { in: mentioning } }] },
           ...(q.kind !== 'all' ? [prefix[q.kind]] : []),
           ...(q.before ? [{ createdAt: { lt: new Date(q.before) } }] : []),
         ],

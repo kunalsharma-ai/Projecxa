@@ -18,6 +18,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { cleanLimitsJson, LIMITS } from './limits';
 import { EntitlementsService, ORG_FEATURES_INCLUDE, orgFeatures, readFeatureAccess, subscriptionLive, userFeatures } from './entitlements';
 import { FEATURES, FEATURE_KEYS, featureDef, MOBILE_FEATURE_KEYS } from './features';
+import { createManySkipDuplicates } from '../prisma/mongo-compat';
+import { aggregate, mdate, numOut } from '../prisma/agg';
 
 const STAFF: Role[] = ['ADMIN', 'PROJECT_MANAGER', 'SALES', 'VIEWER'];
 const DAY = 86_400_000;
@@ -97,7 +99,7 @@ export class SuperAdminService {
 
   async plans() {
     if ((await this.prisma.plan.count()) === 0) {
-      await this.prisma.plan.createMany({ data: STARTER_PLANS, skipDuplicates: true });
+      await createManySkipDuplicates(this.prisma.plan, 'Plan', STARTER_PLANS);
     }
     const plans = await this.prisma.plan.findMany({ orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }], include: { _count: { select: { subscriptions: true } } } });
     return plans.map(({ _count, ...p }) => ({ ...p, organizations: _count.subscriptions }));
@@ -207,10 +209,13 @@ export class SuperAdminService {
     if (!org) throw new NotFoundException('Organisation not found');
     const since = new Date(Date.now() - days * 86_400_000);
     since.setUTCHours(0, 0, 0, 0);
-    const rows = await this.prisma.$queryRaw<{ day: Date; status: string; n: bigint }[]>`
-      SELECT date_trunc('day', "startedAt") AS day, status::text AS status, count(*) AS n
-      FROM "RespondentSession" WHERE "organizationId" = ${id} AND "isTest" = false AND "startedAt" >= ${since}
-      GROUP BY 1, 2 ORDER BY 1`;
+    const rows = (
+      await aggregate<{ _id: { day: string; status: string }; n: number }>(this.prisma.respondentSession, [
+        { $match: { organizationId: id, isTest: false, startedAt: { $gte: mdate(since) } } },
+        { $group: { _id: { day: { $dateToString: { format: '%Y-%m-%d', date: '$startedAt' } }, status: '$status' }, n: { $sum: 1 } } },
+        { $sort: { '_id.day': 1 } },
+      ])
+    ).map((r) => ({ day: new Date(`${r._id.day}T00:00:00Z`), status: r._id.status, n: numOut(r.n) }));
     const byDay = new Map<string, { day: string; clicks: number; completes: number; terminates: number; quotaFull: number; rejected: number }>();
     for (let t = since.getTime(); t <= Date.now(); t += 86_400_000) { const d = new Date(t).toISOString().slice(0, 10); byDay.set(d, { day: d, clicks: 0, completes: 0, terminates: 0, quotaFull: 0, rejected: 0 }); }
     const totals: Record<string, number> = {};
@@ -385,7 +390,7 @@ export class SuperAdminService {
     const plan = await this.plan(body.planCode);
     const data = {
       planId: plan.id, status: body.status, endsAt: body.endsAt ?? null, trialEndsAt: body.trialEndsAt ?? null,
-      maxUsers: body.maxUsers ?? null, maxProjects: body.maxProjects ?? null, limits: body.limits ? cleanLimitsJson(body.limits, true) : Prisma.DbNull, mobileEnabled: body.mobileEnabled ?? true, notes: body.notes ?? null, updatedById: u?.id ?? null,
+      maxUsers: body.maxUsers ?? null, maxProjects: body.maxProjects ?? null, limits: body.limits ? cleanLimitsJson(body.limits, true) : null, mobileEnabled: body.mobileEnabled ?? true, notes: body.notes ?? null, updatedById: u?.id ?? null,
       ...(body.startsAt ? { startsAt: body.startsAt } : {}),
     };
     await this.prisma.subscription.upsert({ where: { organizationId: orgId }, create: { organizationId: orgId, ...data }, update: data });

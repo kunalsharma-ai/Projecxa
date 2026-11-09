@@ -161,7 +161,7 @@ export class AuthController {
     const current = await this.prisma.user.findUniqueOrThrow({ where: { id: user.id }, select: { preferences: true } });
     const language = readPreferences(current.preferences).language;
     const kept = language ? { language } : null;
-    await this.prisma.user.update({ where: { id: user.id }, data: { preferences: kept ?? Prisma.DbNull } });
+    await this.prisma.user.update({ where: { id: user.id }, data: { preferences: kept ?? null } });
     return kept ?? {};
   }
 }

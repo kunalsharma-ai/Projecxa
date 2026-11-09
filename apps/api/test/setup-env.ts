@@ -1,7 +1,7 @@
 import 'dotenv/config';
 
 // Tests always run against the dedicated test database, never the dev one.
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? 'postgresql://projexa:projexa@localhost:5432/projexa_test';
+process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? 'mongodb://127.0.0.1:27017/projexa_test?replicaSet=rs0';
 process.env.CALLBACK_WORKER_ENABLED = 'false';
 process.env.PUBLIC_BASE_URL = 'http://api.samptrek.test';
 process.env.JWT_SECRET = 'test-secret-test-secret-test-secret';

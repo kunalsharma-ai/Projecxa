@@ -17,6 +17,7 @@ import { CurrentUser, EDITORS, Roles } from '../auth/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import { PrismaService } from '../prisma/prisma.service';
 import { toCsv } from '../unique-links/unique-links';
+import { claim, createManySkipDuplicates } from '../prisma/mongo-compat';
 
 export const MAX_CLIENT_LINKS_PER_UPLOAD = 50_000;
 export const MAX_CLIENT_LINKS_PER_MARKET = 200_000;
@@ -83,15 +84,12 @@ type Tx = Prisma.TransactionClient | PrismaService;
 export async function claimClientLink(tx: Tx, session: { id: string; projectCountryId: string }): Promise<string | null> {
   const mine = await tx.clientUniqueLink.findUnique({ where: { sessionId: session.id }, select: { url: true } });
   if (mine) return mine.url;
-  const rows = await tx.$queryRaw<{ url: string }[]>`
-    UPDATE "ClientUniqueLink" SET "status" = 'ASSIGNED', "sessionId" = ${session.id}, "assignedAt" = now()
-    WHERE "id" = (
-      SELECT "id" FROM "ClientUniqueLink"
-      WHERE "projectCountryId" = ${session.projectCountryId} AND "status" = 'UNUSED'
-      ORDER BY "seq" ASC LIMIT 1 FOR UPDATE SKIP LOCKED
-    )
-    RETURNING "url"`;
-  return rows[0]?.url ?? null;
+  const [id] = await claim(tx.clientUniqueLink, { projectCountryId: session.projectCountryId, status: 'UNUSED' }, { seq: 'asc' }, 1, {
+    status: 'ASSIGNED',
+    sessionId: session.id,
+    assignedAt: new Date(),
+  });
+  return id ? ((await tx.clientUniqueLink.findUnique({ where: { id }, select: { url: true } }))?.url ?? null) : null;
 }
 
 /** A link a test respondent can try, without using it up (the first unused one). */
@@ -230,10 +228,11 @@ export class ClientLinksService {
       const start = (max._max.seq ?? 0) + 1;
       let n = 0;
       for (let i = 0; i < toAdd.length; i += 5000) {
-        const r = await tx.clientUniqueLink.createMany({
-          data: toAdd.slice(i, i + 5000).map((url, j) => ({ organizationId: u.organizationId, projectId, projectCountryId: country.id, url, seq: start + i + j, label, createdById: u.id })),
-          skipDuplicates: true,
-        });
+        const r = await createManySkipDuplicates(
+          tx.clientUniqueLink,
+          'ClientUniqueLink',
+          toAdd.slice(i, i + 5000).map((url, j) => ({ organizationId: u.organizationId, projectId, projectCountryId: country.id, url, seq: start + i + j, label, createdById: u.id })),
+        );
         n += r.count;
       }
       return n;

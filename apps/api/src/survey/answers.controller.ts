@@ -7,6 +7,7 @@ import { ZodPipe } from '../common/zod.pipe';
 import { PrismaService } from '../prisma/prisma.service';
 import { AnswerSet, questionsOf } from './questions';
 import { REASON_LABELS } from './respondent-checks';
+import { idsMatching } from '../prisma/mongo-compat';
 
 const EXPORT_LIMIT = 20_000;
 const SUMMARY_LIMIT = 50_000;
@@ -45,16 +46,16 @@ export class AnswersController {
 
     const where: Prisma.RespondentSessionWhereInput = {
       projectId: project.id,
-      answers: { not: Prisma.DbNull },
+      answers: { not: null },
       ...(q.includeTest === 'true' ? {} : { isTest: false }),
       ...(q.status ? { status: q.status as Prisma.EnumRespondentStatusFilter['equals'] } : {}),
       ...(q.country ? { projectCountry: { countryCode: q.country } } : {}),
       ...(q.vendorId ? { vendorAllocation: { vendorId: q.vendorId } } : {}),
     };
     if (q.section && q.question && q.option) {
-      const def = questions.find((x) => x.section === q.section && x.id === q.question);
-      const path = [q.section, q.question, 'value'];
-      where.AND = [def?.type === 'multi' ? { answers: { path, array_contains: [q.option] } } : { answers: { path, equals: q.option } }];
+      // One MongoDB match covers both: a single answer equal to the option, or a multi answer containing it.
+      const ids = await idsMatching(this.prisma.respondentSession, { projectId: project.id, [`answers.${q.section}.${q.question}.value`]: q.option });
+      where.AND = [{ id: { in: ids } }];
     }
 
     const exporting = q.export === 'true';

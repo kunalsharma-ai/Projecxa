@@ -1,6 +1,6 @@
 import { createHash } from 'crypto';
 import { INestApplication } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../src/prisma/client';
 import request from 'supertest';
 import { config } from '../../src/common/config';
 import { leadingZeroBits, powChallenge, POW_BITS } from '../../src/survey/respondent-checks';
@@ -138,7 +138,7 @@ describe('Quota cells (e2e)', () => {
     // A new man is stopped on the gate page, and the check is logged.
     const m3 = await qualify(uid(), { age: 30, gender: 'm' });
     expect(m3.session).toMatchObject({ status: 'QUOTA_FULL', statusDetail: 'CELL_FULL' });
-    const ev = await prisma.respondentEvent.findFirstOrThrow({ where: { sessionId: m3.session.id, type: 'SECURITY_CHECK', detail: { path: ['stage'], equals: 'gate' } } });
+    const ev = (await prisma.respondentEvent.findMany({ where: { sessionId: m3.session.id, type: 'SECURITY_CHECK' } })).find((e) => (e.detail as { stage?: string } | null)?.stage === 'gate')!;
     expect(JSON.stringify(ev.detail)).toContain('"check":"quota"');
     expect((await cell('18-34')).completes).toBe(1);
 

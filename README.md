@@ -328,8 +328,8 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
   in Settings → Integrations → Backup storage, encrypted with a passphrase (AES-256). Test, Download,
   keep the newest N, email on failure, and find backups again from the storage on a new server.
 - **Guarded restore**: type RESTORE and your password; a safety backup is taken first, the file's
-  fingerprint is checked, and the database is replaced in one transaction (all or nothing), newer
-  migrations applied. `pnpm restore-backup --file …` does the same when the app cannot start.
+  fingerprint is checked, and the database is replaced all or nothing (a local copy is put back if
+  loading fails), then this version's collections and indexes are set up. `pnpm restore-backup --file …` does the same when the app cannot start.
 - **Status page** at `/status`: live state and 90-day uptime of the website, respondent links, database,
   callbacks and email (the server checks itself every minute), incidents and planned maintenance posted
   by the Super Admin, and a ping address for free outside monitors.
@@ -341,14 +341,14 @@ See `INSTALL.md`: server settings, database, `pnpm create-admin` for the first a
 
 ## Run it locally
 
-Requirements: Node 26 (LTS, see `.nvmrc`), pnpm 10 (`npm install -g pnpm@10.28.0`), PostgreSQL 16 (or Docker).
+Requirements: Node 26 (LTS, see `.nvmrc`), pnpm 10 (`npm install -g pnpm@10.28.0`), MongoDB 8 as a replica set (or Docker).
 
 ```bash
-docker compose up -d                 # Postgres + Redis (or use your own Postgres)
+docker compose up -d                 # MongoDB (replica set rs0) + Redis, or use your own MongoDB
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env.local
 pnpm install
-pnpm db:migrate                      # create the schema
+pnpm db:migrate                      # create the collections and indexes
 pnpm db:seed                         # synthetic demo data
 pnpm dev                             # API on :4000, web on :3000
 ```
@@ -366,7 +366,7 @@ pnpm --filter @projexa/web typecheck
 ## Layout
 
 ```
-apps/api   NestJS API, Prisma schema and migrations, tests
+apps/api   NestJS API, Prisma schema (MongoDB), tests
 apps/web   Next.js web app (App Router, Tailwind)
 apps/mobile Expo app for Android and iOS (npm, outside the pnpm workspace)
 docs/      Phase 0 documents and integration guide

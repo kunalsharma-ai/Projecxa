@@ -181,7 +181,7 @@ export class ClientsController {
     await this.prisma.$transaction(async (tx) => {
       await tx.client.update({
         where: { id },
-        data: { ...rest, ...(redirectTemplate !== undefined ? { redirectTemplate: redirectTemplate ?? Prisma.DbNull } : {}) },
+        data: { ...rest, ...(redirectTemplate !== undefined ? { redirectTemplate: redirectTemplate ?? null } : {}) },
       });
       if (contacts) {
         for (const c of contacts) if (c.id && !found.contacts.some((x) => x.id === c.id)) throw new BadRequestException('A contact does not belong to this client');

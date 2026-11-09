@@ -80,10 +80,12 @@ export class MfaService {
     if (input.code) {
       const step = verifyTotp(decryptSecret(u.mfaSecret, config.mfaEncryptionKey), input.code, u.mfaLastStep);
       // Guarded write: two requests with the same code cannot both pass.
-      if (step !== null && (await this.prisma.$executeRaw`UPDATE "User" SET "mfaLastStep" = ${step} WHERE id = ${u.id} AND ("mfaLastStep" IS NULL OR "mfaLastStep" < ${step})`)) used = 'code';
+      if (step !== null && (await this.prisma.user.updateMany({ where: { id: u.id, OR: [{ mfaLastStep: null }, { mfaLastStep: { lt: step } }] }, data: { mfaLastStep: step } })).count) used = 'code';
     } else if (input.recoveryCode) {
       const h = hashRecoveryCode(input.recoveryCode);
-      if (await this.prisma.$executeRaw`UPDATE "User" SET "mfaRecoveryCodes" = array_remove("mfaRecoveryCodes", ${h}) WHERE id = ${u.id} AND ${h} = ANY("mfaRecoveryCodes")`) used = 'recovery';
+      // Guarded on the list just read: two requests with the same code cannot both pass.
+      const codes = (await this.prisma.user.findUnique({ where: { id: u.id }, select: { mfaRecoveryCodes: true } }))?.mfaRecoveryCodes ?? [];
+      if (codes.includes(h) && (await this.prisma.user.updateMany({ where: { id: u.id, mfaRecoveryCodes: { equals: codes } }, data: { mfaRecoveryCodes: codes.filter((c) => c !== h) } })).count) used = 'recovery';
     }
     if (!used) {
       const failures = u.mfaFailures + 1;

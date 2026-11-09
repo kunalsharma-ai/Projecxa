@@ -19,9 +19,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { esc } from '../super-admin/super-admin.service';
 import { config } from '../common/config';
 import {
-  backupName, decryptFile, dumpTo, encryptFile, execText, inspectDump, isEncryptedFile, Manifest, manifestName, newestMigration, pgDumpVersion, pgTarget, restoreFrom, sha256File, workDir,
+  backupName, decryptFile, dumpTo, encryptFile, execText, inspectDump, isEncryptedFile, Manifest, manifestName, schemaVersion, dumpToolVersion, dbTarget, restoreFrom, sha256File, workDir,
 } from './backup-core';
 import { BackupStorage } from './storage';
+import { createManySkipDuplicates } from '../prisma/mongo-compat';
+import { syncIndexes } from '../prisma/indexes';
 
 export interface BackupSettings {
   /** off | daily | weekly */
@@ -72,11 +74,8 @@ export class BackupsService implements OnModuleInit {
   restoreState: RestoreState | null = null;
   /** Swapped in tests. */
   now: () => Date = () => new Date();
-  /** Runs `prisma migrate deploy` after restoring an older backup; swapped in tests. */
-  migrate: () => Promise<string> = async () => {
-    const cli = require.resolve('prisma/build/index.js', { paths: [process.cwd(), resolve(__dirname, '../..')] });
-    return execText(process.execPath, [cli, 'migrate', 'deploy'], { cwd: resolve(__dirname, '../..'), timeout: 300_000 });
-  };
+  /** Brings the collections and indexes up to this version after restoring an older backup; swapped in tests. */
+  migrate: () => Promise<string> = async () => `${await syncIndexes(this.prisma)} indexes`;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -93,7 +92,7 @@ export class BackupsService implements OnModuleInit {
   private get db() {
     const url = process.env.DATABASE_URL;
     if (!url) throw new BadRequestException('DATABASE_URL is not set');
-    return pgTarget(url);
+    return dbTarget(url);
   }
 
   // ───────────── Settings ─────────────
@@ -126,7 +125,7 @@ export class BackupsService implements OnModuleInit {
       this.settings(),
       this.integrations.backupStorage().catch((e: Error) => ({ error: e.message })),
       this.prisma.backup.findMany({ orderBy: { startedAt: 'desc' }, take: 200 }),
-      pgDumpVersion().then((v) => ({ ok: true, message: v }), (e: Error) => ({ ok: false, message: e.message })),
+      dumpToolVersion().then((v) => ({ ok: true, message: v }), (e: Error) => ({ ok: false, message: e.message })),
     ]);
     const row = await this.prisma.integrationSetting.findFirst({ where: { kind: 'backup_storage', organization: { platformOwner: true } }, select: { lastTestOk: true, lastTestAt: true, lastTestMessage: true } });
     const s = storage && !('error' in storage) ? storage : null;
@@ -203,7 +202,7 @@ export class BackupsService implements OnModuleInit {
     try {
       const db = this.db;
       const plain = join(dir, 'db.dump');
-      const migration = await newestMigration(db).catch(() => null);
+      const migration = await schemaVersion(db).catch(() => null);
       await dumpTo(db, plain);
       const { tables } = await inspectDump(plain);
       let file = plain;
@@ -393,7 +392,7 @@ export class BackupsService implements OnModuleInit {
   /**
    * Guarded restore. The Super Admin types RESTORE and their password. Then, in the background:
    * a safety backup of the database as it is now, the backup is fetched and checked, the database is
-   * replaced in one transaction, and newer migrations are applied if the backup is older.
+   * replaced (put back as it was if that fails), and the collections and indexes of this version are set up.
    */
   async restore(u: AuthUser, id: string, body: { confirm: string; password: string }) {
     if (body.confirm.trim() !== RESTORE_WORD) throw new BadRequestException(`Type ${RESTORE_WORD} to confirm`);
@@ -402,7 +401,7 @@ export class BackupsService implements OnModuleInit {
     if (this.busy) throw new ConflictException('A backup or restore is already running. Wait until it has finished.');
     const b = await this.one(id);
     if (b.status !== 'ok') throw new BadRequestException('This backup did not finish, so it cannot be restored');
-    const current = await newestMigration(this.db).catch(() => null);
+    const current = await schemaVersion(this.db).catch(() => null);
     if (b.migration && current && b.migration > current) {
       throw new BadRequestException(`This backup comes from a newer version of SampTrek (database version ${b.migration}). Update this server first, then restore.`);
     }
@@ -435,7 +434,7 @@ export class BackupsService implements OnModuleInit {
       // safety copy just made out of reach.
       const keptStorage = await this.prisma.integrationSetting.findFirst({ where: { kind: 'backup_storage', organization: { platformOwner: true } } });
       const keptSettings = await this.settings();
-      // 4. Replace the database in one transaction.
+      // 4. Replace the database (restoreFrom puts it back as it was if that fails).
       st.step = 'restore';
       await restoreFrom(this.db, plain);
       await this.prisma.$disconnect();
@@ -491,9 +490,9 @@ export class BackupsService implements OnModuleInit {
   }
 
   private async putBack(backups: Backup[], uptime: { id: string; at: Date; components: Prisma.JsonValue; dbLatencyMs: number | null }[]) {
-    for (let i = 0; i < backups.length; i += 500) await this.prisma.backup.createMany({ data: backups.slice(i, i + 500), skipDuplicates: true });
+    for (let i = 0; i < backups.length; i += 500) await createManySkipDuplicates(this.prisma.backup, 'Backup', backups.slice(i, i + 500));
     for (let i = 0; i < uptime.length; i += 1000) {
-      await this.prisma.uptimeCheck.createMany({ data: uptime.slice(i, i + 1000).map((x) => ({ ...x, components: x.components as Prisma.InputJsonValue })), skipDuplicates: true });
+      await createManySkipDuplicates(this.prisma.uptimeCheck, 'UptimeCheck', uptime.slice(i, i + 1000).map((x) => ({ ...x, components: x.components as Prisma.InputJsonValue })));
     }
   }
 }

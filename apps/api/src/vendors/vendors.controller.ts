@@ -154,7 +154,7 @@ export class VendorsController {
       data: {
         organizationId: u.organizationId,
         ...body,
-        redirectUrls: Object.keys(urls).length ? urls : Prisma.DbNull,
+        redirectUrls: Object.keys(urls).length ? urls : null,
         redirectAllowedDomains: withRedirectHosts(body.redirectAllowedDomains, urls),
         callbackSecret: randomToken(32),
       },
@@ -206,7 +206,7 @@ export class VendorsController {
           data: {
             organizationId: u.organizationId, name: r.name, code, website: r.website ?? null,
             contactName: r.contact_name ?? null, contactEmail: r.contact_email ?? null, contactPhone: r.contact_phone ?? null,
-            callbackUrlTemplate: r.callback_url ?? null, redirectUrls: Object.keys(urls).length ? urls : Prisma.DbNull,
+            callbackUrlTemplate: r.callback_url ?? null, redirectUrls: Object.keys(urls).length ? urls : null,
             redirectAllowedDomains: withRedirectHosts(domains, urls), callbackSecret: randomToken(32),
           },
           select: { id: true },
@@ -232,7 +232,7 @@ export class VendorsController {
       where: { id },
       data: {
         ...rest,
-        ...(redirectUrls !== undefined ? { redirectUrls: Object.keys(urls).length ? urls : Prisma.DbNull } : {}),
+        ...(redirectUrls !== undefined ? { redirectUrls: Object.keys(urls).length ? urls : null } : {}),
         ...(redirectAllowedDomains !== undefined || redirectUrls !== undefined
           ? { redirectAllowedDomains: withRedirectHosts(redirectAllowedDomains ?? found.redirectAllowedDomains, urls) }
           : {}),

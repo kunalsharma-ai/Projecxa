@@ -381,7 +381,7 @@ export const CATALOG: KindDef[] = [
       'Free and simplest: keep "A folder on this server" and save. Backups then stay on this server, so also copy them off it now and then with Download.',
       'Safer and still free: create a bucket. Cloudflare R2: R2 → Create bucket, then Manage R2 API tokens → Create API token with Object Read & Write for that bucket; copy the access key ID, secret and the S3 endpoint. Backblaze B2: Buckets → Create a bucket (private), then Application Keys → Add a New Application Key for that bucket.',
       'Choose a long encryption passphrase, paste it here and keep a copy in your password manager.',
-      'Save and press Test: SampTrek writes, reads and deletes a small test file and checks that pg_dump is installed.',
+      'Save and press Test: SampTrek writes, reads and deletes a small test file and checks that mongodump (MongoDB Database Tools) is installed.',
       'Then open Super Admin → Backups to take the first backup and set a schedule.',
     ],
     links: [

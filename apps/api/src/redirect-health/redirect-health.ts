@@ -20,6 +20,7 @@ import { CurrentUser, EDITORS, Roles } from '../auth/decorators';
 import { AuthUser } from '../auth/auth.types';
 import { config as appConfig } from '../common/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { aggregate, countIf, dateOut, mdate, numOut, percentileCont } from '../prisma/agg';
 import { buildSurveyLink } from '../survey/survey.service';
 
 const HOUR = 3_600_000;
@@ -127,81 +128,68 @@ export class RedirectHealthService {
     const w = WINDOWS[windowKey];
     const from = new Date(now.getTime() - w.ms);
     const prevFrom = new Date(from.getTime() - w.ms);
-    const project = projectId ? Prisma.sql`AND s."projectId" = ${projectId}` : Prisma.empty;
-    const projectCb = projectId ? Prisma.sql`AND s."projectId" = ${projectId}` : Prisma.empty;
-
-    const [perProject, timeline, reasons, prev, statuses, entries, callbacks, hosts, problems] = await Promise.all([
-      // Redirects per project in the window.
-      this.prisma.$queryRaw<{ projectId: string; redirects: number; fallbacks: number; blocked: number; apiFallbacks: number; p50: number | null; p95: number | null; last: Date | null }[]>`
-        SELECT s."projectId",
-               COUNT(*)::int AS redirects,
-               COUNT(*) FILTER (WHERE e."usedFallback")::int AS fallbacks,
-               COUNT(*) FILTER (WHERE e."blockedReason" IS NOT NULL)::int AS blocked,
-               COUNT(*) FILTER (WHERE e."apiFallback")::int AS "apiFallbacks",
-               percentile_cont(0.5) WITHIN GROUP (ORDER BY e."durationMs") AS p50,
-               percentile_cont(0.95) WITHIN GROUP (ORDER BY e."durationMs") AS p95,
-               MAX(e."createdAt") AS last
-        FROM "RedirectExecution" e JOIN "RespondentSession" s ON s.id = e."sessionId"
-        WHERE s."organizationId" = ${org} AND s."isTest" = false AND e."createdAt" >= ${from} AND e."createdAt" <= ${now} ${project}
-        GROUP BY s."projectId"`,
-      // Redirects over time, split into routed and fell back.
-      this.prisma.$queryRaw<{ bucket: number; ok: number; fallback: number }[]>`
-        SELECT FLOOR(EXTRACT(EPOCH FROM (e."createdAt" - ${from}::timestamp)) * 1000 / ${w.bucket})::int AS bucket,
-               COUNT(*) FILTER (WHERE NOT e."usedFallback")::int AS ok,
-               COUNT(*) FILTER (WHERE e."usedFallback")::int AS fallback
-        FROM "RedirectExecution" e JOIN "RespondentSession" s ON s.id = e."sessionId"
-        WHERE s."organizationId" = ${org} AND s."isTest" = false AND e."createdAt" >= ${from} AND e."createdAt" <= ${now} ${project}
-        GROUP BY 1 ORDER BY 1`,
-      // Why redirects fell back.
-      this.prisma.$queryRaw<{ reason: string; n: number; last: Date; projectId: string }[]>`
-        SELECT e."blockedReason" AS reason, COUNT(*)::int AS n, MAX(e."createdAt") AS last, MIN(s."projectId") AS "projectId"
-        FROM "RedirectExecution" e JOIN "RespondentSession" s ON s.id = e."sessionId"
-        WHERE s."organizationId" = ${org} AND s."isTest" = false AND e."blockedReason" IS NOT NULL AND e."createdAt" >= ${from} AND e."createdAt" <= ${now} ${project}
-        GROUP BY e."blockedReason" ORDER BY n DESC LIMIT 200`,
-      // The window before, for comparison.
-      this.prisma.$queryRaw<{ redirects: number; fallbacks: number; p95: number | null }[]>`
-        SELECT COUNT(*)::int AS redirects, COUNT(*) FILTER (WHERE e."usedFallback")::int AS fallbacks,
-               percentile_cont(0.95) WITHIN GROUP (ORDER BY e."durationMs") AS p95
-        FROM "RedirectExecution" e JOIN "RespondentSession" s ON s.id = e."sessionId"
-        WHERE s."organizationId" = ${org} AND s."isTest" = false AND e."createdAt" >= ${prevFrom} AND e."createdAt" < ${from} ${project}`,
-      // Outcomes the engine routed.
-      this.prisma.$queryRaw<{ status: string; n: number }[]>`
-        SELECT e.status::text AS status, COUNT(*)::int AS n
-        FROM "RedirectExecution" e JOIN "RespondentSession" s ON s.id = e."sessionId"
-        WHERE s."organizationId" = ${org} AND s."isTest" = false AND e."createdAt" >= ${from} AND e."createdAt" <= ${now} ${project}
-        GROUP BY 1 ORDER BY 2 DESC`,
+    const [win, prevWin, entries, callbacks, hosts, problems] = await Promise.all([
+      this.executions(org, from, now, true, projectId, w.bucket),
+      this.executions(org, prevFrom, from, false, projectId, w.bucket),
       // Entries, and sessions that expired without an outcome (never came back from the survey).
-      this.prisma.$queryRaw<{ projectId: string; entries: number; expired: number; gateDropped: number }[]>`
-        SELECT s."projectId", COUNT(*)::int AS entries,
-               COUNT(*) FILTER (WHERE s.status = 'STARTED' AND s."expiresAt" < ${now} AND (NOT s."gateRequired" OR s."gatePassedAt" IS NOT NULL))::int AS expired,
-               COUNT(*) FILTER (WHERE s.status = 'STARTED' AND s."expiresAt" < ${now} AND s."gateRequired" AND s."gatePassedAt" IS NULL)::int AS "gateDropped"
-        FROM "RespondentSession" s
-        WHERE s."organizationId" = ${org} AND s."isTest" = false AND s."startedAt" >= ${from} AND s."startedAt" <= ${now} ${project}
-        GROUP BY s."projectId"`,
+      aggregate<{ _id: string; entries: number; expired: number; gateDropped: number }>(this.prisma.respondentSession, [
+        { $match: { organizationId: org, isTest: false, startedAt: { $gte: mdate(from), $lte: mdate(now) }, ...(projectId ? { projectId } : {}) } },
+        {
+          $group: {
+            _id: '$projectId',
+            entries: { $sum: 1 },
+            expired: countIf({ $and: [{ $eq: ['$status', 'STARTED'] }, { $lt: ['$expiresAt', mdate(now)] }, { $gt: ['$expiresAt', null] }, { $or: [{ $ne: ['$gateRequired', true] }, { $gt: ['$gatePassedAt', null] }] }] }),
+            gateDropped: countIf({ $and: [{ $eq: ['$status', 'STARTED'] }, { $lt: ['$expiresAt', mdate(now)] }, { $gt: ['$expiresAt', null] }, { $eq: ['$gateRequired', true] }, { $lte: ['$gatePassedAt', null] }] }),
+          },
+        },
+      ]).then((rows) => rows.map((r) => ({ projectId: r._id, entries: numOut(r.entries), expired: numOut(r.expired), gateDropped: numOut(r.gateDropped) }))),
       // Vendor callbacks created in the window, by project and state.
-      this.prisma.$queryRaw<{ projectId: string | null; state: string; n: number }[]>`
-        SELECT s."projectId", c.state::text AS state, COUNT(*)::int AS n
-        FROM "CallbackDelivery" c LEFT JOIN "RespondentSession" s ON s.id = c."sessionId"
-        WHERE c."organizationId" = ${org} AND c."createdAt" >= ${from} AND c."createdAt" <= ${now} AND (s.id IS NULL OR s."isTest" = false) ${projectCb}
-        GROUP BY 1, 2`,
+      aggregate<{ _id: { projectId: string | null; state: string }; n: number }>(this.prisma.callbackDelivery, [
+        ...this.liveCallbacks({ organizationId: org, createdAt: { $gte: mdate(from), $lte: mdate(now) } }, projectId),
+        { $group: { _id: { projectId: '$projectId', state: '$state' }, n: { $sum: 1 } } },
+      ]).then((rows) => rows.map((r) => ({ projectId: r._id.projectId ?? null, state: r._id.state, n: numOut(r.n) }))),
       // Callbacks by receiving host.
-      this.prisma.$queryRaw<{ host: string; delivered: number; failing: number; pending: number; lastError: string | null; lastCode: number | null }[]>`
-        SELECT substring(c.url from '^[a-z]+://([^/:?#]+)') AS host,
-               COUNT(*) FILTER (WHERE c.state = 'DELIVERED')::int AS delivered,
-               COUNT(*) FILTER (WHERE c.state IN ('FAILED', 'DEAD_LETTER'))::int AS failing,
-               COUNT(*) FILTER (WHERE c.state IN ('PENDING', 'QUEUED', 'SENDING', 'RETRY_SCHEDULED'))::int AS pending,
-               (ARRAY_AGG(c."lastError" ORDER BY c."updatedAt" DESC) FILTER (WHERE c."lastError" IS NOT NULL))[1] AS "lastError",
-               (ARRAY_AGG(c."lastStatusCode" ORDER BY c."updatedAt" DESC) FILTER (WHERE c."lastError" IS NOT NULL))[1] AS "lastCode"
-        FROM "CallbackDelivery" c LEFT JOIN "RespondentSession" s ON s.id = c."sessionId"
-        WHERE c."organizationId" = ${org} AND c."createdAt" >= ${from} AND c."createdAt" <= ${now} AND (s.id IS NULL OR s."isTest" = false) ${projectCb}
-        GROUP BY 1 ORDER BY failing DESC, pending DESC, delivered DESC LIMIT 20`,
+      aggregate<{ _id: string | null; delivered: number; failing: number; pending: number; errs: { e: string; c: number | null }[] }>(this.prisma.callbackDelivery, [
+        ...this.liveCallbacks({ organizationId: org, createdAt: { $gte: mdate(from), $lte: mdate(now) } }, projectId),
+        { $sort: { updatedAt: -1 } },
+        {
+          $group: {
+            _id: { $let: { vars: { m: { $regexFind: { input: '$url', regex: '^[a-z]+://([^/:?#]+)' } } }, in: { $cond: [{ $eq: ['$$m', null] }, null, { $arrayElemAt: ['$$m.captures', 0] }] } } },
+            delivered: countIf({ $eq: ['$state', 'DELIVERED'] }),
+            failing: countIf({ $in: ['$state', ['FAILED', 'DEAD_LETTER']] }),
+            pending: countIf({ $in: ['$state', ['PENDING', 'QUEUED', 'SENDING', 'RETRY_SCHEDULED']] }),
+            // Newest first (sorted above), so the first entry is the latest error.
+            errs: { $push: { $cond: [{ $gt: ['$lastError', null] }, { e: '$lastError', c: '$lastStatusCode' }, '$$REMOVE'] } },
+          },
+        },
+        { $sort: { failing: -1, pending: -1, delivered: -1 } },
+        { $limit: 20 },
+      ]).then((rows) =>
+        rows.map((r) => ({ host: r._id ?? null, delivered: numOut(r.delivered), failing: numOut(r.failing), pending: numOut(r.pending), lastError: r.errs?.[0]?.e ?? null, lastCode: r.errs?.[0]?.c == null ? null : numOut(r.errs[0].c) })),
+      ),
       // Callbacks that need a person (any age, so nothing drops off the page while unresolved).
-      this.prisma.$queryRaw<{ id: string; state: string; url: string; attempts: number; lastStatusCode: number | null; lastError: string | null; updatedAt: Date; nextAttemptAt: Date; projectId: string | null; targetType: string }[]>`
-        SELECT c.id, c.state::text AS state, c.url, c.attempts, c."lastStatusCode", c."lastError", c."updatedAt", c."nextAttemptAt", s."projectId", c."targetType"
-        FROM "CallbackDelivery" c LEFT JOIN "RespondentSession" s ON s.id = c."sessionId"
-        WHERE c."organizationId" = ${org} AND c.state IN ('FAILED', 'DEAD_LETTER', 'RETRY_SCHEDULED') AND (s.id IS NULL OR s."isTest" = false) ${projectCb}
-        ORDER BY (c.state = 'RETRY_SCHEDULED'), c."updatedAt" DESC LIMIT 25`,
+      aggregate<{ _id: string; state: string; url: string; attempts: number; lastStatusCode: number | null; lastError: string | null; updatedAt: unknown; nextAttemptAt: unknown; projectId: string | null; targetType: string }>(this.prisma.callbackDelivery, [
+        ...this.liveCallbacks({ organizationId: org, state: { $in: ['FAILED', 'DEAD_LETTER', 'RETRY_SCHEDULED'] } }, projectId),
+        { $addFields: { retrying: { $eq: ['$state', 'RETRY_SCHEDULED'] } } },
+        { $sort: { retrying: 1, updatedAt: -1 } },
+        { $limit: 25 },
+      ]).then((rows) =>
+        rows.map((c) => ({
+          id: c._id,
+          state: c.state,
+          url: c.url,
+          attempts: numOut(c.attempts),
+          lastStatusCode: c.lastStatusCode == null ? null : numOut(c.lastStatusCode),
+          lastError: c.lastError ?? null,
+          updatedAt: dateOut(c.updatedAt)!,
+          nextAttemptAt: dateOut(c.nextAttemptAt)!,
+          projectId: c.projectId ?? null,
+          targetType: c.targetType,
+        })),
+      ),
     ]);
+    const { perProject, timeline, reasons, statuses } = win;
+    const prev = [{ redirects: prevWin.total, fallbacks: prevWin.fallbacks, p95: percentileCont(prevWin.durations, 0.95) }];
 
     // Projects: everything with traffic in the window, plus live projects with none (they show as idle).
     const ids = new Set<string>([...perProject.map((p) => p.projectId), ...entries.map((p) => p.projectId), ...callbacks.map((c) => c.projectId).filter((x): x is string => !!x), ...problems.map((c) => c.projectId).filter((x): x is string => !!x)]);
@@ -239,7 +227,7 @@ export class RedirectHealthService {
     rows.sort((a, b) => rank[a.health] - rank[b.health] || b.redirects - a.redirects || a.project.projectCode.localeCompare(b.project.projectCode));
 
     const sum = (k: keyof (typeof rows)[number]) => rows.reduce((a, r) => a + (typeof r[k] === 'number' ? (r[k] as number) : 0), 0);
-    const p95All = perProject.length ? await this.p95(org, from, now, projectId) : null;
+    const p95All = perProject.length ? Math.round(percentileCont(win.durations, 0.95)!) : null;
     const totals = {
       entries: sum('entries'),
       redirects: sum('redirects'),
@@ -294,13 +282,104 @@ export class RedirectHealthService {
     };
   }
 
-  private async p95(org: string, from: Date, to: Date, projectId?: string) {
-    const project = projectId ? Prisma.sql`AND s."projectId" = ${projectId}` : Prisma.empty;
-    const [r] = await this.prisma.$queryRaw<{ p95: number | null }[]>`
-      SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY e."durationMs") AS p95
-      FROM "RedirectExecution" e JOIN "RespondentSession" s ON s.id = e."sessionId"
-      WHERE s."organizationId" = ${org} AND s."isTest" = false AND e."createdAt" >= ${from} AND e."createdAt" <= ${to} ${project}`;
-    return r?.p95 === null || r?.p95 === undefined ? null : Math.round(num(r.p95));
+  /**
+   * Redirects of live (non-test) sessions in [from, to] (or [from, to) when `inclusive` is false):
+   * per project, over time, by fallback reason and by outcome, plus every duration for percentiles.
+   */
+  private async executions(org: string, from: Date, to: Date, inclusive: boolean, projectId: string | undefined, bucket: number) {
+    type ByProject = { _id: string; redirects: number; fallbacks: number; blocked: number; apiFallbacks: number; durations: number[]; last: unknown };
+    type Out = {
+      perProject: ByProject[];
+      timeline: { _id: number; ok: number; fallback: number }[];
+      reasons: { _id: string; n: number; last: unknown; projectId: string }[];
+      statuses: { _id: string; n: number }[];
+    };
+    const [r] = await aggregate<Out>(this.prisma.redirectExecution, [
+      { $match: { createdAt: { $gte: mdate(from), [inclusive ? '$lte' : '$lt']: mdate(to) } } },
+      {
+        $lookup: {
+          from: 'RespondentSession',
+          localField: 'sessionId',
+          foreignField: '_id',
+          pipeline: [{ $match: { organizationId: org, isTest: false, ...(projectId ? { projectId } : {}) } }, { $project: { projectId: 1 } }],
+          as: 's',
+        },
+      },
+      { $unwind: '$s' },
+      { $addFields: { projectId: '$s.projectId' } },
+      {
+        $facet: {
+          perProject: [
+            {
+              $group: {
+                _id: '$projectId',
+                redirects: { $sum: 1 },
+                fallbacks: countIf({ $eq: ['$usedFallback', true] }),
+                blocked: countIf({ $gt: ['$blockedReason', null] }),
+                apiFallbacks: countIf({ $eq: ['$apiFallback', true] }),
+                durations: { $push: '$durationMs' },
+                last: { $max: '$createdAt' },
+              },
+            },
+          ],
+          timeline: [
+            {
+              $group: {
+                _id: { $floor: { $divide: [{ $subtract: ['$createdAt', mdate(from)] }, bucket] } },
+                ok: countIf({ $ne: ['$usedFallback', true] }),
+                fallback: countIf({ $eq: ['$usedFallback', true] }),
+              },
+            },
+            { $sort: { _id: 1 } },
+          ],
+          reasons: [
+            { $match: { blockedReason: { $type: 'string' } } },
+            { $group: { _id: '$blockedReason', n: { $sum: 1 }, last: { $max: '$createdAt' }, projectId: { $min: '$projectId' } } },
+            { $sort: { n: -1 } },
+            { $limit: 200 },
+          ],
+          statuses: [{ $group: { _id: '$status', n: { $sum: 1 } } }, { $sort: { n: -1 } }],
+        },
+      },
+    ]);
+    const perProject = (r?.perProject ?? []).map((p) => {
+      const d = (p.durations ?? []).map(numOut);
+      return {
+        projectId: p._id,
+        redirects: numOut(p.redirects),
+        fallbacks: numOut(p.fallbacks),
+        blocked: numOut(p.blocked),
+        apiFallbacks: numOut(p.apiFallbacks),
+        p50: percentileCont(d, 0.5),
+        p95: percentileCont(d, 0.95),
+        last: dateOut(p.last),
+        durations: d,
+      };
+    });
+    return {
+      perProject,
+      durations: perProject.flatMap((p) => p.durations),
+      total: perProject.reduce((a, p) => a + p.redirects, 0),
+      fallbacks: perProject.reduce((a, p) => a + p.fallbacks, 0),
+      timeline: (r?.timeline ?? []).map((t) => ({ bucket: numOut(t._id), ok: numOut(t.ok), fallback: numOut(t.fallback) })),
+      reasons: (r?.reasons ?? []).map((x) => ({ reason: x._id, n: numOut(x.n), last: dateOut(x.last)!, projectId: x.projectId })),
+      statuses: (r?.statuses ?? []).map((x) => ({ status: x._id, n: numOut(x.n) })),
+    };
+  }
+
+  /**
+   * Callbacks matching `match`, with the project of their session. Callbacks of test sessions are
+   * left out; callbacks without a (remaining) session stay, unless a project is asked for.
+   */
+  private liveCallbacks(match: Record<string, unknown>, projectId?: string): object[] {
+    return [
+      { $match: match },
+      { $lookup: { from: 'RespondentSession', localField: 'sessionId', foreignField: '_id', pipeline: [{ $project: { projectId: 1, isTest: 1 } }], as: 's' } },
+      { $match: { $or: [{ 's.0': { $exists: false } }, { 's.0.isTest': false }] } },
+      { $addFields: { projectId: { $ifNull: [{ $arrayElemAt: ['$s.projectId', 0] }, null] } } },
+      ...(projectId ? [{ $match: { projectId } }] : []),
+      { $project: { s: 0, body: 0 } },
+    ];
   }
 
   /** One GET per live market's client survey link. Redirects are not followed; 2xx and 3xx count as up. */

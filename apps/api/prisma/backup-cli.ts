@@ -6,13 +6,13 @@
  *   pnpm restore-backup --file <backup> [--yes]   replace the database with a downloaded backup file
  *   pnpm restore-backup --decrypt <backup> --out <plain.dump>
  *
- * An encrypted backup (.enc) asks for its passphrase, or reads BACKUP_PASSPHRASE. The restore runs in one
- * transaction: it either works completely or leaves the database as it was. Afterwards run `pnpm db:deploy`.
+ * An encrypted backup (.enc) asks for its passphrase, or reads BACKUP_PASSPHRASE. The restore keeps a copy
+ * of the database first: it either works completely or puts the database back as it was.
  */
 import 'dotenv/config';
 import { existsSync } from 'fs';
 import { createInterface } from 'readline';
-import { decryptFile, inspectDump, isEncryptedFile, newestMigration, pgTarget, restoreFrom, workDir } from '../src/backups/backup-core';
+import { dbTarget, decryptFile, inspectDump, isEncryptedFile, restoreFrom, schemaVersion, workDir } from '../src/backups/backup-core';
 
 function flag(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -62,7 +62,7 @@ async function restore() {
   if (!file || !existsSync(file)) throw new Error('Give the backup file: pnpm restore-backup --file /path/to/samptrek-….dump(.enc)');
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL is not set');
-  const db = pgTarget(url);
+  const db = dbTarget(url);
   const { dir, cleanup } = await workDir();
   try {
     let plain = file;
@@ -71,7 +71,7 @@ async function restore() {
       await decryptFile(file, plain, await passphrase());
     }
     const info = await inspectDump(plain);
-    const current = await newestMigration(db).catch(() => null);
+    const current = await schemaVersion(db).catch(() => null);
     console.log(`Backup: ${info.tables} tables. Database: ${db.database} on ${db.host}${current ? ` (version ${current})` : ' (empty)'}.`);
     if (!has('yes')) {
       if (!process.stdin.isTTY) throw new Error('Add --yes to restore without a prompt');
@@ -79,7 +79,7 @@ async function restore() {
       if (word !== 'RESTORE') throw new Error('Stopped. Nothing was changed.');
     }
     await restoreFrom(db, plain);
-    console.log(`Restored. Now run "pnpm db:deploy" (applies newer database changes, if any) and restart the API.`);
+    console.log('Restored, with the collections and indexes of this version. Restart the API.');
     console.log('Then open Super Admin → Backups and press "Find backups in storage" to see your backups again.');
   } finally {
     await cleanup();
@@ -92,7 +92,7 @@ async function decrypt() {
   if (!file || !out) throw new Error('pnpm restore-backup --decrypt <backup.dump.enc> --out <plain.dump>');
   await decryptFile(file, out, await passphrase());
   await inspectDump(out);
-  console.log(`Wrote ${out}. Restore it with pg_restore, or with: pnpm restore-backup --file ${out}`);
+  console.log(`Wrote ${out}. Restore it with mongorestore --archive --gzip, or with: pnpm restore-backup --file ${out}`);
 }
 
 const cmd = process.argv[2];

@@ -69,7 +69,7 @@ export class WonBidsController {
       contactEmail: bid.contact?.email ?? null,
       bidderName: bid.biddingPerson?.name ?? null,
       currency: bid.currency,
-      totalAmount: bid.totalAmount == null ? null : new Prisma.Decimal(bid.totalAmount),
+      totalAmount: bid.totalAmount == null ? null : Number(bid.totalAmount),
       countries: bid.countries as unknown as Prisma.InputJsonValue,
       wonAt: new Date(occurredAt),
       lastEventId: eventId,

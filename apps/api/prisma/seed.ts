@@ -3,7 +3,8 @@
  * Usage: pnpm db:seed   (re-running wipes the demo organization first)
  */
 import 'dotenv/config';
-import { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { PrismaClient } from '../src/prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { questionTemplates } from '../src/survey/questions';
@@ -14,6 +15,7 @@ import type { PrismaService } from '../src/prisma/prisma.service';
 import { WebhooksService } from '../src/webhooks/webhooks.service';
 import { newApiKey } from '../src/public-api/api-keys';
 import { nextRunAt } from '../src/schedules/schedule.rules';
+import { setSequence } from '../src/prisma/compat';
 
 const prisma = new PrismaClient();
 const token = (n = 12) => randomBytes(n).toString('base64url');
@@ -168,9 +170,9 @@ async function main() {
       redirectMode: 'HYBRID',
       countries: {
         create: [
-          { countryCode: 'US', language: 'en', targetGroup: 'IT decision makers', loiMinutes: 15, irPercent: 30, cpi: new Prisma.Decimal(12.5), currency: 'USD', targetCompletes: 50, status: 'LIVE', liveSurveyUrl: mockSurvey, testSurveyUrl: mockSurvey },
-          { countryCode: 'GB', language: 'en', targetGroup: 'IT decision makers', loiMinutes: 15, irPercent: 25, cpi: new Prisma.Decimal(11), currency: 'GBP', targetCompletes: 40, status: 'LIVE', liveSurveyUrl: mockSurvey, testSurveyUrl: mockSurvey },
-          { countryCode: 'DE', language: 'de', targetGroup: 'IT-Entscheider', loiMinutes: 15, irPercent: 20, cpi: new Prisma.Decimal(14), currency: 'EUR', targetCompletes: 30, status: 'LIVE', liveSurveyUrl: mockSurvey, testSurveyUrl: mockSurvey },
+          { countryCode: 'US', language: 'en', targetGroup: 'IT decision makers', loiMinutes: 15, irPercent: 30, cpi: Number(12.5), currency: 'USD', targetCompletes: 50, status: 'LIVE', liveSurveyUrl: mockSurvey, testSurveyUrl: mockSurvey },
+          { countryCode: 'GB', language: 'en', targetGroup: 'IT decision makers', loiMinutes: 15, irPercent: 25, cpi: Number(11), currency: 'GBP', targetCompletes: 40, status: 'LIVE', liveSurveyUrl: mockSurvey, testSurveyUrl: mockSurvey },
+          { countryCode: 'DE', language: 'de', targetGroup: 'IT-Entscheider', loiMinutes: 15, irPercent: 20, cpi: Number(14), currency: 'EUR', targetCompletes: 30, status: 'LIVE', liveSurveyUrl: mockSurvey, testSurveyUrl: mockSurvey },
         ],
       },
     },
@@ -184,7 +186,7 @@ async function main() {
         data: {
           projectCountryId: c.id,
           vendorId: v.id,
-          cpi: new Prisma.Decimal(cpi),
+          cpi: Number(cpi),
           targetCompletes: Math.min(target, c.targetCompletes),
           entryCode: token(),
           testEntryCode: token(),
@@ -439,7 +441,7 @@ async function seedFinance(projectId: string, organizationId: string, actorId: s
     const inv = await prisma.invoice.create({
       data: {
         organizationId, projectId, clientId: project.clientId, number: `INV-${new Date().getUTCFullYear()}-${String(++seq).padStart(5, '0')}`,
-        status: st.status, currency, lines: [...lines.values()], completes: list.length, subtotal: new Prisma.Decimal(total.toFixed(2)), total: new Prisma.Decimal(total.toFixed(2)),
+        status: st.status, currency, lines: [...lines.values()], completes: list.length, subtotal: Number(total.toFixed(2)), total: Number(total.toFixed(2)),
         notes: 'PO 4471 (synthetic demo)', issuedAt, dueAt: issuedAt ? new Date(issuedAt.getTime() + 30 * day) : null,
         paidAt: 'paid' in st ? new Date(Date.now() - (st.paid as number) * day) : null, createdById: actorId,
       },
@@ -528,5 +530,5 @@ async function seedSuperAdmin(hash: string) {
   const inv = (n: number, data: object) => prisma.billingInvoice.create({ data: { number: `SUB-${new Date().getUTCFullYear()}-${String(n).padStart(5, '0')}`, organizationId: nw.id, planId: starter.id, interval: 'MONTHLY', currency: 'INR', amount: 4999, taxName: 'GST', taxPercent: 18, taxAmount: 899.82, total: 5898.82, ...data } });
   await inv(1, { status: 'PAID', method: 'razorpay', reference: 'pay_PxD4mK2ZtYv9Lq', providerOrderId: 'order_demo_1', paidAt: new Date(Date.now() - 25 * day), paidOn: new Date(Date.now() - 25 * day), periodStart: new Date(Date.now() - 25 * day), periodEnd: new Date(Date.now() + 5 * day) });
   await inv(2, { status: 'PENDING_REVIEW', method: 'upi', reference: '431298765432', paidOn: new Date(Date.now() - day), note: 'Paid from our HDFC current account.' });
-  await prisma.$executeRawUnsafe(`SELECT setval('billing_invoice_seq', 2)`);
+  await setSequence(prisma, 'billing_invoice_seq', 2);
 }

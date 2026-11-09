@@ -1,5 +1,5 @@
 import { INestApplication } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../src/prisma/client';
 import request from 'supertest';
 import { EntitlementsService } from '../../src/super-admin/entitlements';
 import { FEATURE_KEYS, featureForRoute, MOBILE_FEATURE_KEYS } from '../../src/super-admin/features';

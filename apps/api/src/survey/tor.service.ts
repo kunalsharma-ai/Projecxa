@@ -43,7 +43,7 @@ export class TorService implements OnModuleInit, OnModuleDestroy {
   async replace(ips: string[]) {
     await this.prisma.$transaction([
       this.prisma.torExitNode.deleteMany({}),
-      this.prisma.torExitNode.createMany({ data: ips.map((ip) => ({ ip })), skipDuplicates: true }),
+      this.prisma.torExitNode.createMany({ data: [...new Set(ips)].map((ip) => ({ ip })) }),
     ]);
   }
 

@@ -1,5 +1,6 @@
 import { INestApplication } from '@nestjs/common';
-import { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { PrismaClient } from '../../src/prisma/client';
 import { clearZohoTokens, Http } from '../../src/accounting/zoho-books.client';
 import { ZohoBooksService } from '../../src/accounting/zoho-books.service';
 import { api, createApp, login, makeOrg, resetDb } from './helpers';

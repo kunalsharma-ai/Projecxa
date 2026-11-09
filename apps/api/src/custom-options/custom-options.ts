@@ -5,6 +5,7 @@ import { AuthUser } from '../auth/auth.types';
 import { CurrentUser, EDITORS, Roles, STAFF } from '../auth/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import { PrismaService } from '../prisma/prisma.service';
+import { createManySkipDuplicates } from '../prisma/mongo-compat';
 
 /**
  * "Add +" on dropdowns: options people add themselves are saved per organisation and offered
@@ -51,10 +52,10 @@ export class CustomOptionsController {
   @Roles(...EDITORS)
   async replace(@CurrentUser() u: AuthUser, @Body(new ZodPipe(replaceSchema)) body: z.infer<typeof replaceSchema>) {
     const values = [...new Set(body.values)];
-    await this.prisma.$transaction([
-      this.prisma.customOption.deleteMany({ where: { organizationId: u.organizationId, field: body.field, value: { notIn: values } } }),
-      this.prisma.customOption.createMany({ data: values.map((value) => ({ organizationId: u.organizationId, field: body.field, value, createdById: u.id })), skipDuplicates: true }),
-    ]);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.customOption.deleteMany({ where: { organizationId: u.organizationId, field: body.field, value: { notIn: values } } });
+      await createManySkipDuplicates(tx.customOption, 'CustomOption', values.map((value) => ({ organizationId: u.organizationId, field: body.field, value, createdById: u.id })));
+    });
     await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'custom-option.replace', entityType: 'CustomOption', entityId: body.field, detail: body });
     return this.list(u, body.field);
   }

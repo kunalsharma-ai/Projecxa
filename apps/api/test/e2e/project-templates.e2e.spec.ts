@@ -1,5 +1,5 @@
 import { INestApplication } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../src/prisma/client';
 import { api, createApp, login, makeOrg, resetDb } from './helpers';
 
 const GATE = [{ id: 'gender', type: 'single', text: 'Gender?', options: [{ id: 'm', label: 'Male' }, { id: 'f', label: 'Female' }] }];

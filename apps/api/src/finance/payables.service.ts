@@ -17,6 +17,7 @@ import { AuthUser } from '../auth/auth.types';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { money, taxSchema, withTax } from './finance.service';
+import { currencyOf, sessionGroups } from '../prisma/session-totals';
 
 const currency = z.string().regex(/^[A-Z]{3}$/, 'Use a 3-letter currency code such as USD');
 
@@ -128,21 +129,30 @@ export class PayablesService {
 
   /** What each vendor is owed, per currency: approved but not billed, waiting for approval, on approved bills, paid. */
   async summary(org: string) {
-    const rows = await this.prisma.$queryRaw<{ vendorId: string; currency: string; bucket: string; n: number; amount: number }[]>`
-      SELECT a."vendorId", pc.currency,
-        CASE WHEN s.approval = 'PENDING' THEN 'pending'
-             WHEN s.approval <> 'APPROVED' THEN 'rejected'
-             WHEN b.id IS NULL THEN 'unbilled'
-             WHEN b.status = 'DRAFT' THEN 'draft'
-             WHEN b.status = 'APPROVED' THEN 'due'
-             ELSE 'paid' END AS bucket,
-        COUNT(*)::int AS n, COALESCE(SUM(s.payout), 0)::float8 AS amount
-      FROM "RespondentSession" s
-      JOIN "VendorAllocation" a ON a.id = s."vendorAllocationId"
-      JOIN "ProjectCountry" pc ON pc.id = s."projectCountryId"
-      LEFT JOIN "VendorBill" b ON b.id = s."vendorBillId"
-      WHERE s."organizationId" = ${org} AND s."isTest" = false AND s.status = 'COMPLETE'
-      GROUP BY 1, 2, 3`;
+    const groups = await sessionGroups(this.prisma, { organizationId: org, isTest: false, status: 'COMPLETE' }, ['approval', 'vendorBillId', 'vendorAllocationId', 'projectCountryId']);
+    const cur = await currencyOf(this.prisma, groups.map((g) => g.projectCountryId));
+    const allocIds = [...new Set(groups.map((g) => g.vendorAllocationId).filter((x): x is string => !!x))];
+    const vendorOf = new Map(
+      allocIds.length ? (await this.prisma.vendorAllocation.findMany({ where: { id: { in: allocIds } }, select: { id: true, vendorId: true } })).map((a) => [a.id, a.vendorId]) : [],
+    );
+    const billIds = [...new Set(groups.map((g) => g.vendorBillId).filter((x): x is string => !!x))];
+    const billStatus = new Map(
+      billIds.length ? (await this.prisma.vendorBill.findMany({ where: { id: { in: billIds } }, select: { id: true, status: true } })).map((b) => [b.id, b.status as string]) : [],
+    );
+    const merged = new Map<string, { vendorId: string; currency: string; bucket: string; n: number; amount: number }>();
+    for (const g of groups) {
+      const vendorId = g.vendorAllocationId ? vendorOf.get(g.vendorAllocationId) : undefined;
+      const currency = g.projectCountryId ? cur.get(g.projectCountryId) : undefined;
+      if (!vendorId || !currency) continue;
+      const bill = g.vendorBillId ? billStatus.get(g.vendorBillId) : undefined;
+      const bucket = g.approval === 'PENDING' ? 'pending' : g.approval !== 'APPROVED' ? 'rejected' : !bill ? 'unbilled' : bill === 'DRAFT' ? 'draft' : bill === 'APPROVED' ? 'due' : 'paid';
+      const k = `${vendorId}|${currency}|${bucket}`;
+      const m = merged.get(k) ?? { vendorId, currency, bucket, n: 0, amount: 0 };
+      m.n += g.n;
+      m.amount += g.payout;
+      merged.set(k, m);
+    }
+    const rows = [...merged.values()];
     const vendors = await this.prisma.vendor.findMany({ where: { organizationId: org, id: { in: [...new Set(rows.map((r) => r.vendorId))] } }, select: { id: true, name: true, code: true } });
     const empty = () => ({ completes: 0, amount: 0 });
     const out = new Map<string, { vendor: (typeof vendors)[number]; currency: string; pending: ReturnType<typeof empty>; unbilled: ReturnType<typeof empty>; draft: ReturnType<typeof empty>; due: ReturnType<typeof empty>; paid: ReturnType<typeof empty> }>();

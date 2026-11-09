@@ -1,5 +1,6 @@
 import { INestApplication } from '@nestjs/common';
-import { Prisma, PrismaClient, RespondentStatus } from '@prisma/client';
+import { Prisma, RespondentStatus } from '@prisma/client';
+import { PrismaClient } from '../../src/prisma/client';
 import { createHmac, randomBytes } from 'crypto';
 import { MonitorService } from '../../src/monitor/monitor.service';
 import { api, createApp, login, makeOrg, resetDb } from './helpers';

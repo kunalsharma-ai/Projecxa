@@ -11,6 +11,7 @@ import { allocationRules, autoPauseStateOf, autopilotOf, Candidate, marketRules,
 import { runAutoPause } from './auto-pause';
 import { RoutingService } from './routing.service';
 import { ForecastMarketIn, forecastProject, marginFloorOf, marginRules, ProjectForecast } from './forecast';
+import { aggregate, countIf, dateOut, mdate, msBetween, numOut, percentileCont } from '../prisma/agg';
 
 type Fetcher = (url: string, init: RequestInit) => Promise<{ status: number }>;
 
@@ -63,25 +64,45 @@ export class MonitorService {
 
   /** Counts per market (group = country) or per vendor link (group = allocation) for live projects. */
   private async metrics(org: string, group: 'country' | 'allocation', projectId: string | undefined, now: Date): Promise<Map<string, Row>> {
-    const col = group === 'country' ? Prisma.sql`s."projectCountryId"` : Prisma.sql`s."vendorAllocationId"`;
-    const d24 = new Date(now.getTime() - 24 * 3_600_000);
-    const d72 = new Date(now.getTime() - 72 * 3_600_000);
-    const rows = await this.prisma.$queryRaw<(Omit<Row, 'target'> & { firstEntryAt: Date | null })[]>`
-      SELECT ${col} AS key,
-        COUNT(*) FILTER (WHERE s.status = 'COMPLETE')::int AS completes,
-        COUNT(*) FILTER (WHERE s.status = 'TERMINATE')::int AS terminates,
-        COUNT(*) FILTER (WHERE s."startedAt" >= ${d24})::int AS "entries24h",
-        COUNT(*) FILTER (WHERE s."startedAt" >= ${d24} AND s.status IN ('QUALITY_FAIL', 'DUPLICATE', 'SECURITY_REJECT'))::int AS "quality24h",
-        COUNT(*) FILTER (WHERE s."startedAt" >= ${d24} AND s.status = 'PARTIAL')::int AS "dropped24h",
-        COUNT(*) FILTER (WHERE s.status = 'COMPLETE' AND s."outcomeAt" >= ${d72})::int AS "completes72h",
-        MIN(s."startedAt") AS "firstEntryAt",
-        MAX(s."startedAt") AS "lastEntryAt",
-        (percentile_cont(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (s."outcomeAt" - s."startedAt")) / 60)
-          FILTER (WHERE s.status = 'COMPLETE' AND s."outcomeAt" IS NOT NULL))::float8 AS "medianLoiMinutes"
-      FROM "RespondentSession" s JOIN "Project" p ON p.id = s."projectId"
-      WHERE s."organizationId" = ${org} AND s."isTest" = false AND p.status = 'LIVE'
-        ${projectId ? Prisma.sql`AND s."projectId" = ${projectId}` : Prisma.empty}
-      GROUP BY 1`;
+    const d24 = mdate(new Date(now.getTime() - 24 * 3_600_000));
+    const d72 = mdate(new Date(now.getTime() - 72 * 3_600_000));
+    const live = await this.prisma.project.findMany({ where: { organizationId: org, status: 'LIVE', ...(projectId ? { id: projectId } : {}) }, select: { id: true } });
+    if (!live.length) return new Map();
+    const raw = await aggregate<{ _id: string | null; completes: number; terminates: number; entries24h: number; quality24h: number; dropped24h: number; completes72h: number; firstEntryAt: unknown; lastEntryAt: unknown; lois: number[] }>(
+      this.prisma.respondentSession,
+      [
+        { $match: { organizationId: org, isTest: false, projectId: { $in: live.map((p) => p.id) } } },
+        {
+          $group: {
+            _id: group === 'country' ? '$projectCountryId' : '$vendorAllocationId',
+            completes: countIf({ $eq: ['$status', 'COMPLETE'] }),
+            terminates: countIf({ $eq: ['$status', 'TERMINATE'] }),
+            entries24h: countIf({ $gte: ['$startedAt', d24] }),
+            quality24h: countIf({ $and: [{ $gte: ['$startedAt', d24] }, { $in: ['$status', ['QUALITY_FAIL', 'DUPLICATE', 'SECURITY_REJECT']] }] }),
+            dropped24h: countIf({ $and: [{ $gte: ['$startedAt', d24] }, { $eq: ['$status', 'PARTIAL'] }] }),
+            completes72h: countIf({ $and: [{ $eq: ['$status', 'COMPLETE'] }, { $gte: ['$outcomeAt', d72] }] }),
+            firstEntryAt: { $min: '$startedAt' },
+            lastEntryAt: { $max: '$startedAt' },
+            // LOI in minutes of each complete; the median is taken below.
+            lois: { $push: { $cond: [{ $and: [{ $eq: ['$status', 'COMPLETE'] }, { $ne: [{ $ifNull: ['$outcomeAt', null] }, null] }] }, { $divide: [msBetween('$startedAt', '$outcomeAt'), 60_000] }, '$$REMOVE'] } },
+          },
+        },
+      ],
+    );
+    const rows = raw
+      .filter((r) => r._id != null)
+      .map((r) => ({
+        key: r._id!,
+        completes: numOut(r.completes),
+        terminates: numOut(r.terminates),
+        entries24h: numOut(r.entries24h),
+        quality24h: numOut(r.quality24h),
+        dropped24h: numOut(r.dropped24h),
+        completes72h: numOut(r.completes72h),
+        firstEntryAt: dateOut(r.firstEntryAt),
+        lastEntryAt: dateOut(r.lastEntryAt),
+        medianLoiMinutes: percentileCont((r.lois ?? []).map(numOut), 0.5),
+      }));
     return new Map(rows.map((r) => [r.key, { ...r, target: 0 }]));
   }
 
@@ -248,7 +269,7 @@ export class MonitorService {
     let updated = 0;
     for (const f of found) {
       const ex = byKey.get(f.dedupeKey);
-      const data = { severity: f.severity, title: f.title, detail: f.detail, metrics: (f.metrics ?? Prisma.DbNull) as Prisma.InputJsonValue, lastSeenAt: now };
+      const data = { severity: f.severity, title: f.title, detail: f.detail, metrics: (f.metrics ?? null) as Prisma.InputJsonValue, lastSeenAt: now };
       if (ex) {
         await this.prisma.alert.update({ where: { id: ex.id }, data: { ...data, ...(f.autoAction ? { autoAction: f.autoAction } : {}) } });
         updated++;

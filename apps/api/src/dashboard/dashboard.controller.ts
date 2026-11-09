@@ -419,7 +419,7 @@ export class DashboardController {
       data: {
         ...rest,
         ...(defaultRedirectConfig !== undefined
-          ? { defaultRedirectConfig: defaultRedirectConfig === null ? Prisma.DbNull : (defaultRedirectConfig as unknown as Prisma.InputJsonValue) }
+          ? { defaultRedirectConfig: defaultRedirectConfig === null ? null : (defaultRedirectConfig as unknown as Prisma.InputJsonValue) }
           : {}),
       },
     });

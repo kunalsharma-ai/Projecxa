@@ -280,7 +280,7 @@ export const HELP: Record<string, HelpEntry> = {
   'page:/super-admin/automation': { title: 'Automation', what: 'Rules that run by themselves: When something happens, Only if a condition holds, Then do something.', how: 'Add a ready-made recipe or write your own rule, and check the run log.', where: 'Time rules are checked every hour.' },
   'page:/super-admin/backups': {
     title: 'Backups',
-    what: 'Full copies of the SampTrek database, made with PostgreSQL pg_dump: one click, a daily or weekly schedule, and a guarded restore.',
+    what: 'Full copies of the SampTrek database, made with the MongoDB tool mongodump: one click, a daily or weekly schedule, and a guarded restore.',
     how: 'Set up Backup storage in Settings → Integrations, press Back up now, then set a schedule. Test a backup now and then, and Download one to keep elsewhere.',
     where: 'The whole server: every organisation, project and respondent. Super Admin only.',
   },

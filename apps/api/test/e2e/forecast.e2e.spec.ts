@@ -1,5 +1,6 @@
 import { INestApplication } from '@nestjs/common';
-import { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { PrismaClient } from '../../src/prisma/client';
 import { randomBytes } from 'crypto';
 import { api, createApp, login, makeOrg, resetDb } from './helpers';
 
@@ -25,7 +26,7 @@ describe('Profit forecast and margin alert (e2e)', () => {
         organizationId: orgId, projectId, projectCountryId: countryId, vendorAllocationId: allocationId,
         token: randomBytes(12).toString('hex'), vendorRespondentId: `F${++n}`, status: 'COMPLETE', startedAt: started,
         outcomeAt: new Date(started.getTime() + 14 * 60_000), expiresAt: new Date(started.getTime() + 86_400_000),
-        revenue: new Prisma.Decimal(5), payout: new Prisma.Decimal(payout),
+        revenue: Number(5), payout: Number(payout),
       });
     }
     await prisma.respondentSession.createMany({ data });
@@ -112,7 +113,7 @@ describe('Profit forecast and margin alert (e2e)', () => {
 
     // The cheap panel is paused and the costly one now pays 8 a complete: a loss at finish.
     await pm.patch(`/projects/${projectId}/countries/${countryId}/allocations/${allocCheap}`, { status: 'PAUSED' }).expect(200);
-    await prisma.vendorAllocation.update({ where: { id: allocCostly }, data: { cpi: new Prisma.Decimal(8) } });
+    await prisma.vendorAllocation.update({ where: { id: allocCostly }, data: { cpi: Number(8) } });
     await pm.post('/monitor/run').expect(201);
     const [bad] = await marginAlerts();
     expect(bad.severity).toBe('bad');

@@ -2,8 +2,10 @@
  * Live fieldwork metrics (docs/FIELD_METRICS.md): actual LOI and IR from the respondent sessions,
  * and the speeder check that turns too-fast completes into quality fails.
  */
-import { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { PrismaClient } from '../prisma/client';
 import { z } from 'zod';
+import { aggregate, countIf, msBetween, numOut } from '../prisma/agg';
 
 /** Fractions people pick for the speeder check; any n/d with 1 ≤ n < d ≤ 10 is accepted. */
 export const SPEEDER_PRESETS = ['1/4', '1/3', '2/4', '2/3', '3/4'] as const;
@@ -63,7 +65,7 @@ export interface FieldMetrics {
 export const emptyFieldMetrics = (): FieldMetrics => ({ avgLoiMinutes: null, irPercent: null, completes: 0, terminates: 0, speeders: 0 });
 
 /** Survey start for LOI: when the gate released the link, or entry when there was no gate. */
-export const SURVEY_START_SQL = Prisma.sql`COALESCE(s."gatePassedAt", s."startedAt")`;
+export const SURVEY_START = { $ifNull: ['$gatePassedAt', '$startedAt'] };
 
 /**
  * Live (non-test) metrics per project, or per market when `by` is "country". One query for any
@@ -72,18 +74,23 @@ export const SURVEY_START_SQL = Prisma.sql`COALESCE(s."gatePassedAt", s."started
 export async function fieldMetrics(prisma: PrismaClient | Prisma.TransactionClient, projectIds: string[], by: 'project' | 'country' = 'project'): Promise<Map<string, FieldMetrics>> {
   const out = new Map<string, FieldMetrics>();
   if (!projectIds.length) return out;
-  const col = by === 'project' ? Prisma.sql`s."projectId"` : Prisma.sql`s."projectCountryId"`;
-  const rows = await (prisma as PrismaClient).$queryRaw<{ key: string; completes: number; terminates: number; speeders: number; loiSeconds: number | null }[]>`
-    SELECT ${col} AS key,
-      COUNT(*) FILTER (WHERE s.status = 'COMPLETE')::int AS completes,
-      COUNT(*) FILTER (WHERE s.status = 'TERMINATE')::int AS terminates,
-      COUNT(*) FILTER (WHERE s.status = 'QUALITY_FAIL' AND s."statusDetail" = ${SPEEDER_DETAIL})::int AS speeders,
-      (AVG(EXTRACT(EPOCH FROM (s."outcomeAt" - ${SURVEY_START_SQL})))
-        FILTER (WHERE s.status = 'COMPLETE' AND s."outcomeAt" IS NOT NULL))::float8 AS "loiSeconds"
-    FROM "RespondentSession" s
-    WHERE s."projectId" IN (${Prisma.join(projectIds)}) AND s."isTest" = false
-    GROUP BY 1`;
-  for (const r of rows) out.set(r.key, toMetrics(r));
+  const rows = await aggregate<{ _id: string; completes: number; terminates: number; speeders: number; loiMs: number | null }>(prisma.respondentSession, [
+    { $match: { projectId: { $in: projectIds }, isTest: false } },
+    {
+      $group: {
+        _id: by === 'project' ? '$projectId' : '$projectCountryId',
+        completes: countIf({ $eq: ['$status', 'COMPLETE'] }),
+        terminates: countIf({ $eq: ['$status', 'TERMINATE'] }),
+        speeders: countIf({ $and: [{ $eq: ['$status', 'QUALITY_FAIL'] }, { $eq: ['$statusDetail', SPEEDER_DETAIL] }] }),
+        // $avg leaves out the nulls, as SQL's AVG ... FILTER did.
+        loiMs: { $avg: { $cond: [{ $eq: ['$status', 'COMPLETE'] }, msBetween(SURVEY_START, '$outcomeAt'), null] } },
+      },
+    },
+  ]);
+  for (const r of rows) {
+    if (r._id == null) continue;
+    out.set(r._id, toMetrics({ completes: numOut(r.completes), terminates: numOut(r.terminates), speeders: numOut(r.speeders), loiSeconds: r.loiMs == null ? null : numOut(r.loiMs) / 1000 }));
+  }
   return out;
 }
 

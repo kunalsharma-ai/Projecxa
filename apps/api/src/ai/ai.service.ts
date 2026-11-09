@@ -19,6 +19,7 @@ import { BRIEF_TOOL, briefSystem, normalizeBrief } from './brief';
 import { GeminiProvider } from './gemini.provider';
 import { AiProvider, AiProviderError, Http, Message, Part } from './provider';
 import { Display, toolByName, ToolContext, ToolError, toolsFor } from './tools';
+import { aggregate, countIf, mdate, numOut } from '../prisma/agg';
 
 const NOT_SET_UP = 'The AI copilot is not set up yet (GEMINI_API_KEY is missing). An admin can add a Gemini API key in Settings → Integrations.';
 
@@ -566,10 +567,19 @@ export class AiService {
     const since = new Date(Date.now() - 13 * 86_400_000);
     const from = startOfDayUtc(since);
     const [byDay, byUser, errors] = await Promise.all([
-      this.prisma.$queryRaw<{ day: string; requests: number; failed: number; prompt: number; output: number }[]>`
-        SELECT to_char("createdAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day, COUNT(*) FILTER (WHERE kind IN ('chat', 'voice'))::int AS requests, COUNT(*) FILTER (WHERE NOT ok)::int AS failed,
-          COALESCE(SUM("promptTokens"), 0)::int AS prompt, COALESCE(SUM("outputTokens"), 0)::int AS output
-        FROM "AiUsage" WHERE "organizationId" = ${org} AND "createdAt" >= ${from} GROUP BY 1 ORDER BY 1`,
+      aggregate<{ _id: string; requests: number; failed: number; prompt: number; output: number }>(this.prisma.aiUsage, [
+        { $match: { organizationId: org, createdAt: { $gte: mdate(from) } } },
+        {
+          $group: {
+            _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'UTC' } },
+            requests: countIf({ $in: ['$kind', ['chat', 'voice']] }),
+            failed: countIf({ $eq: ['$ok', false] }),
+            prompt: { $sum: { $ifNull: ['$promptTokens', 0] } },
+            output: { $sum: { $ifNull: ['$outputTokens', 0] } },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]).then((rows) => rows.map((r) => ({ day: r._id, requests: numOut(r.requests), failed: numOut(r.failed), prompt: numOut(r.prompt), output: numOut(r.output) }))),
       this.prisma.aiUsage.groupBy({ by: ['userId', 'kind'], where: { organizationId: org, createdAt: { gte: startOfDayUtc() } }, _count: true, _sum: { promptTokens: true, outputTokens: true } }),
       this.prisma.aiUsage.findMany({ where: { organizationId: org, ok: false }, orderBy: { createdAt: 'desc' }, take: 10, select: { createdAt: true, model: true, kind: true, error: true } }),
     ]);

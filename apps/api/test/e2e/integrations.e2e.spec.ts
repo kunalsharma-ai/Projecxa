@@ -1,5 +1,5 @@
 import { INestApplication } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../src/prisma/client';
 import request from 'supertest';
 import { ZohoBooksService } from '../../src/accounting/zoho-books.service';
 import { IntegrationsHttp, IntegrationsService, isPrivateAddress } from '../../src/integrations/integrations.service';

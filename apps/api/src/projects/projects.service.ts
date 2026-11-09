@@ -147,7 +147,7 @@ export class ProjectsService {
               targetGroup: c.targetGroup,
               loiMinutes: c.loiMinutes!,
               irPercent: c.irPercent!,
-              cpi: new Prisma.Decimal(c.cpi!),
+              cpi: Number(c.cpi!),
               currency: c.currency ?? 'USD',
               targetCompletes: c.targetCompletes!,
               liveSurveyUrl: c.liveSurveyUrl,
@@ -173,7 +173,7 @@ export class ProjectsService {
           for (const v of input.vendors) {
             if (c.allocations.some((a) => a.vendorId === v.vendorId)) continue; // already there from the template
             await tx.vendorAllocation.create({
-              data: { projectCountryId: c.id, vendorId: v.vendorId, cpi: new Prisma.Decimal(v.cpi), targetCompletes: c.targetCompletes, uidParam: v.uidParam, entryCode: randomToken(12), testEntryCode: randomToken(12) },
+              data: { projectCountryId: c.id, vendorId: v.vendorId, cpi: Number(v.cpi), targetCompletes: c.targetCompletes, uidParam: v.uidParam, entryCode: randomToken(12), testEntryCode: randomToken(12) },
             });
           }
       }
@@ -245,6 +245,18 @@ export class ProjectsService {
       const text = (k: (typeof keys)[number]) => (q.sort === 'name' ? k.name : q.sort === 'client' ? k.client.name : k.projectManager.name);
       const f = q.dir === 'desc' ? -1 : 1;
       keys.sort((x, y) => f * text(x).localeCompare(text(y), 'en', { sensitivity: 'base', numeric: true }) || y.createdAt.getTime() - x.createdAt.getTime() || y.id.localeCompare(x.id));
+      pageIds = keys.slice((q.page - 1) * q.pageSize, q.page * q.pageSize).map((k) => k.id);
+    } else if (q.sort === 'fieldEnd') {
+      // Projects without a field end date come last in both directions (MongoDB sorts null first).
+      const keys = await this.prisma.project.findMany({ where, select: { id: true, createdAt: true, fieldEndAt: true } });
+      const f = (q.dir ?? 'asc') === 'desc' ? -1 : 1;
+      keys.sort(
+        (x, y) =>
+          (x.fieldEndAt ? 0 : 1) - (y.fieldEndAt ? 0 : 1) ||
+          (x.fieldEndAt && y.fieldEndAt ? f * (x.fieldEndAt.getTime() - y.fieldEndAt.getTime()) : 0) ||
+          y.createdAt.getTime() - x.createdAt.getTime() ||
+          y.id.localeCompare(x.id),
+      );
       pageIds = keys.slice((q.page - 1) * q.pageSize, q.page * q.pageSize).map((k) => k.id);
     }
     const { status: _status, ...withoutStatus } = where;
@@ -414,12 +426,12 @@ export class ProjectsService {
     if (body.security) data.security = normalizeSecurity(body.security);
     for (const k of ['gateQuestions', 'prescreen'] as const) {
       const v = body[k];
-      if (v !== undefined) data[k] = v === null || v.length === 0 ? Prisma.DbNull : (v as Prisma.InputJsonValue);
+      if (v !== undefined) data[k] = v === null || v.length === 0 ? null : (v as Prisma.InputJsonValue);
     }
     if (body.fieldStartAt !== undefined) data.fieldStartAt = body.fieldStartAt ? new Date(`${body.fieldStartAt}T00:00:00.000Z`) : null;
     if (body.fieldEndAt !== undefined) data.fieldEndAt = body.fieldEndAt ? new Date(`${body.fieldEndAt}T23:59:59.999Z`) : null;
     // Switching the auto-pause checkpoint on again starts it afresh for every market and link.
-    if (body.autopilot?.autoPause?.enabled && !autopilotOf(p.autopilot).autoPause.enabled) data.autopilotState = Prisma.DbNull;
+    if (body.autopilot?.autoPause?.enabled && !autopilotOf(p.autopilot).autoPause.enabled) data.autopilotState = null;
     const launch = body.status === 'LIVE' ? await this.launchPlan(p.id) : null;
     const before = await this.history.snapshot(id);
     await this.prisma.$transaction(async (tx) => {
@@ -518,7 +530,7 @@ export class ProjectsService {
         targetGroup: body.targetGroup || null,
         loiMinutes: merged.loiMinutes!,
         irPercent: merged.irPercent!,
-        cpi: new Prisma.Decimal(merged.cpi!),
+        cpi: Number(merged.cpi!),
         currency: merged.currency,
         targetCompletes: merged.targetCompletes!,
         liveSurveyUrl: body.liveSurveyUrl,
@@ -608,7 +620,7 @@ export class ProjectsService {
     const before = await this.history.snapshot(projectId);
     const c = await this.prisma.projectCountry.update({
       where: { id: countryId },
-      data: { ...rest, ...(cpi !== undefined ? { cpi: new Prisma.Decimal(cpi) } : {}) },
+      data: { ...rest, ...(cpi !== undefined ? { cpi: Number(cpi) } : {}) },
     });
     await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'country.update', entityType: 'ProjectCountry', entityId: countryId, detail: body });
     await this.history.record(u, projectId, before);
@@ -732,7 +744,7 @@ export class ProjectsService {
       data: {
         projectCountryId: countryId,
         vendorId: vendor.id,
-        cpi: new Prisma.Decimal(body.cpi),
+        cpi: Number(body.cpi),
         targetCompletes: body.targetCompletes,
         uidParam: body.uidParam,
         callbackUrlTemplate: body.callbackUrlTemplate,
@@ -753,7 +765,7 @@ export class ProjectsService {
     if (cpi !== undefined) assertPayout(cpi, Number(country.cpi), country.currency, country, found.vendor.name, allowAboveCpi);
     const a = await this.prisma.vendorAllocation.update({
       where: { id: allocationId },
-      data: { ...rest, ...(cpi !== undefined ? { cpi: new Prisma.Decimal(cpi) } : {}) },
+      data: { ...rest, ...(cpi !== undefined ? { cpi: Number(cpi) } : {}) },
     });
     await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'allocation.update', entityType: 'VendorAllocation', entityId: allocationId, detail: body });
     return a;
@@ -806,7 +818,7 @@ export class ProjectsService {
       if ((k === 'speederCheck' || k === 'fraudRules') && val === undefined) continue;
       if (k === 'fieldStartAt') data.fieldStartAt = val ? new Date(`${val}T00:00:00.000Z`) : null;
       else if (k === 'fieldEndAt') data.fieldEndAt = val ? new Date(`${val}T23:59:59.999Z`) : null;
-      else if (k === 'gateQuestions' || k === 'prescreen' || k === 'pageDesign' || k === 'autopilot' || k === 'speederCheck' || k === 'fraudRules') data[k] = val == null ? Prisma.DbNull : (val as Prisma.InputJsonValue);
+      else if (k === 'gateQuestions' || k === 'prescreen' || k === 'pageDesign' || k === 'autopilot' || k === 'speederCheck' || k === 'fraudRules') data[k] = val == null ? null : (val as Prisma.InputJsonValue);
       else (data as Record<string, unknown>)[k] = val;
     }
     // People and contacts may have left since; keep the current ones then.
@@ -822,7 +834,7 @@ export class ProjectsService {
         const s = snap.countries[marketKey(c)] ?? snap.countries[`${c.countryCode}/${c.language}`];
         if (!s) continue;
         const cd: Prisma.ProjectCountryUncheckedUpdateInput = {};
-        for (const k of COUNTRY_RESTORABLE) (cd as Record<string, unknown>)[k] = k === 'cpi' ? new Prisma.Decimal(s.cpi) : s[k];
+        for (const k of COUNTRY_RESTORABLE) (cd as Record<string, unknown>)[k] = k === 'cpi' ? Number(s.cpi) : s[k];
         await tx.projectCountry.update({ where: { id: c.id }, data: cd });
       }
     });
@@ -859,7 +871,7 @@ export class ProjectsService {
  * project is worth at target, and what has been earned and owed for completes so far.
  */
 export function projectFinance(
-  countries: { id: string; cpi: Prisma.Decimal; currency: string; targetCompletes: number; allocations: { cpi: Prisma.Decimal; targetCompletes: number }[] }[],
+  countries: { id: string; cpi: number; currency: string; targetCompletes: number; allocations: { cpi: number; targetCompletes: number }[] }[],
   actual: { countryId: string; revenue: number; cost: number }[],
 ) {
   const byCur = new Map<string, { currency: string; minCpi: number; maxCpi: number; plannedRevenue: number; plannedCost: number; revenue: number; cost: number; targetCompletes: number }>();
@@ -942,7 +954,7 @@ export function projectOrder(sort: z.infer<typeof listQuerySchema>['sort'], dir?
     status: { status: d },
     client: { client: { name: d } },
     manager: { projectManager: { name: d } },
-    fieldEnd: { fieldEndAt: { sort: d, nulls: 'last' } },
+    fieldEnd: { fieldEndAt: d },
   };
   const first = orders[sort];
   return sort === 'created' ? [first, { id: d }] : [first, { createdAt: 'desc' }, { id: 'desc' }];

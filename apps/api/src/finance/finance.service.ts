@@ -19,6 +19,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../auth/auth.types';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { currencyOf, sessionGroups } from '../prisma/session-totals';
 
 export const RECON_MODES = ['final_list', 'approve_listed', 'reject_listed'] as const;
 export const reconcileSchema = z.object({
@@ -55,7 +56,7 @@ export const invoiceListSchema = z.object({
 
 const NEXT: Record<InvoiceStatus, InvoiceStatus[]> = { DRAFT: ['SENT', 'VOID'], SENT: ['PAID', 'VOID'], PAID: [], VOID: [] };
 const SAMPLE = 50;
-export const money = (n: Prisma.Decimal | number | null | undefined) => Math.round(Number(n ?? 0) * 100) / 100;
+export const money = (n: number | number | null | undefined) => Math.round(Number(n ?? 0) * 100) / 100;
 /** Tax and total from a subtotal; rounded to cents the way the document shows them. */
 export const withTax = (subtotal: number, percent: number) => {
   const taxAmount = money((subtotal * percent) / 100);
@@ -99,12 +100,12 @@ export class FinanceService {
   /** Approval and billing state of a project's live completes, plus reconciliation history. */
   async reconciliationSummary(u: AuthUser, projectId: string) {
     await this.project(u, projectId);
-    const rows = await this.prisma.$queryRaw<{ approval: ApprovalStatus; invoiced: boolean; currency: string; completes: number; revenue: number; payout: number }[]>`
-      SELECT s.approval, (s."invoiceId" IS NOT NULL) AS invoiced, pc.currency, COUNT(*)::int AS completes,
-        COALESCE(SUM(s.revenue), 0)::float8 AS revenue, COALESCE(SUM(s.payout), 0)::float8 AS payout
-      FROM "RespondentSession" s JOIN "ProjectCountry" pc ON pc.id = s."projectCountryId"
-      WHERE s."projectId" = ${projectId} AND s."isTest" = false AND s.status = 'COMPLETE'
-      GROUP BY 1, 2, 3 ORDER BY 3`;
+    const groups = await sessionGroups(this.prisma, { projectId, isTest: false, status: 'COMPLETE' }, ['approval', 'invoiceId', 'projectCountryId']);
+    const cur = await currencyOf(this.prisma, groups.map((g) => g.projectCountryId));
+    const rows = groups
+      .filter((g) => g.projectCountryId && cur.has(g.projectCountryId))
+      .map((g) => ({ approval: g.approval as ApprovalStatus, invoiced: !!g.invoiceId, currency: cur.get(g.projectCountryId!)!, completes: g.n, revenue: g.revenue, payout: g.payout }))
+      .sort((a, b) => a.currency.localeCompare(b.currency));
     const bucket = (pick: (r: (typeof rows)[number]) => boolean) => {
       const by = new Map<string, { currency: string; completes: number; revenue: number; payout: number }>();
       for (const r of rows.filter(pick)) {
@@ -428,18 +429,19 @@ export class FinanceService {
 
   /** Organisation-wide reconciliation and invoicing totals for the dashboard, in completes and revenue per currency. */
   async financeTiles(org: string) {
-    const rows = await this.prisma.$queryRaw<{ bucket: string; currency: string; n: number; amount: number }[]>`
-      SELECT CASE WHEN s.approval = 'PENDING' THEN 'pending'
-                  WHEN s.approval <> 'APPROVED' THEN 'rejected'
-                  WHEN i.status IS NULL OR i.status = 'DRAFT' THEN 'invoicePending'
-                  WHEN i.status = 'SENT' THEN 'invoiced'
-                  ELSE 'paid' END AS bucket,
-        pc.currency, COUNT(*)::int AS n, COALESCE(SUM(s.revenue), 0)::float8 AS amount
-      FROM "RespondentSession" s
-      JOIN "ProjectCountry" pc ON pc.id = s."projectCountryId"
-      LEFT JOIN "Invoice" i ON i.id = s."invoiceId"
-      WHERE s."organizationId" = ${org} AND s."isTest" = false AND s.status = 'COMPLETE'
-      GROUP BY 1, 2`;
+    const groups = await sessionGroups(this.prisma, { organizationId: org, isTest: false, status: 'COMPLETE' }, ['approval', 'invoiceId', 'projectCountryId']);
+    const cur = await currencyOf(this.prisma, groups.map((g) => g.projectCountryId));
+    const invoiceIds = [...new Set(groups.map((g) => g.invoiceId).filter((x): x is string => !!x))];
+    const invoiceStatus = new Map(
+      invoiceIds.length ? (await this.prisma.invoice.findMany({ where: { id: { in: invoiceIds } }, select: { id: true, status: true } })).map((i) => [i.id, i.status as string]) : [],
+    );
+    const rows = groups
+      .filter((g) => g.projectCountryId && cur.has(g.projectCountryId))
+      .map((g) => {
+        const st = g.invoiceId ? invoiceStatus.get(g.invoiceId) : undefined;
+        const bucket = g.approval === 'PENDING' ? 'pending' : g.approval !== 'APPROVED' ? 'rejected' : !st || st === 'DRAFT' ? 'invoicePending' : st === 'SENT' ? 'invoiced' : 'paid';
+        return { bucket, currency: cur.get(g.projectCountryId!)!, n: g.n, amount: g.revenue };
+      });
     const tile = (buckets: string[]) => {
       const by = new Map<string, number>();
       let count = 0;
@@ -459,7 +461,7 @@ export class FinanceService {
   }
 }
 
-function shape(r: { id: string; number: string; status: InvoiceStatus; currency: string; lines: Prisma.JsonValue; completes: number; subtotal: Prisma.Decimal; taxName: string | null; taxPercent: Prisma.Decimal; taxAmount: Prisma.Decimal; total: Prisma.Decimal; notes: string | null; issuedAt: Date | null; dueAt: Date | null; paidAt: Date | null; paymentReference?: string | null; voidedAt: Date | null; createdAt: Date; projectId: string; clientId: string }) {
+function shape(r: { id: string; number: string; status: InvoiceStatus; currency: string; lines: Prisma.JsonValue; completes: number; subtotal: number; taxName: string | null; taxPercent: number; taxAmount: number; total: number; notes: string | null; issuedAt: Date | null; dueAt: Date | null; paidAt: Date | null; paymentReference?: string | null; voidedAt: Date | null; createdAt: Date; projectId: string; clientId: string }) {
   return {
     id: r.id,
     number: r.number,

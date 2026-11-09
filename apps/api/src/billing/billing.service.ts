@@ -15,6 +15,7 @@ import { renderInvoicePdf } from '../pdf/invoice-pdf';
 import { amount as fmtAmount } from '../pdf/pdf';
 import { PrismaService } from '../prisma/prisma.service';
 import { esc, SuperAdminService } from '../super-admin/super-admin.service';
+import { nextSequence } from '../prisma/compat';
 
 export const OFFLINE_METHODS = ['bank_transfer', 'upi', 'cheque', 'cash', 'other'] as const;
 export type OfflineMethod = (typeof OFFLINE_METHODS)[number];
@@ -49,7 +50,7 @@ export const DEFAULT_BILLING: BillingSettings = {
   taxName: null, taxPercent: 0, sellerName: null, sellerAddress: null, sellerTaxId: null, sellerEmail: null, invoiceFooter: null,
 };
 
-const num = (d: Prisma.Decimal | number | null | undefined) => (d == null ? null : Number(d));
+const num = (d: number | number | null | undefined) => (d == null ? null : Number(d));
 const round2 = (n: number) => Math.round(n * 100) / 100;
 export const minor = (total: number, currency: string) => (ZERO_DECIMAL.includes(currency.toUpperCase()) ? Math.round(total) : Math.round(total * 100));
 export const money = (currency: string, n: number) => `${currency} ${fmtAmount(n)}`;
@@ -178,8 +179,8 @@ export class BillingService {
   // ───────────── Invoices ─────────────
 
   private async nextNumber() {
-    const [r] = await this.prisma.$queryRaw<{ n: bigint }[]>`SELECT nextval('billing_invoice_seq') AS n`;
-    return `SUB-${new Date().getUTCFullYear()}-${String(r.n).padStart(5, '0')}`;
+    const n = await nextSequence(this.prisma, 'billing_invoice_seq');
+    return `SUB-${new Date().getUTCFullYear()}-${String(n).padStart(5, '0')}`;
   }
 
   private async create(orgId: string, planCode: string, interval: BillingInterval, by: AuthUser | null, opts: { amount?: number | null; anyPlan?: boolean; data?: Partial<Prisma.BillingInvoiceUncheckedCreateInput> } = {}) {

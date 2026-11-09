@@ -1,5 +1,5 @@
 import { INestApplication } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../src/prisma/client';
 import { api, createApp, login, makeOrg, resetDb } from './helpers';
 
 /** The Super Admin observes an organisation read-only (docs/SUPER_ADMIN_OBSERVE.md). */

@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { isIP } from 'net';
+import { isIP, isIPv4, isIPv6 } from 'net';
 import { sha256 } from '../common/crypto';
 import { IntegrationsService, isPrivateAddress } from '../integrations/integrations.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -92,15 +92,17 @@ export class IpReputationService implements OnModuleInit, OnModuleDestroy {
     return out;
   }
 
-  /** Replaces one list in a transaction (inserted in chunks; ranges are cast to inet). */
+  /** Replaces one list in a transaction (inserted in chunks; each range is stored with its first and last address). */
   async replace(source: Pick<IpListSource, 'id' | 'category'>, ranges: string[]) {
     await this.prisma.$transaction(
       async (tx) => {
         await tx.ipReputationRange.deleteMany({ where: { source: source.id } });
-        // Raw insert: Prisma's inet mapping takes single addresses only, not ranges.
         for (let i = 0; i < ranges.length; i += 5000) {
-          const chunk = ranges.slice(i, i + 5000);
-          await tx.$executeRaw`INSERT INTO "IpReputationRange" (id, source, category, "range") SELECT gen_random_uuid()::text, ${source.id}, ${source.category}, x::inet FROM unnest(${chunk}::text[]) AS x`;
+          const data = ranges.slice(i, i + 5000).flatMap((range) => {
+            const b = cidrBounds(range);
+            return b ? [{ source: source.id, category: source.category, range, rangeStart: b.start, rangeEnd: b.end }] : [];
+          });
+          if (data.length) await tx.ipReputationRange.createMany({ data });
         }
         await tx.ipReputationSource.upsert({
           where: { id: source.id },
@@ -122,7 +124,9 @@ export class IpReputationService implements OnModuleInit, OnModuleDestroy {
 
   /** Categories of the public lists that contain the address. */
   async listHits(ip: string): Promise<('vpn' | 'datacenter' | 'abuse')[]> {
-    const rows = await this.prisma.$queryRaw<{ category: string }[]>`SELECT DISTINCT category FROM "IpReputationRange" WHERE "range" >>= ${ip}::inet`;
+    const at = ipHex(ip);
+    if (!at) return [];
+    const rows = await this.prisma.ipReputationRange.findMany({ where: { rangeStart: { lte: at }, rangeEnd: { gte: at } }, distinct: ['category'], select: { category: true } });
     return rows.map((r) => r.category as 'vpn' | 'datacenter' | 'abuse');
   }
 
@@ -183,4 +187,44 @@ export class IpReputationService implements OnModuleInit, OnModuleDestroy {
     if (!s.lists && !s.proxycheckKey) notes.push('no source turned on');
     return { check: 'ipReputation', ok: true, note: notes.join('; ') || undefined };
   }
+}
+
+/**
+ * An address as 32 hex digits (IPv4 as IPv4-mapped IPv6, ::ffff:a.b.c.d), so addresses compare as
+ * strings in the same order as numbers. Null when it is not an address.
+ */
+export function ipHex(ip: string): string | null {
+  const v = ipBits(ip.trim());
+  return v === null ? null : v.toString(16).padStart(32, '0');
+}
+
+/** First and last address of a CIDR range (a single address is its own range), as ipHex. */
+export function cidrBounds(cidr: string): { start: string; end: string } | null {
+  const [addr, len] = cidr.trim().split('/');
+  const v = ipBits(addr ?? '');
+  if (v === null) return null;
+  const v4 = isIPv4(addr!);
+  const prefix = len === undefined ? 128 : Number(len) + (v4 ? 96 : 0);
+  if (!Number.isInteger(prefix) || prefix < (v4 ? 96 : 0) || prefix > 128) return null;
+  const host = (1n << BigInt(128 - prefix)) - 1n;
+  const start = v & ~host & ((1n << 128n) - 1n);
+  return { start: start.toString(16).padStart(32, '0'), end: (start | host).toString(16).padStart(32, '0') };
+}
+
+function ipBits(ip: string): bigint | null {
+  if (isIPv4(ip)) return (0xffffn << 32n) | ip.split('.').reduce((n, p) => (n << 8n) | BigInt(Number(p)), 0n);
+  if (!isIPv6(ip)) return null;
+  let s = ip.split('%')[0]!;
+  // An embedded IPv4 tail (::ffff:1.2.3.4) becomes two groups.
+  const tail = /(\d+\.\d+\.\d+\.\d+)$/.exec(s);
+  if (tail) {
+    const n = tail[1]!.split('.').map(Number);
+    s = s.slice(0, -tail[1]!.length) + `${((n[0]! << 8) | n[1]!).toString(16)}:${((n[2]! << 8) | n[3]!).toString(16)}`;
+  }
+  const [head, rest] = s.split('::') as [string, string | undefined];
+  const a = head ? head.split(':') : [];
+  const b = rest === undefined ? [] : rest ? rest.split(':') : [];
+  const groups = rest === undefined ? a : [...a, ...Array(8 - a.length - b.length).fill('0'), ...b];
+  if (groups.length !== 8) return null;
+  return groups.reduce((n, g) => (n << 16n) | BigInt(parseInt(g || '0', 16)), 0n);
 }

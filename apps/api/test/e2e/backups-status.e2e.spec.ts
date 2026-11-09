@@ -1,5 +1,5 @@
 import { INestApplication } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../src/prisma/client';
 import { promises as fs } from 'fs';
 import * as http from 'http';
 import { AddressInfo } from 'net';
@@ -7,6 +7,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import request from 'supertest';
 import { BackupsService } from '../../src/backups/backups.service';
+import { SCHEMA_VERSION } from '../../src/prisma/indexes';
 import { StatusService } from '../../src/status/status.service';
 import { api, createApp, login, makeOrg, PASSWORD, resetDb } from './helpers';
 
@@ -73,7 +74,7 @@ describe('Backups, restore and the status page (e2e)', () => {
     await sa.put('/integrations/settings/backup_storage', { values: { BACKUP_TARGET: 'local', BACKUP_DIR: join(dir, 'store'), BACKUP_PASSPHRASE: 'a long passphrase for tests' } }).expect(200);
     const t = (await sa.post('/integrations/settings/backup_storage/test').expect(200)).body;
     expect(t).toMatchObject({ ok: true });
-    expect(t.message).toMatch(/pg_dump/);
+    expect(t.message).toMatch(/mongodump/);
     expect(t.message).toMatch(/encrypted/);
 
     await prisma.organization.update({ where: { id: owner.org.id }, data: { name: 'Name before' } });
@@ -88,9 +89,8 @@ describe('Backups, restore and the status page (e2e)', () => {
     expect(b).toMatchObject({ status: 'ok', trigger: 'manual', encrypted: true, createdBy: 'ADMIN' });
     expect(b.sizeBytes).toBeGreaterThan(1000);
     expect(b.tables).toBeGreaterThan(30);
-    // The newest migration on this server (several features add migrations; the backup records the last one).
-    const latest = (await fs.readdir(join(__dirname, '../../prisma/migrations'))).filter((m) => /^\d{14}_/.test(m)).sort().pop();
-    expect(b.migration).toBe(latest);
+    // The schema version of this server.
+    expect(b.migration).toBe(SCHEMA_VERSION);
     const files = (await fs.readdir(join(dir, 'store'))).sort();
     expect(files).toEqual([b.name, `${b.name}.json`].sort());
     expect((await fs.readFile(join(dir, 'store', b.name))).subarray(0, 8).toString()).toBe('STBKENC1');
@@ -104,7 +104,8 @@ describe('Backups, restore and the status page (e2e)', () => {
     const stored = await sa.get(`/super-admin/backups/${b.id}/download`).buffer(true).parse(binary).expect(200);
     expect((stored.body as Buffer).subarray(0, 8).toString()).toBe('STBKENC1');
     const plain = await sa.get(`/super-admin/backups/${b.id}/download?plain=1`).buffer(true).parse(binary).expect(200);
-    expect((plain.body as Buffer).subarray(0, 5).toString()).toBe('PGDMP');
+    // A mongodump archive, gzip-compressed.
+    expect((plain.body as Buffer).subarray(0, 2).toString('hex')).toBe('1f8b');
     expect(plain.headers['content-disposition']).toContain(b.name.replace(/\.enc$/, ''));
   });
 
@@ -220,7 +221,7 @@ describe('Backups, restore and the status page (e2e)', () => {
       await backups.idle();
       const [b] = (await sa.get('/super-admin/backups').expect(200)).body.backups;
       expect(b).toMatchObject({ status: 'ok', target: 's3', encrypted: false });
-      expect(objects.get(`prod/${b.name}`)!.subarray(0, 5).toString()).toBe('PGDMP');
+      expect(objects.get(`prod/${b.name}`)!.subarray(0, 2).toString('hex')).toBe('1f8b');
       expect(objects.has(`prod/${b.name}.json`)).toBe(true);
       expect(auth.every((a) => a.startsWith('AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/'))).toBe(true);
       expect((await sa.post(`/super-admin/backups/${b.id}/verify`).expect(200)).body.ok).toBe(true);

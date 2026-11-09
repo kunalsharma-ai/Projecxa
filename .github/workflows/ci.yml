@@ -6,19 +6,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: projexa
-          POSTGRES_PASSWORD: projexa
-          POSTGRES_DB: projexa_test
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U projexa" --health-interval 5s --health-timeout 5s --health-retries 10
     env:
-      TEST_DATABASE_URL: postgresql://projexa:projexa@localhost:5432/projexa_test
-      DATABASE_URL: postgresql://projexa:projexa@localhost:5432/projexa_test
+      TEST_DATABASE_URL: mongodb://127.0.0.1:27017/projexa_test?replicaSet=rs0
+      DATABASE_URL: mongodb://127.0.0.1:27017/projexa_test?replicaSet=rs0
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -26,6 +16,17 @@ jobs:
         with:
           node-version: 26
           cache: pnpm
+      # MongoDB as a one-member replica set (Prisma needs one for transactions), and the
+      # MongoDB Database Tools for the backup tests.
+      - name: Start MongoDB
+        run: |
+          docker run -d --name mongo -p 27017:27017 mongo:8.0 --replSet rs0 --bind_ip_all
+          for i in $(seq 1 30); do docker exec mongo mongosh --quiet --eval "try { rs.status().ok } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: '127.0.0.1:27017' }] }).ok }" && break; sleep 2; done
+          until docker exec mongo mongosh --quiet --eval "db.hello().isWritablePrimary" | grep -q true; do sleep 1; done
+      - name: Install MongoDB Database Tools
+        run: |
+          curl -sSL https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2404-x86_64-100.13.0.tgz | tar xz -C /tmp
+          echo "/tmp/mongodb-database-tools-ubuntu2404-x86_64-100.13.0/bin" >> "$GITHUB_PATH"
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @projexa/api prisma:generate
       - run: pnpm --filter @projexa/api typecheck

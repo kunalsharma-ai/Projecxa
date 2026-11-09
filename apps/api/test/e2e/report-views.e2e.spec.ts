@@ -1,5 +1,5 @@
 import { INestApplication } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../src/prisma/client';
 import { MailService } from '../../src/mail/mail.service';
 import { SchedulesService } from '../../src/schedules/schedules.service';
 import { api, createApp, login, makeOrg, resetDb } from './helpers';

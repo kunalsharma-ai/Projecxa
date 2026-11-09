@@ -1,5 +1,5 @@
 import { INestApplication } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../src/prisma/client';
 import { createHmac } from 'crypto';
 import request from 'supertest';
 import { addMonths, stripeSignatureOk } from '../../src/billing/billing.service';
