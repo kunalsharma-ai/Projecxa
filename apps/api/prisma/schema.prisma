@@ -582,6 +582,8 @@ model Project {
   autopilotState          Json?
   /// Speeder check: { enabled, fraction: "1/3" }. A complete faster than fraction × planned LOI becomes QUALITY_FAIL / SPEEDER.
   speederCheck            Json?
+  /// Fraud rules (docs/FRAUD_CHECKS.md): { crossProject: { scope, projectIds, days, outcomes }, riskThreshold }.
+  fraudRules              Json?
   redirectMode            RedirectMode           @default(HYBRID)
   activeRedirectVersionId String?                @unique
   activeRedirectVersion   RedirectPolicyVersion? @relation("ActiveRedirectVersion", fields: [activeRedirectVersionId], references: [id])
@@ -852,6 +854,11 @@ model RespondentSession {
   /// Tenant-scoped hashes of the browser fingerprint and the long-lived browser cookie.
   fingerprintHash    String?
   browserIdHash      String?
+  /// Tenant-scoped hash of the stable device traits (no browser version or languages), so a browser update or a new language does not hide a repeat device.
+  deviceHash         String?
+  /// Fraud risk 0-100 from every check that ran, and the signals behind it (docs/FRAUD_CHECKS.md).
+  riskScore          Int?
+  riskSignals        String[]               @default([])
   startedAt          DateTime               @default(now())
   outcomeAt          DateTime?
   expiresAt          DateTime
@@ -874,6 +881,11 @@ model RespondentSession {
   @@index([projectId, fingerprintHash])
   @@index([projectId, browserIdHash])
   @@index([projectId, ipHash])
+  @@index([projectId, deviceHash])
+  @@index([organizationId, fingerprintHash])
+  @@index([organizationId, deviceHash])
+  @@index([organizationId, browserIdHash])
+  @@index([organizationId, ipHash])
   @@index([organizationId, startedAt])
   @@index([invoiceId])
   @@index([vendorBillId])
@@ -1136,6 +1148,37 @@ model WonBid {
 model TorExitNode {
   ip        String   @id
   updatedAt DateTime @updatedAt
+}
+
+/// Free public IP lists (VPN, data centre, abuse), refreshed by src/survey/ip-reputation.ts. Server-wide.
+model IpReputationRange {
+  id       String @id @default(cuid())
+  /// List id, e.g. x4b-vpn, x4b-datacenter, firehol-level1.
+  source   String
+  /// vpn | datacenter | abuse
+  category String
+  /// Written with raw SQL (Prisma's inet mapping takes single addresses, not ranges); matched with >>=.
+  range    String @db.Inet
+
+  @@index([source])
+  @@index([range(ops: InetOps)], type: Gist)
+}
+
+/// When each public IP list last loaded.
+model IpReputationSource {
+  id       String    @id
+  category String
+  count    Int       @default(0)
+  syncedAt DateTime?
+  error    String?
+}
+
+/// Cached answers from the optional proxycheck.io lookup (free key), kept 7 days. Keyed by a hash of the IP.
+model IpLookupCache {
+  key       String   @id
+  proxy     Boolean
+  type      String?
+  checkedAt DateTime @default(now())
 }
 
 /// Images uploaded for respondent pages (logo, hero, background). Served publicly at /pa/:id.

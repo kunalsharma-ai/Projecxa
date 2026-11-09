@@ -19,6 +19,7 @@ import { aiFrom, AiConfig, config, EnvMap, ledgersFrom, smtpFrom, SmtpConfig, zo
 import { ZodPipe } from '../common/zod.pipe';
 import { PrismaService } from '../prisma/prisma.service';
 import { EntitlementsService } from '../super-admin/entitlements';
+import { parseCidrList } from '../survey/fraud';
 import { BOOTSTRAP_ENV, CATALOG, FieldDef, IntegrationKind, isKind, isPaymentKind, KIND, KindDef } from './catalog';
 
 export type Source = 'app' | 'env' | null;
@@ -288,6 +289,10 @@ export class IntegrationsService {
       if (url.protocol !== 'https:' && !(url.protocol === 'http:' && httpOk)) throw new BadRequestException(`${f.label}: use an https:// address`);
       if (url.username || url.password) throw new BadRequestException(`${f.label}: leave the user name and password out of the address`);
     }
+    if ((f.key === 'IP_ALLOWLIST' || f.key === 'IP_BLOCKLIST') && v) {
+      const { bad } = parseCidrList(v);
+      if (bad.length) throw new BadRequestException(`${f.label}: ${bad.slice(0, 3).join(', ')} ${bad.length === 1 ? 'is not an IP address or range' : 'are not IP addresses or ranges'} (for example 203.0.113.7 or 198.51.100.0/24)`);
+    }
     if (f.key === 'SMTP_HOST' && v) {
       if (!/^[a-z0-9.-]+$/i.test(v)) throw new BadRequestException('SMTP server: enter a host name such as smtp.zoho.in');
       // Only the server owner may point SampTrek at its own private network.
@@ -473,6 +478,31 @@ export class IntegrationsService {
         if (bad.length === phones.length) return { ok: false, message: `Expo could not send: ${bad[0]?.message ?? 'unknown error'}` };
         return { ok: true, message: `Sent a test push to ${phones.length - bad.length} of your phone${phones.length === 1 ? '' : 's'}.` };
       }
+      case 'ip_reputation': {
+        const env = (await this.resolve(u.organizationId, 'ip_reputation')).env;
+        const parts: string[] = [];
+        let ok = true;
+        if ((env.IP_LISTS ?? 'on').trim() !== 'off') {
+          const lists = await this.prisma.ipReputationSource.findMany();
+          const loaded = lists.filter((l) => l.count > 0);
+          if (loaded.length) parts.push(`Public lists loaded: ${loaded.map((l) => `${l.id} (${l.count.toLocaleString('en')} ranges)`).join(', ')}.`);
+          else {
+            ok = false;
+            parts.push(`The public lists have not loaded yet${lists.find((l) => l.error) ? ` (${lists.find((l) => l.error)!.error})` : ''}. The server downloads them 15 seconds after it starts and every 12 hours; entries are let through until then.`);
+          }
+        } else parts.push('Public lists are off.');
+        const key = env.PROXYCHECK_API_KEY?.trim();
+        if (key) {
+          const r = await this.http(`https://proxycheck.io/v2/8.8.8.8?key=${encodeURIComponent(key)}&vpn=1`);
+          const j = safeJson(await r.text()) as { status?: string; message?: string };
+          if (j.status === 'ok' || j.status === 'warning') parts.push(`proxycheck.io accepted the key${j.status === 'warning' && j.message ? ` (${j.message})` : ''}.`);
+          else {
+            ok = false;
+            parts.push(`proxycheck.io did not accept the key: ${j.message ?? `answered ${r.status}`}.`);
+          }
+        }
+        return { ok, message: parts.join(' ') };
+      }
     }
   }
 
@@ -561,6 +591,7 @@ export function configuredIn(kind: IntegrationKind, env: EnvMap): boolean {
     case 'razorpay': return !!env.RAZORPAY_KEY_ID?.trim() && !!env.RAZORPAY_KEY_SECRET?.trim();
     case 'stripe': return !!env.STRIPE_SECRET_KEY?.trim();
     case 'push': return (env.EXPO_PUSH ?? '').trim() === 'on';
+    case 'ip_reputation': return (env.IP_LISTS ?? '').trim() === 'on' || !!env.PROXYCHECK_API_KEY?.trim();
   }
 }
 

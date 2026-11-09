@@ -13,6 +13,8 @@ import { config } from '../common/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { REASON_LABELS } from './respondent-checks';
 import { TorService } from './tor.service';
+import { IpReputationService } from './ip-reputation';
+import { riskBand } from './fraud';
 
 /** What the respondent security settings can actually check in this installation, and what they caught. */
 const captchaKeysSchema = z
@@ -38,14 +40,103 @@ export class SecurityController {
     private readonly prisma: PrismaService,
     private readonly tor: TorService,
     private readonly audit: AuditService,
+    private readonly ipRep: IpReputationService,
   ) {}
 
   @Get('security/status')
-  async status() {
+  async status(@CurrentUser() u: AuthUser) {
+    const rep = await this.ipRep.settings(u.organizationId);
     return {
       geolocation: { configured: !!config.geoCountryHeader, header: config.geoCountryHeader },
       tor: await this.tor.status(),
+      ipReputation: { lists: rep.lists, proxycheck: !!rep.proxycheckKey, allowList: !!rep.allow, blockList: !!rep.block, sources: await this.ipRep.status() },
     };
+  }
+
+  /** Downloads the free public IP lists now (they also refresh every 12 hours). */
+  @Post('security/ip-lists/sync')
+  @Roles('ADMIN')
+  @HttpCode(200)
+  async syncIpLists(@CurrentUser() u: AuthUser) {
+    const r = await this.ipRep.syncAll();
+    await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'security.ip-lists-sync', entityType: 'Organization', entityId: u.organizationId, detail: { lists: r } });
+    if (r.every((x) => x.error)) throw new ServiceUnavailableException(`Could not download the IP lists: ${r[0]?.error}`);
+    return { lists: r, sources: await this.ipRep.status() };
+  }
+
+  /**
+   * Repeat people: respondents of this project whose device, fingerprint or browser cookie also
+   * entered another project of the organisation or this project through another vendor
+   * (docs/FRAUD_CHECKS.md). Live traffic only, newest first, at most 50 groups.
+   */
+  @Get('projects/:id/fraud/linked')
+  async linked(@CurrentUser() u: AuthUser, @Param('id') id: string) {
+    const p = await this.prisma.project.findFirst({ where: { id, organizationId: u.organizationId }, select: { id: true } });
+    if (!p) throw new NotFoundException('Project not found');
+    const select = {
+      id: true, projectId: true, vendorRespondentId: true, status: true, statusDetail: true, startedAt: true, riskScore: true,
+      fingerprintHash: true, deviceHash: true, browserIdHash: true,
+      project: { select: { projectCode: true, name: true } },
+      vendorAllocation: { select: { vendorId: true, vendor: { select: { name: true, code: true } } } },
+    } as const;
+    const here = await this.prisma.respondentSession.findMany({
+      where: { projectId: p.id, isTest: false, OR: [{ fingerprintHash: { not: null } }, { deviceHash: { not: null } }, { browserIdHash: { not: null } }] },
+      select, orderBy: { startedAt: 'desc' }, take: 2000,
+    });
+    const keys = { fingerprintHash: new Set<string>(), deviceHash: new Set<string>(), browserIdHash: new Set<string>() };
+    for (const s of here) for (const k of Object.keys(keys) as (keyof typeof keys)[]) if (s[k]) keys[k].add(s[k]!);
+    const or = (Object.keys(keys) as (keyof typeof keys)[]).filter((k) => keys[k].size).map((k) => ({ [k]: { in: [...keys[k]] } }));
+    const others = or.length
+      ? await this.prisma.respondentSession.findMany({ where: { organizationId: u.organizationId, isTest: false, id: { notIn: here.map((s) => s.id) }, OR: or }, select, orderBy: { startedAt: 'desc' }, take: 1000 })
+      : [];
+    const all = [...here, ...others];
+    // Group sessions that share any identifier (union-find over the three hashes).
+    const parent = new Map(all.map((s) => [s.id, s.id]));
+    const find = (x: string) => {
+      while (parent.get(x) !== x) x = parent.get(x)!;
+      return x;
+    };
+    const union = (a: string, b: string) => parent.set(find(a), find(b));
+    const byKey = new Map<string, string>();
+    for (const s of all) {
+      for (const k of Object.keys(keys) as (keyof typeof keys)[]) {
+        const v = s[k];
+        if (!v) continue;
+        const tag = `${k}:${v}`;
+        if (byKey.has(tag)) union(s.id, byKey.get(tag)!);
+        else byKey.set(tag, s.id);
+      }
+    }
+    const groups = new Map<string, typeof all>();
+    for (const s of all) groups.set(find(s.id), [...(groups.get(find(s.id)) ?? []), s]);
+    const out = [...groups.values()]
+      .filter((g) => g.some((s) => s.projectId === p.id))
+      .map((g) => {
+        const vendors = new Set(g.map((s) => s.vendorAllocation.vendorId));
+        const projects = new Set(g.map((s) => s.projectId));
+        // Which identifiers tie at least two of these sessions together.
+        const by = (['fingerprintHash', 'deviceHash', 'browserIdHash'] as const).filter((k) => {
+          const vals = g.map((s) => s[k]).filter(Boolean);
+          return new Set(vals).size < vals.length;
+        });
+        return {
+          projects: projects.size,
+          vendors: vendors.size,
+          matchedBy: by.map((k) => (k === 'fingerprintHash' ? 'fingerprint' : k === 'deviceHash' ? 'device' : 'browser cookie')),
+          sessions: g
+            .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime())
+            .slice(0, 20)
+            .map((s) => ({
+              id: s.id, here: s.projectId === p.id, projectId: s.projectId, projectCode: s.project.projectCode, projectName: s.project.name,
+              vendor: s.vendorAllocation.vendor.name, vendorCode: s.vendorAllocation.vendor.code, respondentId: s.vendorRespondentId,
+              status: s.status, statusDetail: s.statusDetail, outcome: (s.statusDetail && REASON_LABELS[s.statusDetail]) || s.status.replace(/_/g, ' ').toLowerCase(), startedAt: s.startedAt, riskScore: s.riskScore,
+            })),
+        };
+      })
+      .filter((g) => g.projects > 1 || g.vendors > 1)
+      .sort((a, b) => b.sessions[0].startedAt.getTime() - a.sessions[0].startedAt.getTime())
+      .slice(0, 50);
+    return { groups: out };
   }
 
   /** Ready-made gate survey questions (demographics, financial, education) for the question builder. */
@@ -154,7 +245,7 @@ export class SecurityController {
     const p = await this.prisma.project.findFirst({ where: { id, organizationId: u.organizationId }, select: { id: true } });
     if (!p) throw new NotFoundException('Project not found');
     const where = { projectId: p.id, isTest: false };
-    const [byReason, entries, gated, passed] = await Promise.all([
+    const [byReason, entries, gated, passed, risks] = await Promise.all([
       this.prisma.respondentSession.groupBy({
         by: ['status', 'statusDetail'],
         where: { ...where, statusDetail: { in: Object.keys(REASON_LABELS) } },
@@ -163,12 +254,15 @@ export class SecurityController {
       this.prisma.respondentSession.count({ where }),
       this.prisma.respondentSession.count({ where: { ...where, gateRequired: true } }),
       this.prisma.respondentSession.count({ where: { ...where, gateRequired: true, gatePassedAt: { not: null } } }),
+      this.prisma.respondentSession.groupBy({ by: ['riskScore'], where: { ...where, riskScore: { not: null } }, _count: { _all: true } }),
     ]);
+    const risk = { low: 0, medium: 0, high: 0 };
+    for (const r of risks) risk[riskBand(r.riskScore)!] += r._count._all;
     // Rejected unsigned entry links never create a session; they are logged against the project.
     const badSig = await this.prisma.auditEvent.count({ where: { organizationId: u.organizationId, action: 'respondent.bad-signature', entityType: 'Project', entityId: p.id } });
     const reasons = byReason.map((g) => ({ reason: g.statusDetail!, label: REASON_LABELS[g.statusDetail!], status: g.status, count: g._count._all }));
     if (badSig) reasons.push({ reason: 'BAD_SIGNATURE', label: REASON_LABELS.BAD_SIGNATURE, status: 'SECURITY_REJECT', count: badSig });
     reasons.sort((a, b) => b.count - a.count);
-    return { entries, gate: { required: gated, passed }, reasons };
+    return { entries, gate: { required: gated, passed }, reasons, risk };
   }
 }

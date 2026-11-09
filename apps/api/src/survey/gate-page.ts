@@ -75,7 +75,7 @@ function renderHuman(h: NonNullable<GateView['human']>, imageUrl: string): strin
  * Respondent gate page. Shows the project's logo, else the platform logo (Sampledge or the
  * organisation's white-label logo) unless the project turns it off. Phone-first, needs JavaScript.
  * Steps, in order: consent notice → human check → gate survey → prescreener. Signals the project turned on
- * (language, time zone, fingerprint) and the background captcha are collected meanwhile.
+ * (language, time zone, fingerprint and device hash, automated-browser signals) and the background captcha are collected meanwhile.
  * Everything is posted to /g/:token, which runs every check and returns where to go next.
  */
 export function renderGatePage(view: GateView, nonce: string): string {
@@ -155,11 +155,16 @@ function zeros(b){var a=new Uint8Array(b),n=0;for(var i=0;i<a.length;i++){if(a[i
 async function solve(c){for(var n=0;n<5e7;n++){if(zeros(await sha(c.challenge+':'+n))>=c.bits)return n}return -1}
 function canvas(){try{var c=document.createElement('canvas');c.width=240;c.height=60;var x=c.getContext('2d');x.textBaseline='top';x.font='16px Arial';x.fillStyle='#f60';x.fillRect(100,1,62,20);x.fillStyle='#069';x.fillText('Sampledge \\u{1F50D} 2026',2,15);x.fillStyle='rgba(102,204,0,.7)';x.fillText('Sampledge \\u{1F50D} 2026',4,17);return c.toDataURL()}catch(e){return ''}}
 function gl(){try{var g=document.createElement('canvas').getContext('webgl');var d=g&&g.getExtension('WEBGL_debug_renderer_info');return d?g.getParameter(d.UNMASKED_RENDERER_WEBGL):''}catch(e){return ''}}
+function signals(){var n=navigator,w=window,k=[];try{k=Object.keys(w).concat(Object.keys(document))}catch(e){}
+ return {webdriver:n.webdriver===true,automation:!!(w._phantom||w.callPhantom||w.__nightmare||w.domAutomation||w.domAutomationController||document.documentElement.getAttribute('webdriver')||k.some(function(x){return /^\$?cdc_|^__(selenium|webdriver|driver|fxdriver)|^_Selenium_IDE_|^__playwright|^__pwInitScripts/.test(x)})),
+  plugins:n.plugins?n.plugins.length:-1,languages:n.languages?n.languages.length:-1,touch:n.maxTouchPoints||0,platform:String(n.platform||''),chrome:!!w.chrome,outer:w.outerWidth||0,renderer:String(gl()).slice(0,160)}}
 var tz='';try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||''}catch(e){}
 var work=(async function(){var out={};
  if(cfg.collect.languages)out.languages=navigator.languages&&navigator.languages.length?Array.prototype.slice.call(navigator.languages):[navigator.language];
  if(cfg.collect.timezone)out.timezone=tz;
- if(cfg.collect.fingerprint)out.fingerprint=hex(await sha(JSON.stringify([navigator.userAgent,navigator.languages,navigator.platform,navigator.hardwareConcurrency,navigator.deviceMemory,screen.width,screen.height,screen.colorDepth,window.devicePixelRatio,tz,canvas(),gl()])));
+ if(cfg.collect.fingerprint){var cv=canvas(),g=gl();out.fingerprint=hex(await sha(JSON.stringify([navigator.userAgent,navigator.languages,navigator.platform,navigator.hardwareConcurrency,navigator.deviceMemory,screen.width,screen.height,screen.colorDepth,window.devicePixelRatio,tz,cv,g])));
+  out.device=hex(await sha(JSON.stringify(['d1',navigator.userAgent.replace(/\d+([._]\d+)*/g,'#'),navigator.platform,navigator.hardwareConcurrency,navigator.deviceMemory,Math.min(screen.width,screen.height),Math.max(screen.width,screen.height),screen.colorDepth,window.devicePixelRatio,navigator.maxTouchPoints||0,tz,cv,g])))}
+ if(cfg.collect.signals)out.signals=signals();
  if(cfg.captcha)out.nonce=await solve(cfg.captcha);
  return out})();
 function post(path,body){if(cfg.preview)return new Promise(function(){});return fetch(location.pathname+path,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify(body)}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()})}

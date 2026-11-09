@@ -12,6 +12,7 @@ Every integration is set up by an admin in the app at **Settings → Integration
 | Tally Prime | Admins of the organisation that runs the server only | Lists the companies open in Tally |
 | SampBidx link | Each organisation's admin | – |
 | Push notifications (phone app, Expo) | Admins of the organisation that runs the server | Sends a test push to your own phones that are signed in to the app |
+| IP and proxy reputation (fraud checks) | Each organisation's admin | Says which free IP lists are loaded, and asks proxycheck.io whether it accepts the free key. See [FRAUD_CHECKS.md](FRAUD_CHECKS.md) |
 
 Captcha keys, the SampBidx webhook secret, alert webhooks and API keys were already set in the app (Settings, and Settings → API and webhooks).
 
