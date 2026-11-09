@@ -20,6 +20,7 @@ export const PUSH_CATEGORIES = [
   { key: 'alerts', label: 'Fieldwork alerts', hint: 'Projects you manage: stalled, behind pace, quality spikes', staff: true },
   { key: 'requests', label: 'Requests', hint: 'New requests and replies meant for you', staff: false },
   { key: 'tasks', label: 'Task reminders', hint: 'When a reminder on your task is due', staff: true },
+  { key: 'team', label: 'Mentions and handovers', hint: 'Someone @mentions you on a project or hands a project to you', staff: true },
   { key: 'won_bids', label: 'Won bids', hint: 'A bid won in SampBidx is ready to set up', staff: true },
 ] as const;
 export type PushCategory = (typeof PUSH_CATEGORIES)[number]['key'];

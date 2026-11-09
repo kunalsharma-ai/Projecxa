@@ -13,6 +13,7 @@ import { FinanceService } from '../finance/finance.service';
 import { ReportsModule } from '../reports/reports.controller';
 import { ReportsService, SummaryRow } from '../reports/reports.service';
 import { TasksModule, TasksService } from '../tasks/tasks.service';
+import { CollaborationModule, CollaborationService } from '../collaboration/collaboration';
 import { DashboardWidgetsController } from './dashboard-widgets';
 import { DashboardBoardController } from './dashboard-board';
 import { VendorsModule } from '../vendors/vendors.controller';
@@ -78,6 +79,7 @@ export class DashboardController {
     private readonly finance: FinanceService,
     private readonly payables: PayablesService,
     private readonly tasks: TasksService,
+    private readonly team: CollaborationService,
   ) {}
 
   /** PM dashboard numbers, computed from live (non-test) data only. */
@@ -357,6 +359,8 @@ export class DashboardController {
     }
     // The person's own task reminders and overdue tasks.
     for (const t of await this.tasks.reminders(u)) items.push({ id: `task-${t.id}`, severity: t.overdue ? 'bad' : 'warn', title: t.overdue ? `Overdue: ${t.title}` : `Reminder: ${t.title}`, detail: [t.project?.projectCode, t.dueAt ? `due ${t.dueAt.toISOString().slice(0, 10)}` : null].filter(Boolean).join(' · ') || 'Task assigned to you', href: '/tasks' });
+    // @mentions of this person and handovers waiting for them (docs/TEAM_COLLABORATION.md).
+    items.push(...(await this.team.notifications(u)));
     const rank = { bad: 0, warn: 1, info: 2 } as const;
     items.sort((a, b) => rank[a.severity] - rank[b.severity]);
     // Read state is per person: an item is new until this person opens it, or again once its wording changes.
@@ -446,5 +450,5 @@ function count(rows: { status: string; _count: { _all: number } }[], s: string) 
   return rows.find((r) => r.status === s)?._count._all ?? 0;
 }
 
-@Module({ imports: [ReportsModule, FinanceModule, TasksModule, VendorsModule], controllers: [DashboardWidgetsController, DashboardBoardController, DashboardController] })
+@Module({ imports: [ReportsModule, FinanceModule, TasksModule, VendorsModule, CollaborationModule], controllers: [DashboardWidgetsController, DashboardBoardController, DashboardController] })
 export class DashboardModule {}

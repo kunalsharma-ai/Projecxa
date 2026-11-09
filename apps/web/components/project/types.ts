@@ -71,7 +71,7 @@ export interface ProjectDetail {
   activeRedirectVersion: { id: string; version: number; mode: string } | null;
   fieldStartAt: string | null;
   fieldEndAt: string | null;
-  autopilot: { pauseOnQuality?: boolean; closeOnTarget?: boolean; autoPause?: AutoPause; autoRoute?: AutoRoute } | null;
+  autopilot: { pauseOnQuality?: boolean; closeOnTarget?: boolean; autoPause?: AutoPause; autoRoute?: AutoRoute; marginFloorPct?: number | null } | null;
   autopilotState?: { autoPause?: AutoPauseState } | null;
   /** Speeder check: completes faster than fraction × planned LOI become speeders. */
   speederCheck?: { enabled: boolean; fraction: string } | null;

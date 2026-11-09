@@ -1,3 +1,4 @@
+import { FEATURES } from '../super-admin/features';
 import { IntegrationsService } from '../integrations/integrations.service';
 import { BrandingService } from '../branding/branding';
 import { Body, Controller, Get, HttpCode, Patch, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
@@ -106,7 +107,9 @@ export class AuthController {
       // bidzoUrl repeats sampbidxUrl for app builds from before SampBidx was renamed from Bidzo.
       links: await (async () => { const url = user.role === 'CLIENT_USER' || user.role === 'VENDOR_USER' ? null : await this.integrations.sampbidxUrl(org.id); return { sampbidxUrl: url, bidzoUrl: url }; })(),
       /** Super Admin switches (docs/SUPER_ADMIN.md); the same as GET /auth/me/features. */
-      features: await this.entitlements.forUser(user.id),
+      features: await this.featuresFor(user),
+      /** Set while the Super Admin observes this organisation read-only (docs/SUPER_ADMIN_OBSERVE.md). */
+      observing: user.observing ?? null,
     };
   }
 
@@ -117,7 +120,14 @@ export class AuthController {
   @Get('me/features')
   @Roles('ADMIN', 'PROJECT_MANAGER', 'SALES', 'VIEWER', 'CLIENT_USER', 'VENDOR_USER')
   features(@CurrentUser() user: AuthUser) {
-    return this.entitlements.forUser(user.id);
+    return this.featuresFor(user);
+  }
+
+  /** While observing, the Super Admin sees every page (read-only), whatever the organisation's plan. */
+  private featuresFor(user: AuthUser) {
+    if (!user.observing) return this.entitlements.forUser(user.id);
+    const all = Object.fromEntries(FEATURES.map((f) => [f.key, true]));
+    return { version: `observe-${user.observing.organizationId}`, plan: null, block: null, superAdmin: true, web: all, mobile: { enabled: false, features: {} } };
   }
 
   /** Merge a partial update into the caller's own interface preferences. */

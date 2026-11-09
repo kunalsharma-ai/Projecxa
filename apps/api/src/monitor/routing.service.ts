@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../auth/auth.types';
 import { PrismaService } from '../prisma/prisma.service';
+import { EntitlementsService } from '../super-admin/entitlements';
 import { scoreVendor, VendorScoringService } from '../vendors/vendor-scoring';
 import { AlertSettings, AutoRoute, autopilotOf } from './monitor.rules';
 import type { MarketView } from './monitor.service';
@@ -27,6 +28,7 @@ export class RoutingService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly scoring: VendorScoringService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   /** Vendor scores by market ("<vendorId>|<country>") and overall; a market score is used once it has enough data. */
@@ -106,6 +108,8 @@ export class RoutingService {
   async runAuto(org: string, markets: MarketView[], s: AlertSettings, now = new Date()): Promise<string[]> {
     const ids = [...new Set(markets.map((m) => m.project.id))];
     if (!ids.length) return [];
+    // Automatic moves run only while the organisation's plan includes vendor auto-routing (docs/FEATURE_ACCESS.md).
+    if (!(await this.entitlements.orgAllows(org, 'vendor_routing'))) return [];
     const rows = await this.prisma.project.findMany({ where: { id: { in: ids }, organizationId: org }, select: { id: true, autopilot: true } });
     const cfgs = new Map(rows.map((p) => [p.id, autopilotOf(p.autopilot).autoRoute]).filter(([, c]) => (c as AutoRoute).enabled && (c as AutoRoute).mode === 'auto') as [string, AutoRoute][]);
     const todo = markets.filter((m) => cfgs.has(m.project.id) && m.country.status === 'LIVE');

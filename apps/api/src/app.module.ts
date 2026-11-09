@@ -13,6 +13,8 @@ import { FinanceModule } from './finance/finance.controller';
 import { AccountingModule } from './accounting/accounting.module';
 import { AiModule } from './ai/ai.controller';
 import { TasksModule } from './tasks/tasks.service';
+import { CollaborationModule } from './collaboration/collaboration';
+import { ChatModule } from './chat/chat';
 import { MonitorModule } from './monitor/monitor.controller';
 import { QuotasModule } from './quotas/quotas.controller';
 import { PortalModule } from './portal/portal.controller';
@@ -29,6 +31,7 @@ import { PushModule } from './push/push';
 import { ProjectsModule } from './projects/projects.controller';
 import { CustomOptionsModule } from './custom-options/custom-options';
 import { PartyLogosModule } from './parties/logos';
+import { DashboardLinksModule } from './dashboard-links/dashboard-links';
 import { ClientLinksModule } from './client-links/client-links';
 import { NumberingModule } from './numbering/numbering';
 import { RedirectsModule } from './redirects/redirects.controller';
@@ -41,6 +44,7 @@ import { VendorSignupModule } from './vendor-signup/vendor-signup';
 import { SurveyModule } from './survey/survey.controller';
 import { UniqueLinksModule } from './unique-links/unique-links';
 import { UsersModule } from './users/users.controller';
+import { FeatureAccessModule } from './feature-access/feature-access';
 import { VendorsModule } from './vendors/vendors.controller';
 
 @Module({
@@ -55,12 +59,14 @@ import { VendorsModule } from './vendors/vendors.controller';
     PushModule,
     AuthModule,
     UsersModule,
+    FeatureAccessModule,
     ClientsModule,
     VendorsModule,
     ProjectsModule,
     CustomOptionsModule,
     PartyLogosModule,
     ClientLinksModule,
+    DashboardLinksModule,
     NumberingModule,
     RedirectsModule,
     SurveyModule,
@@ -68,6 +74,8 @@ import { VendorsModule } from './vendors/vendors.controller';
     FinanceModule,
     AccountingModule,
     TasksModule,
+    CollaborationModule,
+    ChatModule,
     AiModule,
     MonitorModule,
     QuotasModule,

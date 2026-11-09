@@ -9,6 +9,9 @@ import { config } from '../common/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { ALLOW_WITHOUT_MFA, IS_PUBLIC, ROLES, STAFF } from './decorators';
 import { AuthUser } from './auth.types';
+import { ObserveTokens } from '../super-admin/observe';
+
+const res0 = (ctx: ExecutionContext) => ctx.switchToHttp().getResponse<Response>();
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -16,6 +19,7 @@ export class AuthGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly jwt: JwtService,
     private readonly prisma: PrismaService,
+    private readonly observe: ObserveTokens,
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
@@ -43,6 +47,22 @@ export class AuthGuard implements CanActivate {
     if (user.sessionsValidAfter && issuedAt <= user.sessionsValidAfter.getTime()) throw new UnauthorizedException('Session expired, sign in again');
     const superAdmin = user.superAdmin && user.organization.platformOwner;
     req.user = { id: user.id, organizationId: user.organizationId, role: user.role, email: user.email, name: user.name, ...(superAdmin ? { superAdmin: true } : {}) };
+
+    // Super Admin observing an organisation (docs/SUPER_ADMIN_OBSERVE.md): read-only, as that organisation's admin.
+    const observed = superAdmin ? await this.observe.read(req, user.id) : null;
+    if (observed && observed !== user.organizationId) {
+      const target = await this.prisma.organization.findUnique({ where: { id: observed }, select: { id: true, name: true } });
+      if (target) {
+        const routePath0: string = (req as Request & { route?: { path?: string } }).route?.path ?? req.path;
+        const exit = /\/super-admin\/observe\/exit$/.test(routePath0) || /\/auth\/logout$/.test(routePath0);
+        if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method.toUpperCase()) && !exit) {
+          throw new ForbiddenException({ statusCode: 403, code: 'OBSERVE_READ_ONLY', message: `You are observing ${target.name} read-only. Exit observe mode to make changes.` });
+        }
+        req.user = { ...req.user, organizationId: target.id, role: 'ADMIN', observing: { organizationId: target.id, name: target.name, homeOrganizationId: user.organizationId } };
+        res0(ctx).setHeader('X-Observing', target.id);
+        return true;
+      }
+    }
 
     // Default: staff only. Client/vendor portal roles must be granted explicitly per endpoint.
     const roles = this.reflector.getAllAndOverride<Role[]>(ROLES, targets) ?? STAFF;

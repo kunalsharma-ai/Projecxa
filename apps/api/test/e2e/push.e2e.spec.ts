@@ -63,8 +63,8 @@ describe('Push notifications to the phone app (e2e)', () => {
     await pm.post('/push/devices', { token: 'not-a-token', platform: 'android' }).expect(400);
     await pm.post('/push/devices', { token: tok('pm'), platform: 'web' }).expect(400);
     const d = (await pm.post('/push/devices', { token: tok('pm'), platform: 'android', name: 'Pixel 9' }).expect(200)).body;
-    expect(d.categories).toEqual(['alerts', 'requests', 'tasks', 'won_bids']);
-    expect(d.available.map((c: { key: string }) => c.key)).toEqual(['alerts', 'requests', 'tasks', 'won_bids']);
+    expect(d.categories).toEqual(['alerts', 'requests', 'tasks', 'team', 'won_bids']);
+    expect(d.available.map((c: { key: string }) => c.key)).toEqual(['alerts', 'requests', 'tasks', 'team', 'won_bids']);
     expect(d.enabled).toBe(false);
     // Choosing categories; unknown ones are dropped, and a refresh keeps the choice.
     expect((await pm.post('/push/devices', { token: tok('pm'), platform: 'android', categories: ['alerts', 'requests', 'tasks', 'nope'] }).expect(200)).body.categories).toEqual(['alerts', 'requests', 'tasks']);
@@ -74,7 +74,7 @@ describe('Push notifications to the phone app (e2e)', () => {
     expect(p.categories).toEqual(['requests']);
     // A phone that someone else signs in on moves to them with fresh categories.
     await viewer.post('/push/devices', { token: tok('shared'), platform: 'ios', categories: ['tasks'] }).expect(200);
-    expect((await admin.post('/push/devices', { token: tok('shared'), platform: 'ios' }).expect(200)).body.categories).toHaveLength(4);
+    expect((await admin.post('/push/devices', { token: tok('shared'), platform: 'ios' }).expect(200)).body.categories).toHaveLength(5);
     expect((await prisma.pushDevice.findUniqueOrThrow({ where: { token: tok('shared') } })).userId).toBe(users.ADMIN.id);
     // Only your own phone can be removed.
     await viewer.post('/push/devices/remove', { token: tok('shared') }).expect(200);
