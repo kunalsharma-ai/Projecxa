@@ -6,13 +6,13 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { MeContext } from '@/components/me';
 import { ThemeMenu } from '@/components/shell/theme-menu';
-import { LanguageMenu } from '@/components/i18n';
+import { LanguageMenu, useLanguagesAllowed } from '@/components/i18n';
 import { useTheme } from '@/components/theme';
 import { Loading } from '@/components/ui';
 import { get, post } from '@/lib/api';
 import { applyDocumentBrand, DEFAULT_BRAND, orgTheme } from '@/lib/branding';
 import { BrandIcon } from '@/components/brand-mark';
-import { isPortalRole, type Me } from '@/lib/types';
+import { hasFeature, isPortalRole, type Me } from '@/lib/types';
 import { FeatureOff, PlanBlocked } from '@/components/super-admin/plan-gate';
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
@@ -32,6 +32,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       .catch(() => router.replace('/login'));
   }, [router, hydrate]);
 
+  useLanguagesAllowed(!me || hasFeature(me, 'languages'));
   if (!me) return <Loading label="Checking your session" />;
   const company = me.client?.name ?? me.vendor?.name ?? '';
   const brand = me.branding ?? DEFAULT_BRAND;

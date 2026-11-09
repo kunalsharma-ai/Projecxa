@@ -15,13 +15,13 @@ import { InfoTip } from '@/components/help';
 import { ProductTour } from '@/components/shell/product-tour';
 import { Sidebar } from '@/components/shell/sidebar';
 import { ThemeMenu } from '@/components/shell/theme-menu';
-import { LanguageMenu } from '@/components/i18n';
+import { LanguageMenu, useLanguagesAllowed } from '@/components/i18n';
 import { useTheme } from '@/components/theme';
 import { Loading } from '@/components/ui';
 import { FEATURES_EVENT, get, post } from '@/lib/api';
 import { PlanBlocked, FeatureOff } from '@/components/super-admin/plan-gate';
 import { applyDocumentBrand, orgTheme } from '@/lib/branding';
-import { isPortalRole, portalHome, type Features, type Me } from '@/lib/types';
+import { hasFeature, isPortalRole, portalHome, type Features, type Me } from '@/lib/types';
 import { NAV, isActive } from '@/components/shell/nav';
 
 const initialsOf = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') || '?';
@@ -142,6 +142,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [update, prefs.sidebarCollapsed, toggleInsights]);
 
+  useLanguagesAllowed(!me || hasFeature(me, 'languages'));
   if (!me) return <Loading label="Checking your session" />;
   // The page's feature, from the longest matching menu entry.
   const pageFeature = NAV.filter((n) => n.feature && isActive(pathname, n.href)).sort((a, b) => b.href.length - a.href.length)[0]?.feature

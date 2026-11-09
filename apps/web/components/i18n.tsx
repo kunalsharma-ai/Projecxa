@@ -1,7 +1,7 @@
 'use client';
 import clsx from 'clsx';
 import { Check, Languages } from 'lucide-react';
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useSyncExternalStore } from 'react';
 import { Popover } from '@/components/shell/popover';
 import { useTheme } from '@/components/theme';
 import { ENGLISH, isLang, LANGUAGES, languageOf, makeTranslator, type Lang, type Translator } from '@/lib/i18n';
@@ -22,6 +22,21 @@ import { ENGLISH, isLang, LANGUAGES, languageOf, makeTranslator, type Lang, type
  */
 
 const Ctx = createContext<Translator>(ENGLISH);
+
+// Languages are a plan feature (`languages`, docs/FEATURE_ACCESS.md). The signed-in layouts report
+// whether the person has it; without it the CRM stays in English and the language menu is hidden.
+let allowed = true;
+const listeners = new Set<() => void>();
+const allowedStore = {
+  subscribe: (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn); }; },
+  get: () => allowed,
+};
+/** Called by the signed-in layouts with hasFeature(me, 'languages'). */
+export function useLanguagesAllowed(on: boolean) {
+  useEffect(() => {
+    if (allowed !== on) { allowed = on; listeners.forEach((l) => l()); }
+  }, [on]);
+}
 export const useT = () => useContext(Ctx).t;
 export const useLang = () => useContext(Ctx).lang;
 
@@ -36,7 +51,8 @@ async function load(lang: Lang): Promise<Translator> {
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const { prefs } = useTheme();
-  const want: Lang = isLang(prefs.language) ? prefs.language : 'en';
+  const on = useSyncExternalStore(allowedStore.subscribe, allowedStore.get, () => true);
+  const want: Lang = on && isLang(prefs.language) ? prefs.language : 'en';
   const [tr, setTr] = useState<Translator>(ENGLISH);
 
   useEffect(() => {
@@ -147,6 +163,8 @@ declare global {
 /** Top-bar language switch for staff and portal users. The choice is saved on the person's profile. */
 export function LanguageMenu() {
   const { prefs, update } = useTheme();
+  const on = useSyncExternalStore(allowedStore.subscribe, allowedStore.get, () => true);
+  if (!on) return null;
   const current = languageOf(prefs.language);
   return (
     <Popover label="Language" trigger={<span className="flex items-center gap-1"><Languages className="h-[18px] w-[18px]" /><span className="hidden text-[11px] font-semibold uppercase sm:inline">{current.id}</span></span>} width="w-56">
