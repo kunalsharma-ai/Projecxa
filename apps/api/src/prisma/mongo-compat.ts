@@ -46,7 +46,9 @@ const isDuplicate = (e: unknown) => e instanceof Prisma.PrismaClientKnownRequest
  */
 export async function createManySkipDuplicates(delegate: Delegate, model: string, rows: Row[]): Promise<{ count: number }> {
   if (rows.length === 0) return { count: 0 };
-  const keys = uniqueKeys(model);
+  // The id clashes too when the caller gives one (inside a transaction a failed insert aborts it).
+  const idField = Prisma.dmmf.datamodel.models.find((x) => x.name === model)!.fields.find((f) => f.isId)!.name;
+  const keys = [[idField], ...uniqueKeys(model)];
   const keyOf = (r: Row, k: string[]) => (k.some((f) => r[f] === null || r[f] === undefined) ? null : JSON.stringify(k.map((f) => r[f])));
   const seen = keys.map(() => new Set<string>());
   let count = 0;
@@ -70,7 +72,6 @@ export async function createManySkipDuplicates(delegate: Delegate, model: string
     }
     if (!fresh.length) continue;
     // Ids are set here so that after a clash we can tell which rows this call inserted.
-    const idField = Prisma.dmmf.datamodel.models.find((x) => x.name === model)!.fields.find((f) => f.isId)!.name;
     for (const r of fresh) if (r[idField] === undefined) r[idField] = newId();
     try {
       count += (await delegate.createMany({ data: fresh })).count;
