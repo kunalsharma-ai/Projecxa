@@ -1,3 +1,4 @@
+import { EntitlementsService } from '../super-admin/entitlements';
 /**
  * Client and vendor self-service portals (spec modules 8 and 9, first slice).
  *
@@ -363,7 +364,7 @@ const inviteSchema = z
 @Controller('portal-users')
 @Roles(...EDITORS)
 export class PortalUsersController {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly entitlements: EntitlementsService) {}
 
   @Get()
   list(@CurrentUser() u: AuthUser, @Query('clientId') clientId?: string, @Query('vendorId') vendorId?: string) {
@@ -386,6 +387,7 @@ export class PortalUsersController {
         ? await this.prisma.client.findFirst({ where: { id: body.partyId, organizationId: u.organizationId } })
         : await this.prisma.vendor.findFirst({ where: { id: body.partyId, organizationId: u.organizationId } });
     if (!party) throw new BadRequestException(`${body.kind === 'client' ? 'Client' : 'Vendor'} not found`);
+    await this.entitlements.assertLimit(u.organizationId, 'portalUsers');
     try {
       const created = await this.prisma.user.create({
         data: {
@@ -411,6 +413,7 @@ export class PortalUsersController {
   async setActive(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body(new ZodPipe(z.object({ active: z.boolean() }))) body: { active: boolean }) {
     const found = await this.prisma.user.findFirst({ where: { id, organizationId: u.organizationId, role: { in: ['CLIENT_USER', 'VENDOR_USER'] } } });
     if (!found) throw new NotFoundException();
+    if (body.active && !found.active) await this.entitlements.assertLimit(u.organizationId, 'portalUsers');
     await this.prisma.user.update({ where: { id }, data: { active: body.active } });
     await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: body.active ? 'portal-user.activate' : 'portal-user.deactivate', entityType: 'User', entityId: id });
     return { id, active: body.active };

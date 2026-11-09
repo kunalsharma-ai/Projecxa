@@ -4,10 +4,13 @@
  * feed the same config builders (common/config.ts), and env still works as a fallback.
  */
 
-export const INTEGRATION_KINDS = ['smtp', 'sso_google', 'sso_microsoft', 'sso_zoho', 'gemini', 'zoho_books', 'xero', 'quickbooks', 'tally', 'bidzo', 'razorpay', 'stripe', 'push'] as const;
+export const INTEGRATION_KINDS = ['smtp', 'sso_google', 'sso_microsoft', 'sso_zoho', 'gemini', 'zoho_books', 'xero', 'quickbooks', 'tally', 'bidzo', 'razorpay', 'stripe', 'push', 'backup_storage', 'ip_reputation'] as const;
 /** Payment gateways the server owner uses to collect subscription payments (docs/SUBSCRIPTION_PAYMENTS.md). Never shown to other organisations. */
 export const PAYMENT_KINDS = ['razorpay', 'stripe'] as const;
 export const isPaymentKind = (k: string) => (PAYMENT_KINDS as readonly string[]).includes(k);
+/** Set up once for the whole server by the organisation that runs it, never offered to other organisations. */
+export const SERVER_ONLY_KINDS = [...PAYMENT_KINDS, 'backup_storage'] as const;
+export const isServerOnlyKind = (k: string) => (SERVER_ONLY_KINDS as readonly string[]).includes(k);
 export type IntegrationKind = (typeof INTEGRATION_KINDS)[number];
 export const isKind = (k: string): k is IntegrationKind => (INTEGRATION_KINDS as readonly string[]).includes(k);
 
@@ -26,7 +29,7 @@ export interface FieldDef {
 }
 export interface KindDef {
   kind: IntegrationKind;
-  group: 'Email' | 'Sign-in' | 'AI' | 'Accounting' | 'SampBidx' | 'Payments' | 'Mobile';
+  group: 'Email' | 'Sign-in' | 'AI' | 'Accounting' | 'SampBidx' | 'Payments' | 'Mobile' | 'Backups' | 'Fraud';
   label: string;
   summary: string;
   /** platform = one per SampTrek server, set by the organisation that runs it (sign-in and accounting apps). */
@@ -348,6 +351,80 @@ export const CATALOG: KindDef[] = [
     links: [
       { label: 'Expo push notifications', href: 'https://docs.expo.dev/push-notifications/overview/' },
       { label: 'FCM credentials for Expo', href: 'https://docs.expo.dev/push-notifications/fcm-credentials/' },
+    ],
+    testable: true,
+  },
+  {
+    kind: 'backup_storage',
+    group: 'Backups',
+    label: 'Backup storage',
+    summary: 'Where database backups are kept: a folder on this server, or a free S3-compatible bucket such as Cloudflare R2 or Backblaze B2.',
+    scope: 'platform',
+    ownerOnly: true,
+    fields: [
+      {
+        key: 'BACKUP_TARGET', label: 'Keep backups in', type: 'select', required: true, default: 'local',
+        options: [{ value: 'local', label: 'A folder on this server' }, { value: 's3', label: 'An S3-compatible bucket (Cloudflare R2, Backblaze B2, MinIO, Wasabi, AWS S3)' }],
+        hint: 'A bucket keeps backups safe even if the server itself is lost. Cloudflare R2 and Backblaze B2 both have a free 10 GB tier.',
+      },
+      { key: 'BACKUP_DIR', label: 'Folder on the server', type: 'text', default: 'backups', placeholder: '/var/backups/samptrek', hint: 'Only for "A folder on this server". A relative path is inside the API folder. Use a disk other than the database disk if you can.' },
+      { key: 'BACKUP_S3_ENDPOINT', label: 'Bucket endpoint', type: 'url', placeholder: 'https://<account-id>.r2.cloudflarestorage.com', hint: 'R2: https://<account-id>.r2.cloudflarestorage.com. Backblaze B2: https://s3.<region>.backblazeb2.com. MinIO: your MinIO address.' },
+      { key: 'BACKUP_S3_REGION', label: 'Region', type: 'text', default: 'auto', placeholder: 'auto', hint: 'R2: auto. Backblaze B2: the region in the endpoint, e.g. us-west-004. MinIO: us-east-1.' },
+      { key: 'BACKUP_S3_BUCKET', label: 'Bucket name', type: 'text', placeholder: 'samptrek-backups' },
+      { key: 'BACKUP_S3_PREFIX', label: 'Folder in the bucket (optional)', type: 'text', placeholder: 'production' },
+      { key: 'BACKUP_S3_STYLE', label: 'Address style', type: 'select', default: 'path', options: [{ value: 'path', label: 'Path (R2, B2, MinIO)' }, { value: 'virtual', label: 'Virtual-hosted (AWS S3 buckets made after 2020)' }] },
+      { key: 'BACKUP_S3_ACCESS_KEY', label: 'Access key ID', type: 'text' },
+      { key: 'BACKUP_S3_SECRET_KEY', label: 'Secret access key', type: 'secret' },
+      { key: 'BACKUP_PASSPHRASE', label: 'Encryption passphrase (recommended)', type: 'secret', hint: 'Every backup is encrypted with it (AES-256). Write it down somewhere safe: a backup cannot be restored on a new server without it.' },
+    ],
+    steps: [
+      'Free and simplest: keep "A folder on this server" and save. Backups then stay on this server, so also copy them off it now and then with Download.',
+      'Safer and still free: create a bucket. Cloudflare R2: R2 → Create bucket, then Manage R2 API tokens → Create API token with Object Read & Write for that bucket; copy the access key ID, secret and the S3 endpoint. Backblaze B2: Buckets → Create a bucket (private), then Application Keys → Add a New Application Key for that bucket.',
+      'Choose a long encryption passphrase, paste it here and keep a copy in your password manager.',
+      'Save and press Test: SampTrek writes, reads and deletes a small test file and checks that pg_dump is installed.',
+      'Then open Super Admin → Backups to take the first backup and set a schedule.',
+    ],
+    links: [
+      { label: 'Cloudflare R2 (10 GB free)', href: 'https://developers.cloudflare.com/r2/get-started/' },
+      { label: 'Backblaze B2 (10 GB free)', href: 'https://www.backblaze.com/docs/cloud-storage-s3-compatible-api' },
+    ],
+    testable: true,
+    next: { label: 'Super Admin → Backups', href: '/super-admin/backups' },
+  },
+  {
+    kind: 'ip_reputation',
+    group: 'Fraud',
+    label: 'IP and proxy reputation',
+    summary: 'Stops respondents coming through VPNs, proxies, data centres and known abusive addresses. Free sources only; used by projects with “IP and proxy reputation” on.',
+    scope: 'org',
+    fields: [
+      {
+        key: 'IP_LISTS',
+        label: 'Free public lists',
+        type: 'select',
+        default: 'on',
+        options: [{ value: 'on', label: 'On (VPN, data centre and abuse lists)' }, { value: 'off', label: 'Off' }],
+        hint: 'X4BNet VPN and data centre ranges and FireHOL Level 1, refreshed every 12 hours. No account or key needed.',
+      },
+      {
+        key: 'PROXYCHECK_API_KEY',
+        label: 'proxycheck.io key (optional, free)',
+        type: 'secret',
+        hint: 'Free account: 1,000 lookups a day. Catches residential proxies the lists miss. Each address is looked up once a week at most.',
+      },
+      { key: 'IP_ALLOWLIST', label: 'Always allow (your office, QA)', type: 'text', placeholder: '203.0.113.7, 198.51.100.0/24', hint: 'Addresses or ranges, separated by commas. They pass this check even when a list names them.' },
+      { key: 'IP_BLOCKLIST', label: 'Always block', type: 'text', placeholder: '192.0.2.0/24', hint: 'Addresses or ranges you have seen fraud from, separated by commas.' },
+    ],
+    steps: [
+      'Keep Free public lists On. They work straight away, with nothing to sign up for.',
+      'Optional: create a free account at proxycheck.io, open Dashboard → API key, copy the key and paste it here. It adds residential proxy detection (1,000 lookups a day on the free plan).',
+      'Add your office or QA addresses to Always allow, so test runs from a VPN are not stopped.',
+      'Save and press Test. Then turn on “IP and proxy reputation” in a project’s Gate & security tab.',
+    ],
+    links: [
+      { label: 'proxycheck.io free plan', href: 'https://proxycheck.io/pricing' },
+      { label: 'X4BNet VPN lists', href: 'https://github.com/X4BNet/lists_vpn' },
+      { label: 'FireHOL Level 1', href: 'https://iplists.firehol.org/?ipset=firehol_level1' },
     ],
     testable: true,
   },

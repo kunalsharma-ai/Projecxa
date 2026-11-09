@@ -85,7 +85,7 @@ export class PrivacyService {
       changed += await this.prisma.$transaction(async (tx) => {
         // The vendor's respondent ID must stay unique per link, so it becomes "erased:<session id>".
         const n = await tx.$executeRaw`
-          UPDATE "RespondentSession" SET "vendorRespondentId" = 'erased:' || id, "ipHash" = NULL, "userAgent" = NULL, "fingerprintHash" = NULL,
+          UPDATE "RespondentSession" SET "vendorRespondentId" = 'erased:' || id, "ipHash" = NULL, "userAgent" = NULL, "fingerprintHash" = NULL, "deviceHash" = NULL,
             "browserIdHash" = NULL, "geoCountry" = NULL, answers = NULL, "anonymizedAt" = ${now}
           WHERE "organizationId" = ${org} AND id IN (${Prisma.join(chunk)}) AND "anonymizedAt" IS NULL`;
         await tx.respondentEvent.updateMany({ where: { sessionId: { in: chunk }, session: { organizationId: org } }, data: { detail: Prisma.DbNull } });

@@ -56,7 +56,7 @@ export default function TeamPage() {
   const rows = team?.users.filter((u) => (filter === 'current' ? u.active : !u.active)) ?? [];
   return (
     <>
-      <PageHeader title="Team" subtitle="Invite staff, set their role, and take access away when someone leaves. Client and vendor logins are under Portal access." />
+      <PageHeader title="Team" subtitle={<>Invite staff, set their role, and take access away when someone leaves. Client and vendor logins are under Portal access. Choose who gets which feature under <a className="text-brand hover:underline" href="/settings/features">Features &amp; access</a>.</>} />
       <ErrorBox error={error} />
       {note && (
         <div className="mb-4 rounded-lg bg-ok/10 p-3 text-sm text-ok" role="status">

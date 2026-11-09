@@ -9,3 +9,6 @@ coverage
 .DS_Store
 next-env.d.ts
 *.tsbuildinfo
+
+# Database backups kept on the server (docs/BACKUPS.md)
+apps/api/backups/

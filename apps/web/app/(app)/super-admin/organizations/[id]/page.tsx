@@ -1,17 +1,18 @@
 'use client';
 import clsx from 'clsx';
-import { ArrowLeft, Check, Globe, LogOut, Minus, PauseCircle, PlayCircle, Smartphone, X } from 'lucide-react';
+import { ArrowLeft, Check, Eye, Globe, LogOut, Minus, PauseCircle, PlayCircle, Smartphone, X } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { FormEvent, Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityList } from '@/components/super-admin/activity-list';
 import { ErrorBox, Loading, PageHeader, Section, Toggle } from '@/components/ui';
 import { api, get, post } from '@/lib/api';
-import { ago, day, ORG_STATUS, ROLE_LABEL, SUB_STATUS, type ActivityItem, type Catalog, type FeatureRow, type OrgDetail, type OrgUser, type Plan, type SubStatus } from '@/lib/super-admin';
+import { LimitFields, limitBody, limitForm, UsageBars } from '@/components/super-admin/limits';
+import { ACCESS_LABEL, ago, day, ORG_STATUS, ROLE_LABEL, SUB_STATUS, type ActivityItem, type Catalog, type FeatureRow, type LimitDef, type OrgDetail, type OrgUser, type Plan, type SubStatus } from '@/lib/super-admin';
 import { Label } from '@/components/help';
 
-type Tab = 'subscription' | 'features' | 'people' | 'activity' | 'integrations';
-const TABS: [Tab, string][] = [['subscription', 'Subscription'], ['features', 'Features'], ['people', 'People'], ['activity', 'Activity'], ['integrations', 'Integrations']];
+type Tab = 'subscription' | 'traffic' | 'features' | 'people' | 'activity' | 'integrations';
+const TABS: [Tab, string][] = [['subscription', 'Subscription'], ['traffic', 'Traffic'], ['features', 'Features'], ['people', 'People'], ['activity', 'Activity'], ['integrations', 'Integrations']];
 const toInput = (d: string | null | undefined) => (d ? d.slice(0, 10) : '');
 const fromInput = (s: string) => (s ? new Date(`${s}T23:59:59Z`).toISOString() : null);
 
@@ -34,15 +35,25 @@ export default function OrganizationPage() {
     void run(() => api(`/super-admin/organizations/${id}`, { method: 'PATCH', json: { status } }), status === 'SUSPENDED' ? 'Paused. Everyone there was signed out.' : 'Reactivated.');
   };
 
+  const observe = async () => {
+    setError(null);
+    try { await post(`/super-admin/organizations/${org.id}/observe`); window.location.href = '/'; } catch (e) { setError(e); }
+  };
+
   return (
     <>
       <Link href="/super-admin/organizations" className="mb-3 inline-flex items-center gap-1 text-sm text-muted hover:text-ink"><ArrowLeft className="h-4 w-4" />Organisations</Link>
       <PageHeader
         title={org.name}
         subtitle={<span className="flex flex-wrap items-center gap-2">{org.slug}<span className={clsx('chip', ORG_STATUS[org.status][1])}>{ORG_STATUS[org.status][0]}</span>{org.platformOwner && <span className="chip bg-brand/10 text-brand">Runs this server: always every feature</span>}{org.block && org.status === 'ACTIVE' && <span className="chip bg-bad/15 text-bad">Subscription ended: no access</span>}</span>}
-        actions={!org.platformOwner && org.status !== 'PENDING' && (org.status === 'ACTIVE'
-          ? <button className="btn-danger" onClick={() => setStatus('SUSPENDED')}><PauseCircle className="h-4 w-4" />Pause access</button>
-          : <button className="btn-primary" onClick={() => setStatus('ACTIVE')}><PlayCircle className="h-4 w-4" />Reactivate</button>)}
+        actions={!org.platformOwner && org.status !== 'PENDING' && (
+          <div className="flex flex-wrap gap-2">
+            <button className="btn-ghost" title="See everything in this organisation as its admin sees it, without changing anything" onClick={observe}><Eye className="h-4 w-4" />Observe (read-only)</button>
+            {org.status === 'ACTIVE'
+              ? <button className="btn-danger" onClick={() => setStatus('SUSPENDED')}><PauseCircle className="h-4 w-4" />Pause access</button>
+              : <button className="btn-primary" onClick={() => setStatus('ACTIVE')}><PlayCircle className="h-4 w-4" />Reactivate</button>}
+          </div>
+        )}
       />
       <ErrorBox error={error} />
       {note && <div className="mb-4 rounded-lg bg-ok/10 p-3 text-sm text-ok" role="status">{note}</div>}
@@ -55,6 +66,7 @@ export default function OrganizationPage() {
         {TABS.map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={clsx('whitespace-nowrap border-b-2 px-3 py-2 text-sm', tab === k ? 'border-brand font-medium' : 'border-transparent text-muted hover:text-ink')}>{l}</button>)}
       </div>
       {tab === 'subscription' && <SubscriptionTab org={org} run={run} />}
+      {tab === 'traffic' && <TrafficTab orgId={org.id} />}
       {tab === 'features' && <FeaturesTab org={org} run={run} />}
       {tab === 'people' && <PeopleTab org={org} setError={setError} setNote={setNote} />}
       {tab === 'activity' && <ActivityTab orgId={org.id} />}
@@ -70,16 +82,20 @@ function SubscriptionTab({ org, run }: { org: OrgDetail; run: Run }) {
   const s = org.subscriptionDetail;
   const [form, setForm] = useState({
     planCode: org.subscription?.plan.code ?? 'starter', status: (s?.status ?? 'ACTIVE') as SubStatus, endsAt: toInput(s?.endsAt), trialEndsAt: toInput(s?.trialEndsAt),
-    maxUsers: s?.maxUsers?.toString() ?? '', maxProjects: s?.maxProjects?.toString() ?? '', mobileEnabled: s?.mobileEnabled ?? true, notes: s?.notes ?? '',
+    lim: limitForm(s?.maxUsers, s?.maxProjects, s?.limits, true), mobileEnabled: s?.mobileEnabled ?? true, notes: s?.notes ?? '',
   });
-  useEffect(() => { get<Plan[]>('/super-admin/plans').then(setPlans).catch(() => undefined); }, []);
+  const [limitDefs, setLimitDefs] = useState<LimitDef[]>([]);
+  useEffect(() => {
+    get<Plan[]>('/super-admin/plans').then(setPlans).catch(() => undefined);
+    get<Catalog>('/super-admin/catalog').then((c) => setLimitDefs(c.limits)).catch(() => undefined);
+  }, []);
   if (org.platformOwner) return <Section title="Subscription"><p className="text-sm text-muted">This organisation runs the server, so it always has every feature and no limits.</p></Section>;
   const plan = plans.find((p) => p.code === form.planCode);
   const save = (e: FormEvent) => {
     e.preventDefault();
     void run(() => api(`/super-admin/organizations/${org.id}/subscription`, { method: 'PUT', json: {
       planCode: form.planCode, status: form.status, endsAt: fromInput(form.endsAt), trialEndsAt: fromInput(form.trialEndsAt),
-      maxUsers: form.maxUsers === '' ? null : Number(form.maxUsers), maxProjects: form.maxProjects === '' ? null : Number(form.maxProjects), mobileEnabled: form.mobileEnabled, notes: form.notes || null,
+      ...limitBody(form.lim), mobileEnabled: form.mobileEnabled, notes: form.notes || null,
     } }), 'Saved. The change applies at once on the web and in the mobile app.');
   };
   const extend = (days: number) => {
@@ -102,8 +118,11 @@ function SubscriptionTab({ org, run }: { org: OrgDetail; run: Run }) {
             ? <label className="block"><Label>Trial ends</Label><input className="input" type="date" value={form.trialEndsAt} onChange={(e) => setForm({ ...form, trialEndsAt: e.target.value })} /></label>
             : <label className="block"><Label>Ends or renews on</Label><input className="input" type="date" value={form.endsAt} onChange={(e) => setForm({ ...form, endsAt: e.target.value })} /></label>}
           <div className="flex items-end gap-2">{[30, 90, 365].map((d) => <button key={d} type="button" className="btn-ghost px-2.5 py-1.5 text-xs" onClick={() => extend(d)}>+{d === 365 ? '1 year' : `${d} days`}</button>)}</div>
-          <label className="block"><Label>User limit</Label><input className="input" type="number" min={0} placeholder={plan?.maxUsers != null ? `Plan: ${plan.maxUsers}` : 'Plan: no limit'} value={form.maxUsers} onChange={(e) => setForm({ ...form, maxUsers: e.target.value })} /></label>
-          <label className="block"><Label>Project limit</Label><input className="input" type="number" min={0} placeholder={plan?.maxProjects != null ? `Plan: ${plan.maxProjects}` : 'Plan: no limit'} value={form.maxProjects} onChange={(e) => setForm({ ...form, maxProjects: e.target.value })} /></label>
+          <div className="sm:col-span-2">
+            <h3 className="text-sm font-semibold">Limits for this organisation</h3>
+            <p className="mb-3 text-xs text-muted">Empty follows the plan. Type a number to give this organisation more or less{plan ? ', or “none” for no limit' : ''}.</p>
+            {plan && limitDefs.length > 0 ? <LimitFields defs={limitDefs} form={form.lim} onChange={(lim) => setForm({ ...form, lim })} plan={plan} /> : <Loading />}
+          </div>
           <div className="flex items-center gap-3 sm:col-span-2"><Toggle checked={form.mobileEnabled} onChange={(v) => setForm({ ...form, mobileEnabled: v })} label="Mobile app" /><span className="text-sm"><Smartphone className="mr-1 inline h-4 w-4 text-muted" />Android and iOS app {form.mobileEnabled ? 'on' : 'off'} for this organisation{plan && !plan.mobileEnabled ? ' (the plan has no app)' : ''}</span></div>
           <label className="block sm:col-span-2"><Label>Notes (only you see them)</Label><textarea className="input min-h-[70px]" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="e.g. Paid by bank transfer until March" /></label>
           <div className="flex gap-2 sm:col-span-2">
@@ -112,17 +131,22 @@ function SubscriptionTab({ org, run }: { org: OrgDetail; run: Run }) {
           </div>
         </form>
       </Section>
+      <div className="space-y-6">
+      <Section title="Usage">
+        <UsageBars usage={org.usage} />
+      </Section>
       <Section title={plan ? `In ${plan.name}` : 'Plan'}>
         {plan ? (
           <div className="space-y-3 text-sm">
             {plan.description && <p className="text-muted">{plan.description}</p>}
             {plan.priceLabel && <p className="font-medium">{plan.priceLabel}</p>}
             <p><b className="tabular-nums">{plan.features.length}</b> web features · <b className="tabular-nums">{plan.mobileEnabled ? plan.mobileFeatures.length : 0}</b> in the app</p>
-            <p className="text-xs text-muted">Users: {plan.maxUsers ?? 'no limit'} · Projects: {plan.maxProjects ?? 'no limit'}. Turn single features on or off for this organisation in the Features tab.</p>
+            <p className="text-xs text-muted">Plan limits are shown as hints in the limit fields. Turn single features on or off for this organisation in the Features tab.</p>
             <p className="text-xs text-muted">Payments online or offline renew this by themselves (Billing). You can also change it here, or let Automation remind and expire it.</p>
           </div>
         ) : <Loading />}
       </Section>
+      </div>
     </div>
   );
 }
@@ -152,7 +176,7 @@ function FeaturesTab({ org, run }: { org: OrgDetail; run: Run }) {
     run(() => api(`/super-admin/organizations/${org.id}/features`, { method: 'PUT', json: { changes: org.features.filter((f) => channel === 'web' || f.mobile).map((f) => ({ feature: f.key, channel, state })) } }));
   return (
     <>
-      <p className="mb-4 text-sm text-muted">Each feature follows the plan unless you switch it on or off here. Changes reach the web app and the Android/iOS app within seconds, and the server refuses switched-off features. People can also have features taken away one by one in the People tab.</p>
+      <p className="mb-4 text-sm text-muted">Each feature follows the plan unless you switch it on or off here. Switching on a feature the plan does not include gives this organisation an extra. Changes reach the web app and the Android/iOS app within seconds, and the server refuses switched-off features. The organisation’s Admin then chooses who in their team gets each feature (the “Admin gives it to” column). People can also have features taken away one by one in the People tab.</p>
       <div className="mb-4 flex flex-wrap gap-2 text-xs">
         <span className="self-center text-muted">All on the web:</span>
         {(['plan', 'on', 'off'] as const).map((s) => <button key={s} className="btn-ghost px-2 py-1 text-xs" onClick={() => all('web', s)}>{s === 'plan' ? 'Follow plan' : s === 'on' ? 'On' : 'Off'}</button>)}
@@ -163,14 +187,15 @@ function FeaturesTab({ org, run }: { org: OrgDetail; run: Run }) {
         {groups.map((g) => (
           <Section key={g} title={g}>
             <div className="-mx-5 overflow-x-auto px-5">
-              <table className="w-full min-w-[720px] table-fixed text-sm">
-                <thead><tr><th className="th w-[40%]">Feature</th><th className="th"><Globe className="mr-1 inline h-3.5 w-3.5" />Web</th><th className="th"><Smartphone className="mr-1 inline h-3.5 w-3.5" />Mobile app</th></tr></thead>
+              <table className="w-full min-w-[820px] table-fixed text-sm">
+                <thead><tr><th className="th w-[34%]">Feature</th><th className="th"><Globe className="mr-1 inline h-3.5 w-3.5" />Web</th><th className="th"><Smartphone className="mr-1 inline h-3.5 w-3.5" />Mobile app</th><th className="th w-[16%]">Admin gives it to</th></tr></thead>
                 <tbody>
                   {org.features.filter((f) => f.group === g).map((f) => (
                     <tr key={f.key} className="border-t border-line" data-feature={f.key}>
                       <td className="td"><div className="font-medium">{f.label}</div><div className="text-xs text-muted">{f.summary}</div></td>
                       <td className="td"><State cell={f.web} label={`${f.label} on the web`} onChange={(s) => change(f, 'web', s)} /></td>
                       <td className="td">{f.app ? <State cell={f.app} label={`${f.label} in the app`} onChange={(s) => change(f, 'mobile', s)} /> : <span className="flex items-center gap-1 text-xs text-muted"><Minus className="h-3 w-3" />Web only</span>}</td>
+                      <td className="td text-xs text-muted">{f.adminAccess ? `${ACCESS_LABEL[f.adminAccess.mode]}${f.adminAccess.mode === 'people' ? ` (${f.adminAccess.people})` : ''}` : 'Admins'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -297,5 +322,67 @@ function IntegrationsTab({ org, run }: { org: OrgDetail; run: Run }) {
         </table>
       </div>
     </Section>
+  );
+}
+
+interface Traffic {
+  days: number; liveProjects: number;
+  totals: { clicks: number; completes: number; inSurvey: number; incidence: number | null };
+  byDay: { day: string; clicks: number; completes: number; terminates: number; quotaFull: number; rejected: number }[];
+  topProjects: { id: string; name?: string; workOrderNo?: string | null; status?: string; clicks: number; completes: number }[];
+  runsAs: { appName: string | null; domain: string | null; domainVerified: boolean; uidPrefix: string | null };
+}
+
+/** Respondent traffic for the Super Admin, also when the organisation runs links on its own domain and name. */
+function TrafficTab({ orgId }: { orgId: string }) {
+  const [days, setDays] = useState(30);
+  const [t, setT] = useState<Traffic | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  useEffect(() => { setT(null); get<Traffic>(`/super-admin/organizations/${orgId}/traffic?days=${days}`).then(setT).catch(setError); }, [orgId, days]);
+  if (error) return <ErrorBox error={error} />;
+  if (!t) return <Loading />;
+  const max = Math.max(1, ...t.byDay.map((d) => d.clicks));
+  const n = (v: number) => v.toLocaleString('en');
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span className="text-muted">Last</span>
+        {[7, 30, 90].map((d) => <button key={d} className={clsx('rounded-md px-2.5 py-1', d === days ? 'bg-brand text-brand-ink' : 'text-muted hover:bg-sunken')} onClick={() => setDays(d)}>{d} days</button>)}
+      </div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        {[['Clicks', n(t.totals.clicks)], ['Completes', n(t.totals.completes)], ['Incidence', t.totals.incidence == null ? '–' : `${t.totals.incidence}%`], ['In a survey now', n(t.totals.inSurvey)], ['Live projects', n(t.liveProjects)]].map(([k, v]) => (
+          <div key={k} className="card p-3"><div className="text-xs text-muted">{k}</div><div className="mt-0.5 text-lg font-semibold tabular-nums">{v}</div></div>
+        ))}
+      </div>
+      <Section title="Runs as">
+        <p className="text-sm">
+          {t.runsAs.appName ? <>Brand name <b>{t.runsAs.appName}</b></> : 'SampTrek name'}
+          {' · '}{t.runsAs.domain ? <>links on <b>{t.runsAs.domain}</b> {t.runsAs.domainVerified ? '(verified)' : '(not verified yet, links use the SampTrek address)'}</> : 'links on the SampTrek address'}
+          {t.runsAs.uidPrefix ? <> · respondent IDs start with <b>{t.runsAs.uidPrefix}</b></> : null}
+        </p>
+        <p className="mt-1 text-xs text-muted">Whatever name and domain they use, all traffic is counted here, and Observe opens their workspace read-only.</p>
+      </Section>
+      <Section title="Clicks and completes per day">
+        <div className="flex h-40 items-end gap-0.5" role="img" aria-label={`Clicks per day for the last ${t.days} days`}>
+          {t.byDay.map((d) => (
+            <div key={d.day} className="flex h-full min-w-0 flex-1 flex-col justify-end" title={`${d.day}: ${n(d.clicks)} clicks, ${n(d.completes)} completes`}>
+              <div className="w-full rounded-t-sm bg-brand/30" style={{ height: `${(d.clicks - d.completes) / max * 100}%` }} />
+              <div className="w-full bg-brand" style={{ height: `${d.completes / max * 100}%` }} />
+            </div>
+          ))}
+        </div>
+        <div className="mt-2 flex justify-between text-xs text-muted"><span>{t.byDay[0]?.day}</span><span><span className="mr-1 inline-block h-2 w-2 rounded-sm bg-brand" />completes <span className="ml-2 mr-1 inline-block h-2 w-2 rounded-sm bg-brand/30" />other clicks</span><span>{t.byDay.at(-1)?.day}</span></div>
+      </Section>
+      <Section title="Busiest projects">
+        {t.topProjects.length === 0 ? <p className="text-sm text-muted">No live traffic in this period.</p> : (
+          <div className="-mx-5 overflow-x-auto px-5">
+            <table className="w-full min-w-[480px] text-sm">
+              <thead><tr><th className="th">Project</th><th className="th">Status</th><th className="th text-right">Clicks</th><th className="th text-right">Completes</th></tr></thead>
+              <tbody>{t.topProjects.map((p) => <tr key={p.id} className="border-t border-line"><td className="td">{p.name}{p.workOrderNo ? <span className="ml-2 text-xs text-muted">{p.workOrderNo}</span> : null}</td><td className="td text-xs">{p.status}</td><td className="td text-right tabular-nums">{n(p.clicks)}</td><td className="td text-right tabular-nums">{n(p.completes)}</td></tr>)}</tbody>
+            </table>
+          </div>
+        )}
+      </Section>
+    </div>
   );
 }

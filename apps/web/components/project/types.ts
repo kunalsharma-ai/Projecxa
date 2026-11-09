@@ -5,6 +5,7 @@ export type Stats = Record<'STARTED' | 'COMPLETE' | 'TERMINATE' | 'QUOTA_FULL' |
 export interface FieldMetrics { avgLoiMinutes: number | null; irPercent: number | null; completes: number; terminates: number; speeders: number }
 
 export interface AutoPause { enabled: boolean; by: 'percent' | 'completes'; value: number; scope: 'market' | 'vendor' }
+export interface AutoRoute { enabled: boolean; mode: 'approve' | 'auto'; weights: { score: number; cost: number; room: number }; minScore: number; keepMargin: boolean; maxMovePercent: number; cooldownHours: number }
 export interface AutoPauseState { config: string; done: Record<string, { reason: 'paused' | 'target'; at: string; completes: number; target: number }>; switchedOffAt?: string }
 
 export interface Allocation {
@@ -70,10 +71,12 @@ export interface ProjectDetail {
   activeRedirectVersion: { id: string; version: number; mode: string } | null;
   fieldStartAt: string | null;
   fieldEndAt: string | null;
-  autopilot: { pauseOnQuality?: boolean; closeOnTarget?: boolean; autoPause?: AutoPause } | null;
+  autopilot: { pauseOnQuality?: boolean; closeOnTarget?: boolean; autoPause?: AutoPause; autoRoute?: AutoRoute; marginFloorPct?: number | null } | null;
   autopilotState?: { autoPause?: AutoPauseState } | null;
   /** Speeder check: completes faster than fraction × planned LOI become speeders. */
   speederCheck?: { enabled: boolean; fraction: string } | null;
+  /** Cross-project duplicate rules and risk threshold (docs/FRAUD_CHECKS.md). */
+  fraudRules?: FraudRules | null;
   metrics?: FieldMetrics;
   countries: Country[];
   stats: Stats;
@@ -82,4 +85,9 @@ export interface ProjectDetail {
   /** Only on the response to going live: how many markets opened and which were not ready. */
   launch?: { opened: number; notReady: { id: string; market: string; problems: string[] }[] };
   outcomeEndpoints: { browser: string; s2s: string; statuses: string[] };
+}
+
+export interface FraudRules {
+  crossProject: { scope: 'all' | 'client' | 'listed'; projectIds: string[]; days: number; outcomes: 'any' | 'completes' };
+  riskThreshold: number | null;
 }

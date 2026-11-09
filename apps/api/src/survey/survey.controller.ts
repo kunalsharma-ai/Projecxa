@@ -14,6 +14,7 @@ import { SurveyService } from './survey.service';
 import { AnswersController } from './answers.controller';
 import { SecurityController } from './security.controller';
 import { TorService } from './tor.service';
+import { IpReputationService } from './ip-reputation';
 
 const s2sSchema = z.object({
   token: z.string().min(10).max(200),
@@ -131,5 +132,5 @@ export class SurveyS2SController {
   }
 }
 
-@Module({ controllers: [SurveyPublicController, SurveyS2SController, SecurityController, AnswersController, PageDesignController], providers: [SurveyService, TorService, ProjectHistoryService], exports: [SurveyService, TorService] })
+@Module({ controllers: [SurveyPublicController, SurveyS2SController, SecurityController, AnswersController, PageDesignController], providers: [SurveyService, TorService, IpReputationService, ProjectHistoryService], exports: [SurveyService, TorService, IpReputationService] })
 export class SurveyModule {}

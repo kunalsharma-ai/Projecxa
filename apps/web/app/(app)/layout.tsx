@@ -1,10 +1,11 @@
 'use client';
 import clsx from 'clsx';
-import { Bell, Compass, LogOut, Maximize2, Menu, Palette, PanelRight, Plus, Search, Settings, ShieldCheck, Sparkles, X } from 'lucide-react';
+import { Bell, Compass, Eye, LogOut, Maximize2, Menu, Palette, PanelRight, Plus, Search, Settings, ShieldCheck, Sparkles, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { CopilotChat } from '@/components/copilot/chat';
+import { ChatProvider, clearChatCache, useChat } from '@/components/chat/chat-provider';
 import { canEdit, MeContext } from '@/components/me';
 import { CommandPalette } from '@/components/shell/command-palette';
 import { InsightsPanel, type Insights } from '@/components/shell/insights-panel';
@@ -150,9 +151,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <MeContext.Provider value={me}>
+      {/* Team chat (docs/TEAM_CHAT.md): one live connection for the whole app, so messages queued offline are sent from any page. */}
+      <ChatProvider userId={me.user.id} enabled={me.features?.web.chat !== false}>
       <a href="#main" className="sr-only z-50 rounded bg-panel px-3 py-2 focus:not-sr-only focus:fixed focus:left-3 focus:top-3">Skip to content</a>
       <div className="flex min-h-screen">
-        <Sidebar mobileOpen={mobileNav} onClose={() => setMobileNav(false)} badges={{ '/won-bids': insights?.wonBidsNew ?? 0 }} />
+        <ChatSidebar mobileOpen={mobileNav} onClose={() => setMobileNav(false)} wonBidsNew={insights?.wonBidsNew ?? 0} />
         {mobileNav && <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setMobileNav(false)} aria-hidden />}
 
         <div className="flex min-w-0 flex-1 flex-col">
@@ -255,7 +258,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     <Link href="/settings/appearance" onClick={close} className="flex items-center gap-2 rounded-md px-3 py-2 hover:bg-sunken"><Palette className="h-4 w-4 text-muted" /> Theme Studio</Link>
                     <Link href="/settings" onClick={close} className="flex items-center gap-2 rounded-md px-3 py-2 hover:bg-sunken"><Settings className="h-4 w-4 text-muted" /> Organization settings</Link>
                     <button onClick={() => { close(); startTour(); }} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-sunken"><Compass className="h-4 w-4 text-muted" /> Take the product tour</button>
-                    <button onClick={async () => { await post('/auth/logout'); router.replace('/login'); }} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-sunken"><LogOut className="h-4 w-4 text-muted" /> Sign out</button>
+                    <button onClick={async () => { await post('/auth/logout'); clearChatCache(me.user.id); router.replace('/login'); }} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-sunken"><LogOut className="h-4 w-4 text-muted" /> Sign out</button>
                   </div>
                 )}
               </Popover>
@@ -265,6 +268,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           <div className="flex min-h-0 flex-1">
             <main id="main" key={pathname} className="anim-in mx-auto w-full min-w-0 max-w-[1440px] px-4 py-6 sm:px-6">
+              {me.observing && (
+                <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-warn/40 bg-warn/10 px-4 py-2.5 text-sm" role="status" data-observing>
+                  <Eye className="h-4 w-4 shrink-0 text-warn" />
+                  <span className="min-w-0 flex-1">You are observing <b>{me.observing.name}</b> as Super Admin. Everything is read-only, and this visit is in their activity log.</span>
+                  <button className="btn-ghost px-3 py-1 text-xs" onClick={async () => { const r = await post<{ home: string }>('/super-admin/observe/exit'); window.location.href = r.home; }}>Exit observe mode</button>
+                </div>
+              )}
               {blocked ? <PlanBlocked block={me.features!.block!} admin={me.user.role === 'ADMIN'} /> : featureOff ? <FeatureOff feature={pageFeature!} /> : children}
             </main>
             {copilot && pathname !== '/copilot' && (
@@ -303,6 +313,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           onStep={tourStep}
         />
       )}
+      </ChatProvider>
     </MeContext.Provider>
   );
+}
+
+/** The sidebar, with the unread team chat count on its menu item. */
+function ChatSidebar({ wonBidsNew, ...rest }: { mobileOpen: boolean; onClose: () => void; wonBidsNew: number }) {
+  const chat = useChat();
+  return <Sidebar {...rest} badges={{ '/won-bids': wonBidsNew, '/chat': chat?.unread ?? 0 }} />;
 }

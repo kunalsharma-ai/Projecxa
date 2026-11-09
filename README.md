@@ -302,6 +302,11 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - **Work orders** get your prefix and the next number automatically (e.g. FR9132), or can be typed by hand, never twice; the last one given is shown and they can be edited later. A **UID prefix** brands every respondent ID sent to client surveys. Details: `docs/WORK_ORDERS_AND_UID_PREFIX.md`.
 - **Client unique links**: upload the client's per-respondent survey links per market (Excel, CSV or paste); each respondent gets the next unused one, never twice. The older tab is now **Vendor unique links**. Details: `docs/CLIENT_UNIQUE_LINKS.md`.
 
+## Live client dashboards
+
+- Project → **Client dashboard** makes a read-only link (`/live/<token>`) the client opens without signing in, to watch completes, markets and quota cells move. It refreshes every 30 seconds and shows the last 24 hours' pace.
+- No money or vendor details unless switched on per link (**Show CPI and spend**, **Show vendor names**); vendor cost and margin are never shown. Links can have an end date and can be turned off at once. Details: `docs/CLIENT_DASHBOARD_LINKS.md`.
+
 ## Mobile app for Android and iOS
 
 `apps/mobile` is one Expo (React Native) app for Android and iOS in the Neon (dark) and Aurora (light) looks from the design mockups. Staff get the command center, projects (with markets, vendors, quotas, share links, go live / hold / close, pause vendors), fieldwork monitor and alerts, AI copilot with confirm cards, tasks, requests, won bids, reports, invoices, vendor payables, clients, vendors, redirect health and notifications; client and vendor users get their portal. Settings-heavy screens open the web app. What each person sees follows the Super Admin feature switches for mobile and changes live (next API call, opening More, returning to the app, or within 30 seconds). Contract, store builds with EAS and limits: [docs/MOBILE_APP.md](docs/MOBILE_APP.md).
@@ -315,6 +320,20 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - **Automation**: plain When / Only if / Then rules (registrations, trials and renewals ending, subscriptions ended, inactive organisations, user limits, failing integrations → emails, tasks, approvals, plan and status changes, pause, feature switches) with ten one-click recipes.
 - Public registration page `/register` (opened by the Super Admin).
 - Details: `docs/SUPER_ADMIN.md`.
+
+## Backups, restore and status page
+
+- **Backups** (Super Admin → Backups): a full copy of the database in one click or every day/week, kept
+  in a folder on the server or a free S3-compatible bucket (Cloudflare R2, Backblaze B2, MinIO) chosen
+  in Settings → Integrations → Backup storage, encrypted with a passphrase (AES-256). Test, Download,
+  keep the newest N, email on failure, and find backups again from the storage on a new server.
+- **Guarded restore**: type RESTORE and your password; a safety backup is taken first, the file's
+  fingerprint is checked, and the database is replaced in one transaction (all or nothing), newer
+  migrations applied. `pnpm restore-backup --file …` does the same when the app cannot start.
+- **Status page** at `/status`: live state and 90-day uptime of the website, respondent links, database,
+  callbacks and email (the server checks itself every minute), incidents and planned maintenance posted
+  by the Super Admin, and a ping address for free outside monitors.
+- Details: `docs/BACKUPS.md`, `docs/STATUS_PAGE.md`.
 
 ## Install on a server
 
@@ -367,3 +386,7 @@ Two Fieldwork pages from the mockup, per project and from real data: **Data proc
 - **Respondent pages** show the Sampledge logo and tab icon (gate and every end page); a project's own logo moves it to a "Powered by" line, and Respondent pages → Show the Sampledge logo turns it off. See [docs/BRAND.md](docs/BRAND.md).
 - **Notifications**: opening the bell marks alerts read for that person; the badge counts only new ones. See [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md).
 - **Audience sets** in the gate survey builder: B2B, B2C, parents, teens, healthcare consumers, patients and caregivers; every question stays editable and organisations can save their own version. See [docs/GATE_QUESTION_SETS.md](docs/GATE_QUESTION_SETS.md).
+
+## Stronger fraud checks
+
+Three new toggles in Gate & security, all free: **IP and proxy reputation** (VPN, data centre and abuse lists, an optional free proxycheck.io key, your own allow and block lists; set up in Settings → Integrations), **Automated browsers** (webdriver, headless and faked-device signals) and **Across projects** (the same device or browser in your other projects, with Fraud rules for which projects and how many days). Repeat devices through another vendor are reported as `CROSS_VENDOR`, the fingerprint gains a device hash that survives browser updates, every respondent gets a 0–100 risk score with an optional reject threshold, and the **Same person elsewhere** panel lists linked respondents. See [docs/FRAUD_CHECKS.md](docs/FRAUD_CHECKS.md).

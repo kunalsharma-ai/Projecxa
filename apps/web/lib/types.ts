@@ -42,6 +42,8 @@ export interface Me {
   links?: { sampbidxUrl?: string | null; bidzoUrl?: string | null };
   /** Product tour after sign-in (docs/PRODUCT_TOUR.md). */
   tour?: { version: number; show: boolean; outcome: 'completed' | 'skipped' | null; at: string | null };
+  /** The Super Admin is looking at this organisation read-only (docs/SUPER_ADMIN_OBSERVE.md). */
+  observing?: { organizationId: string; name: string; homeOrganizationId: string } | null;
 
   /** Super Admin switches (docs/SUPER_ADMIN.md). */
   features?: Features;
@@ -75,6 +77,9 @@ export const SECURITY_LABELS: Record<string, string> = {
   timezoneTracking: 'Timezone tracking',
   torDetection: 'TOR detection',
   cookieValidation: 'Cookie validation',
+  proxyDetection: 'IP and proxy reputation',
+  automationDetection: 'Automated browsers',
+  crossProjectDuplicates: 'Across projects',
 };
 
 export const CATEGORIES = ['B2B', 'B2C', 'B2C-B2B', 'Consumer', 'Healthcare-Professional', 'Healthcare-Consumer', 'Teens-And-Parents'];

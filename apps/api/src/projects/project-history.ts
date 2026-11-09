@@ -39,6 +39,7 @@ export interface SettingsSnapshot {
   fieldEndAt: string | null;
   autopilot: Record<string, unknown> | null;
   speederCheck: Record<string, unknown> | null;
+  fraudRules?: Record<string, unknown> | null;
   countries: Record<string, CountrySnapshot>;
 }
 
@@ -65,6 +66,7 @@ const LABELS: Record<string, string> = {
   fieldEndAt: 'Field end',
   autopilot: 'Autopilot',
   speederCheck: 'Speeder check',
+  fraudRules: 'Fraud rules',
   loiMinutes: 'LOI (min)',
   irPercent: 'IR %',
   cpi: 'CPI',
@@ -82,7 +84,7 @@ const list = (v: unknown) => (Array.isArray(v) && v.length ? v : null);
 const obj = (v: unknown) => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null);
 
 /** Fields a restore puts back. Status stays as it is: going live or closing is not a settings change. */
-export const RESTORABLE = ['name', 'category', 'description', 'clientContactId', 'salesPersonId', 'projectManagerId', 'devices', 'security', 'captchaStyle', 'gateQuestions', 'prescreen', 'pageDesign', 'fieldStartAt', 'fieldEndAt', 'autopilot', 'speederCheck'] as const;
+export const RESTORABLE = ['name', 'category', 'description', 'clientContactId', 'salesPersonId', 'projectManagerId', 'devices', 'security', 'captchaStyle', 'gateQuestions', 'prescreen', 'pageDesign', 'fieldStartAt', 'fieldEndAt', 'autopilot', 'speederCheck', 'fraudRules'] as const;
 export const COUNTRY_RESTORABLE = ['targetGroup', 'loiMinutes', 'irPercent', 'cpi', 'currency', 'targetCompletes', 'liveSurveyUrl', 'testSurveyUrl', 'sessionTtlMinutes'] as const;
 
 function show(v: unknown): string | null {
@@ -112,7 +114,7 @@ export function diff(before: SettingsSnapshot, after: SettingsSnapshot, names: M
       if (a !== b) out.push({ field: `${group}.${k}`, label: `${group === 'devices' ? 'Device' : 'Security'}: ${k}`, before: show(a), after: show(b) });
     }
   }
-  for (const k of ['gateQuestions', 'prescreen', 'pageDesign', 'autopilot', 'speederCheck'] as const) {
+  for (const k of ['gateQuestions', 'prescreen', 'pageDesign', 'autopilot', 'speederCheck', 'fraudRules'] as const) {
     if (same(before[k], after[k])) continue;
     const b = show(before[k]);
     const a = show(after[k]);
@@ -156,6 +158,7 @@ export class ProjectHistoryService {
       fieldEndAt: day(p.fieldEndAt),
       autopilot: obj(p.autopilot),
       speederCheck: obj(p.speederCheck),
+      fraudRules: obj(p.fraudRules),
       countries: Object.fromEntries(
         p.countries.map((c) => [
           marketKey(c),
