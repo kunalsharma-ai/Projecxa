@@ -10,7 +10,7 @@
  * SAMPLEON's, shown next to (not added into) the completes SampTrek routed itself.
  */
 import {
-  BadGatewayException, BadRequestException, Body, ConflictException, Controller, Get, HttpCode, HttpException, Module, NotFoundException, Param, Post, Put, Req,
+  BadGatewayException, Global, BadRequestException, Body, ConflictException, Controller, Get, HttpCode, HttpException, Module, NotFoundException, Param, Post, Put, Req,
   ServiceUnavailableException, UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -23,30 +23,13 @@ import { AuthUser } from '../auth/auth.types';
 import { hmacSha256, safeEqualHex, sha256 } from '../common/crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { questionsOf } from '../survey/questions';
+import { sampledgeHeaders, sampleonConfig } from './sampleon-config';
+import { SampleonOutbox } from './sampleon-outbox';
 import { quotaMapSchema, translateCells, type AttributeDef, type QuotaMap, type Translation } from './quota-translate';
 
 const WINDOW_SECONDS = 300;
 
-/** Read on every call so the settings can change without a restart (and in tests). */
-export const sampleonConfig = () => ({
-  url: (process.env.SAMPLEON_URL ?? '').replace(/\/+$/, ''),
-  clientId: process.env.SAMPLEON_CLIENT_ID || 'projexa',
-  secret: process.env.SAMPLEON_CLIENT_SECRET ?? '',
-  configured: !!(process.env.SAMPLEON_URL && process.env.SAMPLEON_CLIENT_SECRET),
-});
-
-/**
- * Sampledge service signature (SAMPLEON §5.0):
- * v1=hex HMAC-SHA256(secret, ts + "." + METHOD + "." + path + "." + sha256hex(body)).
- */
-export function sampledgeHeaders(clientId: string, secret: string, method: string, path: string, body: string, nowMs = Date.now()) {
-  const ts = String(Math.floor(nowMs / 1000));
-  return {
-    'X-Sampledge-Client': clientId,
-    'X-Sampledge-Timestamp': ts,
-    'X-Sampledge-Signature': `v1=${hmacSha256(secret, `${ts}.${method.toUpperCase()}.${path}.${sha256(body)}`)}`,
-  };
-}
+export { sampledgeHeaders, sampleonConfig } from './sampleon-config';
 
 const Country = z.string().regex(/^[A-Z]{2}$/);
 const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD');
@@ -89,7 +72,7 @@ const day = (d: Date) => d.toISOString().slice(0, 10);
 
 @Controller()
 export class SampleonController {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly outbox: SampleonOutbox) {}
 
   private async project(u: AuthUser, id: string) {
     const p = await this.prisma.project.findFirst({
@@ -164,7 +147,22 @@ export class SampleonController {
   async overview(@CurrentUser() u: AuthUser, @Param('id') id: string) {
     const p = await this.project(u, id);
     const requests = await this.prisma.sampleonAudienceRequest.findMany({ where: { organizationId: u.organizationId, projectId: p.id }, orderBy: { createdAt: 'desc' } });
-    return { configured: sampleonConfig().configured, requests };
+    return { configured: sampleonConfig().configured, requests, announced: await this.outbox.latest(u.organizationId, p.id) };
+  }
+
+  /**
+   * Tell SAMPLEON about the project again (project.created with its current name and countries),
+   * for projects made before the integration was configured. SAMPLEON keeps the latest.
+   */
+  @Post('projects/:id/sampleon/announce')
+  @Roles(...EDITORS)
+  @HttpCode(202)
+  async announce(@CurrentUser() u: AuthUser, @Param('id') id: string) {
+    if (!sampleonConfig().configured) throw new ServiceUnavailableException('The SampAudience integration is not configured');
+    const p = await this.project(u, id);
+    const row = await this.outbox.projectCreated(this.prisma, p, p.countries.map((c) => c.countryCode));
+    await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'sampleon.project.announced', entityType: 'Project', entityId: p.id, detail: { eventId: row?.eventId ?? null } });
+    return { announced: await this.outbox.latest(u.organizationId, p.id) };
   }
 
   /** How the project's quota cells would be sent to SAMPLEON, and the question → attribute map. */
@@ -346,5 +344,6 @@ export class SampleonController {
   }
 }
 
-@Module({ controllers: [SampleonController] })
+@Global()
+@Module({ controllers: [SampleonController], providers: [SampleonOutbox], exports: [SampleonOutbox] })
 export class SampleonModule {}
