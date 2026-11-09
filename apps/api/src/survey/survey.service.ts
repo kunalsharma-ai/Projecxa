@@ -1,3 +1,4 @@
+import { EntitlementsService } from '../super-admin/entitlements';
 import { Injectable, Logger } from '@nestjs/common';
 import { EventSource, Prisma, RespondentStatus } from '@prisma/client';
 import { config as appConfig } from '../common/config';
@@ -146,6 +147,7 @@ export class SurveyService {
     private readonly prisma: PrismaService,
     private readonly tor: TorService,
     private readonly webhooks: WebhooksService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   /**
@@ -260,6 +262,11 @@ export class SurveyService {
     if (isTest ? !testable : !live) initial = { status: 'QUOTA_FULL', detail: 'NOT_LIVE' };
     else if (!isTest && (country.completes >= country.targetCompletes || allocation.completes >= allocation.targetCompletes)) {
       initial = { status: 'QUOTA_FULL', detail: 'QUOTA_CLOSED' };
+    }
+    // Plan limit on clicks or completes a month (docs/PLAN_LIMITS.md): new live entries go back to the vendor as quota full.
+    if (!initial && !isTest) {
+      const reached = await this.entitlements.trafficStop(project.organizationId);
+      if (reached) initial = { status: 'QUOTA_FULL', detail: reached === 'clicksPerMonth' ? 'PLAN_CLICK_LIMIT' : 'PLAN_COMPLETE_LIMIT' };
     }
     // Server-side checks. Test links run them too, but only log the result.
     const device = checkDevice(project.devices as Record<string, boolean>, req.userAgent);

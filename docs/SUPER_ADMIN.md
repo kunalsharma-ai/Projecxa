@@ -37,6 +37,18 @@ mobile = plan.mobileFeatures  ± organisation switches (mobile) − person's fea
 
 …and limited by role (e.g. Team is admins only, the client portal is client users only). Paused organisations, organisations waiting for approval and ended subscriptions get nothing.
 
+## Who gets what: the layers
+
+Every feature passes four layers (details in docs/FEATURE_ACCESS.md):
+
+1. **Plan** — what the organisation bought (Super Admin → Plans).
+2. **Organisation switches** — the Super Admin gives extra features or takes some away (Super Admin → Organisations → Features).
+3. **Admin** — the organisation's Admin chooses who in the team gets each feature they have: everyone, admins only, chosen people or no one (Settings → Features & access). They cannot hand out anything layers 1–2 do not give.
+4. **Person** — the Super Admin can still take features away from one person (Organisations → People).
+
+Usage limits per plan and per organisation (projects, clicks, completes, clients, vendors, portal logins…): docs/PLAN_LIMITS.md.
+Observing an organisation read-only and its traffic: docs/SUPER_ADMIN_OBSERVE.md.
+
 ## How it is enforced (web and mobile at once)
 
 Every authenticated API request goes through `auth.guard.ts`:
@@ -71,7 +83,7 @@ The public API (`/api/v1/public`, API keys) needs the `developers` feature, and 
 
 The web app reloads it when `X-Features-Version` changes, on any `FEATURE_DISABLED` answer, every 30 seconds and when the tab comes back into view. It hides switched-off items from the menu and Ctrl K, and shows "not part of your access" instead of the page. The mobile app (docs/MOBILE_APP.md) follows the same contract.
 
-Feature keys: `dashboard, copilot, tasks, requests, notifications, projects, projects.create, won_bids, monitor, redirect_health, reports, invoices, payables, accounting, clients, vendors, portal_access, integrations, developers, team, privacy, branding, settings, portal.client, portal.vendor` and one per integration: `integration.smtp, integration.sso_google, integration.sso_microsoft, integration.sso_zoho, integration.gemini, integration.zoho_books, integration.xero, integration.quickbooks, integration.tally, integration.bidzo`. Unknown keys are ignored by clients; a missing key means off.
+Feature keys: `dashboard, copilot, tasks, chat, collaboration, languages, requests, notifications, projects, client_dashboards, vendor_routing, fraud_checks, forecasting, projects.create, won_bids, monitor, redirect_health, reports, invoices, payables, accounting, clients, vendors, portal_access, integrations, developers, team, privacy, branding, settings, portal.client, portal.vendor` and one per integration: `integration.smtp, integration.sso_google, integration.sso_microsoft, integration.sso_zoho, integration.gemini, integration.zoho_books, integration.xero, integration.quickbooks, integration.tally, integration.bidzo`. Unknown keys are ignored by clients; a missing key means off.
 
 ## Integrations control
 

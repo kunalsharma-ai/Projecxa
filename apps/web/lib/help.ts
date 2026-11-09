@@ -169,6 +169,12 @@ export const HELP: Record<string, HelpEntry> = {
     how: 'Add a portal user for a client or vendor with a temporary password; they change it on first sign-in.',
     where: 'Clients see their projects, files and invoices. Vendors see their links, respondents, quotes and statements.',
   },
+  'page:/chat': {
+    title: 'Team chat',
+    what: 'Chat for staff only: Announcements, General, a room per project, private groups and direct messages. It runs on your SampTrek server.',
+    how: 'Pick a conversation, or press New. In a project room, tick "Post as a project update" to share how the project is doing.',
+    where: 'Messages are saved on this device too, so you can read them offline. What you write offline is sent when you reconnect.',
+  },
   'page:/tasks': {
     title: 'Tasks',
     what: 'Your to-dos and reminders, including ones the AI copilot made for you.',
@@ -210,6 +216,12 @@ export const HELP: Record<string, HelpEntry> = {
     what: 'Your staff logins and their roles.',
     how: 'Invite by email, change role, deactivate someone who left, or sign them out everywhere.',
     where: 'Staff only. Client and vendor logins are under Portal access.',
+  },
+  'page:/settings/features': {
+    title: 'Features & access',
+    what: 'Who in your team gets each feature your plan includes.',
+    how: 'Pick Everyone, Admins only, Chosen people (then tick them) or No one. Locked features are not in your plan: ask your SampTrek provider or upgrade under Subscription.',
+    where: 'Applies at once on the web and in the Android/iOS app, and the server refuses what someone was not given. New features such as Team chat start with admins only.',
   },
   'page:/settings/integrations': {
     title: 'Integrations',
@@ -355,6 +367,28 @@ export const HELP: Record<string, HelpEntry> = {
   },
 
   // ───────────────────── Project: sections and explicit ids ─────────────────────
+  'section:Usage and limits': {
+    what: 'What your plan allows (projects, clients, vendors, logins, clicks, completes…) and how much you use now.',
+    how: 'Bars turn amber at 80% and red when a limit is reached. Monthly counts reset on the 1st.',
+    where: 'Your whole organisation. Your SampTrek provider sets the limits.',
+  },
+  'section:Limits in this plan': {
+    what: 'Usage limits every organisation on this plan gets.',
+    how: 'Type a number, or leave a field empty for no limit. Choose whether running out of clicks or completes stops new entries or only shows the overrun.',
+    where: 'Every organisation on the plan, at once. One organisation can get its own numbers on its Subscription tab.',
+  },
+  'section:Runs as': {
+    what: 'The name, domain and respondent ID prefix this organisation uses on links and redirects.',
+    how: 'Traffic on their own domain and name is still counted here. Use Observe to open their workspace read-only.',
+    where: 'This organisation only.',
+  },
+  'section:Clicks and completes per day': { what: 'Live respondent entries per day, with completes shown darker.', how: 'Pick 7, 30 or 90 days. Hover a bar for the numbers.', where: 'This organisation; test links are left out.' },
+  'section:Busiest projects': { what: 'The projects with the most live clicks in the period.', how: 'Open Observe to see a project in full.', where: 'This organisation only.' },
+  'section:Usage': {
+    what: 'How much of each limit this organisation uses.',
+    how: 'Change its limits on the left, or move it to another plan.',
+    where: 'This organisation only.',
+  },
   'section:Project settings': {
     what: 'Project-wide settings such as name, client, category, managers, link variable and dates.',
     how: 'Change a value and save; it applies to every market.',

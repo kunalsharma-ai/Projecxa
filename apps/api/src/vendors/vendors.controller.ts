@@ -1,3 +1,4 @@
+import { EntitlementsService } from '../super-admin/entitlements';
 import { VendorInsightsController } from './vendor-insights.controller';
 import { VendorScoringService } from './vendor-scoring';
 import { Body, ConflictException, Controller, Get, Module, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
@@ -113,7 +114,7 @@ function withRedirectHosts(domains: string[], urls: VendorRedirectUrls): string[
 
 @Controller('vendors')
 export class VendorsController {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly entitlements: EntitlementsService) {}
 
   /** ?status=ACTIVE lists only active vendors (what project forms offer). */
   @Get()
@@ -147,6 +148,7 @@ export class VendorsController {
   @Roles(...EDITORS)
   async create(@CurrentUser() u: AuthUser, @Body(new ZodPipe(createSchema)) body: z.infer<typeof createSchema>) {
     await this.assertCodeFree(u.organizationId, body.code);
+    await this.entitlements.assertLimit(u.organizationId, 'vendors');
     const urls = cleanUrls(body.redirectUrls);
     const v = await this.prisma.vendor.create({
       data: {
@@ -170,6 +172,8 @@ export class VendorsController {
     const taken = new Set(existing.map((c) => c.code));
     const names = new Set(existing.map((c) => c.name.trim().toLowerCase()));
     const results: { row: number; ok: boolean; name?: string; code?: string; errors?: string[]; id?: string }[] = [];
+    // Plan limit (docs/PLAN_LIMITS.md): rows past it are reported, not added.
+    let room = await this.entitlements.room(u.organizationId, 'vendors');
     for (const [i, raw] of body.rows.entries()) {
       const p = importRowSchema.safeParse(raw);
       if (!p.success) {
@@ -187,6 +191,11 @@ export class VendorsController {
         results.push({ row: i + 1, ok: false, name: r.name, errors });
         continue;
       }
+      if (room !== null && room <= 0) {
+        results.push({ row: i + 1, ok: false, name: r.name, errors: ['Your plan’s vendor limit is reached. Ask your SampTrek provider for more.'] });
+        continue;
+      }
+      if (room !== null) room -= 1;
       const code = r.code ?? codeFromName(r.name, taken);
       taken.add(code);
       names.add(r.name.toLowerCase());
