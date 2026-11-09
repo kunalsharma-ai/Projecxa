@@ -7,7 +7,9 @@ The **Super Admin** runs the whole SampTrek server. Above every organisation's o
 - switch **any single feature** on or off for one organisation, or for one person, separately on the web and in the mobile app;
 - see **all activity** of every organisation's admins and their users;
 - control **every organisation's integrations** (allow, block, remove saved settings);
-- automate all of it with plain **When / Only if / Then** rules and ready-made recipes.
+- automate all of it with plain **When / Only if / Then** rules and ready-made recipes;
+- back up and restore the whole database (**Backups**, [BACKUPS.md](BACKUPS.md)) and run the public
+  **Status page** with uptime and incidents ([STATUS_PAGE.md](STATUS_PAGE.md)).
 
 Organisations pay for their plan online (Razorpay or Stripe) or offline (bank transfer, UPI, cheque, cash), and a payment renews the subscription by itself: see [SUBSCRIPTION_PAYMENTS.md](SUBSCRIPTION_PAYMENTS.md). Renewals can also be set on the subscription by hand or by automation.
 
