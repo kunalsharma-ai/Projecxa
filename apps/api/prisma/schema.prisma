@@ -140,6 +140,7 @@ model Organization {
   /// { [featureKey]: { mode: "everyone" | "admins" | "people" | "off", people: userId[] } }. Missing = the feature's default.
   featureAccess          Json?
   automationRuns         AutomationRun[]
+  limitAlerts            LimitAlert[]
   billingInvoices        BillingInvoice[]
   chatChannels           ChatChannel[]
 }
@@ -311,6 +312,28 @@ model BillingInvoice {
 
   @@index([organizationId, createdAt])
   @@index([status])
+}
+
+/// Emails sent when an organisation's usage nears (80%) or reaches a plan limit (docs/PLAN_LIMITS.md).
+/// One per limit, level and period: the month for monthly limits, the limit value for the others.
+model LimitAlert {
+  id             String       @id @default(cuid()) @map("_id")
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// LimitKey, e.g. clicksPerMonth
+  limit          String
+  /// near | reached
+  level          String
+  /// "2026-11" for monthly limits, "max:500" for the others
+  period         String
+  used           Int
+  max            Int
+  /// Who was emailed, e.g. "2 admins, 1 Super Admin"
+  sentTo         String?
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, limit, level, period])
+  @@index([organizationId, createdAt])
 }
 
 model AutomationRun {

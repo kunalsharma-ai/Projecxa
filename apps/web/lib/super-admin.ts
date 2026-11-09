@@ -29,6 +29,8 @@ export interface FeatureRow {
 export interface OrgDetail extends Omit<OrgSummary, 'features'> {
   subscriptionDetail: { status: SubStatus; startsAt: string; endsAt: string | null; trialEndsAt: string | null; maxUsers: number | null; maxProjects: number | null; limits: LimitsJson | null; mobileEnabled: boolean; notes: string | null } | null;
   usage: Usage;
+  /** Plan limit emails sent to this organisation, newest first. */
+  limitAlerts: { limit: string; level: 'near' | 'reached'; period: string; used: number; max: number; sentTo: string | null; createdAt: string }[];
   features: FeatureRow[];
 }
 export interface OrgUser {

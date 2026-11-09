@@ -163,6 +163,9 @@ export const ORG_FEATURES_INCLUDE = {
 export class EntitlementsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** Told when an organisation's usage may have changed (the plan limit emails check it soon after). */
+  onUsage?: (orgId: string) => void;
+
   async loadOrg(orgId: string): Promise<OrgForFeatures> {
     return this.prisma.organization.findUniqueOrThrow({ where: { id: orgId }, select: { id: true, status: true, platformOwner: true, ...ORG_FEATURES_INCLUDE } });
   }
@@ -220,6 +223,7 @@ export class EntitlementsService {
     const max = o.limits[key];
     if (max == null) return;
     const used = (await this.usage(orgId, [key]))[key] ?? 0;
+    this.onUsage?.(orgId);
     if (used + adding > max) {
       throw new ForbiddenException({ statusCode: 403, code: 'PLAN_LIMIT', limit: key, max, used, message: LIMIT_MESSAGE[key](max) });
     }
@@ -257,6 +261,7 @@ export class EntitlementsService {
       const used = keys.length && o.trafficAction === 'stop' ? await this.usage(orgId, [...keys]) : {};
       c = { at: now, month: monthStart().getTime(), stop: o.trafficAction === 'stop', limits: o.limits, clicks: used.clicksPerMonth ?? 0, completes: used.completesPerMonth ?? 0 };
       this.traffic.set(orgId, c);
+      if (keys.length) this.onUsage?.(orgId);
     }
     if (!c.stop) return null;
     if (c.limits.clicksPerMonth != null && c.clicks >= c.limits.clicksPerMonth) return 'clicksPerMonth';

@@ -45,6 +45,26 @@ Professional 250 / 250 / 250, 250,000 clicks, 50,000 completes, 25 scheduled rep
   Traffic is counted at most every 30 seconds per organisation (plus entries admitted since), so a limit can be overshot by a few entries on a very busy link.
 - Admins see usage at **Settings → Subscription → Usage and limits** (`GET /api/v1/billing/usage`), amber at 80%, red when reached.
 
+## Emails when a limit is close or reached
+
+`src/super-admin/limit-alerts.ts` emails the organisation when its usage crosses a line:
+
+| When | Who gets it |
+| --- | --- |
+| **Close**: 80% of a limit (e.g. 4 of 5 clients, 1,600 of 2,000 clicks) | The organisation's active admins |
+| **Reached**: at or over the limit | The organisation's admins and every Super Admin |
+
+- One email per organisation per check lists every limit that crossed a line, with what happens now (for clicks and
+  completes: stopped as quota full, or keeps going, as the plan says) and a link to Settings → Subscription.
+- Each limit and level emails **once per period**: once a calendar month for monthly limits, and once per limit
+  value for the others, so raising a limit lets the emails come again. Going straight to the limit sends only the
+  "reached" email. Limits of 0 (not in the plan) never email. Paused organisations and the platform owner are skipped.
+- It checks every hour, and a few seconds after something with a limit is added or the traffic counts refresh (at most
+  once a minute per organisation). `LIMIT_ALERTS_ENABLED=false` turns it off.
+- Emails go through the platform's email settings (Super Admin's organisation, Settings → Integrations). Each one is
+  kept in the `LimitAlert` collection, claimed before sending so two servers never both send it. The Super Admin sees
+  them on the organisation's **Subscription** tab under **Limit emails**, with who got them or why one was not sent.
+
 ## Own name and domain on links
 
 "Redirects with the admin's own name" is the `custom_domain` feature (Own domain on links): survey links, redirects
@@ -54,5 +74,4 @@ name stays under Settings → Numbering.
 
 ## Not included yet
 
-- Emails to the Admin and Super Admin when a limit nears or is reached (the bars show it; an Automation trigger can be added).
 - Limits on AI copilot requests, storage and live projects at the same time.

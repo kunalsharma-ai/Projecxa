@@ -445,7 +445,7 @@ export const HELP: Record<string, HelpEntry> = {
   'field:/projects/[id]::Handover note': { what: 'What the next person should know first, such as client habits or risks.', how: 'Write a few lines; it shows at the top of the checklist.', where: 'This handover, and the email to the receiver.' },
   'section:Usage and limits': {
     what: 'What your plan allows (projects, clients, vendors, logins, clicks, completes…) and how much you use now.',
-    how: 'Bars turn amber at 80% and red when a limit is reached. Monthly counts reset on the 1st.',
+    how: 'Bars turn amber at 80% and red when a limit is reached; admins get an email at both points. Monthly counts reset on the 1st.',
     where: 'Your whole organisation. Your SampTrek provider sets the limits.',
   },
   'section:Limits in this plan': {
@@ -460,6 +460,11 @@ export const HELP: Record<string, HelpEntry> = {
   },
   'section:Clicks and completes per day': { what: 'Live respondent entries per day, with completes shown darker.', how: 'Pick 7, 30 or 90 days. Hover a bar for the numbers.', where: 'This organisation; test links are left out.' },
   'section:Busiest projects': { what: 'The projects with the most live clicks in the period.', how: 'Open Observe to see a project in full.', where: 'This organisation only.' },
+  'section:Limit emails': {
+    what: 'The emails sent when this organisation came close to (80%) or reached a limit, and who got them.',
+    how: 'Each limit emails once a month for monthly limits, or once per limit value for the others. Raise a limit and it can email again.',
+    where: 'This organisation only. Its admins get every email; Super Admins get the ones for a reached limit.',
+  },
   'section:Usage': {
     what: 'How much of each limit this organisation uses.',
     how: 'Change its limits on the left, or move it to another plan.',

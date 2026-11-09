@@ -45,6 +45,9 @@ export const config = {
   get automationSchedulerEnabled(): boolean {
     return process.env.AUTOMATION_SCHEDULER_ENABLED !== 'false';
   },
+  get limitAlertsEnabled(): boolean {
+    return process.env.LIMIT_ALERTS_ENABLED !== 'false';
+  },
   get privacySchedulerEnabled(): boolean {
     return process.env.PRIVACY_SCHEDULER_ENABLED !== 'false';
   },
