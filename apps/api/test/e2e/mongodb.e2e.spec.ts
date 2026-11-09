@@ -65,6 +65,13 @@ describe('MongoDB in place of PostgreSQL', () => {
     expect((await createManySkipDuplicates(prisma.exchangeRate, 'ExchangeRate', rows)).count).toBe(0);
   });
 
+  it('skips a row whose id already exists, also inside a transaction', async () => {
+    const row = { ip: `198.51.100.${run.length}-${run}` };
+    expect((await createManySkipDuplicates(prisma.torExitNode, 'TorExitNode', [row, row])).count).toBe(1);
+    const again = await prisma.$transaction(async (tx) => createManySkipDuplicates(tx.torExitNode, 'TorExitNode', [row]));
+    expect(again.count).toBe(0);
+  });
+
   it('never gives one sequence number twice', async () => {
     const name = `test-${run}`;
     const got = await Promise.all(Array.from({ length: 25 }, () => nextSequence(prisma, name)));
