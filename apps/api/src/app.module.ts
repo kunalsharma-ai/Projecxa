@@ -13,6 +13,7 @@ import { FinanceModule } from './finance/finance.controller';
 import { AccountingModule } from './accounting/accounting.module';
 import { AiModule } from './ai/ai.controller';
 import { TasksModule } from './tasks/tasks.service';
+import { ChatModule } from './chat/chat';
 import { MonitorModule } from './monitor/monitor.controller';
 import { QuotasModule } from './quotas/quotas.controller';
 import { PortalModule } from './portal/portal.controller';
@@ -70,6 +71,7 @@ import { VendorsModule } from './vendors/vendors.controller';
     FinanceModule,
     AccountingModule,
     TasksModule,
+    ChatModule,
     AiModule,
     MonitorModule,
     QuotasModule,

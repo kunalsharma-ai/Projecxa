@@ -34,7 +34,7 @@ export const STARTER_PLANS = [
     features: workspace, mobileFeatures: workspace.filter((k) => MOBILE_FEATURE_KEYS.includes(k)) },
   { code: 'professional', name: 'Professional', description: 'Adds monitoring, finance, AI and accounting.', priceLabel: null, sortOrder: 2, maxUsers: 25, maxProjects: null,
     limits: { clients: 250, vendors: 250, portalUsers: 250, clicksPerMonth: 250_000, completesPerMonth: 50_000, scheduledReports: 25, apiKeys: 5, trafficAction: 'stop' },
-    features: [...workspace, 'copilot', 'chat', 'monitor', 'forecasting', 'vendor_routing', 'fraud_checks', 'redirect_health', 'invoices', 'payables', 'accounting', 'privacy', 'integration.sso_google', 'integration.sso_microsoft', 'integration.sso_zoho', 'integration.gemini', 'integration.zoho_books', 'integration.bidzo'],
+    features: [...workspace, 'copilot', 'chat', 'chat.general', 'chat.project_rooms', 'chat.groups', 'chat.direct', 'monitor', 'forecasting', 'vendor_routing', 'fraud_checks', 'redirect_health', 'invoices', 'payables', 'accounting', 'privacy', 'integration.sso_google', 'integration.sso_microsoft', 'integration.sso_zoho', 'integration.gemini', 'integration.zoho_books', 'integration.bidzo'],
     mobileFeatures: [...workspace, 'copilot', 'monitor', 'forecasting', 'redirect_health', 'invoices', 'payables'].filter((k) => MOBILE_FEATURE_KEYS.includes(k)) },
   { code: 'enterprise', name: 'Enterprise', description: 'Everything, including API, branding and all integrations.', priceLabel: null, sortOrder: 3, maxUsers: null, maxProjects: null, limits: {},
     features: FEATURE_KEYS, mobileFeatures: MOBILE_FEATURE_KEYS },

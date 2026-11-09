@@ -42,6 +42,11 @@ export const FEATURES: FeatureDef[] = [
   { key: 'copilot', label: 'AI copilot', group: 'Workspace', summary: 'Ask, summarise and act with AI, voice', roles: STAFF, mobile: true },
   { key: 'tasks', label: 'Tasks', group: 'Workspace', summary: 'To-dos and reminders', roles: STAFF, mobile: true },
   { key: 'chat', label: 'Team chat', group: 'Workspace', summary: 'Announcements, project rooms, groups and direct messages for staff', roles: STAFF, mobile: false, adminDefault: 'admins' },
+  // Team chat options (docs/TEAM_CHAT.md): the Admin gives each one separately, after chat itself.
+  { key: 'chat.general', label: 'Team chat: post in General', group: 'Workspace', summary: 'Write in the General channel (everyone with chat can read it)', roles: STAFF, mobile: false, adminDefault: 'admins' },
+  { key: 'chat.project_rooms', label: 'Team chat: project rooms', group: 'Workspace', summary: 'A chat room per project, with status updates', roles: STAFF, mobile: false, adminDefault: 'admins' },
+  { key: 'chat.groups', label: 'Team chat: make groups', group: 'Workspace', summary: 'Start private group conversations', roles: STAFF, mobile: false, adminDefault: 'admins' },
+  { key: 'chat.direct', label: 'Team chat: direct messages', group: 'Workspace', summary: 'One-to-one messages between teammates', roles: STAFF, mobile: false, adminDefault: 'admins' },
   { key: 'collaboration', label: 'Comments and handovers', group: 'Workspace', summary: 'Project comments, @mentions, handovers and the activity feed', roles: STAFF, mobile: true },
   { key: 'languages', label: 'Languages', group: 'Workspace', summary: 'Use SampTrek and the portals in Hindi, Spanish and other languages', roles: [...STAFF, 'CLIENT_USER', 'VENDOR_USER'], mobile: true },
   { key: 'requests', label: 'Requests', group: 'Workspace', summary: 'Client and vendor tickets, shared files', roles: STAFF, mobile: true },

@@ -1,5 +1,5 @@
 import { hasFeature, type Features } from '@/lib/types';
-import { CreditCard, Database, PieChart, Crown, Columns3, Activity, Route, MessagesSquare, ListChecks, Sparkles, BarChart3, BookOpenCheck, Users, HandCoins, Building2, FolderKanban, FormInput, ReceiptText, KeyRound, LayoutDashboard, Palette, PlugZap, PlusCircle, Settings, ShieldCheck, Stamp, ToggleRight, Trophy, Truck, type LucideIcon } from 'lucide-react';
+import { MessageCircle, CreditCard, Database, PieChart, Crown, Columns3, Activity, Route, MessagesSquare, ListChecks, Sparkles, BarChart3, BookOpenCheck, Users, HandCoins, Building2, FolderKanban, FormInput, ReceiptText, KeyRound, LayoutDashboard, Palette, PlugZap, PlusCircle, Settings, ShieldCheck, Stamp, ToggleRight, Trophy, Truck, type LucideIcon } from 'lucide-react';
 
 export type NavGroup = 'Main' | 'Fieldwork' | 'Finance' | 'Workspace' | 'Admin';
 export interface NavItem { href: string; label: string; icon: LucideIcon; group: NavGroup; keywords?: string; editorsOnly?: boolean; adminOnly?: boolean; feature?: string; superAdminOnly?: boolean }
@@ -29,6 +29,7 @@ export const NAV: NavItem[] = [
   { href: '/payables', label: 'Vendor payables', icon: HandCoins, group: 'Finance', keywords: 'bills vendor payments owed finance', feature: 'payables' },
   { href: '/accounting', label: 'Accounting exports', icon: BookOpenCheck, group: 'Finance', keywords: 'zoho books tally quickbooks xero export finance ledger', editorsOnly: true, feature: 'accounting' },
   { href: '/tasks', label: 'Tasks', icon: ListChecks, group: 'Workspace', keywords: 'to do todo reminders assigned overdue', feature: 'tasks' },
+  { href: '/chat', label: 'Team chat', icon: MessageCircle, group: 'Workspace', keywords: 'chat message messages talk team internal announcements dm direct group project room updates offline', feature: 'chat' },
   { href: '/requests', label: 'Requests', icon: MessagesSquare, group: 'Workspace', keywords: 'tickets support client vendor portal disputes questions issues', feature: 'requests' },
   { href: '/copilot', label: 'AI copilot', icon: Sparkles, group: 'Workspace', keywords: 'assistant ai gemini voice ask chat summarise report', feature: 'copilot' },
   { href: '/portal-access', label: 'Portal access', icon: KeyRound, group: 'Admin', keywords: 'client vendor logins', feature: 'portal_access' },

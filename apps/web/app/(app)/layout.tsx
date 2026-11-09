@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { CopilotChat } from '@/components/copilot/chat';
+import { ChatProvider, clearChatCache, useChat } from '@/components/chat/chat-provider';
 import { canEdit, MeContext } from '@/components/me';
 import { CommandPalette } from '@/components/shell/command-palette';
 import { InsightsPanel, type Insights } from '@/components/shell/insights-panel';
@@ -149,9 +150,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <MeContext.Provider value={me}>
+      {/* Team chat (docs/TEAM_CHAT.md): one live connection for the whole app, so messages queued offline are sent from any page. */}
+      <ChatProvider userId={me.user.id} enabled={me.features?.web.chat !== false}>
       <a href="#main" className="sr-only z-50 rounded bg-panel px-3 py-2 focus:not-sr-only focus:fixed focus:left-3 focus:top-3">Skip to content</a>
       <div className="flex min-h-screen">
-        <Sidebar mobileOpen={mobileNav} onClose={() => setMobileNav(false)} badges={{ '/won-bids': insights?.wonBidsNew ?? 0 }} />
+        <ChatSidebar mobileOpen={mobileNav} onClose={() => setMobileNav(false)} wonBidsNew={insights?.wonBidsNew ?? 0} />
         {mobileNav && <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setMobileNav(false)} aria-hidden />}
 
         <div className="flex min-w-0 flex-1 flex-col">
@@ -253,7 +256,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     <Link href="/settings/appearance" onClick={close} className="flex items-center gap-2 rounded-md px-3 py-2 hover:bg-sunken"><Palette className="h-4 w-4 text-muted" /> Theme Studio</Link>
                     <Link href="/settings" onClick={close} className="flex items-center gap-2 rounded-md px-3 py-2 hover:bg-sunken"><Settings className="h-4 w-4 text-muted" /> Organization settings</Link>
                     <button onClick={() => { close(); startTour(); }} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-sunken"><Compass className="h-4 w-4 text-muted" /> Take the product tour</button>
-                    <button onClick={async () => { await post('/auth/logout'); router.replace('/login'); }} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-sunken"><LogOut className="h-4 w-4 text-muted" /> Sign out</button>
+                    <button onClick={async () => { await post('/auth/logout'); clearChatCache(me.user.id); router.replace('/login'); }} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-sunken"><LogOut className="h-4 w-4 text-muted" /> Sign out</button>
                   </div>
                 )}
               </Popover>
@@ -308,6 +311,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           onStep={tourStep}
         />
       )}
+      </ChatProvider>
     </MeContext.Provider>
   );
+}
+
+/** The sidebar, with the unread team chat count on its menu item. */
+function ChatSidebar({ wonBidsNew, ...rest }: { mobileOpen: boolean; onClose: () => void; wonBidsNew: number }) {
+  const chat = useChat();
+  return <Sidebar {...rest} badges={{ '/won-bids': wonBidsNew, '/chat': chat?.unread ?? 0 }} />;
 }
