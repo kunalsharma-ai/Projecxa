@@ -1,5 +1,6 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpException, HttpStatus, Param, Patch, Post, Put, Query, Req } from '@nestjs/common';
-import { Request } from 'express';
+import { Body, Controller, Delete, Get, HttpCode, HttpException, HttpStatus, Param, Patch, Post, Put, Query, Req, Res } from '@nestjs/common';
+import { Request, Response } from 'express';
+import { ObserveTokens } from './observe';
 import { z } from 'zod';
 import { AuthUser } from '../auth/auth.types';
 import { CurrentUser, Public, Roles } from '../auth/decorators';
@@ -47,7 +48,7 @@ const activityQuery = z.object({ organizationId: z.string().max(40).optional(), 
 @Controller('super-admin')
 @Roles('ADMIN')
 export class SuperAdminController {
-  constructor(private readonly svc: SuperAdminService, private readonly automation: AutomationService) {}
+  constructor(private readonly svc: SuperAdminService, private readonly automation: AutomationService, private readonly observe: ObserveTokens) {}
 
   @Get('overview') overview() { return this.svc.overview(); }
   @Get('catalog') catalog() { return { ...this.svc.catalog(), automation: this.automation.catalog() }; }
@@ -71,6 +72,20 @@ export class SuperAdminController {
   @Put('organizations/:id/subscription') setSub(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body(new ZodPipe(subscription)) b: z.infer<typeof subscription>) { return this.svc.setSubscription(u, id, b); }
   @Delete('organizations/:id/subscription') removeSub(@CurrentUser() u: AuthUser, @Param('id') id: string) { return this.svc.removeSubscription(u, id); }
   @Put('organizations/:id/features') setFeatures(@CurrentUser() u: AuthUser, @Param('id') id: string, @Body(new ZodPipe(features)) b: z.infer<typeof features>) { return this.svc.setFeatures(u, id, b.changes); }
+  /** Open the organisation read-only as the Super Admin (docs/SUPER_ADMIN_OBSERVE.md). */
+  @Post('organizations/:id/observe') @HttpCode(200)
+  async startObserve(@CurrentUser() u: AuthUser, @Param('id') id: string, @Res({ passthrough: true }) res: Response) {
+    const org = await this.svc.observeTarget(u, id);
+    await this.observe.start(res, u.id, org.id);
+    return { ok: true, organization: org, home: '/' };
+  }
+  @Post('observe/exit') @HttpCode(200)
+  stopObserve(@CurrentUser() u: AuthUser, @Res({ passthrough: true }) res: Response) {
+    this.observe.stop(res);
+    return { ok: true, home: u.observing ? `/super-admin/organizations/${u.observing.organizationId}` : '/super-admin' };
+  }
+  /** Traffic at a glance: clicks, completes and outcomes per day, top projects and vendors, the domain links run on. */
+  @Get('organizations/:id/traffic') traffic(@Param('id') id: string, @Query('days') days?: string) { return this.svc.traffic(id, Math.min(90, Math.max(1, Number(days) || 30))); }
   @Get('organizations/:id/users') users(@Param('id') id: string) { return this.svc.users(id); }
   @Delete('organizations/:id/integrations/:kind') clearIntegration(@CurrentUser() u: AuthUser, @Param('id') id: string, @Param('kind') kind: string) { return this.svc.clearIntegration(u, id, kind); }
 

@@ -47,6 +47,7 @@ Every feature passes four layers (details in docs/FEATURE_ACCESS.md):
 4. **Person** — the Super Admin can still take features away from one person (Organisations → People).
 
 Usage limits per plan and per organisation (projects, clicks, completes, clients, vendors, portal logins…): docs/PLAN_LIMITS.md.
+Observing an organisation read-only and its traffic: docs/SUPER_ADMIN_OBSERVE.md.
 
 ## How it is enforced (web and mobile at once)
 

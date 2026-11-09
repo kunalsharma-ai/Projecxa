@@ -192,6 +192,59 @@ export class SuperAdminService {
     return this.summary(ids);
   }
 
+  /** Before observing (docs/SUPER_ADMIN_OBSERVE.md): the organisation exists, and the start goes in its activity log. */
+  async observeTarget(u: AuthUser, id: string) {
+    const org = await this.prisma.organization.findUnique({ where: { id }, select: { id: true, name: true, slug: true, customDomain: true } });
+    if (!org) throw new NotFoundException('Organisation not found');
+    if (org.id === u.organizationId) throw new BadRequestException('This is your own organisation');
+    await this.record(u, org.id, 'superadmin.observe', 'Organization', org.id, { superAdmin: u.email });
+    return org;
+  }
+
+  /** Respondent traffic for one organisation over the last `days` days (live entries only). */
+  async traffic(id: string, days: number) {
+    const org = await this.prisma.organization.findUnique({ where: { id }, select: { id: true, name: true, customDomain: true, customDomainVerifiedAt: true, uidPrefix: true, branding: true } });
+    if (!org) throw new NotFoundException('Organisation not found');
+    const since = new Date(Date.now() - days * 86_400_000);
+    since.setUTCHours(0, 0, 0, 0);
+    const rows = await this.prisma.$queryRaw<{ day: Date; status: string; n: bigint }[]>`
+      SELECT date_trunc('day', "startedAt") AS day, status::text AS status, count(*) AS n
+      FROM "RespondentSession" WHERE "organizationId" = ${id} AND "isTest" = false AND "startedAt" >= ${since}
+      GROUP BY 1, 2 ORDER BY 1`;
+    const byDay = new Map<string, { day: string; clicks: number; completes: number; terminates: number; quotaFull: number; rejected: number }>();
+    for (let t = since.getTime(); t <= Date.now(); t += 86_400_000) { const d = new Date(t).toISOString().slice(0, 10); byDay.set(d, { day: d, clicks: 0, completes: 0, terminates: 0, quotaFull: 0, rejected: 0 }); }
+    const totals: Record<string, number> = {};
+    for (const r of rows) {
+      const d = r.day.toISOString().slice(0, 10);
+      const n = Number(r.n);
+      const b = byDay.get(d) ?? { day: d, clicks: 0, completes: 0, terminates: 0, quotaFull: 0, rejected: 0 };
+      b.clicks += n;
+      if (r.status === 'COMPLETE') b.completes += n;
+      else if (r.status === 'TERMINATE') b.terminates += n;
+      else if (r.status === 'QUOTA_FULL') b.quotaFull += n;
+      else if (r.status === 'SECURITY_REJECT' || r.status === 'QUALITY_FAIL' || r.status === 'DUPLICATE') b.rejected += n;
+      byDay.set(d, b);
+      totals[r.status] = (totals[r.status] ?? 0) + n;
+    }
+    const perProject = await this.prisma.respondentSession.groupBy({ by: ['projectId', 'status'], where: { organizationId: id, isTest: false, startedAt: { gte: since } }, _count: true });
+    const projMap = new Map<string, { clicks: number; completes: number }>();
+    for (const r of perProject) { const m = projMap.get(r.projectId) ?? { clicks: 0, completes: 0 }; m.clicks += r._count; if (r.status === 'COMPLETE') m.completes += r._count; projMap.set(r.projectId, m); }
+    const top = [...projMap.entries()].sort((a, b) => b[1].clicks - a[1].clicks).slice(0, 10);
+    const projects = await this.prisma.project.findMany({ where: { id: { in: top.map(([pid]) => pid) } }, select: { id: true, name: true, workOrderNo: true, status: true } });
+    const live = await this.prisma.project.count({ where: { organizationId: id, status: 'LIVE' } });
+    const brand = (org.branding ?? {}) as { appName?: string };
+    const clicks = Object.values(totals).reduce((a, b) => a + b, 0);
+    return {
+      days,
+      liveProjects: live,
+      totals: { clicks, completes: totals.COMPLETE ?? 0, inSurvey: totals.STARTED ?? 0, incidence: clicks ? Math.round(((totals.COMPLETE ?? 0) / clicks) * 1000) / 10 : null },
+      byDay: [...byDay.values()],
+      topProjects: top.map(([pid, m]) => ({ ...projects.find((p) => p.id === pid), id: pid, ...m })),
+      // Links and redirects may run on the organisation's own domain and name; the Super Admin still sees it all here.
+      runsAs: { appName: brand.appName ?? null, domain: org.customDomain, domainVerified: !!org.customDomainVerifiedAt, uidPrefix: org.uidPrefix },
+    };
+  }
+
   async organization(id: string) {
     const [s] = await this.summary([id]);
     if (!s) throw new NotFoundException('Organisation not found');
