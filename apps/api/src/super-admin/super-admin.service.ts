@@ -15,6 +15,7 @@ import { CATALOG } from '../integrations/catalog';
 import { IntegrationsService } from '../integrations/integrations.service';
 import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { cleanLimitsJson, LIMITS } from './limits';
 import { EntitlementsService, ORG_FEATURES_INCLUDE, orgFeatures, readFeatureAccess, subscriptionLive, userFeatures } from './entitlements';
 import { FEATURES, FEATURE_KEYS, featureDef, MOBILE_FEATURE_KEYS } from './features';
 
@@ -29,18 +30,20 @@ const workspace = ['dashboard', 'tasks', 'requests', 'notifications', 'projects'
 /** Made the first time plans are listed, so the Super Admin has something to start from. */
 export const STARTER_PLANS = [
   { code: 'starter', name: 'Starter', description: 'Projects, links, reports and portals for a small team.', priceLabel: null, sortOrder: 1, maxUsers: 5, maxProjects: 50,
+    limits: { clients: 25, vendors: 25, portalUsers: 20, clicksPerMonth: 20_000, completesPerMonth: 5_000, scheduledReports: 5, trafficAction: 'stop' },
     features: workspace, mobileFeatures: workspace.filter((k) => MOBILE_FEATURE_KEYS.includes(k)) },
   { code: 'professional', name: 'Professional', description: 'Adds monitoring, finance, AI and accounting.', priceLabel: null, sortOrder: 2, maxUsers: 25, maxProjects: null,
+    limits: { clients: 250, vendors: 250, portalUsers: 250, clicksPerMonth: 250_000, completesPerMonth: 50_000, scheduledReports: 25, apiKeys: 5, trafficAction: 'stop' },
     features: [...workspace, 'copilot', 'chat', 'monitor', 'forecasting', 'vendor_routing', 'fraud_checks', 'redirect_health', 'invoices', 'payables', 'accounting', 'privacy', 'integration.sso_google', 'integration.sso_microsoft', 'integration.sso_zoho', 'integration.gemini', 'integration.zoho_books', 'integration.bidzo'],
     mobileFeatures: [...workspace, 'copilot', 'monitor', 'forecasting', 'redirect_health', 'invoices', 'payables'].filter((k) => MOBILE_FEATURE_KEYS.includes(k)) },
-  { code: 'enterprise', name: 'Enterprise', description: 'Everything, including API, branding and all integrations.', priceLabel: null, sortOrder: 3, maxUsers: null, maxProjects: null,
+  { code: 'enterprise', name: 'Enterprise', description: 'Everything, including API, branding and all integrations.', priceLabel: null, sortOrder: 3, maxUsers: null, maxProjects: null, limits: {},
     features: FEATURE_KEYS, mobileFeatures: MOBILE_FEATURE_KEYS },
 ];
 
 export interface OrgInput { name: string; slug?: string; adminName: string; adminEmail: string; planCode?: string | null; trialDays?: number | null; status?: 'ACTIVE' | 'PENDING'; registration?: Record<string, unknown> }
 export interface SubscriptionInput {
   planCode: string; status: SubscriptionStatus; startsAt?: Date | null; endsAt?: Date | null; trialEndsAt?: Date | null;
-  maxUsers?: number | null; maxProjects?: number | null; mobileEnabled?: boolean; notes?: string | null;
+  maxUsers?: number | null; maxProjects?: number | null; limits?: Record<string, unknown> | null; mobileEnabled?: boolean; notes?: string | null;
 }
 
 export const slugify = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'org';
@@ -115,17 +118,19 @@ export class SuperAdminService {
     };
   }
 
-  async createPlan(u: AuthUser, body: { code: string; name: string; description?: string | null; priceLabel?: string | null; features: string[]; mobileFeatures: string[]; mobileEnabled?: boolean; maxUsers?: number | null; maxProjects?: number | null; sortOrder?: number; priceMonthly?: number | null; priceYearly?: number | null; currency?: string }) {
+  async createPlan(u: AuthUser, body: { code: string; name: string; description?: string | null; priceLabel?: string | null; features: string[]; mobileFeatures: string[]; mobileEnabled?: boolean; maxUsers?: number | null; maxProjects?: number | null; limits?: Record<string, unknown>; sortOrder?: number; priceMonthly?: number | null; priceYearly?: number | null; currency?: string }) {
     if (await this.prisma.plan.findUnique({ where: { code: body.code } })) throw new BadRequestException('A plan with that code already exists');
-    const p = await this.prisma.plan.create({ data: { ...body, ...this.cleanFeatures(body.features, body.mobileFeatures) } });
+    const p = await this.prisma.plan.create({ data: { ...body, limits: cleanLimitsJson(body.limits, false), ...this.cleanFeatures(body.features, body.mobileFeatures) } });
     await this.record(u, await this.ownerId(), 'superadmin.plan_create', 'Plan', p.id, { code: p.code });
     return p;
   }
 
-  async updatePlan(u: AuthUser, id: string, body: Partial<{ name: string; description: string | null; priceLabel: string | null; features: string[]; mobileFeatures: string[]; mobileEnabled: boolean; maxUsers: number | null; maxProjects: number | null; active: boolean; sortOrder: number; priceMonthly: number | null; priceYearly: number | null; currency: string }>) {
+  async updatePlan(u: AuthUser, id: string, body: Partial<{ name: string; description: string | null; priceLabel: string | null; features: string[]; mobileFeatures: string[]; mobileEnabled: boolean; maxUsers: number | null; maxProjects: number | null; limits: Record<string, unknown>; active: boolean; sortOrder: number; priceMonthly: number | null; priceYearly: number | null; currency: string }>) {
     const before = await this.prisma.plan.findUnique({ where: { id } });
     if (!before) throw new NotFoundException('Plan not found');
-    const p = await this.prisma.plan.update({ where: { id }, data: { ...body, ...this.cleanFeatures(body.features, body.mobileFeatures) } });
+    const { limits, ...rest } = body;
+    const p = await this.prisma.plan.update({ where: { id }, data: { ...rest, ...(limits ? { limits: cleanLimitsJson(limits, false) } : {}), ...this.cleanFeatures(body.features, body.mobileFeatures) } });
+    this.entitlements.resetTraffic();
     const added = (p.features ?? []).filter((k) => !before.features.includes(k));
     const removed = before.features.filter((k) => !p.features.includes(k));
     await this.record(u, await this.ownerId(), 'superadmin.plan_update', 'Plan', p.id, { code: p.code, added, removed });
@@ -170,7 +175,7 @@ export class SuperAdminService {
           status: o.subscription.status, startsAt: o.subscription.startsAt, endsAt: o.subscription.endsAt, trialEndsAt: o.subscription.trialEndsAt,
           live: subscriptionLive(o.subscription), mobileEnabled: o.subscription.mobileEnabled,
         } : null,
-        limits: f.limits,
+        limits: { ...f.limits, maxUsers: f.limits.users, maxProjects: f.limits.projects },
         users: count(users, o.id), projects: count(projects, o.id), integrations: count(integrations, o.id),
         overrides: o.featureOverrides.length,
         lastActiveAt: last,
@@ -200,6 +205,7 @@ export class SuperAdminService {
     return {
       ...s,
       subscriptionDetail: sub ? { ...sub, plan: undefined } : null,
+      usage: await this.entitlements.limitsReport(id),
       features: FEATURES.map((d) => ({
         key: d.key, label: d.label, group: d.group, summary: d.summary, mobile: d.mobile,
         // Who the organisation's Admin gives it to (Settings → Features & access); null = not the Admin's choice.
@@ -326,10 +332,11 @@ export class SuperAdminService {
     const plan = await this.plan(body.planCode);
     const data = {
       planId: plan.id, status: body.status, endsAt: body.endsAt ?? null, trialEndsAt: body.trialEndsAt ?? null,
-      maxUsers: body.maxUsers ?? null, maxProjects: body.maxProjects ?? null, mobileEnabled: body.mobileEnabled ?? true, notes: body.notes ?? null, updatedById: u?.id ?? null,
+      maxUsers: body.maxUsers ?? null, maxProjects: body.maxProjects ?? null, limits: body.limits ? cleanLimitsJson(body.limits, true) : Prisma.DbNull, mobileEnabled: body.mobileEnabled ?? true, notes: body.notes ?? null, updatedById: u?.id ?? null,
       ...(body.startsAt ? { startsAt: body.startsAt } : {}),
     };
     await this.prisma.subscription.upsert({ where: { organizationId: orgId }, create: { organizationId: orgId, ...data }, update: data });
+    this.entitlements.resetTraffic(orgId);
     const prev = org.subscription;
     await this.record(u, orgId, 'superadmin.subscription', 'Subscription', orgId, {
       plan: plan.code, status: body.status, endsAt: body.endsAt ?? null, trialEndsAt: body.trialEndsAt ?? null, mobileEnabled: data.mobileEnabled,
@@ -500,6 +507,6 @@ export class SuperAdminService {
   }
 
   catalog() {
-    return { features: FEATURES, groups: [...new Set(FEATURES.map((f) => f.group))] };
+    return { features: FEATURES, groups: [...new Set(FEATURES.map((f) => f.group))], limits: LIMITS };
   }
 }

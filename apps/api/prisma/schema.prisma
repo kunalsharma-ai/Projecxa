@@ -167,6 +167,8 @@ model Plan {
   maxUsers       Int?
   /// Projects allowed; null = no limit.
   maxProjects    Int?
+  /// Other usage limits (src/super-admin/limits.ts, docs/PLAN_LIMITS.md): { clients, vendors, clicksPerMonth, …, trafficAction }. Missing = no limit.
+  limits         Json?
   active         Boolean          @default(true)
   sortOrder      Int              @default(0)
   subscriptions  Subscription[]
@@ -199,6 +201,8 @@ model Subscription {
   /// Overrides the plan's limits for this organisation; null = the plan's.
   maxUsers        Int?
   maxProjects     Int?
+  /// Overrides the plan's other limits for this organisation: a key with null = no limit, missing = the plan's.
+  limits          Json?
   /// Turns the mobile app off for the whole organisation, whatever the plan says.
   mobileEnabled   Boolean            @default(true)
   /// How the organisation last paid for it: MONTHLY or YEARLY (null = set by hand).

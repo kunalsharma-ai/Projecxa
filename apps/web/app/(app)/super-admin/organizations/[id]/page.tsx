@@ -7,7 +7,8 @@ import { FormEvent, Fragment, useCallback, useEffect, useMemo, useState } from '
 import { ActivityList } from '@/components/super-admin/activity-list';
 import { ErrorBox, Loading, PageHeader, Section, Toggle } from '@/components/ui';
 import { api, get, post } from '@/lib/api';
-import { ACCESS_LABEL, ago, day, ORG_STATUS, ROLE_LABEL, SUB_STATUS, type ActivityItem, type Catalog, type FeatureRow, type OrgDetail, type OrgUser, type Plan, type SubStatus } from '@/lib/super-admin';
+import { LimitFields, limitBody, limitForm, UsageBars } from '@/components/super-admin/limits';
+import { ACCESS_LABEL, ago, day, ORG_STATUS, ROLE_LABEL, SUB_STATUS, type ActivityItem, type Catalog, type FeatureRow, type LimitDef, type OrgDetail, type OrgUser, type Plan, type SubStatus } from '@/lib/super-admin';
 import { Label } from '@/components/help';
 
 type Tab = 'subscription' | 'features' | 'people' | 'activity' | 'integrations';
@@ -70,16 +71,20 @@ function SubscriptionTab({ org, run }: { org: OrgDetail; run: Run }) {
   const s = org.subscriptionDetail;
   const [form, setForm] = useState({
     planCode: org.subscription?.plan.code ?? 'starter', status: (s?.status ?? 'ACTIVE') as SubStatus, endsAt: toInput(s?.endsAt), trialEndsAt: toInput(s?.trialEndsAt),
-    maxUsers: s?.maxUsers?.toString() ?? '', maxProjects: s?.maxProjects?.toString() ?? '', mobileEnabled: s?.mobileEnabled ?? true, notes: s?.notes ?? '',
+    lim: limitForm(s?.maxUsers, s?.maxProjects, s?.limits, true), mobileEnabled: s?.mobileEnabled ?? true, notes: s?.notes ?? '',
   });
-  useEffect(() => { get<Plan[]>('/super-admin/plans').then(setPlans).catch(() => undefined); }, []);
+  const [limitDefs, setLimitDefs] = useState<LimitDef[]>([]);
+  useEffect(() => {
+    get<Plan[]>('/super-admin/plans').then(setPlans).catch(() => undefined);
+    get<Catalog>('/super-admin/catalog').then((c) => setLimitDefs(c.limits)).catch(() => undefined);
+  }, []);
   if (org.platformOwner) return <Section title="Subscription"><p className="text-sm text-muted">This organisation runs the server, so it always has every feature and no limits.</p></Section>;
   const plan = plans.find((p) => p.code === form.planCode);
   const save = (e: FormEvent) => {
     e.preventDefault();
     void run(() => api(`/super-admin/organizations/${org.id}/subscription`, { method: 'PUT', json: {
       planCode: form.planCode, status: form.status, endsAt: fromInput(form.endsAt), trialEndsAt: fromInput(form.trialEndsAt),
-      maxUsers: form.maxUsers === '' ? null : Number(form.maxUsers), maxProjects: form.maxProjects === '' ? null : Number(form.maxProjects), mobileEnabled: form.mobileEnabled, notes: form.notes || null,
+      ...limitBody(form.lim), mobileEnabled: form.mobileEnabled, notes: form.notes || null,
     } }), 'Saved. The change applies at once on the web and in the mobile app.');
   };
   const extend = (days: number) => {
@@ -102,8 +107,11 @@ function SubscriptionTab({ org, run }: { org: OrgDetail; run: Run }) {
             ? <label className="block"><Label>Trial ends</Label><input className="input" type="date" value={form.trialEndsAt} onChange={(e) => setForm({ ...form, trialEndsAt: e.target.value })} /></label>
             : <label className="block"><Label>Ends or renews on</Label><input className="input" type="date" value={form.endsAt} onChange={(e) => setForm({ ...form, endsAt: e.target.value })} /></label>}
           <div className="flex items-end gap-2">{[30, 90, 365].map((d) => <button key={d} type="button" className="btn-ghost px-2.5 py-1.5 text-xs" onClick={() => extend(d)}>+{d === 365 ? '1 year' : `${d} days`}</button>)}</div>
-          <label className="block"><Label>User limit</Label><input className="input" type="number" min={0} placeholder={plan?.maxUsers != null ? `Plan: ${plan.maxUsers}` : 'Plan: no limit'} value={form.maxUsers} onChange={(e) => setForm({ ...form, maxUsers: e.target.value })} /></label>
-          <label className="block"><Label>Project limit</Label><input className="input" type="number" min={0} placeholder={plan?.maxProjects != null ? `Plan: ${plan.maxProjects}` : 'Plan: no limit'} value={form.maxProjects} onChange={(e) => setForm({ ...form, maxProjects: e.target.value })} /></label>
+          <div className="sm:col-span-2">
+            <h3 className="text-sm font-semibold">Limits for this organisation</h3>
+            <p className="mb-3 text-xs text-muted">Empty follows the plan. Type a number to give this organisation more or less{plan ? ', or “none” for no limit' : ''}.</p>
+            {plan && limitDefs.length > 0 ? <LimitFields defs={limitDefs} form={form.lim} onChange={(lim) => setForm({ ...form, lim })} plan={plan} /> : <Loading />}
+          </div>
           <div className="flex items-center gap-3 sm:col-span-2"><Toggle checked={form.mobileEnabled} onChange={(v) => setForm({ ...form, mobileEnabled: v })} label="Mobile app" /><span className="text-sm"><Smartphone className="mr-1 inline h-4 w-4 text-muted" />Android and iOS app {form.mobileEnabled ? 'on' : 'off'} for this organisation{plan && !plan.mobileEnabled ? ' (the plan has no app)' : ''}</span></div>
           <label className="block sm:col-span-2"><Label>Notes (only you see them)</Label><textarea className="input min-h-[70px]" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="e.g. Paid by bank transfer until March" /></label>
           <div className="flex gap-2 sm:col-span-2">
@@ -112,17 +120,22 @@ function SubscriptionTab({ org, run }: { org: OrgDetail; run: Run }) {
           </div>
         </form>
       </Section>
+      <div className="space-y-6">
+      <Section title="Usage">
+        <UsageBars usage={org.usage} />
+      </Section>
       <Section title={plan ? `In ${plan.name}` : 'Plan'}>
         {plan ? (
           <div className="space-y-3 text-sm">
             {plan.description && <p className="text-muted">{plan.description}</p>}
             {plan.priceLabel && <p className="font-medium">{plan.priceLabel}</p>}
             <p><b className="tabular-nums">{plan.features.length}</b> web features · <b className="tabular-nums">{plan.mobileEnabled ? plan.mobileFeatures.length : 0}</b> in the app</p>
-            <p className="text-xs text-muted">Users: {plan.maxUsers ?? 'no limit'} · Projects: {plan.maxProjects ?? 'no limit'}. Turn single features on or off for this organisation in the Features tab.</p>
+            <p className="text-xs text-muted">Plan limits are shown as hints in the limit fields. Turn single features on or off for this organisation in the Features tab.</p>
             <p className="text-xs text-muted">Payments online or offline renew this by themselves (Billing). You can also change it here, or let Automation remind and expire it.</p>
           </div>
         ) : <Loading />}
       </Section>
+      </div>
     </div>
   );
 }

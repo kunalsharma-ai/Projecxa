@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { FormEvent, Suspense, useCallback, useEffect, useState } from 'react';
 import { useMe } from '@/components/me';
 import { Empty, ErrorBox, Loading, PageHeader, Section } from '@/components/ui';
+import { UsageBars } from '@/components/super-admin/limits';
+import type { Usage } from '@/lib/super-admin';
 import { api, ApiError, FEATURES_EVENT, get, post } from '@/lib/api';
 import { downloadFile } from '@/lib/download';
 import { BillingInvoice, day, fmtMoney, INVOICE_STATUS, METHOD_LABEL, SUB_STATUS, type SubStatus } from '@/lib/super-admin';
@@ -57,6 +59,8 @@ function Subscription() {
     if (d.subscription?.billingInterval) setInterval(d.subscription.billingInterval);
   }).catch(setError), []);
   useEffect(() => { load(); }, [load]);
+  const [usage, setUsage] = useState<Usage | null>(null);
+  useEffect(() => { get<Usage>('/billing/usage').then(setUsage).catch(() => undefined); }, []);
 
   // Back from Stripe Checkout.
   useEffect(() => {
@@ -137,6 +141,13 @@ function Subscription() {
         )}
         {sub?.billingInterval && <div className="text-sm"><div className="text-xs text-muted">Billing</div><div className="font-medium">{sub.billingInterval === 'YEARLY' ? 'Yearly' : 'Monthly'}</div></div>}
       </div>
+
+      {usage && usage.limits.some((l) => l.limit != null) && (
+        <Section title="Usage and limits" className="mb-6">
+          <p className="mb-3 text-sm text-muted">What your plan allows and how much you use. Monthly counts reset on the 1st. Need more? Change plan below or ask your SampTrek provider.</p>
+          <UsageBars usage={usage} compact />
+        </Section>
+      )}
 
       {data.plans.length === 0 ? <Empty>No plans can be bought online yet. Contact your SampTrek provider to renew.</Empty> : (
         <Section title={sub ? 'Renew or change plan' : 'Choose a plan'} actions={hasYearly && (

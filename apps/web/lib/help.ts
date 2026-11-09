@@ -361,6 +361,21 @@ export const HELP: Record<string, HelpEntry> = {
   },
 
   // ───────────────────── Project: sections and explicit ids ─────────────────────
+  'section:Usage and limits': {
+    what: 'What your plan allows (projects, clients, vendors, logins, clicks, completes…) and how much you use now.',
+    how: 'Bars turn amber at 80% and red when a limit is reached. Monthly counts reset on the 1st.',
+    where: 'Your whole organisation. Your SampTrek provider sets the limits.',
+  },
+  'section:Limits in this plan': {
+    what: 'Usage limits every organisation on this plan gets.',
+    how: 'Type a number, or leave a field empty for no limit. Choose whether running out of clicks or completes stops new entries or only shows the overrun.',
+    where: 'Every organisation on the plan, at once. One organisation can get its own numbers on its Subscription tab.',
+  },
+  'section:Usage': {
+    what: 'How much of each limit this organisation uses.',
+    how: 'Change its limits on the left, or move it to another plan.',
+    where: 'This organisation only.',
+  },
   'section:Project settings': {
     what: 'Project-wide settings such as name, client, category, managers, link variable and dates.',
     how: 'Change a value and save; it applies to every market.',

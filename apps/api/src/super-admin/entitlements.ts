@@ -12,7 +12,10 @@ import { ForbiddenException, Global, Injectable, Module } from '@nestjs/common';
 import { FeatureOverride, Organization, Plan, Role, Subscription, User } from '@prisma/client';
 import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { effectiveLimits, LIMIT_MESSAGE, LimitKey, Limits, LIMITS, monthStart, NO_LIMITS, TrafficAction } from './limits';
 import { AccessMode, ACCESS_MODES, adminControllable, FEATURES, featureDef, MOBILE_FEATURE_KEYS } from './features';
+
+const STAFF_ROLES: Role[] = ['ADMIN', 'PROJECT_MANAGER', 'SALES', 'VIEWER'];
 
 export type Block = 'ORG_PENDING' | 'ORG_SUSPENDED' | 'SUBSCRIPTION_INACTIVE' | null;
 export const BLOCK_MESSAGE: Record<Exclude<Block, null>, string> = {
@@ -64,7 +67,9 @@ export interface OrgFeatures {
   web: Set<string>;
   mobileEnabled: boolean;
   mobile: Set<string>;
-  limits: { maxUsers: number | null; maxProjects: number | null };
+  /** Usage limits (docs/PLAN_LIMITS.md); null = no limit. */
+  limits: Limits;
+  trafficAction: TrafficAction;
 }
 
 export interface Features {
@@ -97,7 +102,7 @@ function apply(base: Iterable<string>, overrides: OrgForFeatures['featureOverrid
 export function orgFeatures(org: OrgForFeatures, now = new Date()): OrgFeatures {
   const all = FEATURES.map((f) => f.key);
   if (org.platformOwner) {
-    return { block: null, plan: null, unrestricted: true, web: new Set(all), mobileEnabled: true, mobile: new Set(MOBILE_FEATURE_KEYS), limits: { maxUsers: null, maxProjects: null } };
+    return { block: null, plan: null, unrestricted: true, web: new Set(all), mobileEnabled: true, mobile: new Set(MOBILE_FEATURE_KEYS), ...NO_LIMITS };
   }
   const block: Block = org.status === 'PENDING' ? 'ORG_PENDING' : org.status === 'SUSPENDED' ? 'ORG_SUSPENDED' : org.subscription && !subscriptionLive(org.subscription, now) ? 'SUBSCRIPTION_INACTIVE' : null;
   const s = org.subscription;
@@ -106,7 +111,7 @@ export function orgFeatures(org: OrgForFeatures, now = new Date()): OrgFeatures 
     return {
       block, plan: null, unrestricted: org.featureOverrides.length === 0,
       web: apply(all, org.featureOverrides, 'web'), mobileEnabled: true, mobile: apply(MOBILE_FEATURE_KEYS, org.featureOverrides, 'mobile'),
-      limits: { maxUsers: null, maxProjects: null },
+      ...NO_LIMITS,
     };
   }
   return {
@@ -116,7 +121,7 @@ export function orgFeatures(org: OrgForFeatures, now = new Date()): OrgFeatures 
     web: apply(s.plan.features, org.featureOverrides, 'web'),
     mobileEnabled: s.plan.mobileEnabled && s.mobileEnabled,
     mobile: apply(s.plan.mobileFeatures, org.featureOverrides, 'mobile'),
-    limits: { maxUsers: s.maxUsers ?? s.plan.maxUsers, maxProjects: s.maxProjects ?? s.plan.maxProjects },
+    ...effectiveLimits(s.plan, s),
   };
 }
 
@@ -177,24 +182,92 @@ export class EntitlementsService {
     return !o.block && o.web.has(feature);
   }
 
-  /** Before adding or reactivating a staff member. */
-  async assertSeat(orgId: string, adding = 1) {
+  /** How much of each limit the organisation uses now (monthly ones: this calendar month, UTC). */
+  async usage(orgId: string, keys: LimitKey[] = LIMITS.map((l) => l.key), now = new Date()): Promise<Partial<Record<LimitKey, number>>> {
+    const since = monthStart(now);
+    const p = this.prisma;
+    const where = { organizationId: orgId };
+    const count: Record<LimitKey, () => Promise<number>> = {
+      users: () => p.user.count({ where: { ...where, active: true, role: { in: STAFF_ROLES } } }),
+      projects: () => p.project.count({ where }),
+      projectsPerMonth: () => p.project.count({ where: { ...where, createdAt: { gte: since } } }),
+      clients: () => p.client.count({ where }),
+      vendors: () => p.vendor.count({ where }),
+      portalUsers: () => p.user.count({ where: { ...where, active: true, role: { in: ['CLIENT_USER', 'VENDOR_USER'] } } }),
+      clicksPerMonth: () => p.respondentSession.count({ where: { ...where, isTest: false, startedAt: { gte: since } } }),
+      completesPerMonth: () => p.respondentSession.count({ where: { ...where, isTest: false, status: 'COMPLETE', outcomeAt: { gte: since } } }),
+      scheduledReports: () => p.reportSchedule.count({ where }),
+      apiKeys: () => p.apiKey.count({ where: { ...where, revokedAt: null } }),
+    };
+    const out: Partial<Record<LimitKey, number>> = {};
+    await Promise.all(keys.map(async (k) => { out[k] = await count[k](); }));
+    return out;
+  }
+
+  /** Limits, usage and what is left, for the Super Admin and the organisation's Subscription page. */
+  async limitsReport(orgId: string) {
     const o = await this.forOrg(orgId);
-    if (o.limits.maxUsers == null) return;
-    const used = await this.prisma.user.count({ where: { organizationId: orgId, active: true, role: { in: ['ADMIN', 'PROJECT_MANAGER', 'SALES', 'VIEWER'] as Role[] } } });
-    if (used + adding > o.limits.maxUsers) {
-      throw new ForbiddenException({ statusCode: 403, code: 'PLAN_LIMIT', limit: 'users', message: `Your plan allows ${o.limits.maxUsers} active team members. Deactivate someone or ask your SampTrek provider for more.` });
+    const used = await this.usage(orgId);
+    return {
+      trafficAction: o.trafficAction,
+      limits: LIMITS.map((l) => ({ key: l.key, label: l.label, counts: l.counts, period: l.period, traffic: !!l.traffic, limit: o.limits[l.key], used: used[l.key] ?? 0 })),
+    };
+  }
+
+  /** Refuse to add `adding` more of something when that would go over the plan's limit. */
+  async assertLimit(orgId: string, key: LimitKey, adding = 1) {
+    const o = await this.forOrg(orgId);
+    const max = o.limits[key];
+    if (max == null) return;
+    const used = (await this.usage(orgId, [key]))[key] ?? 0;
+    if (used + adding > max) {
+      throw new ForbiddenException({ statusCode: 403, code: 'PLAN_LIMIT', limit: key, max, used, message: LIMIT_MESSAGE[key](max) });
     }
+  }
+
+  /** How many more fit under the limit; null = no limit. */
+  async room(orgId: string, key: LimitKey): Promise<number | null> {
+    const max = (await this.forOrg(orgId)).limits[key];
+    if (max == null) return null;
+    return Math.max(0, max - ((await this.usage(orgId, [key]))[key] ?? 0));
+  }
+
+  /** Before adding or reactivating a staff member. */
+  assertSeat(orgId: string, adding = 1) {
+    return this.assertLimit(orgId, 'users', adding);
   }
 
   /** Before creating a project. */
   async assertProjectRoom(orgId: string) {
-    const o = await this.forOrg(orgId);
-    if (o.limits.maxProjects == null) return;
-    const used = await this.prisma.project.count({ where: { organizationId: orgId } });
-    if (used >= o.limits.maxProjects) {
-      throw new ForbiddenException({ statusCode: 403, code: 'PLAN_LIMIT', limit: 'projects', message: `Your plan allows ${o.limits.maxProjects} projects. Ask your SampTrek provider for more.` });
+    await this.assertLimit(orgId, 'projects');
+    await this.assertLimit(orgId, 'projectsPerMonth');
+  }
+
+  /**
+   * Respondent traffic (clicks, completes) for the entry link. Counted at most every 30 seconds per
+   * organisation, plus what this server admitted since, so a busy survey link does not count rows each time.
+   * Returns the limit that is reached, if its plan says to stop new entries.
+   */
+  async trafficStop(orgId: string): Promise<'clicksPerMonth' | 'completesPerMonth' | null> {
+    const now = Date.now();
+    let c = this.traffic.get(orgId);
+    if (!c || now - c.at > 30_000 || c.month !== monthStart().getTime()) {
+      const o = await this.forOrg(orgId);
+      const keys = (['clicksPerMonth', 'completesPerMonth'] as const).filter((k) => o.limits[k] != null);
+      const used = keys.length && o.trafficAction === 'stop' ? await this.usage(orgId, [...keys]) : {};
+      c = { at: now, month: monthStart().getTime(), stop: o.trafficAction === 'stop', limits: o.limits, clicks: used.clicksPerMonth ?? 0, completes: used.completesPerMonth ?? 0 };
+      this.traffic.set(orgId, c);
     }
+    if (!c.stop) return null;
+    if (c.limits.clicksPerMonth != null && c.clicks >= c.limits.clicksPerMonth) return 'clicksPerMonth';
+    if (c.limits.completesPerMonth != null && c.completes >= c.limits.completesPerMonth) return 'completesPerMonth';
+    c.clicks += 1;
+    return null;
+  }
+  private readonly traffic = new Map<string, { at: number; month: number; stop: boolean; limits: Limits; clicks: number; completes: number }>();
+  /** Forget cached traffic counts (after the Super Admin changes a plan or subscription, and in tests). */
+  resetTraffic(orgId?: string) {
+    if (orgId) this.traffic.delete(orgId); else this.traffic.clear();
   }
 }
 

@@ -1,6 +1,8 @@
 # Feature access: Super Admin → plan → Admin → users
 
-Kunal's rule (2026-11-08): every feature of SampTrek is controlled the way team chat is. The Super Admin
+Usage limits (projects, clicks, completes, clients, vendors…) are in docs/PLAN_LIMITS.md.
+
+Kunal’s rule (2026-11-08): every feature of SampTrek is controlled the way team chat is. The Super Admin
 decides what each subscription plan includes and can allow extras per organisation. An organisation's
 Admin only gets what their plan (plus extras) gives them, and then decides which of their users get it.
 

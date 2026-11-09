@@ -7,6 +7,7 @@ ALTER TABLE "Organization" ADD COLUMN "featureAccess" JSONB;
 UPDATE "Plan" SET "features" = "features" || ARRAY(SELECT k FROM unnest(ARRAY['collaboration','client_dashboards','vendor_routing','fraud_checks']) k WHERE NOT k = ANY("features"))
   WHERE 'projects' = ANY("features");
 UPDATE "Plan" SET "features" = "features" || ARRAY['forecasting'] WHERE 'monitor' = ANY("features") AND NOT 'forecasting' = ANY("features");
+UPDATE "Plan" SET "features" = "features" || ARRAY['custom_domain'] WHERE 'branding' = ANY("features") AND NOT 'custom_domain' = ANY("features");
 UPDATE "Plan" SET "features" = "features" || ARRAY['languages'] WHERE NOT 'languages' = ANY("features");
 UPDATE "Plan" SET "mobileFeatures" = "mobileFeatures" || ARRAY['collaboration'] WHERE 'projects' = ANY("mobileFeatures") AND NOT 'collaboration' = ANY("mobileFeatures");
 UPDATE "Plan" SET "mobileFeatures" = "mobileFeatures" || ARRAY['forecasting'] WHERE 'monitor' = ANY("mobileFeatures") AND NOT 'forecasting' = ANY("mobileFeatures");
