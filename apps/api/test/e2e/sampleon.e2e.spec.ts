@@ -6,7 +6,7 @@
  * the SAMPLEON repository.
  */
 import { INestApplication } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../src/prisma/client';
 import { createHash, createHmac, randomUUID } from 'crypto';
 import { createServer, IncomingMessage, Server } from 'http';
 import { AddressInfo } from 'net';

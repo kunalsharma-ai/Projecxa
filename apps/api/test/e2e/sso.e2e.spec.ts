@@ -1,5 +1,5 @@
 import { INestApplication } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../src/prisma/client';
 import { createHash, generateKeyPairSync, sign } from 'crypto';
 import request from 'supertest';
 import { b64url } from '../../src/auth/oidc';

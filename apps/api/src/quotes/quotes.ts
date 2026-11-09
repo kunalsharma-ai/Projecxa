@@ -22,7 +22,7 @@ import { ProjectsModule } from '../projects/projects.controller';
 import { ProjectsService } from '../projects/projects.service';
 
 const OPEN_PROJECT = ['DRAFT', 'TEST', 'LIVE', 'HOLD'] as const;
-const money = (d: Prisma.Decimal | null) => (d === null ? null : Number(d));
+const money = (d: number | null) => (d === null ? null : Number(d));
 
 const askSchema = z
   .object({
@@ -188,7 +188,7 @@ export class QuotesService {
     const data =
       'decline' in b
         ? { status: 'DECLINED' as const, cpi: null, feasibleCompletes: null, daysNeeded: null, vendorNote: b.note || null }
-        : { status: 'QUOTED' as const, cpi: new Prisma.Decimal(b.cpi), feasibleCompletes: b.feasibleCompletes, daysNeeded: b.daysNeeded ?? null, vendorNote: b.note || null };
+        : { status: 'QUOTED' as const, cpi: Number(b.cpi), feasibleCompletes: b.feasibleCompletes, daysNeeded: b.daysNeeded ?? null, vendorNote: b.note || null };
     // Guarded so an answer cannot land on a request staff just accepted or closed.
     const r = await this.prisma.quoteRequest.updateMany({ where: { id: q.id, status: { in: ['REQUESTED', 'QUOTED', 'DECLINED'] } }, data: { ...data, respondedAt: now, respondedById: u.id } });
     if (!r.count) throw new BadRequestException('This request is no longer open');

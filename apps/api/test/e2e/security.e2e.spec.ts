@@ -1,6 +1,6 @@
 import { createHash } from 'crypto';
 import { INestApplication } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../src/prisma/client';
 import request from 'supertest';
 import { config } from '../../src/common/config';
 import { humanChallenge } from '../../src/survey/captcha';
@@ -226,7 +226,7 @@ describe('Respondent security settings (e2e)', () => {
       const id = uid();
       const r = await throughGate(id, { languages: ['de'], timezone: 'Europe/Berlin', fingerprint: FP }, { test: true, human: 'math' });
       expect(r.location).toMatch(/^https:\/\/client\.example\.com\/test\?rid=/);
-      const ev = await prisma.respondentEvent.findFirstOrThrow({ where: { sessionId: r.session.id, type: 'SECURITY_CHECK', detail: { path: ['stage'], equals: 'gate' } } });
+      const ev = (await prisma.respondentEvent.findMany({ where: { sessionId: r.session.id, type: 'SECURITY_CHECK' } })).find((e) => (e.detail as { stage?: string } | null)?.stage === 'gate')!;
       const detail = ev.detail as { enforced: boolean; checks: { check: string; ok: boolean }[] };
       expect(detail.enforced).toBe(false);
       expect(detail.checks.filter((c) => !c.ok).map((c) => c.check).sort()).toEqual(['fingerprint', 'language', 'timezone']);

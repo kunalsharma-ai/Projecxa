@@ -153,7 +153,7 @@ export async function applyTemplateExtras(tx: Prisma.TransactionClient, organiza
         continue;
       }
       await tx.vendorAllocation.create({
-        data: { projectCountryId: c.id, vendorId: a.vendorId, cpi: new Prisma.Decimal(a.cpi), targetCompletes: a.targetCompletes, uidParam: a.uidParam, callbackUrlTemplate: a.callbackUrlTemplate, entryCode: randomToken(12), testEntryCode: randomToken(12) },
+        data: { projectCountryId: c.id, vendorId: a.vendorId, cpi: Number(a.cpi), targetCompletes: a.targetCompletes, uidParam: a.uidParam, callbackUrlTemplate: a.callbackUrlTemplate, entryCode: randomToken(12), testEntryCode: randomToken(12) },
       });
     }
   }
@@ -200,7 +200,7 @@ export class ProjectTemplatesController {
 
   @Get('project-templates')
   async list(@CurrentUser() u: AuthUser) {
-    const rows = await this.prisma.projectTemplate.findMany({ where: { organizationId: u.organizationId }, orderBy: [{ lastUsedAt: { sort: 'desc', nulls: 'last' } }, { name: 'asc' }], include: { createdBy: { select: { name: true } } } });
+    const rows = await this.prisma.projectTemplate.findMany({ where: { organizationId: u.organizationId }, orderBy: [{ lastUsedAt: 'desc' }, { name: 'asc' }] /* MongoDB sorts null last when descending */, include: { createdBy: { select: { name: true } } } });
     return rows.map(summary);
   }
 

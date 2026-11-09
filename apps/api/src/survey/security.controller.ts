@@ -221,7 +221,7 @@ export class SecurityController {
         keys[p] = { siteKey: v.siteKey, secret };
       }
     }
-    await this.prisma.organization.update({ where: { id: u.organizationId }, data: { captchaProviders: Object.keys(keys).length ? (keys as Prisma.InputJsonValue) : Prisma.DbNull } });
+    await this.prisma.organization.update({ where: { id: u.organizationId }, data: { captchaProviders: Object.keys(keys).length ? (keys as Prisma.InputJsonValue) : null } });
     await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'security.captcha-keys', entityType: 'Organization', entityId: u.organizationId, detail: { configured: Object.keys(keys) } });
     return this.captcha(u);
   }

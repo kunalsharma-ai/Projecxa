@@ -1,6 +1,6 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
-import { backupName, decryptFile, encryptFile, isEncryptedFile, pgTarget, sha256File, workDir } from '../../src/backups/backup-core';
+import { backupName, decryptFile, encryptFile, isEncryptedFile, dbTarget, sha256File, workDir } from '../../src/backups/backup-core';
 import { latestSlot, nextSlot } from '../../src/backups/backups.service';
 import { LocalStorage, s3From, safeName, signV4, storageFrom } from '../../src/backups/storage';
 import { dayStats, overallOf } from '../../src/status/status.service';
@@ -75,9 +75,11 @@ describe('backups: files', () => {
 
   it('names backups by time and reads the database address without exposing the password', () => {
     expect(backupName(new Date('2026-11-08T03:00:12Z'), true)).toMatch(/^samptrek-20261108T0300Z-[0-9a-f]{6}\.dump\.enc$/);
-    const t = pgTarget('postgresql://u%40x:p%23ss@db.internal:6543/samp?schema=crm&sslmode=require&connection_limit=5', {});
-    expect(t.env).toMatchObject({ PGHOST: 'db.internal', PGPORT: '6543', PGUSER: 'u@x', PGPASSWORD: 'p#ss', PGDATABASE: 'samp', PGSSLMODE: 'require' });
-    expect(t.schema).toBe('crm');
+    const t = dbTarget('mongodb://u%40x:p%23ss@db.internal:27018,db2.internal:27018/samp?replicaSet=rs0&tls=true');
+    expect(t).toMatchObject({ database: 'samp', host: 'db.internal' });
+    expect(JSON.stringify({ database: t.database, host: t.host })).not.toContain('p%23ss');
+    expect(() => dbTarget('postgresql://u:p@db/samp')).toThrow(/not a MongoDB address/);
+    expect(() => dbTarget('mongodb://db.internal:27017/')).toThrow(/name the database/);
   });
 });
 

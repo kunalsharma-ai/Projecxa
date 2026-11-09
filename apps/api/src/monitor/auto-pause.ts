@@ -3,7 +3,8 @@
  * complete and on each monitor run. Plain functions over Prisma, so the survey engine can call it
  * without depending on the monitor module.
  */
-import { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { PrismaClient } from '../prisma/client';
 import { autoPauseDecision, autoPauseStateOf, autopilotOf, AutoPauseState } from './monitor.rules';
 
 type Db = PrismaClient;

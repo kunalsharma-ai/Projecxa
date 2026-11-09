@@ -23,6 +23,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { fieldMetrics, emptyFieldMetrics } from '../projects/field-metrics';
 import { RateLimiter } from '../public-api/api-key.guard';
 import { EntitlementsModule, EntitlementsService } from '../super-admin/entitlements';
+import { aggregate, dateOut, mdate, numOut } from '../prisma/agg';
 
 /** At most this many links that still work, per project. */
 export const MAX_ACTIVE_DASHBOARD_LINKS = 20;
@@ -167,11 +168,10 @@ export class DashboardLinksService {
     const [byStatus, metrics, recent, spend, vendors] = await Promise.all([
       this.prisma.respondentSession.groupBy({ by: ['status'], where: { projectId: p.id, isTest: false }, _count: { _all: true } }),
       fieldMetrics(this.prisma, [p.id]),
-      this.prisma.$queryRaw<{ h: Date; n: number }[]>`
-        SELECT date_trunc('hour', "outcomeAt") AS h, COUNT(*)::int AS n
-        FROM "RespondentSession"
-        WHERE "projectId" = ${p.id} AND "isTest" = false AND "status" = 'COMPLETE' AND "outcomeAt" >= ${since}
-        GROUP BY 1`,
+      aggregate<{ _id: unknown; n: number }>(this.prisma.respondentSession, [
+        { $match: { projectId: p.id, isTest: false, status: 'COMPLETE', outcomeAt: { $gte: mdate(since) } } },
+        { $group: { _id: { $dateTrunc: { date: '$outcomeAt', unit: 'hour' } }, n: { $sum: 1 } } },
+      ]).then((rows) => rows.map((r) => ({ h: dateOut(r._id)!, n: numOut(r.n) }))),
       link.showMoney
         ? this.prisma.respondentSession.groupBy({ by: ['projectCountryId'], where: { projectId: p.id, isTest: false, status: 'COMPLETE' }, _sum: { revenue: true } })
         : Promise.resolve([]),

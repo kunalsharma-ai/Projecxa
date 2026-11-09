@@ -8,6 +8,7 @@ import { ZodPipe } from '../common/zod.pipe';
 import { PrismaService } from '../prisma/prisma.service';
 import { questionsOf } from '../survey/questions';
 import { cellsInputSchema, QUOTABLE_TYPES, validateCells } from './quota.rules';
+import { aggregate, numOut } from '../prisma/agg';
 
 const patchSchema = z.object({ isOpen: z.boolean().optional(), target: z.number().int().min(1).max(1_000_000).optional() }).strict();
 
@@ -47,9 +48,11 @@ export class QuotasController {
         select: { id: true, countryCode: true, language: true, status: true, targetCompletes: true, completes: true, quotas: { orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] } },
       }),
       // Respondents who qualified for a cell and are still in the survey.
-      this.prisma.$queryRaw<{ id: string; n: number }[]>`
-        SELECT cell AS id, COUNT(*)::int AS n FROM "RespondentSession", unnest("quotaCellIds") AS cell
-        WHERE "projectId" = ${id} AND status = 'STARTED' AND "isTest" = false GROUP BY cell`,
+      aggregate<{ _id: string; n: number }>(this.prisma.respondentSession, [
+        { $match: { projectId: id, status: 'STARTED', isTest: false } },
+        { $unwind: '$quotaCellIds' },
+        { $group: { _id: '$quotaCellIds', n: { $sum: 1 } } },
+      ]).then((rows) => rows.map((r) => ({ id: r._id, n: numOut(r.n) }))),
     ]);
     const live = new Map(inProgress.map((r) => [r.id, r.n]));
     return {

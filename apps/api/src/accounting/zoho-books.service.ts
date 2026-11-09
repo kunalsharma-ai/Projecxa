@@ -174,7 +174,7 @@ export class ZohoBooksService {
     const run = await this.prisma.$transaction(async (tx) => {
       if (await tx.zohoBooksSync.count({ where: { organizationId: org, status: 'running' } })) throw new ConflictException('A sync is already running');
       return tx.zohoBooksSync.create({ data: { organizationId: org, trigger, status: 'running', createdById: userId } });
-    }, { isolationLevel: 'Serializable' }).catch((e) => {
+    }).catch((e) => {
       if (e instanceof ConflictException) throw e;
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2034') throw new ConflictException('A sync is already running');
       throw e;

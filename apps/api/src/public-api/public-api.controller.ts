@@ -11,7 +11,7 @@ import { ApiKeyGuard, ApiRequest, Scope } from './api-key.guard';
 import { ApiKeysController, ApiKeysService } from './api-keys';
 import { openApiSpec } from './openapi';
 
-const num = (d: Prisma.Decimal | null | undefined) => (d == null ? null : Number(d));
+const num = (d: number | null | undefined) => (d == null ? null : Number(d));
 const iso = /^\d{4}-\d{2}-\d{2}(T[\d:.]+(Z|[+-]\d{2}:?\d{2})?)?$/;
 const since = z.string().regex(iso, 'Use an ISO date, e.g. 2026-11-01 or 2026-11-01T09:00:00Z').transform((s) => new Date(s)).refine((d) => !Number.isNaN(d.getTime()), 'Not a valid date').optional();
 const page = { limit: z.coerce.number().int().min(1).max(200).default(50), cursor: z.string().max(60).optional() };

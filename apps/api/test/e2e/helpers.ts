@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { PrismaClient, Role } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
+import { PrismaClient } from '../../src/prisma/client';
 import * as bcrypt from 'bcryptjs';
 import request from 'supertest';
 import { AppModule } from '../../src/app.module';
@@ -14,8 +15,29 @@ export async function createApp() {
   return { app, prisma: app.get(PrismaService) as PrismaClient, mod };
 }
 
+/**
+ * Organization and every model that refers to it, directly or through other models (what
+ * PostgreSQL's TRUNCATE "Organization" CASCADE emptied).
+ */
+function orgModels(): string[] {
+  const models = Prisma.dmmf.datamodel.models;
+  const out = new Set(['Organization']);
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const m of models) {
+      if (out.has(m.name)) continue;
+      if (m.fields.some((f) => f.kind === 'object' && (f.relationFromFields?.length ?? 0) > 0 && out.has(f.type))) {
+        out.add(m.name);
+        grew = true;
+      }
+    }
+  }
+  return [...out];
+}
+
 export async function resetDb(prisma: PrismaClient) {
-  await prisma.$executeRawUnsafe('TRUNCATE "Organization" CASCADE');
+  const names = orgModels();
+  await Promise.all(names.map((name) => prisma.$runCommandRaw({ delete: name, deletes: [{ q: {}, limit: 0 }] })));
 }
 
 export const PASSWORD = 'correct-horse-battery';

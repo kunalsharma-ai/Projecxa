@@ -16,6 +16,7 @@ import { AuthUser } from '../auth/auth.types';
 import { config as appConfig } from '../common/config';
 import { ZodPipe } from '../common/zod.pipe';
 import { PrismaService } from '../prisma/prisma.service';
+import { numOut } from '../prisma/agg';
 
 const DAY = 86_400_000;
 export const MIN_DAYS = 30;
@@ -84,14 +85,36 @@ export class PrivacyService {
       const chunk = ids.slice(i, i + 500);
       changed += await this.prisma.$transaction(async (tx) => {
         // The vendor's respondent ID must stay unique per link, so it becomes "erased:<session id>".
-        const n = await tx.$executeRaw`
-          UPDATE "RespondentSession" SET "vendorRespondentId" = 'erased:' || id, "ipHash" = NULL, "userAgent" = NULL, "fingerprintHash" = NULL, "deviceHash" = NULL,
-            "browserIdHash" = NULL, "geoCountry" = NULL, answers = NULL, "anonymizedAt" = ${now}
-          WHERE "organizationId" = ${org} AND id IN (${Prisma.join(chunk)}) AND "anonymizedAt" IS NULL`;
-        await tx.respondentEvent.updateMany({ where: { sessionId: { in: chunk }, session: { organizationId: org } }, data: { detail: Prisma.DbNull } });
+        const res = (await tx.$runCommandRaw({
+          update: 'RespondentSession',
+          updates: [
+            {
+              q: { organizationId: org, _id: { $in: chunk }, anonymizedAt: null },
+              // A pipeline update, so the new ID can be built from the session's own id.
+              u: [
+                {
+                  $set: {
+                    vendorRespondentId: { $concat: ['erased:', '$_id'] },
+                    ipHash: null,
+                    userAgent: null,
+                    fingerprintHash: null,
+                    deviceHash: null,
+                    browserIdHash: null,
+                    geoCountry: null,
+                    answers: null,
+                    anonymizedAt: { $date: now.toISOString() },
+                  },
+                },
+              ],
+              multi: true,
+            },
+          ],
+        })) as { n?: unknown };
+        const n = numOut(res.n);
+        await tx.respondentEvent.updateMany({ where: { sessionId: { in: chunk }, session: { organizationId: org } }, data: { detail: null } });
         await tx.redirectExecution.updateMany({ where: { sessionId: { in: chunk }, session: { organizationId: org } }, data: { destination: '[removed]' } });
         // Callbacks still being retried keep their URL until they finish.
-        await tx.callbackDelivery.updateMany({ where: { organizationId: org, sessionId: { in: chunk }, state: { in: ['DELIVERED', 'FAILED', 'DEAD_LETTER'] } }, data: { url: '[removed]', body: Prisma.DbNull } });
+        await tx.callbackDelivery.updateMany({ where: { organizationId: org, sessionId: { in: chunk }, state: { in: ['DELIVERED', 'FAILED', 'DEAD_LETTER'] } }, data: { url: '[removed]', body: null } });
         return n;
       });
     }
@@ -141,7 +164,7 @@ export class PrivacyService {
 
   async runDue(now = new Date()) {
     const orgs = await this.prisma.organization.findMany({
-      where: { retention: { not: Prisma.DbNull }, OR: [{ retentionRunAt: null }, { retentionRunAt: { lt: new Date(now.getTime() - DAY + 60_000) } }] },
+      where: { retention: { not: null }, OR: [{ retentionRunAt: null }, { retentionRunAt: { lt: new Date(now.getTime() - DAY + 60_000) } }] },
       select: { id: true, retention: true },
     });
     const out: { org: string; sessions: number; events: number }[] = [];
@@ -188,7 +211,7 @@ export class PrivacyController {
   @Put('retention')
   @Roles('ADMIN')
   async setRetention(@CurrentUser() u: AuthUser, @Body(new ZodPipe(retentionSchema)) b: Retention) {
-    const value = b.respondentDays || b.eventDays ? (b as unknown as Prisma.InputJsonValue) : Prisma.DbNull;
+    const value = b.respondentDays || b.eventDays ? (b as unknown as Prisma.InputJsonValue) : null;
     await this.prisma.organization.update({ where: { id: u.organizationId }, data: { retention: value } });
     await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'privacy.retention_set', entityType: 'Organization', entityId: u.organizationId, detail: b });
     return { retention: b, preview: await this.privacy.preview(u.organizationId, b) };

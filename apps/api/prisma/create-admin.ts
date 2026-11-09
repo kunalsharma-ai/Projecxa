@@ -11,7 +11,7 @@
  * Running it again with an existing slug adds another admin to that organisation.
  */
 import 'dotenv/config';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../src/prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { firstAdminProblems, parseFlags, slugify } from '../src/auth/first-admin';
 

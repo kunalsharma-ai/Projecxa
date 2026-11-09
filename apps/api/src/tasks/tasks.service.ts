@@ -150,7 +150,10 @@ export class TasksService {
       ...(q.overdue === 'true' ? { status: { in: OPEN }, dueAt: { lt: now } } : {}),
       ...(q.search ? { title: { contains: q.search, mode: 'insensitive' } } : {}),
     };
-    const rows = await this.prisma.task.findMany({ where, include, orderBy: [{ dueAt: { sort: 'asc', nulls: 'last' } }, { createdAt: 'desc' }], take });
+    // Due date first, tasks without one after them (MongoDB sorts null first, so two reads).
+    const dated = await this.prisma.task.findMany({ where: { AND: [where, { dueAt: { not: null } }] }, include, orderBy: [{ dueAt: 'asc' }, { createdAt: 'desc' }], take });
+    const undated = take === undefined || dated.length < take ? await this.prisma.task.findMany({ where: { AND: [where, { dueAt: null }] }, include, orderBy: [{ createdAt: 'desc' }], ...(take === undefined ? {} : { take: take - dated.length }) }) : [];
+    const rows = [...dated, ...undated];
     const rank: Record<TaskPriority, number> = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
     return rows.map((t) => shapeTask(t, now.getTime())).sort((a, b) => Number(b.overdue) - Number(a.overdue) || rank[a.priority] - rank[b.priority]);
   }

@@ -1,5 +1,6 @@
 import { INestApplication } from '@nestjs/common';
-import { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { PrismaClient } from '../../src/prisma/client';
 import request from 'supertest';
 import { MailService, Mail } from '../../src/mail/mail.service';
 import { api, createApp, login, makeOrg, PASSWORD, resetDb } from './helpers';
@@ -104,7 +105,7 @@ describe('Team and password reset (e2e)', () => {
     await http().post('/api/v1/auth/password/forgot').send({ email: users.ADMIN.email }).expect(200); // admins keep passwords
     expect(sent.length).toBe(before + 1);
     sent.pop();
-    await prisma.organization.updateMany({ data: { ssoConfig: Prisma.DbNull } });
+    await prisma.organization.updateMany({ data: { ssoConfig: null } });
   });
 
   it('changes roles, deactivates (signed out at once), and protects your own admin access', async () => {

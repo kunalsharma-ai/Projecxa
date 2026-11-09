@@ -16,7 +16,7 @@ Checked at entry, before a session gets the survey link. The first match decides
 
 1. **Always allow** (the organisation's list): passes. Use it for the office and QA VPNs.
 2. **Always block** (the organisation's list): `IP_BLOCKED`.
-3. **Free public lists**, refreshed every 12 hours into Postgres (`IpReputationRange`, matched with the `inet >>=` operator and a GiST index):
+3. **Free public lists**, refreshed every 12 hours into the database (`IpReputationRange`: each range is stored with its first and last address as 32 hex digits, IPv4 as IPv4-mapped IPv6, and matched with an index on both):
    - FireHOL Level 1 (attacks and abuse) → `IP_ABUSE`
    - X4BNet VPN ranges → `PROXY_VPN`
    - X4BNet data centre and hosting ranges → `DATACENTER_IP`

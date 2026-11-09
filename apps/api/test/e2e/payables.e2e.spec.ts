@@ -1,5 +1,5 @@
 import { INestApplication } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../src/prisma/client';
 import request from 'supertest';
 import { api, createApp, login, makeOrg, PASSWORD, resetDb } from './helpers';
 

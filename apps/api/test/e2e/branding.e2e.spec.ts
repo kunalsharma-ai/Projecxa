@@ -1,5 +1,5 @@
 import { INestApplication } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../src/prisma/client';
 import request from 'supertest';
 import { deflateSync } from 'zlib';
 import { BrandingService } from '../../src/branding/branding';

@@ -470,8 +470,8 @@ export class SurveyService {
     }
 
     const changed = await this.prisma.$transaction(async (tx) => {
-      let revenue: Prisma.Decimal | null = null;
-      let payout: Prisma.Decimal | null = null;
+      let revenue: number | null = null;
+      let payout: number | null = null;
       if (status === 'COMPLETE' && !session.isTest) {
         // Atomic quota control: only count the complete if every quota cell the respondent qualified
         // for, the country and the vendor target still have room. Anything taken is given back otherwise.
@@ -479,17 +479,19 @@ export class SurveyService {
         const cellIds = ids.length ? (await tx.quotaCell.findMany({ where: { id: { in: ids }, projectCountryId: session.projectCountryId }, select: { id: true } })).map((x) => x.id) : [];
         const taken: string[] = [];
         for (const id of cellIds) {
-          const ok = await tx.$executeRaw`UPDATE "QuotaCell" SET completes = completes + 1 WHERE id = ${id} AND "isOpen" AND completes < target`;
+          const ok = (await tx.quotaCell.updateMany({ where: { id, isOpen: true, completes: { lt: tx.quotaCell.fields.target } }, data: { completes: { increment: 1 } } })).count;
           if (!ok) break;
           taken.push(id);
         }
         const cellsOk = taken.length === cellIds.length;
-        const c = cellsOk ? await tx.$executeRaw`UPDATE "ProjectCountry" SET completes = completes + 1 WHERE id = ${session.projectCountryId} AND completes < "targetCompletes"` : 0;
-        const a = c
-          ? await tx.$executeRaw`UPDATE "VendorAllocation" SET completes = completes + 1 WHERE id = ${session.vendorAllocationId} AND completes < "targetCompletes"`
+        const c = cellsOk
+          ? (await tx.projectCountry.updateMany({ where: { id: session.projectCountryId, completes: { lt: tx.projectCountry.fields.targetCompletes } }, data: { completes: { increment: 1 } } })).count
           : 0;
-        if (c && !a) await tx.$executeRaw`UPDATE "ProjectCountry" SET completes = completes - 1 WHERE id = ${session.projectCountryId}`;
-        if (!a) for (const id of taken) await tx.$executeRaw`UPDATE "QuotaCell" SET completes = completes - 1 WHERE id = ${id}`;
+        const a = c
+          ? (await tx.vendorAllocation.updateMany({ where: { id: session.vendorAllocationId, completes: { lt: tx.vendorAllocation.fields.targetCompletes } }, data: { completes: { increment: 1 } } })).count
+          : 0;
+        if (c && !a) await tx.projectCountry.update({ where: { id: session.projectCountryId }, data: { completes: { decrement: 1 } } });
+        if (!a) for (const id of taken) await tx.quotaCell.update({ where: { id }, data: { completes: { decrement: 1 } } });
         if (!c || !a) {
           status = 'QUOTA_FULL';
           detail = 'OVERQUOTA';

@@ -22,6 +22,7 @@ import { QuickBooksLedger, quickBooksCompany } from './quickbooks';
 import { TallyLedger } from './tally';
 import { Ledger, LEDGER_LABEL, LEDGER_PROVIDERS, LedgerContext, LedgerProvider, LedgerSignInExpired } from './types';
 import { XeroLedger, xeroScopes, xeroTenants } from './xero';
+import { idsMatching } from '../../prisma/mongo-compat';
 
 /**
  * Direct sync to Xero, QuickBooks Online and Tally Prime (docs/ACCOUNTING_SYNC.md). Xero and
@@ -287,7 +288,7 @@ export class LedgerService {
       .$transaction(async (tx) => {
         if (await tx.ledgerSync.count({ where: { organizationId: org, provider, status: 'running' } })) throw new ConflictException('A sync is already running');
         return tx.ledgerSync.create({ data: { organizationId: org, provider, trigger, status: 'running', createdById: userId } });
-      }, { isolationLevel: 'Serializable' })
+      })
       .catch((e) => {
         if (e instanceof ConflictException) throw e;
         if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2034') throw new ConflictException('A sync is already running');
@@ -314,7 +315,8 @@ export class LedgerService {
   @Interval(5 * 60_000)
   async tick() {
     if (!config.ledgers.schedulerEnabled) return;
-    const conns = await this.prisma.ledgerConnection.findMany({ where: { settings: { path: ['hourly'], equals: true } }, select: { organizationId: true, provider: true, status: true } });
+    const hourly = await idsMatching(this.prisma.ledgerConnection, { 'settings.hourly': true });
+    const conns = await this.prisma.ledgerConnection.findMany({ where: { id: { in: hourly } }, select: { organizationId: true, provider: true, status: true } });
     for (const c of conns) {
       if (!isProvider(c.provider)) continue;
       if (c.provider === 'tally' ? !(await this.tallyBound(c.organizationId)) : c.status !== 'connected') continue;

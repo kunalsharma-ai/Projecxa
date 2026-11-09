@@ -55,7 +55,10 @@ export class ApiKeysService {
   ) {}
 
   async list(org: string) {
-    const rows = await this.prisma.apiKey.findMany({ where: { organizationId: org }, orderBy: [{ revokedAt: { sort: 'desc', nulls: 'first' } }, { createdAt: 'desc' }] });
+    // Active keys first, then the most recently revoked (MongoDB sorts null last when descending).
+    const rows = (await this.prisma.apiKey.findMany({ where: { organizationId: org }, orderBy: [{ createdAt: 'desc' }] })).sort(
+      (a, b) => (a.revokedAt ? 1 : 0) - (b.revokedAt ? 1 : 0) || (b.revokedAt?.getTime() ?? 0) - (a.revokedAt?.getTime() ?? 0),
+    );
     const users = await this.prisma.user.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.createdById))] } }, select: { id: true, name: true, email: true } });
     const byId = new Map(users.map((x) => [x.id, x]));
     return rows.map((r) => keyView(r, byId.get(r.createdById)));

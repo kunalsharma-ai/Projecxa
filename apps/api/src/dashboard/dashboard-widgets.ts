@@ -13,6 +13,8 @@ import { ZodPipe } from '../common/zod.pipe';
 import { PrismaService } from '../prisma/prisma.service';
 import { RateTable, ReportsService } from '../reports/reports.service';
 import { periods, periodSchema } from './period';
+import { aggregate, countIf, mdate, numOut } from '../prisma/agg';
+import { currencyOf, sessionGroups } from '../prisma/session-totals';
 
 export const WIDGETS = ['kpis', 'timeline', 'kanban', 'radar', 'activity', 'coverage', 'budget', 'suppliers', 'quick-actions', 'trend', 'waterfall', 'map', 'finance', 'payables', 'top-vendors', 'top-projects', 'top-clients', 'live-projects', 'health', 'heatmap', 'workspace'] as const;
 export type WidgetId = (typeof WIDGETS)[number];
@@ -112,7 +114,7 @@ export class DashboardWidgetsController {
 
   @Delete('layout')
   async reset(@CurrentUser() u: AuthUser) {
-    await this.prisma.user.update({ where: { id: u.id }, data: { dashboardLayout: Prisma.DbNull } });
+    await this.prisma.user.update({ where: { id: u.id }, data: { dashboardLayout: null } });
     return { custom: false, widgets: DEFAULT_LAYOUT, available: WIDGETS };
   }
 
@@ -154,15 +156,18 @@ export class DashboardWidgetsController {
     const per = periods(q);
     const gte = new Date(`${per.from}T00:00:00.000Z`);
     const lt = new Date(Date.parse(`${per.to}T00:00:00.000Z`) + 86_400_000);
-    const rows = await this.prisma.$queryRaw<{ dow: number; hour: number; entries: number; completes: number }[]>`
-      SELECT (EXTRACT(ISODOW FROM local)::int - 1) AS dow, EXTRACT(HOUR FROM local)::int AS hour,
-        COUNT(*)::int AS entries, COUNT(*) FILTER (WHERE status = 'COMPLETE')::int AS completes
-      FROM (
-        SELECT (s."startedAt" AT TIME ZONE 'UTC') AT TIME ZONE ${t.tz} AS local, s.status
-        FROM "RespondentSession" s
-        WHERE s."organizationId" = ${u.organizationId} AND s."isTest" = false AND s."startedAt" >= ${gte} AND s."startedAt" < ${lt}
-      ) x
-      GROUP BY 1, 2`;
+    const rows = (
+      await aggregate<{ _id: { dow: number; hour: number }; entries: number; completes: number }>(this.prisma.respondentSession, [
+        { $match: { organizationId: u.organizationId, isTest: false, startedAt: { $gte: mdate(gte), $lt: mdate(lt) } } },
+        {
+          $group: {
+            _id: { dow: { $subtract: [{ $isoDayOfWeek: { date: '$startedAt', timezone: t.tz } }, 1] }, hour: { $hour: { date: '$startedAt', timezone: t.tz } } },
+            entries: { $sum: 1 },
+            completes: countIf({ $eq: ['$status', 'COMPLETE'] }),
+          },
+        },
+      ])
+    ).map((r) => ({ dow: numOut(r._id.dow), hour: numOut(r._id.hour), entries: r.entries, completes: r.completes }));
     const entries = Array.from({ length: 7 }, () => Array(24).fill(0) as number[]);
     const completes = Array.from({ length: 7 }, () => Array(24).fill(0) as number[]);
     for (const r of rows) {
@@ -185,17 +190,21 @@ export class DashboardWidgetsController {
     const gte = new Date(`${per.from}T00:00:00.000Z`);
     const lt = new Date(Date.parse(`${per.to}T00:00:00.000Z`) + 86_400_000);
     const [rows, t] = await Promise.all([
-      this.prisma.$queryRaw<{ currency: string; gross: number; rejected: number; pending: number; payout: number }[]>`
-        SELECT pc.currency,
-          COALESCE(SUM(s.revenue), 0)::float8 AS gross,
-          COALESCE(SUM(s.revenue) FILTER (WHERE s.approval = 'REJECTED'), 0)::float8 AS rejected,
-          COALESCE(SUM(s.revenue) FILTER (WHERE s.approval = 'PENDING'), 0)::float8 AS pending,
-          COALESCE(SUM(s.payout) FILTER (WHERE s.approval <> 'REJECTED'), 0)::float8 AS payout
-        FROM "RespondentSession" s
-        JOIN "ProjectCountry" pc ON pc.id = s."projectCountryId"
-        WHERE s."organizationId" = ${org} AND s."isTest" = false AND s.status = 'COMPLETE'
-          AND s."startedAt" >= ${gte} AND s."startedAt" < ${lt}
-        GROUP BY 1`,
+      sessionGroups(this.prisma, { organizationId: org, isTest: false, status: 'COMPLETE', startedAt: { gte, lt } }, ['approval', 'projectCountryId']).then(async (groups) => {
+        const cur = await currencyOf(this.prisma, groups.map((g) => g.projectCountryId));
+        const by = new Map<string, { currency: string; gross: number; rejected: number; pending: number; payout: number }>();
+        for (const g of groups) {
+          const currency = g.projectCountryId ? cur.get(g.projectCountryId) : undefined;
+          if (!currency) continue;
+          const m = by.get(currency) ?? { currency, gross: 0, rejected: 0, pending: 0, payout: 0 };
+          m.gross += g.revenue;
+          if (g.approval === 'REJECTED') m.rejected += g.revenue;
+          if (g.approval === 'PENDING') m.pending += g.revenue;
+          if (g.approval !== 'REJECTED') m.payout += g.payout;
+          by.set(currency, m);
+        }
+        return [...by.values()];
+      }),
       this.reports.rateTable(org),
     ]);
     const pick = (k: 'gross' | 'rejected' | 'pending' | 'payout') => convert(rows.map((r) => ({ currency: r.currency, amount: Number(r[k]) })), t);

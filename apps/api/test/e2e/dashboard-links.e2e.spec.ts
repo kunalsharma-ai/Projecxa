@@ -1,5 +1,5 @@
 import { INestApplication } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../src/prisma/client';
 import request from 'supertest';
 import { dashboardLimiter, MAX_ACTIVE_DASHBOARD_LINKS } from '../../src/dashboard-links/dashboard-links';
 import { api, createApp, login, makeOrg, resetDb } from './helpers';

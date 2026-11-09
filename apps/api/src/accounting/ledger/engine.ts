@@ -148,7 +148,7 @@ export class SyncEngine {
 }
 
 type Row = {
-  id: string; number: string; dueAt: Date | null; status: string; currency: string; lines: Prisma.JsonValue; subtotal: Prisma.Decimal; taxName: string | null; taxPercent: Prisma.Decimal; taxAmount: Prisma.Decimal; total: Prisma.Decimal; notes: string | null; paidAt: Date | null; paymentReference: string | null;
+  id: string; number: string; dueAt: Date | null; status: string; currency: string; lines: Prisma.JsonValue; subtotal: number; taxName: string | null; taxPercent: number; taxAmount: number; total: number; notes: string | null; paidAt: Date | null; paymentReference: string | null;
 };
 function toDoc(kind: 'invoice' | 'bill', r: Row, party: Party, date: Date, reference: string | null): LedgerDoc {
   const lines = (r.lines as unknown as { description: string; quantity: number; unitPrice: number; amount: number }[]).map((l) => ({ description: String(l.description), quantity: Number(l.quantity), unitPrice: Number(l.unitPrice), amount: Number(l.amount) }));

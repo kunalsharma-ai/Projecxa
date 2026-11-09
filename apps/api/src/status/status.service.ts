@@ -15,6 +15,7 @@ import { CurrentUser, Public, Roles } from '../auth/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import { IntegrationsService } from '../integrations/integrations.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { aggregate, mdate, numOut } from '../prisma/agg';
 
 export type Health = 'up' | 'degraded' | 'down';
 export const COMPONENTS = [
@@ -95,7 +96,7 @@ export class StatusService {
     let dbLatencyMs: number | null = null;
     const t = Date.now();
     try {
-      await this.prisma.$queryRaw`SELECT 1`;
+      await this.prisma.ping();
       dbLatencyMs = Date.now() - t;
       db = dbLatencyMs > SLOW_MS ? 'degraded' : 'up';
     } catch { db = 'down'; }
@@ -157,11 +158,15 @@ export class StatusService {
   private async uptime(keys: string[]) {
     const now = this.now();
     const since = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - (DAYS - 1) * DAY);
-    const rows = await this.prisma.$queryRaw<{ d: string; key: string; s: string; n: bigint }[]>`
-      SELECT to_char(date_trunc('day', c."at"), 'YYYY-MM-DD') AS d, e.key AS key, e.value #>> '{}' AS s, count(*) AS n
-      FROM "UptimeCheck" c, jsonb_each(c."components") e
-      WHERE c."at" >= ${since} AND c."at" <= ${now}
-      GROUP BY 1, 2, 3`;
+    // Per day, component and health: how many checks saw it.
+    const rows = (
+      await aggregate<{ _id: { d: string; key: string; s: string }; n: number }>(this.prisma.uptimeCheck, [
+        { $match: { at: { $gte: mdate(since), $lte: mdate(now) } } },
+        { $project: { d: { $dateToString: { format: '%Y-%m-%d', date: '$at' } }, kv: { $objectToArray: '$components' } } },
+        { $unwind: '$kv' },
+        { $group: { _id: { d: '$d', key: '$kv.k', s: '$kv.v' }, n: { $sum: 1 } } },
+      ])
+    ).map((r) => ({ d: r._id.d, key: r._id.key, s: String(r._id.s), n: numOut(r.n) }));
     const first = await this.prisma.uptimeCheck.findFirst({ orderBy: { at: 'asc' }, select: { at: true } });
     const out: Record<string, DayStat[]> = {};
     for (const k of keys) {
@@ -329,7 +334,7 @@ export class PublicStatusController {
   async ping(@Res() res: Response) {
     res.setHeader('Cache-Control', 'no-store');
     try {
-      await this.prisma.$queryRaw`SELECT 1`;
+      await this.prisma.ping();
       res.status(200).json({ ok: true, at: new Date().toISOString() });
     } catch {
       res.status(503).json({ ok: false, at: new Date().toISOString(), message: 'The database is not answering' });

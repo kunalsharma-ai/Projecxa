@@ -19,7 +19,7 @@ import { aiFrom, AiConfig, config, EnvMap, ledgersFrom, smtpFrom, SmtpConfig, zo
 import { ZodPipe } from '../common/zod.pipe';
 import { PrismaService } from '../prisma/prisma.service';
 import { EntitlementsService } from '../super-admin/entitlements';
-import { pgDumpVersion } from '../backups/backup-core';
+import { dumpToolVersion } from '../backups/backup-core';
 import { BackupStorage, s3From, storageFrom } from '../backups/storage';
 import { parseCidrList } from '../survey/fraud';
 import { BOOTSTRAP_ENV, CATALOG, FieldDef, IntegrationKind, isKind, isPaymentKind, isServerOnlyKind, KIND, KindDef } from './catalog';
@@ -504,7 +504,7 @@ export class IntegrationsService {
         } catch (e) {
           return { ok: false, message: (e as Error).message.slice(0, 300) };
         }
-        const tool = await pgDumpVersion().then((v) => ({ ok: true, v }), (e: Error) => ({ ok: false, v: e.message }));
+        const tool = await dumpToolVersion().then((v) => ({ ok: true, v }), (e: Error) => ({ ok: false, v: e.message }));
         if (!tool.ok) return { ok: false, message: `Storage works (${b.storage.where}), but ${tool.v}` };
         return { ok: true, message: `Wrote, read and deleted a test file in ${b.storage.where}. ${tool.v} is ready.${b.passphrase ? ' Backups will be encrypted.' : ' Backups will NOT be encrypted: add a passphrase.'}` };
       }

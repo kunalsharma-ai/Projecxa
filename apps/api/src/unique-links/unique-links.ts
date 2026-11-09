@@ -17,6 +17,7 @@ import { CurrentUser, EDITORS, Roles } from '../auth/decorators';
 import { config } from '../common/config';
 import { ZodPipe } from '../common/zod.pipe';
 import { PrismaService } from '../prisma/prisma.service';
+import { createManySkipDuplicates } from '../prisma/mongo-compat';
 
 /** Most links one request may create, and most links one project may hold. */
 export const MAX_PER_BATCH = 50_000;
@@ -152,10 +153,11 @@ export class UniqueLinksService {
     let made = 0;
     for (let tries = 0; made < body.count && tries < 20; tries++) {
       const n = Math.min(5_000, body.count - made);
-      const r = await this.prisma.uniqueLink.createMany({
-        data: Array.from({ length: n }, () => ({ organizationId: p.organizationId, projectId, vendorAllocationId: a.id, batchId: batch.id, key: newKey() })),
-        skipDuplicates: true,
-      });
+      const r = await createManySkipDuplicates(
+        this.prisma.uniqueLink,
+        'UniqueLink',
+        Array.from({ length: n }, () => ({ organizationId: p.organizationId, projectId, vendorAllocationId: a.id, batchId: batch.id, key: newKey() })),
+      );
       made += r.count;
     }
     await this.audit.record({

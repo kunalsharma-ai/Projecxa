@@ -9,7 +9,7 @@ It is a pnpm monorepo with two apps:
 | API | `apps/api` | NestJS 11, Prisma 6 | 4000 |
 | Web | `apps/web` | Next.js 15, Tailwind | 3000 |
 
-Data lives in PostgreSQL 16. Redis is listed in `docker-compose.yml` but is not used yet.
+Data lives in MongoDB 8 (a replica set: Prisma needs one for transactions; docs/MONGODB.md). Redis is listed in `docker-compose.yml` but is not used yet.
 Background jobs (callbacks, webhooks, monitor, schedulers) run inside the API process.
 
 ## 1. Prerequisites
@@ -19,9 +19,11 @@ Background jobs (callbacks, webhooks, monitor, schedulers) run inside the API pr
   (the repo's `.nvmrc` says 26). Older Node versions are no longer supported.
 - pnpm 10: `npm install -g pnpm@10.28.0`. Node 26 no longer ships Corepack, so the old
   `corepack enable` step does not work any more.
-- PostgreSQL 16, either a managed database or `docker compose up -d postgres`.
-- PostgreSQL client tools of the same version or newer, for backups (`pg_dump`, `pg_restore`, `psql`):
-  `sudo apt install postgresql-client-16`. See docs/BACKUPS.md.
+- MongoDB 8.0 or newer as a replica set (a single member is fine): a managed cluster such as
+  MongoDB Atlas, or `docker compose up -d mongo`, which starts a one-member replica set `rs0`.
+- The MongoDB Database Tools, for backups (`mongodump`, `mongorestore`): install the
+  `mongodb-database-tools` package from MongoDB's repository, or unpack the download and set
+  `MONGO_TOOLS_DIR`. See docs/BACKUPS.md.
 - A reverse proxy with TLS (Nginx, Caddy or a load balancer) and two DNS names, for example
   `app.yourcompany.com` (web) and `api.yourcompany.com` (API).
 
@@ -47,7 +49,7 @@ cp apps/web/.env.example apps/web/.env.local
 
 | Variable | Example | Notes |
 | --- | --- | --- |
-| `DATABASE_URL` | `postgresql://projexa:STRONGPASS@db-host:5432/projexa` | |
+| `DATABASE_URL` | `mongodb://projexa:STRONGPASS@db-host:27017/projexa?replicaSet=rs0&authSource=admin` | Must name the database and a replica set (Atlas: `mongodb+srv://…/projexa`) |
 | `JWT_SECRET` | output of `openssl rand -hex 32` | Signs sign-in sessions |
 | `MFA_ENCRYPTION_KEY` | another `openssl rand -hex 32` | Master key for saved secrets. **Set once, back it up, never change it**, or saved integrations and authenticator apps stop working |
 | `PUBLIC_BASE_URL` | `https://api.yourcompany.com` | Public API address, used in respondent links and SSO redirect URIs |
@@ -73,10 +75,11 @@ Running more than one API instance? Set `REPORT_SCHEDULER_ENABLED`, `REDIRECT_SC
 
 ```bash
 pnpm --filter @projexa/api prisma:generate
-pnpm db:deploy                               # applies all migrations (production)
+pnpm db:deploy                               # creates the collections and indexes
 ```
 
-Use `db:deploy`, not `db:migrate` (that one is for development).
+Run `db:deploy` after every update as well: it adds the collections and indexes a new version
+needs, and does nothing when they are already there. MongoDB has no SQL migrations.
 
 ### First admin
 

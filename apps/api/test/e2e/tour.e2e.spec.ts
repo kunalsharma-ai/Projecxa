@@ -1,5 +1,5 @@
 import { INestApplication } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../src/prisma/client';
 import { TOUR_VERSION } from '../../src/auth/tour';
 import { api, createApp, login, makeOrg, resetDb } from './helpers';
 

@@ -1,5 +1,5 @@
 import { INestApplication } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../src/prisma/client';
 import { api, createApp, login, makeOrg, resetDb } from './helpers';
 
 /** Project setup feedback (2026-11-06): markets, go-live rules, payouts, bulk edits, clone, custom options. */

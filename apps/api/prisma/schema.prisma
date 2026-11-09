@@ -7,14 +7,14 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
 // ───────────────────────────── Tenancy and identity ─────────────────────────────
 
 model Organization {
-  id                     String      @id @default(cuid())
+  id                     String      @id @default(cuid()) @map("_id")
   name                   String
   slug                   String      @unique
   /// Organization-level default redirect rules (lowest precedence). Shape: RedirectConfig.
@@ -35,9 +35,9 @@ model Organization {
   /// Finance settings (docs/PAYABLES.md): reporting currency and default taxes.
   baseCurrency           String      @default("USD")
   invoiceTaxName         String?
-  invoiceTaxPercent      Decimal     @default(0) @db.Decimal(5, 2)
+  invoiceTaxPercent      Float       @default(0)
   billTaxName            String?
-  billTaxPercent         Decimal     @default(0) @db.Decimal(5, 2)
+  billTaxPercent         Float       @default(0)
   /// Staff must turn on two-step sign-in before using the app (portal users may opt in).
   mfaRequired            Boolean     @default(false)
   /// Single sign-on (docs/SSO.md): { providers: { google, microsoft, zoho }, domains: [], microsoftTenantId?, ssoOnly }
@@ -152,15 +152,15 @@ enum OrgStatus {
 
 /// A feature package the Super Admin sells or assigns (docs/SUPER_ADMIN.md). No payments are taken.
 model Plan {
-  id             String           @id @default(cuid())
+  id             String           @id @default(cuid()) @map("_id")
   code           String           @unique
   name           String
   description    String?
   /// Shown to people, e.g. "INR 4,999 a month". Used when no price is set below.
   priceLabel     String?
   /// What organisations pay for the plan (docs/SUBSCRIPTION_PAYMENTS.md); null = cannot be bought for that period.
-  priceMonthly   Decimal?         @db.Decimal(12, 2)
-  priceYearly    Decimal?         @db.Decimal(12, 2)
+  priceMonthly   Float?
+  priceYearly    Float?
   currency       String           @default("INR")
   /// Feature keys (src/super-admin/features.ts) included on the web.
   features       String[]         @default([])
@@ -192,7 +192,7 @@ enum SubscriptionStatus {
 
 /// One organisation's subscription. An organisation without one keeps every feature (installs from before Super Admin).
 model Subscription {
-  id              String             @id @default(cuid())
+  id              String             @id @default(cuid()) @map("_id")
   organizationId  String             @unique
   organization    Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   planId          String
@@ -219,7 +219,7 @@ model Subscription {
 
 /// Super Admin switch for one feature of one organisation, on top of its plan.
 model FeatureOverride {
-  id             String       @id @default(cuid())
+  id             String       @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   feature        String
@@ -235,7 +235,7 @@ model FeatureOverride {
 
 /// Super Admin automation: when <trigger>, if <conditions>, then <actions> (docs/SUPER_ADMIN.md).
 model AutomationRule {
-  id            String          @id @default(cuid())
+  id            String          @id @default(cuid()) @map("_id")
   name          String
   enabled       Boolean         @default(true)
   /// org.registered | org.created | trial.ending | subscription.expiring | subscription.ended | org.inactive | seats.exceeded | integration.failing
@@ -273,7 +273,7 @@ enum BillingInvoiceStatus {
 
 /// A subscription invoice from the server owner to an organisation (docs/SUBSCRIPTION_PAYMENTS.md).
 model BillingInvoice {
-  id                String               @id @default(cuid())
+  id                String               @id @default(cuid()) @map("_id")
   /// SUB-2026-00001
   number            String               @unique
   organizationId    String
@@ -282,11 +282,11 @@ model BillingInvoice {
   plan              Plan                 @relation(fields: [planId], references: [id])
   interval          BillingInterval
   currency          String
-  amount            Decimal              @db.Decimal(12, 2)
+  amount            Float
   taxName           String?
-  taxPercent        Decimal              @default(0) @db.Decimal(5, 2)
-  taxAmount         Decimal              @default(0) @db.Decimal(12, 2)
-  total             Decimal              @db.Decimal(12, 2)
+  taxPercent        Float                @default(0)
+  taxAmount         Float                @default(0)
+  total             Float
   status            BillingInvoiceStatus @default(OPEN)
   /// razorpay | stripe | bank_transfer | upi | cheque | cash | other
   method            String?
@@ -314,7 +314,7 @@ model BillingInvoice {
 }
 
 model AutomationRun {
-  id             String         @id @default(cuid())
+  id             String         @id @default(cuid()) @map("_id")
   ruleId         String
   rule           AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
   organizationId String?
@@ -332,7 +332,7 @@ model AutomationRun {
 
 /// One integration's settings for an organisation (docs/INTEGRATIONS.md). Secrets are AES-256-GCM encrypted JSON.
 model IntegrationSetting {
-  id              String       @id @default(cuid())
+  id              String       @id @default(cuid()) @map("_id")
   organizationId  String
   organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   /// smtp | sso_google | sso_microsoft | sso_zoho | gemini | zoho_books | xero | quickbooks | tally | bidzo
@@ -359,7 +359,7 @@ enum Role {
 }
 
 model User {
-  id                 String          @id @default(cuid())
+  id                 String          @id @default(cuid()) @map("_id")
   organizationId     String
   organization       Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   email              String
@@ -437,7 +437,7 @@ enum PartyStatus {
 }
 
 model Client {
-  id               String       @id @default(cuid())
+  id               String       @id @default(cuid()) @map("_id")
   organizationId   String
   organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name             String
@@ -467,7 +467,7 @@ model Client {
 }
 
 model ClientContact {
-  id       String    @id @default(cuid())
+  id       String    @id @default(cuid()) @map("_id")
   clientId String
   client   Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   name     String
@@ -477,7 +477,7 @@ model ClientContact {
 }
 
 model Vendor {
-  id                     String       @id @default(cuid())
+  id                     String       @id @default(cuid()) @map("_id")
   organizationId         String
   organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name                   String
@@ -537,7 +537,7 @@ enum RedirectMode {
 }
 
 model Project {
-  id                      String                 @id @default(cuid())
+  id                      String                 @id @default(cuid()) @map("_id")
   organizationId          String
   organization            Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   /// Human-readable project ID, e.g. PRX10001. Unique per tenant.
@@ -586,7 +586,7 @@ model Project {
   fraudRules              Json?
   redirectMode            RedirectMode           @default(HYBRID)
   activeRedirectVersionId String?                @unique
-  activeRedirectVersion   RedirectPolicyVersion? @relation("ActiveRedirectVersion", fields: [activeRedirectVersionId], references: [id])
+  activeRedirectVersion   RedirectPolicyVersion? @relation("ActiveRedirectVersion", fields: [activeRedirectVersionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   createdAt               DateTime               @default(now())
   updatedAt               DateTime               @updatedAt
 
@@ -629,7 +629,7 @@ enum CountryStatus {
 /// Options people add themselves to a dropdown ("Add +"), e.g. a project category or target group.
 /// `field` names the dropdown; `defaultVendor` rows list the vendors preselected on Create project.
 model CustomOption {
-  id             String       @id @default(cuid())
+  id             String       @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   field          String
@@ -641,7 +641,7 @@ model CustomOption {
 }
 
 model ProjectCountry {
-  id                String        @id @default(cuid())
+  id                String        @id @default(cuid()) @map("_id")
   projectId         String
   project           Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   /// ISO 3166-1 alpha-2
@@ -652,7 +652,7 @@ model ProjectCountry {
   loiMinutes        Int
   irPercent         Int
   /// Client CPI in `currency`.
-  cpi               Decimal       @db.Decimal(12, 2)
+  cpi               Float
   currency          String        @default("USD")
   targetCompletes   Int
   /// Count of completes accepted against the country target (updated atomically).
@@ -681,7 +681,7 @@ model ProjectCountry {
 }
 
 model QuotaCell {
-  id               String         @id @default(cuid())
+  id               String         @id @default(cuid()) @map("_id")
   projectCountryId String
   projectCountry   ProjectCountry @relation(fields: [projectCountryId], references: [id], onDelete: Cascade)
   /// Display group, e.g. "Gender" or "Age x Region". Cells in a group usually do not overlap.
@@ -710,14 +710,14 @@ enum AllocationStatus {
 }
 
 model VendorAllocation {
-  id                  String           @id @default(cuid())
+  id                  String           @id @default(cuid()) @map("_id")
   projectCountryId    String
   projectCountry      ProjectCountry   @relation(fields: [projectCountryId], references: [id], onDelete: Cascade)
   vendorId            String
   vendor              Vendor           @relation(fields: [vendorId], references: [id])
   status              AllocationStatus @default(ACTIVE)
   /// Vendor payout per complete, in the country currency.
-  cpi                 Decimal          @db.Decimal(12, 2)
+  cpi                 Float
   targetCompletes     Int
   completes           Int              @default(0)
   /// Opaque public code used in the vendor entry link: /s/{entryCode}
@@ -755,7 +755,7 @@ enum RedirectVersionState {
 /// holds rules for every scope (project, country, vendor, vendor+country) and the
 /// parameter alias mappings. See src/redirects/redirect.types.ts (RedirectConfig).
 model RedirectPolicyVersion {
-  id                String               @id @default(cuid())
+  id                String               @id @default(cuid()) @map("_id")
   projectId         String
   project           Project              @relation("ProjectRedirectVersions", fields: [projectId], references: [id], onDelete: Cascade)
   activeFor         Project?             @relation("ActiveRedirectVersion")
@@ -802,7 +802,7 @@ enum ApprovalStatus {
 }
 
 model RespondentSession {
-  id                 String                 @id @default(cuid())
+  id                 String                 @id @default(cuid()) @map("_id")
   organizationId     String
   organization       Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   projectId          String
@@ -833,8 +833,8 @@ model RespondentSession {
   /// Redirect configuration version used to process this session (historical traceability).
   redirectVersionId  String?
   redirectVersion    RedirectPolicyVersion? @relation(fields: [redirectVersionId], references: [id])
-  revenue            Decimal?               @db.Decimal(12, 2)
-  payout             Decimal?               @db.Decimal(12, 2)
+  revenue            Float?
+  payout             Float?
   ipHash             String?
   userAgent          String?
   /// desktop | mobile | tablet, from the user agent at entry.
@@ -911,7 +911,7 @@ enum ClientLinkStatus {
  * each live respondent is given the next unused one (atomically). docs/CLIENT_UNIQUE_LINKS.md.
  */
 model ClientUniqueLink {
-  id               String             @id @default(cuid())
+  id               String             @id @default(cuid()) @map("_id")
   organizationId   String
   organization     Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   projectId        String
@@ -939,7 +939,7 @@ model ClientUniqueLink {
  * Logo of a client or vendor (small image, any common format). Kept apart so lists stay light.
  */
 model PartyLogo {
-  id             String       @id @default(cuid())
+  id             String       @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   clientId       String?      @unique
@@ -954,7 +954,7 @@ model PartyLogo {
 }
 
 model UniqueLinkBatch {
-  id                 String           @id @default(cuid())
+  id                 String           @id @default(cuid()) @map("_id")
   organizationId     String
   projectId          String
   project            Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -975,7 +975,7 @@ model UniqueLinkBatch {
 /// A single-use respondent link: /u/{key}. The key is random and unguessable; the first
 /// respondent to open it claims it atomically and nobody can enter with it again.
 model UniqueLink {
-  id                 String           @id @default(cuid())
+  id                 String           @id @default(cuid()) @map("_id")
   organizationId     String
   projectId          String
   project            Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -1008,7 +1008,7 @@ enum EventSource {
 }
 
 model RespondentEvent {
-  id             String            @id @default(cuid())
+  id             String            @id @default(cuid()) @map("_id")
   sessionId      String
   session        RespondentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   type           String
@@ -1023,7 +1023,7 @@ model RespondentEvent {
 }
 
 model RedirectExecution {
-  id            String             @id @default(cuid())
+  id            String             @id @default(cuid()) @map("_id")
   sessionId     String?
   session       RespondentSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   status        RespondentStatus
@@ -1056,7 +1056,7 @@ enum CallbackState {
 }
 
 model CallbackDelivery {
-  id             String        @id @default(cuid())
+  id             String        @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   sessionId      String?
@@ -1083,7 +1083,7 @@ model CallbackDelivery {
 // ───────────────────────────── Audit ─────────────────────────────
 
 model AuditEvent {
-  id             String       @id @default(cuid())
+  id             String       @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   actorId        String?
@@ -1107,7 +1107,7 @@ enum WonBidStatus {
 
 /// A bid won in SampBidx, received by webhook. One row per SampBidx bid; a project is created from it at most once.
 model WonBid {
-  id               String       @id @default(cuid())
+  id               String       @id @default(cuid()) @map("_id")
   organizationId   String
   organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   source           String       @default("BIDZO")
@@ -1125,7 +1125,7 @@ model WonBid {
   contactEmail     String?
   bidderName       String?
   currency         String
-  totalAmount      Decimal?     @db.Decimal(18, 4)
+  totalAmount      Float?
   /// [{ countryCode, sampleSize, loiMinutes, incidencePct, cpi, notes }]
   countries        Json
   wonAt            DateTime
@@ -1146,27 +1146,31 @@ model WonBid {
 
 /// Current TOR exit node addresses (refreshed from the TOR Project bulk exit list).
 model TorExitNode {
-  ip        String   @id
+  ip        String   @id @map("_id")
   updatedAt DateTime @updatedAt
 }
 
 /// Free public IP lists (VPN, data centre, abuse), refreshed by src/survey/ip-reputation.ts. Server-wide.
 model IpReputationRange {
-  id       String @id @default(cuid())
+  id       String @id @default(cuid()) @map("_id")
   /// List id, e.g. x4b-vpn, x4b-datacenter, firehol-level1.
   source   String
   /// vpn | datacenter | abuse
   category String
-  /// Written with raw SQL (Prisma's inet mapping takes single addresses, not ranges); matched with >>=.
-  range    String @db.Inet
+  /// CIDR as listed, e.g. 203.0.113.0/24 or 2001:db8::/32.
+  range    String
+  /// First and last address of the range as 32 hex digits (IPv4 as IPv4-mapped IPv6), so an address
+  /// is in the range when rangeStart <= it <= rangeEnd (see src/survey/ip-reputation.ts).
+  rangeStart String
+  rangeEnd   String
 
   @@index([source])
-  @@index([range(ops: InetOps)], type: Gist)
+  @@index([rangeStart, rangeEnd])
 }
 
 /// When each public IP list last loaded.
 model IpReputationSource {
-  id       String    @id
+  id       String    @id @map("_id")
   category String
   count    Int       @default(0)
   syncedAt DateTime?
@@ -1175,7 +1179,7 @@ model IpReputationSource {
 
 /// Cached answers from the optional proxycheck.io lookup (free key), kept 7 days. Keyed by a hash of the IP.
 model IpLookupCache {
-  key       String   @id
+  key       String   @id @map("_id")
   proxy     Boolean
   type      String?
   checkedAt DateTime @default(now())
@@ -1183,7 +1187,7 @@ model IpLookupCache {
 
 /// Images uploaded for respondent pages (logo, hero, background). Served publicly at /pa/:id.
 model PageAsset {
-  id             String       @id @default(cuid())
+  id             String       @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   projectId      String?
@@ -1204,7 +1208,7 @@ enum InvoiceStatus {
 
 /// Client invoice for approved completes of one project, in one currency.
 model Invoice {
-  id             String        @id @default(cuid())
+  id             String        @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   projectId      String
@@ -1218,12 +1222,12 @@ model Invoice {
   lines          Json
   completes      Int
   /// Sum of the lines, before tax.
-  subtotal       Decimal       @default(0) @db.Decimal(14, 2)
+  subtotal       Float         @default(0)
   taxName        String?
-  taxPercent     Decimal       @default(0) @db.Decimal(5, 2)
-  taxAmount      Decimal       @default(0) @db.Decimal(14, 2)
+  taxPercent     Float         @default(0)
+  taxAmount      Float         @default(0)
   /// subtotal + taxAmount.
-  total          Decimal       @db.Decimal(14, 2)
+  total          Float
   notes          String?
   issuedAt       DateTime?
   dueAt          DateTime?
@@ -1249,7 +1253,7 @@ model Invoice {
 
 /// One applied reconciliation: the client's final list of valid IDs for a project.
 model Reconciliation {
-  id             String       @id @default(cuid())
+  id             String       @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   projectId      String
@@ -1280,7 +1284,7 @@ enum AlertState {
 
 /// One vendor auto-routing change to a market's vendor targets, kept so it can be explained and undone. See src/monitor/routing.ts.
 model RoutingRun {
-  id               String         @id @default(cuid())
+  id               String         @id @default(cuid()) @map("_id")
   organizationId   String
   organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   projectId        String
@@ -1308,7 +1312,7 @@ model RoutingRun {
 
 /// A fieldwork problem found by the monitor. One unresolved alert per dedupeKey; it resolves itself when the condition clears.
 model Alert {
-  id                 String       @id @default(cuid())
+  id                 String       @id @default(cuid()) @map("_id")
   organizationId     String
   organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   projectId          String?
@@ -1349,7 +1353,7 @@ enum VendorBillStatus {
 
 /// What we owe a vendor for its approved completes, in one currency, across projects.
 model VendorBill {
-  id               String           @id @default(cuid())
+  id               String           @id @default(cuid()) @map("_id")
   organizationId   String
   organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   vendorId         String
@@ -1362,11 +1366,11 @@ model VendorBill {
   /// [{ projectId, projectCode, countryCode, description, quantity, unitPrice, amount }]
   lines            Json
   completes        Int
-  subtotal         Decimal          @db.Decimal(14, 2)
+  subtotal         Float
   taxName          String?
-  taxPercent       Decimal          @default(0) @db.Decimal(5, 2)
-  taxAmount        Decimal          @default(0) @db.Decimal(14, 2)
-  total            Decimal          @db.Decimal(14, 2)
+  taxPercent       Float            @default(0)
+  taxAmount        Float            @default(0)
+  total            Float
   /// The vendor's own invoice number, recorded on approval.
   vendorReference  String?
   /// Bank or payment reference, recorded when paid.
@@ -1394,11 +1398,11 @@ model VendorBill {
 
 /// Manual exchange rate: 1 unit of `currency` = `rate` units of the organisation's base currency.
 model ExchangeRate {
-  id             String       @id @default(cuid())
+  id             String       @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   currency       String
-  rate           Decimal      @db.Decimal(18, 8)
+  rate           Float
   updatedAt      DateTime     @updatedAt
 
   @@unique([organizationId, currency])
@@ -1406,7 +1410,7 @@ model ExchangeRate {
 
 /// Key for the public API (docs/PUBLIC_API.md). Only a SHA-256 hash is stored; the key is shown once.
 model ApiKey {
-  id             String       @id @default(cuid())
+  id             String       @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name           String
@@ -1427,7 +1431,7 @@ model ApiKey {
 
 /// An HTTPS endpoint that receives signed event webhooks.
 model WebhookEndpoint {
-  id             String            @id @default(cuid())
+  id             String            @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   url            String
@@ -1445,7 +1449,7 @@ model WebhookEndpoint {
 
 /// One event sent (or to be sent) to one endpoint, with retries.
 model WebhookDelivery {
-  id             String          @id @default(cuid())
+  id             String          @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   endpointId     String
@@ -1469,7 +1473,7 @@ model WebhookDelivery {
 
 /// A report emailed on a schedule (docs/SCHEDULED_REPORTS.md).
 model ReportSchedule {
-  id             String       @id @default(cuid())
+  id             String       @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name           String
@@ -1506,7 +1510,7 @@ model ReportSchedule {
 }
 
 model ReportRun {
-  id         String         @id @default(cuid())
+  id         String         @id @default(cuid()) @map("_id")
   scheduleId String
   schedule   ReportSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
   /// SENT | FAILED | SKIPPED
@@ -1526,7 +1530,7 @@ model ReportRun {
 /// A Google, Microsoft or Zoho account linked to a SampTrek user. After the first sign-in the
 /// provider's stable subject is used, never the email again.
 model SsoIdentity {
-  id         String   @id @default(cuid())
+  id         String   @id @default(cuid()) @map("_id")
   userId     String
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// google | microsoft | zoho
@@ -1543,7 +1547,7 @@ model SsoIdentity {
 
 /// A file of invoices and/or vendor bills made for an accounting system. The file is kept so it can be downloaded again.
 model AccountingExport {
-  id             String       @id @default(cuid())
+  id             String       @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   /// zoho_books | tally | quickbooks | xero | journal
@@ -1565,7 +1569,7 @@ model AccountingExport {
 
 /// One-time link to set a password: an invitation (72 hours) or a reset (30 minutes). Only a SHA-256 hash is stored.
 model PasswordToken {
-  id          String    @id @default(cuid())
+  id          String    @id @default(cuid()) @map("_id")
   userId      String
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// invite | reset
@@ -1581,7 +1585,7 @@ model PasswordToken {
 
 /// A SampTrek record that exists in Zoho Books, so a sync never creates it twice.
 model ZohoBooksLink {
-  id             String       @id @default(cuid())
+  id             String       @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   /// customer | vendor | invoice | bill | invoice_payment | bill_payment
@@ -1597,7 +1601,7 @@ model ZohoBooksLink {
 
 /// One run of the Zoho Books sync, for the history list.
 model ZohoBooksSync {
-  id             String       @id @default(cuid())
+  id             String       @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   /// manual | schedule
@@ -1617,7 +1621,7 @@ model ZohoBooksSync {
 
 /// A saved set of report filters (docs/REPORT_VIEWS.md). Shared views are visible to all staff.
 model SavedReportView {
-  id             String       @id @default(cuid())
+  id             String       @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   ownerId        String
@@ -1638,7 +1642,7 @@ model SavedReportView {
 
 /// A connection to Xero, QuickBooks Online or Tally Prime (docs/ACCOUNTING_SYNC.md).
 model LedgerConnection {
-  id             String       @id @default(cuid())
+  id             String       @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   /// xero | quickbooks | tally
@@ -1663,7 +1667,7 @@ model LedgerConnection {
 
 /// A SampTrek record that reached Xero, QuickBooks or Tally, so a sync never creates it twice.
 model LedgerLink {
-  id             String       @id @default(cuid())
+  id             String       @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   provider       String
@@ -1680,7 +1684,7 @@ model LedgerLink {
 
 /// One sync run to Xero, QuickBooks or Tally.
 model LedgerSync {
-  id             String       @id @default(cuid())
+  id             String       @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   provider       String
@@ -1715,7 +1719,7 @@ enum TaskPriority {
 
 /// A piece of work for a person, optionally on a project. Created by people or by the AI copilot (after confirmation).
 model Task {
-  id             String       @id @default(cuid())
+  id             String       @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   projectId      String?
@@ -1735,7 +1739,7 @@ model Task {
   remindPushedAt DateTime?
   /// This task cannot start until that one is done.
   blockedById    String?
-  blockedBy      Task?        @relation("TaskDependency", fields: [blockedById], references: [id], onDelete: SetNull)
+  blockedBy      Task?        @relation("TaskDependency", fields: [blockedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
   blocking       Task[]       @relation("TaskDependency")
   /// manual | ai
   source         String       @default("manual")
@@ -1751,7 +1755,7 @@ model Task {
 // ───────────────────────────── AI copilot ─────────────────────────────
 
 model AiConversation {
-  id             String       @id @default(cuid())
+  id             String       @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   userId         String
@@ -1764,7 +1768,7 @@ model AiConversation {
 }
 
 model AiMessage {
-  id             String         @id @default(cuid())
+  id             String         @id @default(cuid()) @map("_id")
   conversationId String
   conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   /// user | assistant | tool
@@ -1782,7 +1786,7 @@ model AiMessage {
 
 /// A change the copilot proposed. Nothing happens until the person confirms it.
 model AiAction {
-  id             String       @id @default(cuid())
+  id             String       @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   userId         String
@@ -1803,7 +1807,7 @@ model AiAction {
 
 /// One call to the AI provider, for usage tracking and limits.
 model AiUsage {
-  id             String       @id @default(cuid())
+  id             String       @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   userId         String?
@@ -1823,7 +1827,7 @@ model AiUsage {
 
 /// A file uploaded to the copilot to read (PDF, text, images). Visible only to the person who uploaded it.
 model AiDocument {
-  id             String       @id @default(cuid())
+  id             String       @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   userId         String
@@ -1839,7 +1843,7 @@ model AiDocument {
 /// A reusable project setup. `form` prefills the Create project form; `extras` are copied
 /// into the new project when it is created from the template. See docs/PROJECT_TEMPLATES.md.
 model ProjectTemplate {
-  id              String       @id @default(cuid())
+  id              String       @id @default(cuid()) @map("_id")
   organizationId  String
   organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name            String
@@ -1862,7 +1866,7 @@ model ProjectTemplate {
 
 /// An unfinished Create project form, saved as the person types. Private to its owner.
 model ProjectDraft {
-  id             String       @id @default(cuid())
+  id             String       @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   ownerId        String
@@ -1877,7 +1881,7 @@ model ProjectDraft {
 
 /// One saved state of a project's settings, written whenever they change.
 model ProjectSettingsVersion {
-  id        String   @id @default(cuid())
+  id        String   @id @default(cuid()) @map("_id")
   projectId String
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   version   Int
@@ -1895,7 +1899,7 @@ model ProjectSettingsVersion {
 
 /// What a vendor says it can deliver in one market. Rows also mark the markets it covers.
 model VendorCapacity {
-  id                String   @id @default(cuid())
+  id                String   @id @default(cuid()) @map("_id")
   vendorId          String
   vendor            Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   /// ISO 3166-1 alpha-2
@@ -1927,7 +1931,7 @@ enum TicketStatus {
 
 /// A request between a client or vendor company and the operating organisation.
 model Ticket {
-  id             String       @id @default(cuid())
+  id             String       @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   /// Per-organisation number shown as REQ-<number>.
@@ -1961,7 +1965,7 @@ model Ticket {
 }
 
 model TicketMessage {
-  id         String   @id @default(cuid())
+  id         String   @id @default(cuid()) @map("_id")
   ticketId   String
   ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   authorId   String
@@ -1985,7 +1989,7 @@ enum SharedFileKind {
 /// A document shared between staff and one client or one vendor. Stored in the database (10 MB cap).
 /// Staff-only files have neither clientId nor vendorId.
 model SharedFile {
-  id             String         @id @default(cuid())
+  id             String         @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   kind           SharedFileKind @default(OTHER)
@@ -2026,7 +2030,7 @@ enum VendorApplicationStatus {
 
 /// A panel company that applied through the public sign-up page. Approving it creates the vendor.
 model VendorApplication {
-  id             String                  @id @default(cuid())
+  id             String                  @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   status         VendorApplicationStatus @default(PENDING)
@@ -2068,7 +2072,7 @@ enum QuoteRequestStatus {
 
 /// Feasibility and CPI asked of one vendor for one project market.
 model QuoteRequest {
-  id                String             @id @default(cuid())
+  id                String             @id @default(cuid()) @map("_id")
   organizationId    String
   organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   projectCountryId  String
@@ -2085,7 +2089,7 @@ model QuoteRequest {
   respondBy         DateTime?
   requestedById     String
   /// The vendor's answer.
-  cpi               Decimal?           @db.Decimal(10, 2)
+  cpi               Float?
   currency          String
   feasibleCompletes Int?
   daysNeeded        Int?
@@ -2103,7 +2107,7 @@ model QuoteRequest {
 
 /// Consent notice respondents must accept before the survey, per market ("*" = every other market).
 model ConsentPolicy {
-  id             String       @id @default(cuid())
+  id             String       @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   countryCode    String
@@ -2122,7 +2126,7 @@ model ConsentPolicy {
 
 /// Logo and icon images for white-labelling, served publicly (they appear on sign-in pages and in emails).
 model BrandAsset {
-  id             String       @id @default(cuid())
+  id             String       @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   /// logo, logoDark or icon
@@ -2137,7 +2141,7 @@ model BrandAsset {
 
 /// A phone that gets push notifications for one person (docs/MOBILE_APP.md → Push notifications).
 model PushDevice {
-  id             String    @id @default(cuid())
+  id             String    @id @default(cuid()) @map("_id")
   organizationId String
   userId         String
   user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -2160,7 +2164,7 @@ model PushDevice {
 /// One-time code that hands a Google, Microsoft or Zoho sign-in from the phone's browser to the app.
 /// Only works with the PKCE verifier the app made for that sign-in; 2 minutes, once.
 model MobileSsoCode {
-  id        String    @id @default(cuid())
+  id        String    @id @default(cuid()) @map("_id")
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   codeHash  String    @unique
@@ -2178,7 +2182,7 @@ model MobileSsoCode {
 /// SUPPLY360 owns the respondents. Progress here comes from SAMPLEON's signed events and is kept
 /// apart from ProjectCountry.completes, which counts respondents SampTrek itself routed.
 model SampleonAudienceRequest {
-  id                String    @id @default(cuid())
+  id                String    @id @default(cuid()) @map("_id")
   organizationId    String
   projectId         String
   project           Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -2207,7 +2211,7 @@ model SampleonAudienceRequest {
 /// Events SampTrek sends to SAMPLEON (SampAudience), e.g. project.created, delivered with retries
 /// by SampleonOutbox. The envelope is fixed when queued, so a retry sends the same eventId.
 model SampleonOutboundEvent {
-  id             String        @id @default(cuid())
+  id             String        @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   projectId      String?
@@ -2229,7 +2233,7 @@ model SampleonOutboundEvent {
 
 /// SAMPLEON events already processed (deduplicated by event id).
 model SampleonInboundEvent {
-  eventId           String   @id
+  eventId           String   @id @map("_id")
   type              String
   audienceRequestId String?
   receivedAt        DateTime @default(now())
@@ -2239,7 +2243,7 @@ model SampleonInboundEvent {
 /// `key` is the notification's id and `title` the wording it had: when the wording changes (for example
 /// "3 callbacks failed" becomes "5 callbacks failed") it counts as new again.
 model NotificationRead {
-  id             String   @id @default(cuid())
+  id             String   @id @default(cuid()) @map("_id")
   organizationId String
   userId         String
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -2255,7 +2259,7 @@ model NotificationRead {
 /// version of a built-in audience set (key = b2b, b2c, parents, teens, hc_consumer, hc_patient,
 /// hc_caregiver) or a set it made itself (key = custom-…).
 model QuestionSet {
-  id             String       @id @default(cuid())
+  id             String       @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   key            String
@@ -2272,7 +2276,7 @@ model QuestionSet {
 /// A copy of the whole database (docs/BACKUPS.md). Rows are rebuilt from the storage's manifest files
 /// after a restore or on a new server ("Find backups in storage"), so a backup is never lost from the list.
 model Backup {
-  id           String    @id @default(cuid())
+  id           String    @id @default(cuid()) @map("_id")
   /// File name in the storage, without folder, e.g. samptrek-2026-11-08T0300Z-ab12.dump.enc
   name         String    @unique
   /// manual | scheduled | before_restore | cli
@@ -2303,7 +2307,7 @@ model Backup {
 /// One health check of the server, taken every minute by the status page (docs/STATUS_PAGE.md).
 /// components = { app: "up", database: "up", callbacks: "degraded", … }. Gaps between checks count as down.
 model UptimeCheck {
-  id         String   @id @default(cuid())
+  id         String   @id @default(cuid()) @map("_id")
   at         DateTime @default(now())
   components Json
   dbLatencyMs Int?
@@ -2313,7 +2317,7 @@ model UptimeCheck {
 
 /// A notice on the public status page: an incident or planned maintenance (docs/STATUS_PAGE.md).
 model StatusIncident {
-  id         String    @id @default(cuid())
+  id         String    @id @default(cuid()) @map("_id")
   title      String
   /// minor | major | maintenance
   impact     String
@@ -2335,7 +2339,7 @@ model StatusIncident {
 
 /// A team comment on a project (docs/TEAM_COLLABORATION.md). Staff only; never shown in a portal.
 model ProjectComment {
-  id             String    @id @default(cuid())
+  id             String    @id @default(cuid()) @map("_id")
   organizationId String
   projectId      String
   project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -2358,7 +2362,7 @@ enum HandoverStatus {
 
 /// Handing a project to another project manager with a checklist both people tick.
 model ProjectHandover {
-  id             String         @id @default(cuid())
+  id             String         @id @default(cuid()) @map("_id")
   organizationId String
   projectId      String
   project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -2382,7 +2386,7 @@ model ProjectHandover {
 /// Live client dashboard (docs/CLIENT_DASHBOARD_LINKS.md): a read-only, revocable link that shows one
 /// project's completes and quotas without signing in. Money and vendor names only when switched on.
 model ClientDashboardLink {
-  id             String       @id @default(cuid())
+  id             String       @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   projectId      String
@@ -2421,7 +2425,7 @@ enum ChatChannelKind {
 }
 
 model ChatChannel {
-  id             String          @id @default(cuid())
+  id             String          @id @default(cuid()) @map("_id")
   organizationId String
   organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   kind           ChatChannelKind
@@ -2458,14 +2462,15 @@ model ChatMember {
   muted     Boolean     @default(false)
   joinedAt  DateTime    @default(now())
 
-  @@id([channelId, userId])
+  id        String      @id @default(cuid()) @map("_id")
+  @@unique([channelId, userId])
   @@index([userId])
 }
 
 model ChatMessage {
-  id             String      @id @default(cuid())
+  id             String      @id @default(cuid()) @map("_id")
   /// Grows with every message on the server, so a device that was offline asks for "everything after N".
-  seq            Int         @unique @default(autoincrement())
+  seq            Int         @unique
   organizationId String
   channelId      String
   channel        ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)

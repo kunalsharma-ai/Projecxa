@@ -13,7 +13,8 @@
  * - Dates are UTC calendar days; `to` is inclusive.
  */
 import { Injectable } from '@nestjs/common';
-import { SPEEDER_DETAIL, SURVEY_START_SQL } from '../projects/field-metrics';
+import { SPEEDER_DETAIL, SURVEY_START } from '../projects/field-metrics';
+import { aggregate, countIf, mdate, msBetween, numOut, percentileCont } from '../prisma/agg';
 import { Prisma, RespondentStatus } from '@prisma/client';
 import { z } from 'zod';
 import { PrismaService } from '../prisma/prisma.service';
@@ -120,27 +121,37 @@ export function convertMoney(money: SummaryRow['money'], t: RateTable): Reportin
   return { currency: t.base, revenue, payout, profit: round(revenue - payout, 2), margin: revenue > 0 ? pct(revenue - payout, revenue) : null, missing: [...missing].sort() };
 }
 
-const KEY: Record<GroupBy, { key: Prisma.Sql; label: Prisma.Sql; sublabel: Prisma.Sql }> = {
-  client: { key: Prisma.sql`c.id`, label: Prisma.sql`c.name`, sublabel: Prisma.sql`c.code` },
-  vendor: { key: Prisma.sql`v.id`, label: Prisma.sql`v.name`, sublabel: Prisma.sql`v.code` },
-  project: { key: Prisma.sql`p.id`, label: Prisma.sql`p."projectCode"`, sublabel: Prisma.sql`p.name` },
-  country: { key: Prisma.sql`pc."countryCode"`, label: Prisma.sql`pc."countryCode"`, sublabel: Prisma.sql`NULL::text` },
-  day: {
-    key: Prisma.sql`to_char(s."startedAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD')`,
-    label: Prisma.sql`to_char(s."startedAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD')`,
-    sublabel: Prisma.sql`NULL::text`,
-  },
-  week: {
-    key: Prisma.sql`to_char(date_trunc('week', s."startedAt" AT TIME ZONE 'UTC'), 'YYYY-MM-DD')`,
-    label: Prisma.sql`to_char(date_trunc('week', s."startedAt" AT TIME ZONE 'UTC'), 'YYYY-MM-DD')`,
-    sublabel: Prisma.sql`NULL::text`,
-  },
-  month: {
-    key: Prisma.sql`to_char(s."startedAt" AT TIME ZONE 'UTC', 'YYYY-MM')`,
-    label: Prisma.sql`to_char(s."startedAt" AT TIME ZONE 'UTC', 'YYYY-MM')`,
-    sublabel: Prisma.sql`NULL::text`,
-  },
-  vendor_country: { key: Prisma.sql`v.id || ':' || pc."countryCode"`, label: Prisma.sql`v.name`, sublabel: Prisma.sql`pc."countryCode"` },
+/** The related rows a session group is labelled with (the joins of the SQL version). */
+interface Joined {
+  project: { id: string; projectCode: string; name: string; client: { id: string; name: string; code: string } };
+  country: { countryCode: string; currency: string };
+  vendor: { id: string; name: string; code: string };
+}
+
+/** Key, label and sublabel of a session group for each grouping. */
+const KEY: Record<GroupBy, (j: Joined, bucket: string) => [string, string, string | null]> = {
+  client: (j) => [j.project.client.id, j.project.client.name, j.project.client.code],
+  vendor: (j) => [j.vendor.id, j.vendor.name, j.vendor.code],
+  project: (j) => [j.project.id, j.project.projectCode, j.project.name],
+  country: (j) => [j.country.countryCode, j.country.countryCode, null],
+  day: (_j, b) => [b, b, null],
+  week: (_j, b) => [b, b, null],
+  month: (_j, b) => [b, b, null],
+  vendor_country: (j) => [`${j.vendor.id}:${j.country.countryCode}`, j.vendor.name, j.country.countryCode],
+};
+
+/** The UTC calendar bucket of `startedAt` for the time groupings (weeks start on Monday). */
+function bucketExpr(groupBy: GroupBy | null): unknown {
+  if (groupBy === 'day') return { $dateToString: { format: '%Y-%m-%d', date: '$startedAt', timezone: 'UTC' } };
+  if (groupBy === 'month') return { $dateToString: { format: '%Y-%m', date: '$startedAt', timezone: 'UTC' } };
+  if (groupBy === 'week') return { $dateToString: { format: '%Y-%m-%d', date: { $dateTrunc: { date: '$startedAt', unit: 'week', startOfWeek: 'monday', timezone: 'UTC' } }, timezone: 'UTC' } };
+  return '';
+}
+
+type Partial0 = {
+  _id: { p: string; c: string; a: string; b: string };
+  clicks: number; completes: number; terminates: number; quotaFull: number; qualityFail: number; speeders: number; partial: number; inProgress: number;
+  approved: number; pending: number; rejected: number; revenue: number; payout: number; billableN: number; loiSum: number; loiN: number; lois: number[];
 };
 
 const round = (n: number, d = 1) => Math.round(n * 10 ** d) / 10 ** d;
@@ -167,16 +178,89 @@ export class ReportsService {
     return [c && `Client ${c.name}`, v && `Vendor ${v.name}`, p && `Project ${p.projectCode}`, f.countryCode && `Market ${f.countryCode}`].filter(Boolean) as string[];
   }
 
-  private where(org: string, f: ReportFilter) {
+  /**
+   * The $match for a report: the filters on related rows (client, vendor, market) become the ids of
+   * this organisation's projects, vendor links and markets. Null when a filter matches nothing.
+   */
+  private async match(org: string, f: ReportFilter): Promise<Record<string, unknown> | null> {
     const { gte, lt } = dayRange(f);
-    const parts: Prisma.Sql[] = [Prisma.sql`s."organizationId" = ${org}`, Prisma.sql`s."isTest" = false`];
-    if (gte) parts.push(Prisma.sql`s."startedAt" >= ${gte}`);
-    if (lt) parts.push(Prisma.sql`s."startedAt" < ${lt}`);
-    if (f.clientId) parts.push(Prisma.sql`p."clientId" = ${f.clientId}`);
-    if (f.vendorId) parts.push(Prisma.sql`va."vendorId" = ${f.vendorId}`);
-    if (f.projectId) parts.push(Prisma.sql`s."projectId" = ${f.projectId}`);
-    if (f.countryCode) parts.push(Prisma.sql`pc."countryCode" = ${f.countryCode}`);
-    return Prisma.join(parts, ' AND ');
+    const m: Record<string, unknown> = { organizationId: org, isTest: false };
+    if (gte || lt) m.startedAt = { ...(gte ? { $gte: mdate(gte) } : {}), ...(lt ? { $lt: mdate(lt) } : {}) };
+    if (f.clientId || f.projectId) {
+      const ps = await this.prisma.project.findMany({ where: { organizationId: org, ...(f.clientId ? { clientId: f.clientId } : {}), ...(f.projectId ? { id: f.projectId } : {}) }, select: { id: true } });
+      if (!ps.length) return null;
+      m.projectId = { $in: ps.map((p) => p.id) };
+    }
+    if (f.vendorId) {
+      const as = await this.prisma.vendorAllocation.findMany({ where: { vendorId: f.vendorId, projectCountry: { project: { organizationId: org } } }, select: { id: true } });
+      if (!as.length) return null;
+      m.vendorAllocationId = { $in: as.map((a) => a.id) };
+    }
+    if (f.countryCode) {
+      const cs = await this.prisma.projectCountry.findMany({ where: { countryCode: f.countryCode, project: { organizationId: org } }, select: { id: true } });
+      if (!cs.length) return null;
+      m.projectCountryId = { $in: cs.map((c) => c.id) };
+    }
+    return m;
+  }
+
+  /** Sessions grouped by project, market, vendor link and (for time groupings) calendar bucket. */
+  private async partials(org: string, f: ReportFilter, groupBy: GroupBy | null) {
+    const m = await this.match(org, f);
+    if (!m) return [];
+    const st = (x: string) => ({ $eq: ['$status', x] });
+    const complete = st('COMPLETE');
+    const billable = { $and: [complete, { $ne: ['$approval', 'REJECTED'] }] };
+    const hasOutcome = { $ne: [{ $ifNull: ['$outcomeAt', null] }, null] };
+    return aggregate<Partial0>(this.prisma.respondentSession, [
+      { $match: m },
+      {
+        $group: {
+          _id: { p: '$projectId', c: '$projectCountryId', a: '$vendorAllocationId', b: bucketExpr(groupBy) },
+          clicks: { $sum: 1 },
+          completes: countIf(complete),
+          terminates: countIf(st('TERMINATE')),
+          quotaFull: countIf(st('QUOTA_FULL')),
+          qualityFail: countIf({ $and: [{ $in: ['$status', ['QUALITY_FAIL', 'DUPLICATE', 'SECURITY_REJECT']] }, { $ne: ['$statusDetail', SPEEDER_DETAIL] }] }),
+          speeders: countIf({ $and: [st('QUALITY_FAIL'), { $eq: ['$statusDetail', SPEEDER_DETAIL] }] }),
+          partial: countIf({ $in: ['$status', ['PARTIAL', 'TECHNICAL_ERROR']] }),
+          inProgress: countIf(st('STARTED')),
+          approved: countIf({ $and: [complete, { $eq: ['$approval', 'APPROVED'] }] }),
+          pending: countIf({ $and: [complete, { $eq: ['$approval', 'PENDING'] }] }),
+          rejected: countIf({ $and: [complete, { $eq: ['$approval', 'REJECTED'] }] }),
+          revenue: { $sum: { $cond: [billable, { $ifNull: ['$revenue', 0] }, 0] } },
+          payout: { $sum: { $cond: [billable, { $ifNull: ['$payout', 0] }, 0] } },
+          billableN: countIf(billable),
+          // Mean LOI from survey start, as a sum and a count so groups can be merged.
+          loiSum: { $sum: { $cond: [{ $and: [complete, hasOutcome] }, { $ifNull: [msBetween(SURVEY_START, '$outcomeAt'), 0] }, 0] } },
+          loiN: countIf({ $and: [complete, hasOutcome] }),
+          // LOI from entry of every complete, for the median.
+          lois: { $push: { $cond: [{ $and: [complete, hasOutcome] }, msBetween('$startedAt', '$outcomeAt'), '$$REMOVE'] } },
+        },
+      },
+    ]);
+  }
+
+  /** The related rows of the groups; groups whose project, market or vendor link is gone are left out. */
+  private async joined(parts: Partial0[]) {
+    const uniq = (xs: (string | null | undefined)[]) => [...new Set(xs.filter((x): x is string => !!x))];
+    const [projects, countries, allocs] = await Promise.all([
+      this.prisma.project.findMany({ where: { id: { in: uniq(parts.map((p) => p._id.p)) } }, select: { id: true, projectCode: true, name: true, client: { select: { id: true, name: true, code: true } } } }),
+      this.prisma.projectCountry.findMany({ where: { id: { in: uniq(parts.map((p) => p._id.c)) } }, select: { id: true, countryCode: true, currency: true } }),
+      this.prisma.vendorAllocation.findMany({ where: { id: { in: uniq(parts.map((p) => p._id.a)) } }, select: { id: true, vendor: { select: { id: true, name: true, code: true } } } }),
+    ]);
+    const P = new Map(projects.map((p) => [p.id, p]));
+    const C = new Map(countries.map((c) => [c.id, c]));
+    const A = new Map(allocs.map((a) => [a.id, a]));
+    const out: { part: Partial0; j: Joined }[] = [];
+    for (const part of parts) {
+      const project = P.get(part._id.p);
+      const country = C.get(part._id.c);
+      const vendor = A.get(part._id.a)?.vendor;
+      if (!project?.client || !country || !vendor) continue;
+      out.push({ part, j: { project: project as Joined['project'], country, vendor } });
+    }
+    return out;
   }
 
   /** The organisation's reporting currency and manual exchange rates. */
@@ -197,49 +281,37 @@ export class ReportsService {
 
   /** Aggregated metrics, grouped by one dimension, or a single total row when groupBy is null. */
   async summary(org: string, f: ReportFilter, groupBy: GroupBy | null): Promise<SummaryRow[]> {
-    const g = groupBy ? KEY[groupBy] : { key: Prisma.sql`'total'`, label: Prisma.sql`'Total'`, sublabel: Prisma.sql`NULL::text` };
-    const billable = Prisma.sql`s.status = 'COMPLETE' AND s.approval <> 'REJECTED'`;
-    const rows = await this.prisma.$queryRaw<Record<string, unknown>[]>`
-      SELECT ${g.key} AS key, ${g.label} AS label, ${g.sublabel} AS sublabel,
-        COUNT(*)::int AS clicks,
-        COUNT(*) FILTER (WHERE s.status = 'COMPLETE')::int AS completes,
-        COUNT(*) FILTER (WHERE s.status = 'TERMINATE')::int AS terminates,
-        COUNT(*) FILTER (WHERE s.status = 'QUOTA_FULL')::int AS "quotaFull",
-        COUNT(*) FILTER (WHERE s.status IN ('QUALITY_FAIL', 'DUPLICATE', 'SECURITY_REJECT') AND s."statusDetail" IS DISTINCT FROM ${SPEEDER_DETAIL})::int AS "qualityFail",
-        COUNT(*) FILTER (WHERE s.status = 'QUALITY_FAIL' AND s."statusDetail" = ${SPEEDER_DETAIL})::int AS speeders,
-        COUNT(*) FILTER (WHERE s.status IN ('PARTIAL', 'TECHNICAL_ERROR'))::int AS partial,
-        COUNT(*) FILTER (WHERE s.status = 'STARTED')::int AS "inProgress",
-        COUNT(*) FILTER (WHERE s.status = 'COMPLETE' AND s.approval = 'APPROVED')::int AS approved,
-        COUNT(*) FILTER (WHERE s.status = 'COMPLETE' AND s.approval = 'PENDING')::int AS pending,
-        COUNT(*) FILTER (WHERE s.status = 'COMPLETE' AND s.approval = 'REJECTED')::int AS rejected,
-        COALESCE(SUM(s.revenue) FILTER (WHERE ${billable}), 0)::float8 AS revenue,
-        COALESCE(SUM(s.payout) FILTER (WHERE ${billable}), 0)::float8 AS payout,
-        (percentile_cont(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (s."outcomeAt" - s."startedAt")))
-          FILTER (WHERE s.status = 'COMPLETE' AND s."outcomeAt" IS NOT NULL))::float8 AS "loiSeconds",
-        (AVG(EXTRACT(EPOCH FROM (s."outcomeAt" - ${SURVEY_START_SQL})))
-          FILTER (WHERE s.status = 'COMPLETE' AND s."outcomeAt" IS NOT NULL))::float8 AS "avgLoiSeconds",
-        array_agg(DISTINCT pc.currency) AS currencies
-      FROM "RespondentSession" s
-      JOIN "Project" p ON p.id = s."projectId"
-      JOIN "Client" c ON c.id = p."clientId"
-      JOIN "ProjectCountry" pc ON pc.id = s."projectCountryId"
-      JOIN "VendorAllocation" va ON va.id = s."vendorAllocationId"
-      JOIN "Vendor" v ON v.id = va."vendorId"
-      WHERE ${this.where(org, f)}
-      GROUP BY 1, 2, 3
-      ORDER BY ${groupBy === 'day' || groupBy === 'week' || groupBy === 'month' ? Prisma.sql`1 ASC` : Prisma.sql`clicks DESC, 2 ASC`}`;
-    const moneyRows = await this.prisma.$queryRaw<{ key: string; currency: string; revenue: number; payout: number }[]>`
-      SELECT ${g.key} AS key, pc.currency AS currency,
-        COALESCE(SUM(s.revenue), 0)::float8 AS revenue, COALESCE(SUM(s.payout), 0)::float8 AS payout
-      FROM "RespondentSession" s
-      JOIN "Project" p ON p.id = s."projectId"
-      JOIN "Client" c ON c.id = p."clientId"
-      JOIN "ProjectCountry" pc ON pc.id = s."projectCountryId"
-      JOIN "VendorAllocation" va ON va.id = s."vendorAllocationId"
-      JOIN "Vendor" v ON v.id = va."vendorId"
-      WHERE ${this.where(org, f)} AND ${billable}
-      GROUP BY 1, 2
-      ORDER BY 2`;
+    const keyOf = groupBy ? KEY[groupBy] : (): [string, string, string | null] => ['total', 'Total', null];
+    const COUNTS = ['clicks', 'completes', 'terminates', 'quotaFull', 'qualityFail', 'speeders', 'partial', 'inProgress', 'approved', 'pending', 'rejected', 'revenue', 'payout', 'loiSum', 'loiN'] as const;
+    type Acc = Record<(typeof COUNTS)[number], number> & { key: string; label: string; sublabel: string | null; lois: number[]; currencies: Set<string> };
+    const acc = new Map<string, Acc>();
+    const moneyBy = new Map<string, { key: string; currency: string; revenue: number; payout: number; n: number }>();
+    for (const { part, j } of await this.joined(await this.partials(org, f, groupBy))) {
+      const [key, label, sublabel] = keyOf(j, part._id.b);
+      let a = acc.get(key);
+      if (!a) {
+        a = { key, label, sublabel, lois: [], currencies: new Set(), ...(Object.fromEntries(COUNTS.map((c) => [c, 0])) as Record<(typeof COUNTS)[number], number>) };
+        acc.set(key, a);
+      }
+      for (const c of COUNTS) a[c] += numOut(part[c]);
+      for (const l of part.lois ?? []) a.lois.push(numOut(l));
+      a.currencies.add(j.country.currency);
+      const mk = `${key}\u0000${j.country.currency}`;
+      const mm = moneyBy.get(mk) ?? { key, currency: j.country.currency, revenue: 0, payout: 0, n: 0 };
+      mm.revenue += numOut(part.revenue);
+      mm.payout += numOut(part.payout);
+      mm.n += numOut(part.billableN);
+      moneyBy.set(mk, mm);
+    }
+    const timeGroup = groupBy === 'day' || groupBy === 'week' || groupBy === 'month';
+    const rows: Record<string, unknown>[] = [...acc.values()]
+      .sort((x, y) => (timeGroup ? (x.key < y.key ? -1 : x.key > y.key ? 1 : 0) : y.clicks - x.clicks || x.label.localeCompare(y.label)))
+      .map((a) => {
+        const median = percentileCont(a.lois, 0.5);
+        return { ...a, loiSeconds: median == null ? null : median / 1000, avgLoiSeconds: a.loiN ? a.loiSum / a.loiN / 1000 : null, currencies: [...a.currencies] };
+      });
+    // Money of billable completes only: a currency without any is left out of the row.
+    const moneyRows = [...moneyBy.values()].filter((m) => m.n > 0).sort((x, y) => x.currency.localeCompare(y.currency));
     const fx = await this.rateTable(org);
     const money = new Map<string, SummaryRow['money']>();
     for (const m of moneyRows) {

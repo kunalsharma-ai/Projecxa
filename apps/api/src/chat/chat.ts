@@ -21,6 +21,7 @@ import { CurrentUser, STAFF } from '../auth/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import { PrismaService } from '../prisma/prisma.service';
 import { EntitlementsService, userFeatures } from '../super-admin/entitlements';
+import { nextSequence } from '../prisma/compat';
 
 const OPEN_KINDS: ChatChannelKind[] = ['GENERAL', 'ANNOUNCEMENTS', 'PROJECT'];
 /** What someone may do in chat besides reading Announcements and General. */
@@ -200,22 +201,30 @@ export class ChatService {
       },
     });
     const ids = rows.map((r) => r.id);
-    const [reads, unread, last] = ids.length
+    const reads = ids.length
+      ? await this.prisma.chatMember.findMany({ where: { userId: u.id, channelId: { in: ids } }, select: { channelId: true, readSeq: true, muted: true } })
+      : [];
+    const readSeqOf = new Map(reads.map((r) => [r.channelId, r.readSeq]));
+    const [unread, last] = ids.length
       ? await Promise.all([
-          this.prisma.chatMember.findMany({ where: { userId: u.id, channelId: { in: ids } }, select: { channelId: true, readSeq: true, muted: true } }),
-          this.prisma.$queryRaw<{ channelId: string; n: bigint }[]>`
-            SELECT m."channelId", count(*) AS n FROM "ChatMessage" m
-            LEFT JOIN "ChatMember" r ON r."channelId" = m."channelId" AND r."userId" = ${u.id}
-            WHERE m."channelId" = ANY(${ids}) AND m.seq > COALESCE(r."readSeq", 0)
-              AND m."authorId" IS DISTINCT FROM ${u.id} AND m."deletedAt" IS NULL
-            GROUP BY m."channelId"`,
-          this.prisma.$queryRaw<{ id: string }[]>`
-            SELECT DISTINCT ON ("channelId") id FROM "ChatMessage" WHERE "channelId" = ANY(${ids}) ORDER BY "channelId", seq DESC`,
+          // Messages after the reader's last read one, not their own (messages without an author count).
+          this.prisma.chatMessage.groupBy({
+            by: ['channelId'],
+            where: {
+              OR: ids.map((id) => ({ channelId: id, seq: { gt: readSeqOf.get(id) ?? 0 } })),
+              AND: [{ OR: [{ authorId: null }, { authorId: { not: u.id } }] }],
+              deletedAt: null,
+            },
+            _count: { _all: true },
+          }),
+          Promise.all(ids.map((id) => this.prisma.chatMessage.findFirst({ where: { channelId: id }, orderBy: { seq: 'desc' }, select: { id: true } }))).then((r) =>
+            r.filter((x): x is { id: string } => !!x),
+          ),
         ])
-      : [[], [], []];
+      : [[], []];
     const lastMsgs = last.length ? await this.prisma.chatMessage.findMany({ where: { id: { in: last.map((l) => l.id) } }, include: { author } }) : [];
     const readBy = new Map(reads.map((r) => [r.channelId, r]));
-    const unreadBy = new Map(unread.map((r) => [r.channelId, Number(r.n)]));
+    const unreadBy = new Map(unread.map((r) => [r.channelId, r._count._all]));
     const lastBy = new Map(lastMsgs.map((m) => [m.channelId, shapeMessage(m)]));
     const order: Record<ChatChannelKind, number> = { ANNOUNCEMENTS: 0, GENERAL: 1, PROJECT: 2, GROUP: 3, DIRECT: 4 };
     return rows
@@ -356,7 +365,7 @@ export class ChatService {
     let m: MsgRow;
     try {
       m = await this.prisma.chatMessage.create({
-        data: { organizationId: u.organizationId, channelId, authorId: u.id, body: b.body, type: b.type, tone: b.type === 'UPDATE' ? b.tone : null, clientId: b.clientId ?? null },
+        data: { organizationId: u.organizationId, channelId, authorId: u.id, body: b.body, type: b.type, tone: b.type === 'UPDATE' ? b.tone : null, clientId: b.clientId ?? null, seq: await nextSequence(this.prisma, 'ChatMessage.seq') },
         include: { author },
       });
     } catch (e) {
