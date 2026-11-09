@@ -6,12 +6,13 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { MeContext } from '@/components/me';
 import { ThemeMenu } from '@/components/shell/theme-menu';
+import { LanguageMenu, useLanguagesAllowed } from '@/components/i18n';
 import { useTheme } from '@/components/theme';
 import { Loading } from '@/components/ui';
 import { get, post } from '@/lib/api';
 import { applyDocumentBrand, DEFAULT_BRAND, orgTheme } from '@/lib/branding';
 import { BrandIcon } from '@/components/brand-mark';
-import { isPortalRole, type Me } from '@/lib/types';
+import { hasFeature, isPortalRole, type Me } from '@/lib/types';
 import { FeatureOff, PlanBlocked } from '@/components/super-admin/plan-gate';
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
@@ -31,6 +32,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       .catch(() => router.replace('/login'));
   }, [router, hydrate]);
 
+  useLanguagesAllowed(!me || hasFeature(me, 'languages'));
   if (!me) return <Loading label="Checking your session" />;
   const company = me.client?.name ?? me.vendor?.name ?? '';
   const brand = me.branding ?? DEFAULT_BRAND;
@@ -52,8 +54,9 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             <span className="truncate">{brand.appName} <span className="ml-1 text-xs font-normal text-muted">{me.user.role === 'CLIENT_USER' ? 'Client portal' : 'Vendor portal'} · {company}</span></span>
           </Link>
           <div className="flex items-center gap-2 text-sm">
-            <span className="hidden text-muted sm:inline">{me.user.name}</span>
+            <span className="hidden text-muted sm:inline" translate="no">{me.user.name}</span>
             <Link href="/portal/account" className="btn-ghost px-2.5 py-1.5" aria-label="Account security" title="Account security"><ShieldCheck className="h-4 w-4" /></Link>
+            <LanguageMenu />
             <ThemeMenu showStudio={false} />
             <button className="btn-ghost px-2.5 py-1.5" onClick={async () => { await post('/auth/logout'); router.replace('/login'); }}>
               <LogOut className="h-4 w-4" /> <span className="hidden sm:inline">Sign out</span>

@@ -153,13 +153,16 @@ export class AuthController {
     return tourState(u);
   }
 
-  /** Back to the defaults. */
+  /** Back to the default look. The person's language is kept: resetting colours should not switch the screens to English. */
   @Post('me/preferences/reset')
   @HttpCode(200)
   @Roles('ADMIN', 'PROJECT_MANAGER', 'SALES', 'VIEWER', 'CLIENT_USER', 'VENDOR_USER')
   async resetPreferences(@CurrentUser() user: AuthUser) {
-    await this.prisma.user.update({ where: { id: user.id }, data: { preferences: Prisma.DbNull } });
-    return {};
+    const current = await this.prisma.user.findUniqueOrThrow({ where: { id: user.id }, select: { preferences: true } });
+    const language = readPreferences(current.preferences).language;
+    const kept = language ? { language } : null;
+    await this.prisma.user.update({ where: { id: user.id }, data: { preferences: kept ?? Prisma.DbNull } });
+    return kept ?? {};
   }
 }
 

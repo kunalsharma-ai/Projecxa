@@ -15,12 +15,13 @@ import { InfoTip } from '@/components/help';
 import { ProductTour } from '@/components/shell/product-tour';
 import { Sidebar } from '@/components/shell/sidebar';
 import { ThemeMenu } from '@/components/shell/theme-menu';
+import { LanguageMenu, useLanguagesAllowed } from '@/components/i18n';
 import { useTheme } from '@/components/theme';
 import { Loading } from '@/components/ui';
 import { FEATURES_EVENT, get, post } from '@/lib/api';
 import { PlanBlocked, FeatureOff } from '@/components/super-admin/plan-gate';
 import { applyDocumentBrand, orgTheme } from '@/lib/branding';
-import { isPortalRole, portalHome, type Features, type Me } from '@/lib/types';
+import { hasFeature, isPortalRole, portalHome, type Features, type Me } from '@/lib/types';
 import { NAV, isActive } from '@/components/shell/nav';
 
 const initialsOf = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') || '?';
@@ -141,6 +142,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [update, prefs.sidebarCollapsed, toggleInsights]);
 
+  useLanguagesAllowed(!me || hasFeature(me, 'languages'));
   if (!me) return <Loading label="Checking your session" />;
   // The page's feature, from the longest matching menu entry.
   const pageFeature = NAV.filter((n) => n.feature && isActive(pathname, n.href)).sort((a, b) => b.href.length - a.href.length)[0]?.feature
@@ -229,6 +231,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 )}
               </Popover>
               </div>
+              <LanguageMenu />
               <ThemeMenu />
               <button onClick={toggleInsights} aria-pressed={prefs.insightsOpen} aria-label={prefs.insightsOpen ? 'Hide insights panel' : 'Show insights panel'} title="Insights ( ] )"
                 className={clsx('hidden h-9 w-9 place-items-center rounded-lg transition-colors duration-[var(--dur)] hover:bg-sunken sm:grid', prefs.insightsOpen ? 'bg-brand/10 text-brand' : 'text-muted hover:text-ink')}>
@@ -239,7 +242,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <span className="flex items-center gap-2">
                   <span className="grid h-8 w-8 place-items-center rounded-full bg-neon text-xs font-bold shadow-sm">{initialsOf(me.user.name)}</span>
                   <span className="hidden max-w-[140px] text-left leading-tight xl:block">
-                    <span className="block truncate text-sm font-medium text-ink">{me.user.name}</span>
+                    <span className="block truncate text-sm font-medium text-ink" translate="no">{me.user.name}</span>
                     <span className="block truncate text-[11px] capitalize text-muted">{me.user.role.replace('_', ' ').toLowerCase()}</span>
                   </span>
                 </span>
@@ -247,8 +250,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 {(close) => (
                   <div className="p-1.5 text-sm">
                     <div className="px-3 py-2">
-                      <div className="truncate font-medium">{me.user.name}</div>
-                      <div className="truncate text-xs text-muted">{me.user.email}</div>
+                      <div className="truncate font-medium" translate="no">{me.user.name}</div>
+                      <div className="truncate text-xs text-muted" translate="no">{me.user.email}</div>
                       <div className="mt-1 text-xs text-muted">{me.organization.name} · {me.user.role.replace('_', ' ').toLowerCase()}</div>
                     </div>
                     <div className="my-1 border-t border-line" />

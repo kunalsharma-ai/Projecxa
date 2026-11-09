@@ -42,6 +42,16 @@ describe('Interface preferences (e2e)', () => {
     await pm.post('/auth/me/preferences/reset').expect(200);
     expect((await pm.get('/auth/me').expect(200)).body.preferences).toEqual({});
   });
+
+  it('keeps a per-user language, which survives a look reset', async () => {
+    await pm.patch('/auth/me/preferences', { language: 'xx' }).expect(400);
+    await pm.patch('/auth/me/preferences', { language: 'hi', theme: 'midnight' }).expect(200);
+    expect((await viewer.get('/auth/me').expect(200)).body.preferences.language).toBeUndefined();
+    await viewer.patch('/auth/me/preferences', { language: 'es' }).expect(200);
+    expect((await pm.post('/auth/me/preferences/reset').expect(200)).body).toEqual({ language: 'hi' });
+    expect((await pm.get('/auth/me').expect(200)).body.preferences).toEqual({ language: 'hi' });
+    expect((await viewer.get('/auth/me').expect(200)).body.preferences).toEqual({ language: 'es' });
+  });
 });
 
 describe('Insights (e2e)', () => {

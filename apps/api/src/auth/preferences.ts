@@ -4,6 +4,9 @@
  */
 import { z } from 'zod';
 
+/** Interface languages for staff and portal screens (docs/LANGUAGES.md). English is the source and the fallback. */
+export const LANGUAGE_IDS = ['en', 'hi', 'es'] as const;
+
 export const THEME_IDS = ['neon', 'midnight', 'arctic', 'emerald', 'obsidian', 'sapphire', 'aurora', 'graphite', 'solar'] as const;
 
 const hex = z.string().regex(/^#[0-9a-f]{6}$/i, 'Use a #rrggbb colour');
@@ -30,6 +33,7 @@ export const preferencesSchema = z
     sidebarCollapsed: z.boolean(),
     insightsOpen: z.boolean(),
     favorites: z.array(navHref).max(20),
+    language: z.enum(LANGUAGE_IDS),
     recentProjects: z.array(z.object({ id: z.string().min(1).max(64), code: z.string().max(40), name: z.string().max(200) })).max(8),
   })
   .partial()
