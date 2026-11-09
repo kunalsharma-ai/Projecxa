@@ -71,6 +71,6 @@ The SQL migrations were removed, and `prisma db push` is not used.
 
 ## Moving an existing server
 
-There is no in-place conversion of a PostgreSQL database. Export the data with the old version, set
-up MongoDB, run `pnpm db:deploy`, and import. For Sampledge's own server this is a planned step,
-done separately from merging this change.
+There is no in-place conversion of a PostgreSQL database. `pnpm import-postgres --from <postgresql URL>`
+copies all of it into MongoDB, keeping every id, with a dry run and a record-by-record check:
+see docs/POSTGRES_TO_MONGODB.md for the steps.

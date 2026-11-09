@@ -174,6 +174,12 @@ pnpm --filter @projexa/api build && pnpm --filter @projexa/web build
 pm2 restart projexa-api projexa-web
 ```
 
+**Moving an existing server from PostgreSQL to MongoDB** (one time, if it ran a package from before
+PR #74): install MongoDB, set the new `DATABASE_URL`, then copy the data with
+`pnpm import-postgres --from "postgresql://..." --dry-run` and again without `--dry-run`. It keeps every
+id and checks every record; step by step in `docs/POSTGRES_TO_MONGODB.md`. Do not run `create-admin`
+on the new database first.
+
 **Moving an existing server from Node 22 to Node 26** (one time, with this package or newer):
 
 ```bash
