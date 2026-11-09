@@ -144,7 +144,7 @@ function Subscription() {
 
       {usage && usage.limits.some((l) => l.limit != null) && (
         <Section title="Usage and limits" className="mb-6">
-          <p className="mb-3 text-sm text-muted">What your plan allows and how much you use. Monthly counts reset on the 1st. Need more? Change plan below or ask your SampTrek provider.</p>
+          <p className="mb-3 text-sm text-muted">What your plan allows and how much you use. Monthly counts reset on the 1st. Admins get an email at 80% of a limit and when it is reached. Need more? Change plan below or ask your SampTrek provider.</p>
           <UsageBars usage={usage} compact />
         </Section>
       )}

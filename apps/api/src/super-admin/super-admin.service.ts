@@ -264,6 +264,8 @@ export class SuperAdminService {
       ...s,
       subscriptionDetail: sub ? { ...sub, plan: undefined } : null,
       usage: await this.entitlements.limitsReport(id),
+      // Plan limit emails sent to this organisation (docs/PLAN_LIMITS.md), newest first.
+      limitAlerts: await this.prisma.limitAlert.findMany({ where: { organizationId: id, sentTo: { not: null } }, orderBy: { createdAt: 'desc' }, take: 20, select: { limit: true, level: true, period: true, used: true, max: true, sentTo: true, createdAt: true } }),
       features: FEATURES.map((d) => ({
         key: d.key, label: d.label, group: d.group, summary: d.summary, mobile: d.mobile,
         // Who the organisation's Admin gives it to (Settings → Features & access); null = not the Admin's choice.

@@ -135,6 +135,18 @@ function SubscriptionTab({ org, run }: { org: OrgDetail; run: Run }) {
       <Section title="Usage">
         <UsageBars usage={org.usage} />
       </Section>
+      <Section title="Limit emails">
+        {org.limitAlerts.length === 0 ? <p className="text-sm text-muted">None yet. Its admins get an email at 80% of a limit and when it is reached; you get one when it is reached.</p> : (
+          <ul className="-mx-5 divide-y divide-line text-sm" data-testid="limit-alerts">
+            {org.limitAlerts.map((a) => (
+              <li key={`${a.limit}-${a.level}-${a.period}`} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-5 py-2">
+                <span><span className={clsx('mr-2 rounded-full px-2 py-0.5 text-xs', a.level === 'reached' ? 'bg-bad/10 text-bad' : 'bg-warn/10 text-warn')}>{a.level === 'reached' ? 'Reached' : 'Close'}</span>{org.usage.limits.find((l) => l.key === a.limit)?.label ?? a.limit} <span className="tabular-nums text-muted">{a.used.toLocaleString('en')} / {a.max.toLocaleString('en')}</span></span>
+                <span className="text-xs text-muted" title={a.sentTo ?? ''}>{day(a.createdAt)} · {a.sentTo}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
       <Section title={plan ? `In ${plan.name}` : 'Plan'}>
         {plan ? (
           <div className="space-y-3 text-sm">
