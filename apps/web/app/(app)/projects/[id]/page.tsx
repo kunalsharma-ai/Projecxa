@@ -10,6 +10,7 @@ import { FilesTab } from '@/components/project/files-tab';
 import { FinanceTab } from '@/components/project/finance-tab';
 import { ForecastPanel } from '@/components/project/forecast-panel';
 import { HistoryTab } from '@/components/project/history-tab';
+import { TeamTab } from '@/components/project/team-tab';
 import { SaveTemplate } from '@/components/project/save-template';
 import { AlertTriangle, BadgeCheck, CircleSlash, Clock, CopyPlus, Gauge, Hourglass, LayoutTemplate, MonitorPlay, Percent, Rabbit, Route, ShieldAlert, X } from 'lucide-react';
 import { RedirectsPopup } from '@/components/project/redirects-popup';
@@ -36,7 +37,7 @@ import { get, patch } from '@/lib/api';
 import { flag } from '@/lib/countries';
 import { hasFeature, SECURITY_LABELS } from '@/lib/types';
 
-const TABS = ['Overview', 'Vendors & links', 'Vendor unique links', 'Client unique links', 'Quotas & monitor', 'SampAudience', 'Gate & security', 'Respondent pages', 'Redirects', 'QA studio', 'Respondents', 'Answers', 'Reconcile & invoice', 'Files & requests', 'History'] as const;
+const TABS = ['Overview', 'Vendors & links', 'Vendor unique links', 'Client unique links', 'Quotas & monitor', 'SampAudience', 'Gate & security', 'Respondent pages', 'Redirects', 'QA studio', 'Respondents', 'Answers', 'Reconcile & invoice', 'Files & requests', 'Team', 'History'] as const;
 
 export default function ProjectPage() {
   const { id } = useParams<{ id: string }>();
@@ -236,7 +237,7 @@ export default function ProjectPage() {
       {live && hasFeature(me, 'forecasting') && <ForecastPanel projectId={p.id} refreshKey={refreshedAt?.getTime()} />}
 
       <div className="mb-5 flex gap-1 overflow-x-auto border-b border-line" role="tablist">
-        {TABS.map((t) => (
+        {TABS.filter((t) => t !== 'Team' || hasFeature(me, 'collaboration')).map((t) => (
           <div key={t} className={clsx('-mb-px flex shrink-0 items-center border-b-2', tab === t ? 'border-brand' : 'border-transparent')}>
             <button role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={clsx('whitespace-nowrap py-2.5 text-sm', tab === t ? 'pl-4 pr-1 font-medium text-brand' : 'px-4 text-muted hover:text-ink')}>
               {t === 'SampAudience' ? (
@@ -276,6 +277,7 @@ export default function ProjectPage() {
       {tab === 'Reconcile & invoice' && <FinanceTab key={p.id} project={p} editable={editable} reload={reload} />}
       {tab === 'Respondent pages' && <RespondentPagesTab key={p.id} project={p} editable={editable} />}
       {tab === 'Files & requests' && <FilesTab project={p} editable={editable} />}
+      {tab === 'Team' && hasFeature(me, 'collaboration') && <TeamTab key={p.id} project={p} editable={editable} reload={reload} />}
       {tab === 'History' && <HistoryTab key={p.id} project={p} editable={editable} reload={reload} />}
       {tab === 'Answers' && <AnswersView projectId={p.id} projectCode={p.projectCode} />}
     </>
