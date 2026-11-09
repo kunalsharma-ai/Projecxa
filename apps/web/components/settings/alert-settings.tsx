@@ -16,6 +16,8 @@ const FIELDS: { key: string; label: string; unit: string; hint: string }[] = [
   { key: 'dropOffPct', label: 'Drop-out', unit: '% of 24h entries', hint: 'Vendor entries that left the survey.' },
   { key: 'quotaNearPct', label: 'Near target', unit: '% of target', hint: 'Heads-up before a market fills.' },
   { key: 'minSample', label: 'Minimum sample', unit: 'respondents', hint: 'Rates are only judged after this many.' },
+  { key: 'marginFloorPct', label: 'Margin floor', unit: '% forecast margin', hint: 'Alert when a project is heading for a lower margin at finish. A project can set its own.' },
+  { key: 'marginDropPts', label: 'Margin drop', unit: 'points under plan', hint: 'Also alert when the forecast margin falls this far under the planned margin.' },
 ];
 
 /** Admin-only: alert thresholds and the signed webhook that receives new alerts. */

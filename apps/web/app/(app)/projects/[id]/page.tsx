@@ -8,6 +8,7 @@ import { useTheme } from '@/components/theme';
 import { CountriesTab } from '@/components/project/countries-tab';
 import { FilesTab } from '@/components/project/files-tab';
 import { FinanceTab } from '@/components/project/finance-tab';
+import { ForecastPanel } from '@/components/project/forecast-panel';
 import { HistoryTab } from '@/components/project/history-tab';
 import { SaveTemplate } from '@/components/project/save-template';
 import { AlertTriangle, BadgeCheck, CircleSlash, Clock, CopyPlus, Gauge, Hourglass, LayoutTemplate, MonitorPlay, Percent, Rabbit, Route, ShieldAlert, X } from 'lucide-react';
@@ -231,6 +232,8 @@ export default function ProjectPage() {
           )))}
         </div>
       )}
+
+      {live && hasFeature(me, 'forecasting') && <ForecastPanel projectId={p.id} refreshKey={refreshedAt?.getTime()} />}
 
       <div className="mb-5 flex gap-1 overflow-x-auto border-b border-line" role="tablist">
         {TABS.map((t) => (
