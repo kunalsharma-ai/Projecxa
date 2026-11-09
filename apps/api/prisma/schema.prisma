@@ -102,6 +102,7 @@ model Organization {
   customOptions          CustomOption[]
   partyLogos             PartyLogo[]
   clientUniqueLinks      ClientUniqueLink[]
+  clientDashboardLinks   ClientDashboardLink[]
   aiUsage                AiUsage[]
   aiDocuments            AiDocument[]
   tickets                Ticket[]
@@ -601,6 +602,7 @@ model Project {
   sharedFiles       SharedFile[]
   sampleonRequests  SampleonAudienceRequest[]
   clientUniqueLinks ClientUniqueLink[]
+  dashboardLinks    ClientDashboardLink[]
   /// How the gate/prescreener questions used by quota cells map onto SUPPLY360 profile attributes, for SAMPLEON.
   /// { "gate:<questionId>": { attribute, values: { <answerId>: value } } }; see src/sampleon/quota-translate.ts.
   sampleonQuotaMap  Json?
@@ -2189,6 +2191,33 @@ model QuestionSet {
   createdAt      DateTime     @default(now())
 
   @@unique([organizationId, key])
+}
+
+/// Live client dashboard (docs/CLIENT_DASHBOARD_LINKS.md): a read-only, revocable link that shows one
+/// project's completes and quotas without signing in. Money and vendor names only when switched on.
+model ClientDashboardLink {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectId      String
+  project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  /// Random, unguessable part of the link (/live/{token}).
+  token          String       @unique
+  /// Who the link is for, e.g. "Acme research team". Staff only.
+  label          String?
+  /// Show client CPI and spend so far (never vendor cost or margin).
+  showMoney      Boolean      @default(false)
+  /// Show completes per vendor by vendor name (never vendor CPI).
+  showVendors    Boolean      @default(false)
+  expiresAt      DateTime?
+  revokedAt      DateTime?
+  viewCount      Int          @default(0)
+  lastViewedAt   DateTime?
+  createdById    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([projectId])
 }
 
 /// Team chat (docs/TEAM_CHAT.md): staff-only chat that runs on this server, with no outside chat service.

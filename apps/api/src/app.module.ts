@@ -30,6 +30,7 @@ import { PushModule } from './push/push';
 import { ProjectsModule } from './projects/projects.controller';
 import { CustomOptionsModule } from './custom-options/custom-options';
 import { PartyLogosModule } from './parties/logos';
+import { DashboardLinksModule } from './dashboard-links/dashboard-links';
 import { ClientLinksModule } from './client-links/client-links';
 import { NumberingModule } from './numbering/numbering';
 import { RedirectsModule } from './redirects/redirects.controller';
@@ -64,6 +65,7 @@ import { VendorsModule } from './vendors/vendors.controller';
     CustomOptionsModule,
     PartyLogosModule,
     ClientLinksModule,
+    DashboardLinksModule,
     NumberingModule,
     RedirectsModule,
     SurveyModule,
