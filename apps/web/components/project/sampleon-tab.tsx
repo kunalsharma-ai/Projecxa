@@ -69,10 +69,14 @@ function SampAudienceLogo() {
   );
 }
 
+/** The project.created event SampTrek sent SampAudience for this project, if any. */
+interface Announced { state: string; attempts: number; lastError: string | null; deliveredAt: string | null; createdAt: string }
+type TabView = { configured: boolean; requests: RequestRow[]; announced?: Announced | null };
+
 export function SampleonTab({ project, editable }: { project: ProjectDetail; editable: boolean }) {
-  const [view, setView] = useState<{ configured: boolean; requests: RequestRow[] } | null>(null);
+  const [view, setView] = useState<TabView | null>(null);
   const [error, setError] = useState<unknown>(null);
-  const load = useCallback(() => get<{ configured: boolean; requests: RequestRow[] }>(`/projects/${project.id}/sampleon`).then(setView).catch(setError), [project.id]);
+  const load = useCallback(() => get<TabView>(`/projects/${project.id}/sampleon`).then(setView).catch(setError), [project.id]);
   useEffect(() => {
     load();
   }, [load]);
@@ -91,6 +95,7 @@ export function SampleonTab({ project, editable }: { project: ProjectDetail; edi
       <p className="text-sm text-muted">
         Ask SampAudience for respondents from the SUPPLY360 panels. SampAudience checks feasibility, a supply approver approves the audience before any invitation goes out, and progress comes back here. SampAudience completes are shown apart from the completes SampTrek routes itself.
       </p>
+      <ProjectKnown project={project} announced={view.announced ?? null} editable={editable} reload={load} />
       <Requests project={project} rows={view.requests} editable={editable} reload={load} />
       {editable && <NewRequest project={project} onSent={load} />}
       <QuotaMapping project={project} editable={editable} />
@@ -390,5 +395,46 @@ function QuotaMapping({ project, editable }: { project: ProjectDetail; editable:
         </div>
       )}
     </Section>
+  );
+}
+
+/** Whether SampAudience has been told about the project (project.created), with a way to send it again. */
+function ProjectKnown({ project, announced, editable, reload }: { project: ProjectDetail; announced: Announced | null; editable: boolean; reload: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const send = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await post(`/projects/${project.id}/sampleon/announce`, {});
+      reload();
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const ok = announced?.state === 'DELIVERED';
+  const waiting = announced && ['PENDING', 'SENDING', 'RETRY_SCHEDULED'].includes(announced.state);
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      {ok ? <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden /> : <AlertTriangle className="h-4 w-4 text-amber-600" aria-hidden />}
+      <span className={clsx(!ok && 'text-muted')}>
+        {ok
+          ? `SampAudience knows this project (told ${new Date(announced!.deliveredAt!).toLocaleString()}).`
+          : waiting
+            ? `Telling SampAudience about this project${announced!.attempts ? ` (try ${announced!.attempts + 1}${announced!.lastError ? `: last answer ${announced!.lastError}` : ''})` : ''}.`
+            : announced
+              ? `SampAudience did not take the project: ${announced.lastError ?? announced.state}.`
+              : 'SampAudience has not been told about this project yet (it was made before the connection).'}
+      </span>
+      {editable && !waiting && !ok && (
+        <button type="button" className="btn-ghost px-2.5 py-1 text-xs" disabled={busy} onClick={send}>
+          <Send className="mr-1 inline h-3.5 w-3.5" aria-hidden />
+          {busy ? 'Sending…' : 'Tell SampAudience'}
+        </button>
+      )}
+      {error ? <ErrorBox error={error} /> : null}
+    </div>
   );
 }

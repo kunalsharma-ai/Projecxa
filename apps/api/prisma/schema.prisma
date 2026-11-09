@@ -85,6 +85,7 @@ model Organization {
   apiKeys                ApiKey[]
   webhookEndpoints       WebhookEndpoint[]
   webhookDeliveries      WebhookDelivery[]
+  sampleonOutboundEvents SampleonOutboundEvent[]
   reportSchedules        ReportSchedule[]
   accountingExports      AccountingExport[]
   zohoBooksLinks         ZohoBooksLink[]
@@ -2111,6 +2112,29 @@ model SampleonAudienceRequest {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
+  @@index([organizationId, projectId])
+}
+
+/// Events SampTrek sends to SAMPLEON (SampAudience), e.g. project.created, delivered with retries
+/// by SampleonOutbox. The envelope is fixed when queued, so a retry sends the same eventId.
+model SampleonOutboundEvent {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectId      String?
+  /// The envelope's eventId: SAMPLEON applies each event once.
+  eventId        String        @unique
+  type           String
+  envelope       Json
+  state          CallbackState @default(PENDING)
+  attempts       Int           @default(0)
+  nextAttemptAt  DateTime      @default(now())
+  lastStatusCode Int?
+  lastError      String?
+  createdAt      DateTime      @default(now())
+  deliveredAt    DateTime?
+
+  @@index([state, nextAttemptAt])
   @@index([organizationId, projectId])
 }
 
