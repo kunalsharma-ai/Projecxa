@@ -1,3 +1,4 @@
+import { EntitlementsService } from '../super-admin/entitlements';
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Injectable, Logger, Module, NotFoundException, Param, Patch, Post, Put } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { Prisma, ReportSchedule } from '@prisma/client';
@@ -138,6 +139,7 @@ export class SchedulesController {
     private readonly mail: MailService,
     private readonly audit: AuditService,
     private readonly branding: BrandingService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   @Get()
@@ -159,6 +161,7 @@ export class SchedulesController {
   @Roles(...EDITORS)
   async create(@CurrentUser() u: AuthUser, @Body(new ZodPipe(scheduleSchema)) body: ScheduleInput) {
     if ((await this.prisma.reportSchedule.count({ where: { organizationId: u.organizationId } })) >= MAX_SCHEDULES) throw new BadRequestException(`Up to ${MAX_SCHEDULES} schedules`);
+    await this.entitlements.assertLimit(u.organizationId, 'scheduledReports');
     await this.schedules.checkFilters(u.organizationId, body.filters);
     const s = await this.prisma.reportSchedule.create({ data: { ...this.data(body), organizationId: u.organizationId, createdById: u.id, nextRunAt: nextRunAt(body, new Date()) } });
     await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'report_schedule.create', entityType: 'ReportSchedule', entityId: s.id, detail: { name: s.name, recipients: s.recipients } });

@@ -169,6 +169,12 @@ export const HELP: Record<string, HelpEntry> = {
     how: 'Add a portal user for a client or vendor with a temporary password; they change it on first sign-in.',
     where: 'Clients see their projects, files and invoices. Vendors see their links, respondents, quotes and statements.',
   },
+  'page:/chat': {
+    title: 'Team chat',
+    what: 'Chat for staff only: Announcements, General, a room per project, private groups and direct messages. It runs on your SampTrek server.',
+    how: 'Pick a conversation, or press New. In a project room, tick "Post as a project update" to share how the project is doing.',
+    where: 'Messages are saved on this device too, so you can read them offline. What you write offline is sent when you reconnect.',
+  },
   'page:/tasks': {
     title: 'Tasks',
     what: 'Your to-dos and reminders, including ones the AI copilot made for you.',
@@ -210,6 +216,12 @@ export const HELP: Record<string, HelpEntry> = {
     what: 'Your staff logins and their roles.',
     how: 'Invite by email, change role, deactivate someone who left, or sign them out everywhere.',
     where: 'Staff only. Client and vendor logins are under Portal access.',
+  },
+  'page:/settings/features': {
+    title: 'Features & access',
+    what: 'Who in your team gets each feature your plan includes.',
+    how: 'Pick Everyone, Admins only, Chosen people (then tick them) or No one. Locked features are not in your plan: ask your SampTrek provider or upgrade under Subscription.',
+    where: 'Applies at once on the web and in the Android/iOS app, and the server refuses what someone was not given. New features such as Team chat start with admins only.',
   },
   'page:/settings/integrations': {
     title: 'Integrations',
@@ -355,6 +367,28 @@ export const HELP: Record<string, HelpEntry> = {
   },
 
   // ───────────────────── Project: sections and explicit ids ─────────────────────
+  'section:Usage and limits': {
+    what: 'What your plan allows (projects, clients, vendors, logins, clicks, completes…) and how much you use now.',
+    how: 'Bars turn amber at 80% and red when a limit is reached. Monthly counts reset on the 1st.',
+    where: 'Your whole organisation. Your SampTrek provider sets the limits.',
+  },
+  'section:Limits in this plan': {
+    what: 'Usage limits every organisation on this plan gets.',
+    how: 'Type a number, or leave a field empty for no limit. Choose whether running out of clicks or completes stops new entries or only shows the overrun.',
+    where: 'Every organisation on the plan, at once. One organisation can get its own numbers on its Subscription tab.',
+  },
+  'section:Runs as': {
+    what: 'The name, domain and respondent ID prefix this organisation uses on links and redirects.',
+    how: 'Traffic on their own domain and name is still counted here. Use Observe to open their workspace read-only.',
+    where: 'This organisation only.',
+  },
+  'section:Clicks and completes per day': { what: 'Live respondent entries per day, with completes shown darker.', how: 'Pick 7, 30 or 90 days. Hover a bar for the numbers.', where: 'This organisation; test links are left out.' },
+  'section:Busiest projects': { what: 'The projects with the most live clicks in the period.', how: 'Open Observe to see a project in full.', where: 'This organisation only.' },
+  'section:Usage': {
+    what: 'How much of each limit this organisation uses.',
+    how: 'Change its limits on the left, or move it to another plan.',
+    where: 'This organisation only.',
+  },
   'section:Project settings': {
     what: 'Project-wide settings such as name, client, category, managers, link variable and dates.',
     how: 'Change a value and save; it applies to every market.',
@@ -404,6 +438,13 @@ export const HELP: Record<string, HelpEntry> = {
   'project.clientLinks.markets': { title: 'Markets', what: 'For each market: whether client unique links are on, and how many are unused or given out.', how: 'Turn a market on once its links are uploaded. Upload more when it says low.', where: 'This project.' },
   'project.clientLinks.upload': { title: 'Upload client links', what: 'Adds the client\'s per-respondent survey links to one market.', how: 'Choose the market, pick the file or paste the links, press Check links, then Add.', where: 'Only the chosen market. Repeats and lines that are not links are skipped.' },
   'project.clientLinks.list': { title: 'Client links', what: 'Every uploaded client link: unused or given out, to which respondent and with what outcome.', how: 'Filter by market or status, search part of a link, or download the CSV.', where: 'This project.' },
+  'project.dashboardLinks': { title: 'Client dashboard links', what: 'Read-only links your client opens to watch completes, markets and quotas live, without a SampTrek login.', how: 'Make a link, copy it and send it to the client. Turn it off when fieldwork ends or the link was shared too widely.', where: 'This project only. Drafts are never shown; test traffic is never counted.' },
+  'project.dashboardLinks.new': { title: 'New link', what: 'Makes a new dashboard link with its own settings.', how: 'Say who it is for, pick an end date if you want one, choose what extra it shows, then press Make link.', where: 'Each link has its own settings, so one client team can see spend and another not.' },
+  'project.dashboardLinks.label': { title: 'Who it is for', what: 'A name for the link, e.g. the client team it was sent to. Only staff see it.', how: 'Type a short name. Leave it empty if there is only one link.', where: 'Shown in this list, not on the client\'s page.' },
+  'project.dashboardLinks.expires': { title: 'Works until', what: 'The last day the link works. After it, the page says the link has ended.', how: 'Pick a date, or leave it empty to keep the link working until you turn it off.', where: 'This link only. The link works through the whole of that day.' },
+  'project.dashboardLinks.money': { title: 'Show CPI and spend', what: 'Adds the client CPI per market and the spend so far (CPI × completes) to the page.', how: 'Switch it on when the client should follow the budget. Vendor cost and margin are never shown.', where: 'This link only. You can change it later; the client sees it on the next refresh.' },
+  'project.dashboardLinks.vendors': { title: 'Show vendor names', what: 'Adds each vendor\'s name with its completes and target to the page.', how: 'Switch it on only when the client may know your sample sources. Vendor CPI is never shown.', where: 'This link only. You can change it later; the client sees it on the next refresh.' },
+  'project.dashboardLinks.list': { title: 'Working links', what: 'Every link that works now, with how often and when it was last opened.', how: 'Copy or open a link, change what it shows, or press Turn off to stop it at once.', where: 'Turned-off and ended links are kept below for the record and cannot be switched back on.' },
   'settings.numbering': { title: 'Work orders and UID prefix', what: 'How work order numbers are made, and the prefix on respondent IDs sent to client surveys.', how: 'Set the prefix and the next number; check the last one given. Add a UID prefix for your brand.', where: 'Every new project and new respondents. Admins can change it.' },
   'page:/settings/options': { title: 'Dropdown options', what: 'Every option your team added with “Add +”: categories, target groups, languages and link variables.', how: 'Add an option, fix a typo, or remove one you no longer use.', where: 'The dropdowns across SampTrek. Projects keep the values they already use.' },
   'project.uniqueLinks.generate': {
