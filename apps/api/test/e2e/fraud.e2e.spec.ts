@@ -24,6 +24,7 @@ describe('Stronger fraud checks (e2e)', () => {
   let other: ReturnType<typeof api>;
   let rep: IpReputationService;
   let n = 0;
+  let orgId: string;
   const http = () => request(app.getHttpServer());
   const uid = () => `F${++n}`;
   /** Project → its vendor allocations (entry codes). */
@@ -76,6 +77,7 @@ describe('Stronger fraud checks (e2e)', () => {
     await prisma.ipLookupCache.deleteMany({});
     rep = app.get(IpReputationService);
     const a = await makeOrg(prisma, 'fraud');
+    orgId = a.org.id;
     const b = await makeOrg(prisma, 'fraud-other');
     pm = api(app, await login(app, a.users.PROJECT_MANAGER.email));
     admin = api(app, await login(app, a.users.ADMIN.email));
@@ -116,6 +118,18 @@ describe('Stronger fraud checks (e2e)', () => {
       const ok = uid();
       expect((await enter('a', ok, { ip: '198.51.100.77' })).headers.location).toMatch(/^https:\/\/client\.example\.com/);
       expect(await session('a', ok)).toMatchObject({ status: 'STARTED', riskScore: 0 });
+    });
+
+    it('skips the advanced checks when the plan does not include fraud checks', async () => {
+      await setSecurity('a', { proxyDetection: true });
+      const off = await prisma.featureOverride.create({ data: { organizationId: orgId, feature: 'fraud_checks', channel: 'web', enabled: false } });
+      const vpn = uid();
+      expect((await enter('a', vpn, { ip: '203.0.113.51' })).headers.location).toMatch(/^https:\/\/client\.example\.com/);
+      expect(await session('a', vpn)).toMatchObject({ status: 'STARTED' });
+      await prisma.featureOverride.delete({ where: { id: off.id } });
+      const again = uid();
+      await enter('a', again, { ip: '203.0.113.52' });
+      expect(await session('a', again)).toMatchObject({ status: 'SECURITY_REJECT', statusDetail: 'PROXY_VPN' });
     });
 
     it('downloads the free lists, skips private ranges and keeps the old list when a download looks wrong', async () => {

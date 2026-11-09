@@ -5,6 +5,7 @@ export type Stats = Record<'STARTED' | 'COMPLETE' | 'TERMINATE' | 'QUOTA_FULL' |
 export interface FieldMetrics { avgLoiMinutes: number | null; irPercent: number | null; completes: number; terminates: number; speeders: number }
 
 export interface AutoPause { enabled: boolean; by: 'percent' | 'completes'; value: number; scope: 'market' | 'vendor' }
+export interface AutoRoute { enabled: boolean; mode: 'approve' | 'auto'; weights: { score: number; cost: number; room: number }; minScore: number; keepMargin: boolean; maxMovePercent: number; cooldownHours: number }
 export interface AutoPauseState { config: string; done: Record<string, { reason: 'paused' | 'target'; at: string; completes: number; target: number }>; switchedOffAt?: string }
 
 export interface Allocation {
@@ -70,7 +71,7 @@ export interface ProjectDetail {
   activeRedirectVersion: { id: string; version: number; mode: string } | null;
   fieldStartAt: string | null;
   fieldEndAt: string | null;
-  autopilot: { pauseOnQuality?: boolean; closeOnTarget?: boolean; autoPause?: AutoPause } | null;
+  autopilot: { pauseOnQuality?: boolean; closeOnTarget?: boolean; autoPause?: AutoPause; autoRoute?: AutoRoute; marginFloorPct?: number | null } | null;
   autopilotState?: { autoPause?: AutoPauseState } | null;
   /** Speeder check: completes faster than fraction × planned LOI become speeders. */
   speederCheck?: { enabled: boolean; fraction: string } | null;

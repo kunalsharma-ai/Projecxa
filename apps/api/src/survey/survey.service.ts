@@ -1,3 +1,4 @@
+import { EntitlementsService } from '../super-admin/entitlements';
 import { Injectable, Logger } from '@nestjs/common';
 import { EventSource, Prisma, RespondentStatus } from '@prisma/client';
 import { config as appConfig } from '../common/config';
@@ -36,6 +37,15 @@ import { isSpeeder, SPEEDER_DETAIL, speederOf } from '../projects/field-metrics'
 import { runAutoPause } from '../monitor/auto-pause';
 
 /** Toggles that need the respondent's browser, so they run on the gate page before the survey. */
+/** The plan-gated security switches (feature fraud_checks); off when the plan does not include it. */
+const FRAUD_CHECK_KEYS = ['proxyDetection', 'automationDetection', 'crossProjectDuplicates'] as const;
+function withFraudChecks(security: Record<string, boolean>, on: boolean): Record<string, boolean> {
+  if (on) return security;
+  const out = { ...security };
+  for (const k of FRAUD_CHECK_KEYS) out[k] = false;
+  return out;
+}
+
 const GATE_KEYS = ['gateSurvey', 'captcha', 'browserFingerprinting', 'browserLanguage', 'timezoneTracking', 'cookieValidation', 'automationDetection', 'crossProjectDuplicates'] as const;
 const HASH_RE = /^[0-9a-f]{64}$/i;
 
@@ -154,7 +164,13 @@ export class SurveyService {
     private readonly tor: TorService,
     private readonly webhooks: WebhooksService,
     private readonly ipRep: IpReputationService,
+    private readonly entitlements: EntitlementsService,
   ) {}
+
+  /** Advanced fraud checks (docs/FRAUD_CHECKS.md) run only while the organisation's plan includes them. */
+  private fraudChecksOn(organizationId: string) {
+    return this.entitlements.orgAllows(organizationId, 'fraud_checks');
+  }
 
   /**
    * Vendor entry link: /s/{entryCode}?uid=...
@@ -234,7 +250,8 @@ export class SurveyService {
     const project = country.project;
 
     const ipHash = req.ip ? sha256(`${project.organizationId}:${req.ip}`) : null;
-    const security = (project.security ?? {}) as Record<string, boolean>;
+    const fraudOn = await this.fraudChecksOn(project.organizationId);
+    const security = withFraudChecks((project.security ?? {}) as Record<string, boolean>, fraudOn);
     const checks: CheckResult[] = [];
 
     // URL protection runs before anything is stored: an unsigned link must not be able to claim
@@ -269,6 +286,11 @@ export class SurveyService {
     else if (!isTest && (country.completes >= country.targetCompletes || allocation.completes >= allocation.targetCompletes)) {
       initial = { status: 'QUOTA_FULL', detail: 'QUOTA_CLOSED' };
     }
+    // Plan limit on clicks or completes a month (docs/PLAN_LIMITS.md): new live entries go back to the vendor as quota full.
+    if (!initial && !isTest) {
+      const reached = await this.entitlements.trafficStop(project.organizationId);
+      if (reached) initial = { status: 'QUOTA_FULL', detail: reached === 'clicksPerMonth' ? 'PLAN_CLICK_LIMIT' : 'PLAN_COMPLETE_LIMIT' };
+    }
     // Server-side checks. Test links run them too, but only log the result.
     const device = checkDevice(project.devices as Record<string, boolean>, req.userAgent);
     checks.push(device);
@@ -288,7 +310,7 @@ export class SurveyService {
       checks.push(sameDevice ? duplicateOf('duplicate', 'SAME_DEVICE', sameDevice.vendorAllocation.vendorId !== allocation.vendorId) : { check: 'duplicate', ok: true });
     }
     // Fraud risk from the entry checks; with no gate page, the threshold is applied here.
-    const rules = fraudRulesOf(project.fraudRules);
+    const rules = fraudOn ? fraudRulesOf(project.fraudRules) : { ...fraudRulesOf(null), riskThreshold: null };
     const entryRisk = riskOf(checks);
     if (rules.riskThreshold != null && entryRisk.score >= rules.riskThreshold && !gateNeeded(security)) {
       checks.push({ check: 'risk', ok: false, reason: 'HIGH_RISK', status: 'SECURITY_REJECT', note: String(entryRisk.score) });
@@ -622,7 +644,8 @@ export class SurveyService {
     if (!session.gateRequired || session.gatePassedAt) return { location: await this.surveyLink(session) };
     if (session.expiresAt < new Date()) return this.fail(session, 'SECURITY_REJECT', 'EXPIRED');
 
-    const security = (session.project.security ?? {}) as Record<string, boolean>;
+    const fraudOn = await this.fraudChecksOn(session.organizationId);
+    const security = withFraudChecks((session.project.security ?? {}) as Record<string, boolean>, fraudOn);
     const orgId = session.organizationId;
     const fingerprint = typeof body.fingerprint === 'string' && HASH_RE.test(body.fingerprint) ? sha256(`${orgId}:${body.fingerprint.toLowerCase()}`) : null;
     const deviceHash = typeof body.device === 'string' && HASH_RE.test(body.device) ? sha256(`${orgId}:device:${body.device.toLowerCase()}`) : null;
@@ -669,7 +692,7 @@ export class SurveyService {
       const same = await this.prisma.respondentSession.findFirst({ where: { ...sameHere, browserIdHash: browserId }, select: vendorOf, orderBy: { startedAt: 'asc' } });
       checks.push(same ? duplicateOf('browser', 'SAME_BROWSER', same.vendorAllocation.vendorId !== vendorId) : { check: 'browser', ok: true });
     }
-    const rules = fraudRulesOf(session.project.fraudRules);
+    const rules = fraudOn ? fraudRulesOf(session.project.fraudRules) : { ...fraudRulesOf(null), riskThreshold: null };
     if (security.crossProjectDuplicates) checks.push(await this.crossProjectCheck(session, rules, { fingerprintHash: fingerprint, deviceHash, browserIdHash: browserId }));
     // Risk: what the entry checks found plus everything found here. Applied before the answers.
     const gateRisk = riskOf(checks);

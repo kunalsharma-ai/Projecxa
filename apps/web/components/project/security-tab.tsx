@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMe } from '@/components/me';
 import { Empty, ErrorBox, Section, Toggle } from '@/components/ui';
 import { get, patch } from '@/lib/api';
-import type { CaptchaStyle, Question } from '@/lib/types';
+import { hasFeature, type CaptchaStyle, type Question } from '@/lib/types';
 import { cleanQuestion, QuestionBuilder, questionProblems } from './question-builder';
 import type { ProjectDetail } from './types';
 import { InfoTip } from '@/components/help';
@@ -23,6 +23,8 @@ interface CaptchaInfo { providers: Record<'turnstile' | 'hcaptcha', { configured
 interface Summary { entries: number; gate: { required: number; passed: number }; reasons: { reason: string; label: string; status: string; count: number }[]; risk?: { low: number; medium: number; high: number } }
 
 type Key = 'gateSurvey' | 'prescreening' | 'captcha' | 'urlProtection' | 'duplicateDetection' | 'browserFingerprinting' | 'cookieValidation' | 'geolocation' | 'timezoneTracking' | 'browserLanguage' | 'torDetection' | 'proxyDetection' | 'automationDetection' | 'crossProjectDuplicates';
+
+const FRAUD_KEYS: Key[] = ['proxyDetection', 'automationDetection', 'crossProjectDuplicates'];
 
 const GROUPS: { title: string; icon: typeof Bot; items: { key: Key; label: string; help: string }[] }[] = [
   {
@@ -85,6 +87,8 @@ function stable(v: unknown): string {
 
 export function SecurityTab({ project, editable, reload }: { project: ProjectDetail; editable: boolean; reload: () => void }) {
   const me = useMe();
+  // Advanced fraud checks are a plan feature (fraud_checks); without it their switches and rules are hidden.
+  const fraudOn = hasFeature(me, 'fraud_checks');
   const [security, setSecurity] = useState(project.security);
   const [devices, setDevices] = useState<DeviceSettings>(withOs(project.devices));
   const [style, setStyle] = useState<CaptchaStyle>(project.captchaStyle ?? 'math');
@@ -160,7 +164,7 @@ export function SecurityTab({ project, editable, reload }: { project: ProjectDet
               <div key={g.title}>
                 <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted"><g.icon className="h-3.5 w-3.5" /> {g.title}</div>
                 <ul className="divide-y divide-line rounded-lg border border-line">
-                  {g.items.map((it) => {
+                  {g.items.filter((it) => fraudOn || !FRAUD_KEYS.includes(it.key)).map((it) => {
                     const n = note(it.key);
                     return (
                       <li key={it.key} className="flex items-start gap-3 p-3">
@@ -194,7 +198,7 @@ export function SecurityTab({ project, editable, reload }: { project: ProjectDet
           </div>
         </Section>
 
-        <FraudRulesSection project={project} value={rules} onChange={setRules} editable={editable} crossOn={!!security.crossProjectDuplicates} />
+        {fraudOn && <FraudRulesSection project={project} value={rules} onChange={setRules} editable={editable} crossOn={!!security.crossProjectDuplicates} />}
 
         <SpeederCheck key={`${project.speederCheck?.enabled}-${project.speederCheck?.fraction}`} project={project} editable={editable} reload={reload} />
 

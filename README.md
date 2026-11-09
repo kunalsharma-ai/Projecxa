@@ -302,6 +302,11 @@ Applies the frontend design prompt (see `docs/FRONTEND_DESIGN_SYSTEM.md` for the
 - **Work orders** get your prefix and the next number automatically (e.g. FR9132), or can be typed by hand, never twice; the last one given is shown and they can be edited later. A **UID prefix** brands every respondent ID sent to client surveys. Details: `docs/WORK_ORDERS_AND_UID_PREFIX.md`.
 - **Client unique links**: upload the client's per-respondent survey links per market (Excel, CSV or paste); each respondent gets the next unused one, never twice. The older tab is now **Vendor unique links**. Details: `docs/CLIENT_UNIQUE_LINKS.md`.
 
+## Live client dashboards
+
+- Project → **Client dashboard** makes a read-only link (`/live/<token>`) the client opens without signing in, to watch completes, markets and quota cells move. It refreshes every 30 seconds and shows the last 24 hours' pace.
+- No money or vendor details unless switched on per link (**Show CPI and spend**, **Show vendor names**); vendor cost and margin are never shown. Links can have an end date and can be turned off at once. Details: `docs/CLIENT_DASHBOARD_LINKS.md`.
+
 ## Mobile app for Android and iOS
 
 `apps/mobile` is one Expo (React Native) app for Android and iOS in the Neon (dark) and Aurora (light) looks from the design mockups. Staff get the command center, projects (with markets, vendors, quotas, share links, go live / hold / close, pause vendors), fieldwork monitor and alerts, AI copilot with confirm cards, tasks, requests, won bids, reports, invoices, vendor payables, clients, vendors, redirect health and notifications; client and vendor users get their portal. Settings-heavy screens open the web app. What each person sees follows the Super Admin feature switches for mobile and changes live (next API call, opening More, returning to the app, or within 30 seconds). Contract, store builds with EAS and limits: [docs/MOBILE_APP.md](docs/MOBILE_APP.md).

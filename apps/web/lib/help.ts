@@ -169,6 +169,12 @@ export const HELP: Record<string, HelpEntry> = {
     how: 'Add a portal user for a client or vendor with a temporary password; they change it on first sign-in.',
     where: 'Clients see their projects, files and invoices. Vendors see their links, respondents, quotes and statements.',
   },
+  'page:/chat': {
+    title: 'Team chat',
+    what: 'Chat for staff only: Announcements, General, a room per project, private groups and direct messages. It runs on your SampTrek server.',
+    how: 'Pick a conversation, or press New. In a project room, tick "Post as a project update" to share how the project is doing.',
+    where: 'Messages are saved on this device too, so you can read them offline. What you write offline is sent when you reconnect.',
+  },
   'page:/tasks': {
     title: 'Tasks',
     what: 'Your to-dos and reminders, including ones the AI copilot made for you.',
@@ -210,6 +216,12 @@ export const HELP: Record<string, HelpEntry> = {
     what: 'Your staff logins and their roles.',
     how: 'Invite by email, change role, deactivate someone who left, or sign them out everywhere.',
     where: 'Staff only. Client and vendor logins are under Portal access.',
+  },
+  'page:/settings/features': {
+    title: 'Features & access',
+    what: 'Who in your team gets each feature your plan includes.',
+    how: 'Pick Everyone, Admins only, Chosen people (then tick them) or No one. Locked features are not in your plan: ask your SampTrek provider or upgrade under Subscription.',
+    where: 'Applies at once on the web and in the Android/iOS app, and the server refuses what someone was not given. New features such as Team chat start with admins only.',
   },
   'page:/settings/integrations': {
     title: 'Integrations',
@@ -348,6 +360,11 @@ export const HELP: Record<string, HelpEntry> = {
     how: 'Upload a file and choose who can see it, or start a request.',
     where: 'Shown in the client or vendor portal for the people you share with.',
   },
+  'tab:Team': {
+    what: 'Your team\'s comments on this project, the handover checklist and everything that happened on the project.',
+    how: 'Comment and type @ to mention a colleague. Start a handover when another project manager takes over.',
+    where: 'Staff only. Clients and vendors never see this tab or its comments.',
+  },
   'tab:History': {
     what: 'Every change to this project\'s settings, who made it and when.',
     how: 'Open a change to see before and after, and Restore to go back.',
@@ -355,6 +372,45 @@ export const HELP: Record<string, HelpEntry> = {
   },
 
   // ───────────────────── Project: sections and explicit ids ─────────────────────
+  'section:/projects/[id]::Comments': {
+    what: 'A conversation about this project for your team, oldest first.',
+    how: 'Type @ and pick a colleague to mention them; they get a bell notification and an email (Zoho Mail). Edit or delete your own comments.',
+    where: 'Staff of your organisation only; never shown in the client or vendor portal.',
+  },
+  'section:/projects/[id]::Handover': {
+    what: 'A checklist for handing this project to another project manager, so nothing is missed.',
+    how: 'Start a handover, choose who takes over and which items to cover. You both tick items; they accept once every item is ticked.',
+    where: 'This project. On accept, the receiver becomes the project manager unless you untick that option.',
+  },
+  'section:/projects/[id]::Activity': {
+    what: 'Everything that happened on this project, newest first: changes, comments, handovers, fieldwork events and requests.',
+    how: 'Use the chips to show one kind only, and Show older to go back further.',
+    where: 'This project. The full settings before and after are on the History tab.',
+  },
+  'field:/projects/[id]::Hand over to': { what: 'The admin or project manager who takes over this project.', how: 'Pick one person; viewers and sales cannot run a project.', where: 'This handover. They get a bell notification and an email.' },
+  'field:/projects/[id]::Handover note': { what: 'What the next person should know first, such as client habits or risks.', how: 'Write a few lines; it shows at the top of the checklist.', where: 'This handover, and the email to the receiver.' },
+  'section:Usage and limits': {
+    what: 'What your plan allows (projects, clients, vendors, logins, clicks, completes…) and how much you use now.',
+    how: 'Bars turn amber at 80% and red when a limit is reached. Monthly counts reset on the 1st.',
+    where: 'Your whole organisation. Your SampTrek provider sets the limits.',
+  },
+  'section:Limits in this plan': {
+    what: 'Usage limits every organisation on this plan gets.',
+    how: 'Type a number, or leave a field empty for no limit. Choose whether running out of clicks or completes stops new entries or only shows the overrun.',
+    where: 'Every organisation on the plan, at once. One organisation can get its own numbers on its Subscription tab.',
+  },
+  'section:Runs as': {
+    what: 'The name, domain and respondent ID prefix this organisation uses on links and redirects.',
+    how: 'Traffic on their own domain and name is still counted here. Use Observe to open their workspace read-only.',
+    where: 'This organisation only.',
+  },
+  'section:Clicks and completes per day': { what: 'Live respondent entries per day, with completes shown darker.', how: 'Pick 7, 30 or 90 days. Hover a bar for the numbers.', where: 'This organisation; test links are left out.' },
+  'section:Busiest projects': { what: 'The projects with the most live clicks in the period.', how: 'Open Observe to see a project in full.', where: 'This organisation only.' },
+  'section:Usage': {
+    what: 'How much of each limit this organisation uses.',
+    how: 'Change its limits on the left, or move it to another plan.',
+    where: 'This organisation only.',
+  },
   'section:Project settings': {
     what: 'Project-wide settings such as name, client, category, managers, link variable and dates.',
     how: 'Change a value and save; it applies to every market.',
@@ -404,6 +460,13 @@ export const HELP: Record<string, HelpEntry> = {
   'project.clientLinks.markets': { title: 'Markets', what: 'For each market: whether client unique links are on, and how many are unused or given out.', how: 'Turn a market on once its links are uploaded. Upload more when it says low.', where: 'This project.' },
   'project.clientLinks.upload': { title: 'Upload client links', what: 'Adds the client\'s per-respondent survey links to one market.', how: 'Choose the market, pick the file or paste the links, press Check links, then Add.', where: 'Only the chosen market. Repeats and lines that are not links are skipped.' },
   'project.clientLinks.list': { title: 'Client links', what: 'Every uploaded client link: unused or given out, to which respondent and with what outcome.', how: 'Filter by market or status, search part of a link, or download the CSV.', where: 'This project.' },
+  'project.dashboardLinks': { title: 'Client dashboard links', what: 'Read-only links your client opens to watch completes, markets and quotas live, without a SampTrek login.', how: 'Make a link, copy it and send it to the client. Turn it off when fieldwork ends or the link was shared too widely.', where: 'This project only. Drafts are never shown; test traffic is never counted.' },
+  'project.dashboardLinks.new': { title: 'New link', what: 'Makes a new dashboard link with its own settings.', how: 'Say who it is for, pick an end date if you want one, choose what extra it shows, then press Make link.', where: 'Each link has its own settings, so one client team can see spend and another not.' },
+  'project.dashboardLinks.label': { title: 'Who it is for', what: 'A name for the link, e.g. the client team it was sent to. Only staff see it.', how: 'Type a short name. Leave it empty if there is only one link.', where: 'Shown in this list, not on the client\'s page.' },
+  'project.dashboardLinks.expires': { title: 'Works until', what: 'The last day the link works. After it, the page says the link has ended.', how: 'Pick a date, or leave it empty to keep the link working until you turn it off.', where: 'This link only. The link works through the whole of that day.' },
+  'project.dashboardLinks.money': { title: 'Show CPI and spend', what: 'Adds the client CPI per market and the spend so far (CPI × completes) to the page.', how: 'Switch it on when the client should follow the budget. Vendor cost and margin are never shown.', where: 'This link only. You can change it later; the client sees it on the next refresh.' },
+  'project.dashboardLinks.vendors': { title: 'Show vendor names', what: 'Adds each vendor\'s name with its completes and target to the page.', how: 'Switch it on only when the client may know your sample sources. Vendor CPI is never shown.', where: 'This link only. You can change it later; the client sees it on the next refresh.' },
+  'project.dashboardLinks.list': { title: 'Working links', what: 'Every link that works now, with how often and when it was last opened.', how: 'Copy or open a link, change what it shows, or press Turn off to stop it at once.', where: 'Turned-off and ended links are kept below for the record and cannot be switched back on.' },
   'settings.numbering': { title: 'Work orders and UID prefix', what: 'How work order numbers are made, and the prefix on respondent IDs sent to client surveys.', how: 'Set the prefix and the next number; check the last one given. Add a UID prefix for your brand.', where: 'Every new project and new respondents. Admins can change it.' },
   'page:/settings/options': { title: 'Dropdown options', what: 'Every option your team added with “Add +”: categories, target groups, languages and link variables.', how: 'Add an option, fix a typo, or remove one you no longer use.', where: 'The dropdowns across SampTrek. Projects keep the values they already use.' },
   'project.uniqueLinks.generate': {
@@ -425,7 +488,7 @@ export const HELP: Record<string, HelpEntry> = {
   'section:/monitor::Live markets': { what: 'Every live market across projects, with pace and risk.', how: 'Sort by risk and open a project to act.', where: 'All live projects.' },
   'project.autopilot': {
     title: 'Autopilot',
-    what: 'Actions the monitor may take on its own, such as pausing a vendor with bad quality or closing a full market.',
+    what: 'Actions the monitor may take on its own, such as pausing a vendor with bad quality, closing a full market, or routing traffic to the best vendor.',
     how: 'Tick only the actions you are comfortable with. Each one is logged and raised as an alert.',
     where: 'Live markets of this project.',
   },
@@ -434,6 +497,30 @@ export const HELP: Record<string, HelpEntry> = {
     what: 'A soft-launch stop: the autopilot pauses each market (or vendor link) once it reaches a share of its target or a number of completes, so you can check the data.',
     how: 'Choose market or vendor link, then a % of target or a number of completes. Resume when the data looks right; it will not pause that one again.',
     where: 'Live markets of this project. Once every market or link was paused or reached its target, the autopilot switches the checkpoint off.',
+  },
+  'project.autoRoute': {
+    title: 'Route traffic to the best vendor',
+    what: 'Vendor auto-routing. When a market will fall short, SampTrek moves the completes a vendor will not deliver (paused, stalled, behind pace, poor quality, or not given to anyone) to the best other vendor in that market, by raising its target.',
+    how: 'Turn it on, pick "Suggest, I approve" to press Route yourself or "Route automatically" to let the monitor do it every five minutes. Set the weights, the minimum vendor score, the most to move in one run and the wait between runs, then Save.',
+    where: 'Live markets of this project only. Vendors with a score under the minimum, and (if ticked) vendors whose CPI is at or above the client CPI, never receive. Every run is logged and can be undone.',
+  },
+  'project.autoRoute.weights': {
+    title: 'Routing weights',
+    what: 'How much each part counts in the routing score (0–100): vendor score (in this country when there is enough data), margin under the client CPI, and room (completes it can still deliver by the field end date).',
+    how: 'Raise a weight to make that part matter more. The weights do not have to add up to 100; the % next to each shows its real share. A vendor with no score yet counts as 60.',
+    where: 'This project. The plan below shows each vendor\'s parts and routing score, so you can see why it was picked.',
+  },
+  'project.routingPlan': {
+    title: 'Vendor routing',
+    what: 'What routing would do now in each live market: which vendors give completes and why, who gets them, the change in CPI, and the ranking of every vendor with room (and the ones skipped, with the reason).',
+    how: 'Read the ranking, then press Route to apply the plan. If the numbers changed since you opened the page, SampTrek asks you to look again before routing.',
+    where: 'Live markets of this project. It works by hand even when automatic routing is off.',
+  },
+  'project.routingHistory': {
+    title: 'Routing history',
+    what: 'Every routing run on this project, automatic or by hand, with who ran it and each vendor target before and after.',
+    how: 'Press Undo to put every vendor target of a run back. It refuses if a target changed since, so a newer change is never overwritten. An undo also starts the wait before the autopilot routes that market again.',
+    where: 'This project. Runs also appear in the audit log as allocation.route, autopilot.route and allocation.route_undo.',
   },
   'project.speederCheck': {
     title: 'Speeder check',
@@ -453,10 +540,32 @@ export const HELP: Record<string, HelpEntry> = {
     how: 'Watch profit while fieldwork runs. Expected revenue shows the value at target. Rejected completes drop out after reconciliation.',
     where: 'This project, per CPI currency. Live projects refresh every 30 seconds.',
   },
+  'project.forecast': {
+    title: 'Forecast at finish',
+    what: 'When this project will reach its targets and the revenue, cost, profit and margin it will end with, if fieldwork keeps its current pace and vendor mix.',
+    how: 'Finish date comes from the completes of the last 72 hours. Remaining completes are priced at the vendors delivering now. Check By market to see which market is slow or costly.',
+    where: 'Live and held markets of this live project, per CPI currency; closed markets count with what they earned. SampTrek alerts when the margin drops under the floor.',
+  },
+  'field:Margin alert below': {
+    title: 'Margin alert below',
+    what: 'This project\'s own margin floor: SampTrek raises a margin alert when the forecast margin at finish is under it.',
+    how: 'Enter a whole percent, for example 25. Leave empty to use the margin floor from Settings → Fieldwork alerts.',
+    where: 'This project only. The alert waits for 5 completes in a currency.',
+  },
+  'field:Margin floor': {
+    what: 'The lowest forecast margin a live project may head for before SampTrek raises a margin alert.',
+    how: 'Enter a whole percent. Projects can set their own in Quotas & monitor → Autopilot.',
+    where: 'Every live project of your organisation that has no floor of its own.',
+  },
+  'field:Margin drop': {
+    what: 'Raise the margin alert when the forecast margin falls this many points under the margin planned from the bid, even above the floor.',
+    how: 'Enter whole points, for example 10: a 45% plan heading for 34% alerts.',
+    where: 'Every live project of your organisation.',
+  },
   'field:Avg LOI': { title: 'Avg LOI', what: 'Average minutes live completes actually took, from reaching the client survey to completing.', how: 'Compare it with the planned LOI; much shorter suggests speeders, much longer means drop-outs.', where: 'Project list and fieldwork status. Reports call it LOI.' },
   'field:Avg IR': { title: 'Avg IR', what: 'Actual incidence: completes ÷ (completes + terminates).', how: 'Compare it with the planned IR; a big drop raises the real cost per complete.', where: 'Project list and fieldwork status. Reports call it IR.' },
   'field:Speeders': { what: 'Completes rejected by the speeder check because they were too fast.', how: 'Set the check in Gate & security. A high count points at a vendor or a survey that is easy to rush.', where: 'Fieldwork status, project list and reports.' },
-  'project.alerts': { title: 'Active alerts', what: 'Problems the monitor found: low pace, stalls, low incidence, high drop-out or poor quality.', how: 'Open an alert, fix the cause, then dismiss it.', where: 'This project.' },
+  'project.alerts': { title: 'Active alerts', what: 'Problems the monitor found: low pace, stalls, low incidence, high drop-out, poor quality or a margin heading too low.', how: 'Open an alert, fix the cause, then dismiss it.', where: 'This project.' },
   'project.security': {
     title: 'Respondent security',
     what: 'Checks that stop duplicates, bots and fraud before respondents reach the survey.',

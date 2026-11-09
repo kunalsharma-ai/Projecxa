@@ -44,6 +44,7 @@ An alert can be **acknowledged** (someone is on it) or **resolved** by hand. If 
 | quality_spike | critical | A vendor link has `qualityPct` (25%) of its last-24h entries rejected for quality, duplicates or security |
 | drop_off | warning | A vendor link has `dropOffPct` (30%) of its last-24h entries dropping out |
 | callbacks_failed | warning | Outbound vendor callbacks have failed |
+| margin_low | warning, or critical when the forecast is a loss | A live project's forecast margin at finish is under `marginFloorPct` (20%, or the project's own `autopilot.marginFloorPct`), or `marginDropPts` (10) points under the planned margin, after 5 completes in that currency (docs/PROFIT_FORECAST.md) |
 
 Defaults are in brackets. Admins change them in Settings (`PUT /api/v1/organization/alert-settings`).
 
@@ -113,6 +114,7 @@ Verify the signature over the raw body and reject timestamps older than five min
 | Method | Path | Who |
 |---|---|---|
 | GET | `/monitor?projectId=` | staff |
+| GET | `/monitor/forecast?projectId=` | staff |
 | POST | `/monitor/run` | admin, project manager |
 | GET | `/alerts?state=ACTIVE\|OPEN\|ACKNOWLEDGED\|RESOLVED&projectId=` | staff |
 | POST | `/alerts/:id/acknowledge`, `/alerts/:id/resolve` | admin, project manager |

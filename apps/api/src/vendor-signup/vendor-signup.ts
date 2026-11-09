@@ -1,3 +1,4 @@
+import { EntitlementsService } from '../super-admin/entitlements';
 /**
  * Public vendor sign-up (spec module 9). An organisation turns on a sign-up link; panel companies
  * apply through it; staff approve (creating the vendor, its markets and a portal login with an
@@ -72,7 +73,7 @@ export function checkChallenge(orgId: string, token: string, answer: string, now
 
 @Injectable()
 export class VendorSignupService {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly passwords: PasswordService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly passwords: PasswordService, private readonly entitlements: EntitlementsService) {}
 
   async orgByToken(token: string) {
     if (!/^[A-Za-z0-9_-]{16,80}$/.test(token)) throw new NotFoundException('This sign-up link does not work');
@@ -113,6 +114,8 @@ export class VendorSignupService {
     const a = await this.prisma.vendorApplication.findFirst({ where: { id, organizationId: u.organizationId } });
     if (!a) throw new NotFoundException('Application not found');
     if (a.status !== 'PENDING') throw new BadRequestException('This application was already reviewed');
+    await this.entitlements.assertLimit(u.organizationId, 'vendors');
+    if (b.createLogin) await this.entitlements.assertLimit(u.organizationId, 'portalUsers');
     if (await this.prisma.vendor.findFirst({ where: { organizationId: u.organizationId, code: b.code } })) throw new BadRequestException(`Vendor code ${b.code} is taken`);
     if (b.createLogin && (await this.prisma.user.count({ where: { organizationId: u.organizationId, email: a.email } }))) {
       throw new BadRequestException(`Someone with ${a.email} already has a login; approve without a login and link it from Portal access`);

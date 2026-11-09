@@ -3,6 +3,7 @@ import { BadRequestException, Injectable, NotFoundException, ConflictException }
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { WebhooksService } from '../webhooks/webhooks.service';
+import { SampleonOutbox } from '../sampleon/sampleon-outbox';
 import { COUNTRY_RESTORABLE, ProjectHistoryService, RESTORABLE, SettingsSnapshot } from './project-history';
 import { applyTemplateExtras, TemplateExtras, templateRedirects } from './project-templates';
 import { AuditService } from '../audit/audit.service';
@@ -50,6 +51,7 @@ export class ProjectsService {
     private readonly webhooks: WebhooksService,
     private readonly history: ProjectHistoryService,
     private readonly entitlements: EntitlementsService,
+    private readonly sampleon: SampleonOutbox,
   ) {}
 
   async create(u: AuthUser, input: CreateProjectInput) {
@@ -211,6 +213,8 @@ export class ProjectsService {
         { organizationId: u.organizationId, actorId: u.id, action: 'project.create', entityType: 'Project', entityId: p.id, detail: { projectCode, countries: countries.map((c) => c.countryCode), ...(template ? { templateId: template.id, template: template.name, skipped } : {}) } },
         tx,
       );
+      // SampAudience learns about the project with it (delivered with retries, only when connected).
+      await this.sampleon.projectCreated(tx, p, countries.map((c) => c.countryCode));
       return p;
     });
     await this.history.record(u, project.id, null, template ? `Created from template “${template.name}”` : 'Created');
@@ -708,6 +712,7 @@ export class ProjectsService {
       });
       await tx.project.update({ where: { id: p.id }, data: { activeRedirectVersionId: v1.id } });
       await this.audit.record({ organizationId: u.organizationId, actorId: u.id, action: 'project.clone', entityType: 'Project', entityId: p.id, detail: { from: src.projectCode, projectCode, ...body } }, tx);
+      await this.sampleon.projectCreated(tx, p, src.countries.map((c) => c.countryCode));
       return p;
     });
     await this.history.record(u, copy.id, null, `Copied from ${src.projectCode}`);

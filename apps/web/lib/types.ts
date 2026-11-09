@@ -42,6 +42,8 @@ export interface Me {
   links?: { sampbidxUrl?: string | null; bidzoUrl?: string | null };
   /** Product tour after sign-in (docs/PRODUCT_TOUR.md). */
   tour?: { version: number; show: boolean; outcome: 'completed' | 'skipped' | null; at: string | null };
+  /** The Super Admin is looking at this organisation read-only (docs/SUPER_ADMIN_OBSERVE.md). */
+  observing?: { organizationId: string; name: string; homeOrganizationId: string } | null;
 
   /** Super Admin switches (docs/SUPER_ADMIN.md). */
   features?: Features;
