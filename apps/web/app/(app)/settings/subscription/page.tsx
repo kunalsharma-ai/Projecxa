@@ -55,7 +55,9 @@ function Subscription() {
   const [offline, setOffline] = useState(false);
   const load = useCallback(() => get<Overview>('/billing').then((d) => {
     setData(d);
-    setPicked((p) => p ?? d.subscription?.plan.code ?? d.plans[0]?.code ?? null);
+    // The organisation that runs the server gets { owner: true } only (no plans or subscription).
+    if (d.owner) return;
+    setPicked((p) => p ?? d.subscription?.plan.code ?? d.plans?.[0]?.code ?? null);
     if (d.subscription?.billingInterval) setInterval(d.subscription.billingInterval);
   }).catch(setError), []);
   useEffect(() => { load(); }, [load]);
