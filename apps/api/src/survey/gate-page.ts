@@ -156,14 +156,14 @@ async function solve(c){for(var n=0;n<5e7;n++){if(zeros(await sha(c.challenge+':
 function canvas(){try{var c=document.createElement('canvas');c.width=240;c.height=60;var x=c.getContext('2d');x.textBaseline='top';x.font='16px Arial';x.fillStyle='#f60';x.fillRect(100,1,62,20);x.fillStyle='#069';x.fillText('Sampledge \\u{1F50D} 2026',2,15);x.fillStyle='rgba(102,204,0,.7)';x.fillText('Sampledge \\u{1F50D} 2026',4,17);return c.toDataURL()}catch(e){return ''}}
 function gl(){try{var g=document.createElement('canvas').getContext('webgl');var d=g&&g.getExtension('WEBGL_debug_renderer_info');return d?g.getParameter(d.UNMASKED_RENDERER_WEBGL):''}catch(e){return ''}}
 function signals(){var n=navigator,w=window,k=[];try{k=Object.keys(w).concat(Object.keys(document))}catch(e){}
- return {webdriver:n.webdriver===true,automation:!!(w._phantom||w.callPhantom||w.__nightmare||w.domAutomation||w.domAutomationController||document.documentElement.getAttribute('webdriver')||k.some(function(x){return /^\$?cdc_|^__(selenium|webdriver|driver|fxdriver)|^_Selenium_IDE_|^__playwright|^__pwInitScripts/.test(x)})),
+ return {webdriver:n.webdriver===true,automation:!!(w._phantom||w.callPhantom||w.__nightmare||w.domAutomation||w.domAutomationController||document.documentElement.getAttribute('webdriver')||k.some(function(x){return /^\\$?cdc_|^__(selenium|webdriver|driver|fxdriver)|^_Selenium_IDE_|^__playwright|^__pwInitScripts/.test(x)})),
   plugins:n.plugins?n.plugins.length:-1,languages:n.languages?n.languages.length:-1,touch:n.maxTouchPoints||0,platform:String(n.platform||''),chrome:!!w.chrome,outer:w.outerWidth||0,renderer:String(gl()).slice(0,160)}}
 var tz='';try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||''}catch(e){}
 var work=(async function(){var out={};
  if(cfg.collect.languages)out.languages=navigator.languages&&navigator.languages.length?Array.prototype.slice.call(navigator.languages):[navigator.language];
  if(cfg.collect.timezone)out.timezone=tz;
  if(cfg.collect.fingerprint){var cv=canvas(),g=gl();out.fingerprint=hex(await sha(JSON.stringify([navigator.userAgent,navigator.languages,navigator.platform,navigator.hardwareConcurrency,navigator.deviceMemory,screen.width,screen.height,screen.colorDepth,window.devicePixelRatio,tz,cv,g])));
-  out.device=hex(await sha(JSON.stringify(['d1',navigator.userAgent.replace(/\d+([._]\d+)*/g,'#'),navigator.platform,navigator.hardwareConcurrency,navigator.deviceMemory,Math.min(screen.width,screen.height),Math.max(screen.width,screen.height),screen.colorDepth,window.devicePixelRatio,navigator.maxTouchPoints||0,tz,cv,g])))}
+  out.device=hex(await sha(JSON.stringify(['d1',navigator.userAgent.replace(/\\d+([._]\\d+)*/g,'#'),navigator.platform,navigator.hardwareConcurrency,navigator.deviceMemory,Math.min(screen.width,screen.height),Math.max(screen.width,screen.height),screen.colorDepth,window.devicePixelRatio,navigator.maxTouchPoints||0,tz,cv,g])))}
  if(cfg.collect.signals)out.signals=signals();
  if(cfg.captcha)out.nonce=await solve(cfg.captcha);
  return out})();
