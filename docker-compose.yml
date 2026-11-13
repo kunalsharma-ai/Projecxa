@@ -1,17 +1,83 @@
 services:
+  backend:
+    image: registry.sampledge.com/projexa/backend:1.0.0
+    restart: unless-stopped
+    build:
+      context: ./apps/api
+      target: production
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: mongodb://mongo:27017/projexa?replicaSet=rs0
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-string-min-32-chars}
+      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:-change-me-to-another-long-random-string-min-32-chars}
+      PORT_NUM: 4000
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:4000}
+      CALLBACK_WORKER_ENABLED: ${CALLBACK_WORKER_ENABLED:-true}
+      PUBLIC_API_RATE_LIMIT: ${PUBLIC_API_RATE_LIMIT:-120}
+      REPORT_SCHEDULER_ENABLED: ${REPORT_SCHEDULER_ENABLED:-true}
+      REDIRECT_SCHEDULER_ENABLED: ${REDIRECT_SCHEDULER_ENABLED:-true}
+      PRIVACY_SCHEDULER_ENABLED: ${PRIVACY_SCHEDULER_ENABLED:-true}
+      AUTOMATION_SCHEDULER_ENABLED: ${AUTOMATION_SCHEDULER_ENABLED:-true}
+      MONITOR_ENABLED: ${MONITOR_ENABLED:-true}
+    networks:
+      - samptrek
+  frontend:
+    image: registry.sampledge.com/projexa/frontend:1.0.0
+    build:
+      context: ./apps/web
+      target: production
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      API_INTERNAL_URL: ""
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+      NEXT_PUBLIC_WEB_ORIGIN: ${NEXT_PUBLIC_WEB_ORIGIN:-http://localhost:3000}
+      NEXT_PUBLIC_CUSTOM_DOMAINS: ${NEXT_PUBLIC_CUSTOM_DOMAINS:-false}
+    networks:
+      - samptrek
+    volumes:
+      - ./cache:/app/apps/web/.next/cache
+  samptrek:
+    image: nginx:alpine
+    restart: unless-stopped
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - samptrek
+      - publicweb
   # MongoDB as a one-member replica set: Prisma needs a replica set for transactions.
   mongo:
     image: mongo:8.0
-    command: ["--replSet", "rs0", "--bind_ip_all"]
-    ports: ["27017:27017"]
-    volumes: [mongodata:/data/db]
+    command:
+      - mongod
+      - --replSet
+      - rs0
+      - --bind_ip_all
+    networks:
+      - samptrek
+    volumes:
+      - ./db/mongo/config:/data/configdb
+      - ./db/mongo/store:/data/db 
+      - ./db/mongo/back:/back
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "try { rs.status().ok } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'localhost:27017' }] }).ok }"]
       interval: 5s
       timeout: 10s
       retries: 20
   redis:
-    image: redis:7
-    ports: ["6379:6379"]
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - ./db/redisdata:/data
+    networks:
+      - samptrek
 volumes:
   mongodata:
+networks:
+  samptrek:
+  publicweb:
+    external: true
