@@ -345,7 +345,7 @@ A server that ran the PostgreSQL version moves its data with `pnpm import-postgr
 Requirements: Node 26 (LTS, see `.nvmrc`), pnpm 10 (`npm install -g pnpm@10.28.0`), MongoDB 8 as a replica set (or Docker).
 
 ```bash
-docker compose up -d                 # MongoDB (replica set rs0) + Redis, or use your own MongoDB
+docker compose up -d mongo redis     # MongoDB (replica set rs0) + Redis, or use your own MongoDB
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env.local
 pnpm install
