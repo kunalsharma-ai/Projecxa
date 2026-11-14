@@ -1,18 +1,31 @@
+# SampTrek on one server: API (NestJS) + web (Next.js) + nginx + MongoDB 8 (replica set) + Redis.
+# Both images build from the repository root (pnpm workspace). Full guide: docs/DOCKER.md.
+# Local development only needs the database: docker compose up -d mongo redis
+#   Put the variables below in a .env file next to this one (JWT_SECRET is required), then:
+#   docker compose up -d --build
+#   docker compose exec backend pnpm prisma:deploy     # collections + indexes (first run and after every update)
+#   docker compose exec -it backend pnpm create-admin --org-name "Your Company" --email you@company.com --name "Your Name"
 services:
   backend:
     image: registry.sampledge.com/projexa/backend:1.0.0
     restart: unless-stopped
     build:
-      context: ./apps/api
+      context: .
+      dockerfile: apps/api/Dockerfile
       target: production
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_started
     environment:
       NODE_ENV: production
       PORT: 4000
-      DATABASE_URL: mongodb://mongo:27017/projexa?replicaSet=rs0
+      DATABASE_URL: ${DATABASE_URL:-mongodb://mongo:27017/projexa?replicaSet=rs0}
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-string-min-32-chars}
-      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:-change-me-to-another-long-random-string-min-32-chars}
-      PORT_NUM: 4000
+      # Required: the API stops at start-up in production without a real secret (16+ chars; use openssl rand -hex 32).
+      JWT_SECRET: ${JWT_SECRET:-}
+      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:-}
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:4000}
       CALLBACK_WORKER_ENABLED: ${CALLBACK_WORKER_ENABLED:-true}
@@ -22,52 +35,74 @@ services:
       PRIVACY_SCHEDULER_ENABLED: ${PRIVACY_SCHEDULER_ENABLED:-true}
       AUTOMATION_SCHEDULER_ENABLED: ${AUTOMATION_SCHEDULER_ENABLED:-true}
       MONITOR_ENABLED: ${MONITOR_ENABLED:-true}
+    volumes:
+      # Local backups (Super Admin -> Backups, `pnpm backup`); mongodump/mongorestore are in the image.
+      - backups:/app/apps/api/backups
     networks:
       - samptrek
+
   frontend:
     image: registry.sampledge.com/projexa/frontend:1.0.0
-    build:
-      context: ./apps/web
-      target: production
     restart: unless-stopped
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: production
+      # NEXT_PUBLIC_* are baked into the browser bundle, so they are build args: rebuild after changing them.
+      args:
+        # Empty = same domain: the browser calls /api/v1 and nginx sends it to the API.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+        NEXT_PUBLIC_WEB_ORIGIN: ${NEXT_PUBLIC_WEB_ORIGIN:-http://localhost:3000}
+        NEXT_PUBLIC_CUSTOM_DOMAINS: ${NEXT_PUBLIC_CUSTOM_DOMAINS:-false}
+        NEXT_PUBLIC_SAMPBIDX_URL: ${NEXT_PUBLIC_SAMPBIDX_URL:-}
+        API_INTERNAL_URL: http://backend:4000
+    depends_on:
+      - backend
     environment:
       NODE_ENV: production
       PORT: 3000
-      API_INTERNAL_URL: ""
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
-      NEXT_PUBLIC_WEB_ORIGIN: ${NEXT_PUBLIC_WEB_ORIGIN:-http://localhost:3000}
-      NEXT_PUBLIC_CUSTOM_DOMAINS: ${NEXT_PUBLIC_CUSTOM_DOMAINS:-false}
+    volumes:
+      - webcache:/app/apps/web/.next/cache
     networks:
       - samptrek
-    volumes:
-      - ./cache:/app/apps/web/.next/cache
+
   samptrek:
     image: nginx:alpine
     restart: unless-stopped
+    depends_on:
+      - backend
+      - frontend
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     networks:
       - samptrek
       - publicweb
-  # MongoDB as a one-member replica set: Prisma needs a replica set for transactions.
+
+  # MongoDB 8 as a one-member replica set: Prisma needs a replica set for transactions.
+  # The member is named mongo:27017 (not localhost) so the API container can reach it.
+  # The healthcheck creates the set on first start and renames an older "localhost" member.
   mongo:
     image: mongo:8.0
-    command:
-      - mongod
-      - --replSet
-      - rs0
-      - --bind_ip_all
+    restart: unless-stopped
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     networks:
       - samptrek
     volumes:
       - ./db/mongo/config:/data/configdb
-      - ./db/mongo/store:/data/db 
+      - ./db/mongo/store:/data/db
       - ./db/mongo/back:/back
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "try { rs.status().ok } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'localhost:27017' }] }).ok }"]
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --eval
+        - "try { const c = rs.conf(); if (c.members[0].host !== 'mongo:27017') { c.members[0].host = 'mongo:27017'; rs.reconfig(c, { force: true }); } } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] }); } quit(db.hello().isWritablePrimary ? 0 : 1)"
       interval: 5s
       timeout: 10s
-      retries: 20
+      retries: 30
+      start_period: 10s
+
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -75,8 +110,11 @@ services:
       - ./db/redisdata:/data
     networks:
       - samptrek
+
 volumes:
-  mongodata:
+  backups:
+  webcache:
+
 networks:
   samptrek:
   publicweb:

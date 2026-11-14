@@ -1,0 +1,17 @@
+# Keep the Docker build context small: the images install their own dependencies.
+**/node_modules
+**/dist
+**/.next
+**/coverage
+**/*.log
+**/*.tsbuildinfo
+.git
+.github
+.env
+**/.env
+**/.env.local
+apps/mobile
+apps/api/backups
+db
+cache
+docs
